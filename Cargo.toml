@@ -1,0 +1,20 @@
+
+[package]
+name = "pyo3-quant"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "pyo3_quant"
+crate-type = ["cdylib"]
+
+[dependencies]
+polars = { version = "0.51", default-features = false, features = [ "lazy"] }
+pyo3 = { version = "0.25", features = ["extension-module"] }
+pyo3-polars = "0.24"
+rayon = "1.11.0"
+
+
+[profile.dev]
+incremental = true

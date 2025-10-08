@@ -46,6 +46,7 @@
     * `source ./.venv/bin/activate`
     * `/usr/bin/time -f "\n%e" maturin develop --release`
     * `/usr/bin/time -f "\n%e" python ./py_entry/main.py`
+
 # 关于polars的异混淆点
   * Python API (PyPolars)
     * 方法：`df.with_columns(...)`
@@ -60,4 +61,3 @@
   * 根本差异 (Key Takeaway)
     * Python 的不可变性是**高效的哲学**。
     * Rust Eager API 的 `with_column` 是个**特例**，采用 `&mut self` 以追求最高性能和操作简洁性。
-

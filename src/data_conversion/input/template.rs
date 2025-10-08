@@ -1,51 +1,106 @@
-use pyo3::prelude::*;
-use pyo3::types::{PyDict};
 use pyo3::exceptions::PyKeyError;
+use pyo3::prelude::*;
+use pyo3::types::PyDict;
 
-#[derive(Debug)]
-pub struct ProcessedTemplate {
-    pub signal_templates: Vec<SignalTemplate>,
-    pub risk_template: RiskTemplate,
+#[derive(Debug, Clone)] // 移除 FromPyObject
+pub enum CompareOp {
+    GT,  // "GT" >
+    LT,  // "LT" <
+    CGT, // "CGT" 向上穿越
+    CLT, // "CLT" 向下穿越
+    GE,  // "GE" >=
+    LE,  // "LE" <=
+    EQ,  // "EQ" ==
+    NE,  // "NE" !=
 }
 
-#[derive(Clone, Debug, FromPyObject)]
-#[pyo3(from_item_all)]
-pub struct SignalTemplate {
-    pub a: String,
-    pub b: String,
-    pub compare: String,
-    pub col: String,
+impl<'py> FromPyObject<'py> for CompareOp {
+    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let s: String = ob.extract()?;
+        match s.as_str() {
+            "GT" => Ok(CompareOp::GT),
+            "LT" => Ok(CompareOp::LT),
+            "CGT" => Ok(CompareOp::CGT),
+            "CLT" => Ok(CompareOp::CLT),
+            "GE" => Ok(CompareOp::GE),
+            "LE" => Ok(CompareOp::LE),
+            "EQ" => Ok(CompareOp::EQ),
+            "NE" => Ok(CompareOp::NE),
+            _ => Err(PyErr::new::<PyKeyError, _>(format!(
+                "Invalid CompareOp: {}",
+                s
+            ))),
+        }
+    }
 }
 
-#[derive(Clone, Debug, FromPyObject)]
-#[pyo3(from_item_all)]
-pub struct RiskTemplate {
-    pub method: String,
+#[derive(Debug, Clone, FromPyObject)]
+pub struct ParamOperand {
     pub source: String,
 }
 
+// Signal 专用：带时间框架
+#[derive(Debug, Clone, FromPyObject)]
+pub struct SignalDataOperand {
+    pub source: String,
+    pub offset: i32,
+    pub mtf: i32,
+}
 
+// Signal 专用条件
+#[derive(Debug, Clone, FromPyObject)]
+pub struct SignalCondition {
+    pub a_data: Option<SignalDataOperand>,
+    pub a_param: Option<ParamOperand>,
+    pub b_data: Option<SignalDataOperand>,
+    pub b_param: Option<ParamOperand>,
+    pub compare: CompareOp,
+}
 
-pub fn parse(template_dict: Bound<'_, PyDict>) -> PyResult<ProcessedTemplate> {
-    // 解析 signal 模板
-    let signal_list_any = template_dict
-        .get_item("signal")?
-        .ok_or_else(|| PyErr::new::<PyKeyError, _>("Missing 'signal' key"))?;
-    let signal_list = signal_list_any.downcast::<pyo3::types::PyList>()?;
-    let signal_templates = signal_list.extract()
-        .map_err(|e| PyErr::new::<PyKeyError, _>(
-            format!("Failed to parse signal templates: {}", e)
-        ))?;
+#[derive(Debug, Clone, FromPyObject)]
+pub struct SignalGroup {
+    pub logic: String,
+    pub target: String,
+    pub conditions: Vec<SignalCondition>,
+}
 
-    // 解析 risk 模板
-    let risk_dict_any = template_dict
-        .get_item("risk")?
-        .ok_or_else(|| PyErr::new::<PyKeyError, _>("Missing 'risk' key"))?;
-    let risk_dict = risk_dict_any.downcast::<PyDict>()?;
-    let risk_template = risk_dict.extract()
-        .map_err(|e| PyErr::new::<PyKeyError, _>(
-            format!("Failed to parse risk template: {}", e)
-        ))?;
+#[derive(Debug, Clone, FromPyObject)]
+pub struct SignalTemplate {
+    pub name: String,
+    pub template: Vec<SignalGroup>,
+}
 
-    Ok(ProcessedTemplate { signal_templates, risk_template })
+// Risk 专用：只有数据源
+#[derive(Debug, Clone, FromPyObject)]
+pub struct RiskDataOperand {
+    pub source: String,
+}
+
+// Risk 专用条件
+#[derive(Debug, Clone, FromPyObject)]
+pub struct RiskCondition {
+    pub a_data: Option<RiskDataOperand>,
+    pub a_param: Option<ParamOperand>,
+    pub b_data: Option<RiskDataOperand>,
+    pub b_param: Option<ParamOperand>,
+    pub compare: CompareOp,
+}
+
+#[derive(Debug, Clone, FromPyObject)]
+pub struct RiskRule {
+    pub logic: String,
+    pub target: String,
+    pub conditions: Vec<RiskCondition>,
+}
+
+#[derive(Debug, Clone, FromPyObject)]
+pub struct RiskTemplate {
+    pub name: String,
+    pub template: Vec<RiskRule>,
+}
+
+#[derive(Debug, Clone, FromPyObject)] // 添加 FromPyObject
+pub struct ProcessedTemplate {
+    pub signal: SignalTemplate,
+    pub risk: RiskTemplate,
 }

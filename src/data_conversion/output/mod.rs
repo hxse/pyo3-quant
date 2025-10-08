@@ -4,4 +4,4 @@
 
 mod types;
 
-pub use crate::data_conversion::output::types::{PerformanceMetrics, BacktestSummary};
+pub use crate::data_conversion::output::types::{BacktestSummary, PerformanceMetrics};

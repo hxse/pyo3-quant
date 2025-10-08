@@ -22,4 +22,5 @@ features = ["pyo3/extension-module"]
 [dependency-groups]
 dev = [
     "maturin-import-hook>=0.3.0",
+    "ruff>=0.14.0",
 ]

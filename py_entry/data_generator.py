@@ -8,6 +8,8 @@ import numpy as np
 from datetime import datetime
 import math
 
+from py_entry.data_conversion.input.data_dict import DataDict
+
 time_format = "%Y-%m-%dT%H:%M:%S%.3f%Z"
 fixed_cols = ["time", "date"]
 
@@ -486,7 +488,7 @@ def generate_data_dict(
     start_time: int,
     num_bars: int = 1000,
     brick_size: float = 2.0,
-) -> dict:
+) -> DataDict:
     """
     生成完整的数据字典
 
@@ -498,42 +500,31 @@ def generate_data_dict(
 
     Returns:
         包含以下键的字典:
-        - "mapping": pl.DataFrame - 时间映射 DataFrame
-        - "skip_mask": pl.DataFrame - 跳过掩码 DataFrame
-        - "data": dict - 嵌套字典,包含:
-            - "ohlcv": list[pl.DataFrame] - OHLCV 数据列表
-            - "ha": list[pl.DataFrame] - Heikin-Ashi 数据列表
-            - "renko": list[pl.DataFrame] - Renko 数据列表
     """
-    # 计算起始时间
     if start_time is None:
-        raise KeyError("start_time is None")
+        # 默认从当前时间往前推 num_bars * 最小时间周期
+        min_timeframe_ms = parse_timeframe(timeframes[0])
+        start_time = (
+            int(datetime.now().timestamp() * 1000) - num_bars * min_timeframe_ms
+        )
 
-    # 生成多周期 OHLCV 数据
-    ohlcv_dfs = generate_multi_timeframe_ohlcv(
-        timeframes=timeframes, start_time=start_time, num_bars=num_bars
+    ohlcv_dfs = generate_multi_timeframe_ohlcv(timeframes, start_time, num_bars)
+    ha_dfs = generate_ha(ohlcv_dfs)
+    renko_dfs = generate_renko(ohlcv_dfs, brick_size)
+
+    mapping_df = generate_time_mapping(ohlcv_dfs, ha_dfs, renko_dfs)
+
+    # skip_mask 占位,暂时全为 False
+    skip_mask_df = pl.DataFrame(
+        {"skip": [False] * len(ohlcv_dfs[0])}, schema={"skip": pl.Boolean}
     )
 
-    # 生成 HA 数据
-    ha_dfs = generate_ha(ohlcv_dfs=ohlcv_dfs)
-
-    # 生成 Renko 数据
-    renko_dfs = generate_renko(ohlcv_dfs=ohlcv_dfs, brick_size=brick_size)
-
-    # 生成时间映射
-    mapping_df = generate_time_mapping(
-        ohlcv_dfs=ohlcv_dfs, ha_dfs=ha_dfs, renko_dfs=renko_dfs
-    )
-
-    # 生成 skip_mask DataFrame (全部为 False,表示不跳过任何行)
-    skip_mask_df = pl.DataFrame({"skip": [False] * len(mapping_df)})
-
-    return {
-        "mapping": mapping_df,
-        "skip_mask": skip_mask_df,
-        "data": {
-            "ohlcv": ohlcv_dfs,
+    return DataDict(
+        mapping=mapping_df,
+        skip_mask=skip_mask_df,
+        ohlcv=ohlcv_dfs,
+        extra_data={
             "ha": ha_dfs,
             "renko": renko_dfs,
         },
-    }
+    )

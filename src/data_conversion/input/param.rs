@@ -1,7 +1,6 @@
 use pyo3::prelude::*;
 
 #[derive(Debug, Clone, FromPyObject)]
-#[pyo3(from_item_all)]
 pub struct Param {
     pub value: f64,
     pub initial_value: f64,
@@ -11,4 +10,5 @@ pub struct Param {
     pub initial_max: f64,
     pub step: f64,
     pub initial_step: f64,
+    pub optimize: bool, // 新增字段
 }

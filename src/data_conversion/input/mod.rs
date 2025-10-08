@@ -15,21 +15,22 @@ pub mod template;
 pub use config::ProcessedConfig;
 pub use data_dict::ProcessedDataDict;
 pub use param::Param;
-pub use param_set::{ProcessedParamSet, ProcessedSingleParam, BacktestParams, SignalParams, PerformanceParams};
-pub use template::{ProcessedTemplate, SignalTemplate, RiskTemplate};
+pub use param_set::{
+    BacktestParams, PerformanceParams, ProcessedParamSet, ProcessedSingleParam, SignalParams,
+};
+pub use template::{ProcessedTemplate, RiskTemplate, SignalTemplate};
 
 pub fn process_all_params(
     _py: Python<'_>,
-    data_dict: Bound<'_, PyDict>,
-    param_set: Vec<Bound<'_, PyDict>>,
-    template: Bound<'_, PyDict>,
-    config: Bound<'_, PyDict>,
-) -> PyResult<(ProcessedDataDict, ProcessedParamSet, ProcessedTemplate, ProcessedConfig)> {
-    // 调用各模块的 parse 函数
-    let processed_data = data_dict::parse(data_dict)?;
-    let processed_params = param_set::parse(param_set)?;
-    let processed_template = template::parse(template)?;
-    let processed_config = config::parse(config)?;
-
-    Ok((processed_data, processed_params, processed_template, processed_config))
+    data_dict: ProcessedDataDict,
+    param_set: ProcessedParamSet,
+    template: ProcessedTemplate,
+    config: ProcessedConfig,
+) -> PyResult<(
+    ProcessedDataDict,
+    ProcessedParamSet,
+    ProcessedTemplate,
+    ProcessedConfig,
+)> {
+    Ok((data_dict, param_set, template, config))
 }

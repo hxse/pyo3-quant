@@ -1,0 +1,24 @@
+name: Autotag with Configurable Bump
+on:
+    push:
+        branches: [master]
+
+permissions:
+    contents: write
+
+jobs:
+    autotag:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Bump and Tag
+              uses: anothrNick/github-tag-action@v1
+              env:
+                  GITHUB_TOKEN: ${{ secrets.AUTOTAG_PAT  }}
+                  DEFAULT_BUMP: none
+                  RELEASE_BRANCHES: master # 仅主分支创建标签
+                  TAG_PREFIX: v # v1.0.0 格式
+                  NONE_STRING_TOKEN: "#none" # 忽略特定 commit

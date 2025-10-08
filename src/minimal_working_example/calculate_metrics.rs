@@ -1,19 +1,18 @@
+use crate::data_conversion::input::ProcessedSingleParam;
+use crate::data_conversion::{
+    process_all_params, ProcessedConfig, ProcessedDataDict, ProcessedParamSet, ProcessedTemplate,
+};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use crate::data_conversion::{
-    ProcessedConfig, ProcessedDataDict, ProcessedParamSet, ProcessedTemplate,
-    process_all_params,
-};
-use crate::data_conversion::input::ProcessedSingleParam;
 
 // PyO3 入口函数
 #[pyfunction]
 pub fn calculate_metrics(
     py: Python<'_>,
-    data_dict: Bound<'_, PyDict>,
-    param_set: Vec<Bound<'_, PyDict>>,
-    template: Bound<'_, PyDict>,
-    config: Bound<'_, PyDict>,
+    data_dict: ProcessedDataDict,
+    param_set: ProcessedParamSet,
+    template: ProcessedTemplate,
+    config: ProcessedConfig,
 ) -> PyResult<PyObject> {
     // 调用统一的参数处理入口函数
     let (processed_data, processed_params, processed_template, processed_config) =
@@ -52,7 +51,7 @@ fn calculate_metrics_internal(
     let mut summary = format!(
         "Strategy: indicators count={}, signal_templates={}",
         params.indicators.len(),
-        template.signal_templates.len()
+        template.signal.template.len()
     );
 
     summary.push_str(&format!(
@@ -63,8 +62,8 @@ fn calculate_metrics_internal(
     // 添加数据信息
     summary.push_str(&format!(
         ", data keys count={}, mapping rows={}",
-        data.data.len(),
-        data.mapping.height()
+        data.ohlcv.len(),
+        data.mapping.0.height()
     ));
 
     Ok(summary)

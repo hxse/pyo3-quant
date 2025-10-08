@@ -3,10 +3,10 @@
 // 该文件实现了单入口的配置处理管道：
 // Python数据 (Py<PyDict>) -> 转换 (Rust 枚举) -> 计算/总结 -> 结果 (String) 返回给 Python。
 
+use pyo3::exceptions::PyKeyError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use pyo3::Bound;
-use pyo3::exceptions::PyKeyError;
 use std::collections::HashMap;
 
 /// ----------------------------------------------------------------------
@@ -84,7 +84,10 @@ pub type AllStrategyConfigs = Vec<Vec<HashMap<String, Py<PyDict>>>>;
 pub type ConvertedStrategyConfigs = Vec<Vec<HashMap<String, IndicatorParams>>>;
 
 #[allow(dead_code)]
-fn create_indicator_params<'py>(name: &str, dict: &'py Bound<'py, PyDict>) -> PyResult<IndicatorParams> {
+fn create_indicator_params<'py>(
+    name: &str,
+    dict: &'py Bound<'py, PyDict>,
+) -> PyResult<IndicatorParams> {
     match () {
         _ if name.starts_with("sma_") => {
             let params = extract_params_from_dict!(
@@ -111,22 +114,27 @@ fn create_indicator_params<'py>(name: &str, dict: &'py Bound<'py, PyDict>) -> Py
             );
             Ok(IndicatorParams::BBANDS(params))
         }
-        _ => {
-            Err(PyKeyError::new_err(format!(
-                "配置类型未知，键名 '{}' 必须以 'sma_'、'ema_' 或 'bbands_' 开头", name
-            )))
-        }
+        _ => Err(PyKeyError::new_err(format!(
+            "配置类型未知，键名 '{}' 必须以 'sma_'、'ema_' 或 'bbands_' 开头",
+            name
+        ))),
     }
 }
 
 #[allow(dead_code)]
-fn convert_configs_internal(py: Python, configs: AllStrategyConfigs) -> PyResult<ConvertedStrategyConfigs> {
+fn convert_configs_internal(
+    py: Python,
+    configs: AllStrategyConfigs,
+) -> PyResult<ConvertedStrategyConfigs> {
     // 使用 collect 链式调用处理嵌套结构，并使用 ? 运算符处理 PyResult 错误
-    let converted_configs: ConvertedStrategyConfigs = configs.into_iter()
+    let converted_configs: ConvertedStrategyConfigs = configs
+        .into_iter()
         .map(|strategy_config| {
-            strategy_config.into_iter()
+            strategy_config
+                .into_iter()
                 .map(|period_config| {
-                    let converted_period_config: HashMap<String, IndicatorParams> = period_config.into_iter()
+                    let converted_period_config: HashMap<String, IndicatorParams> = period_config
+                        .into_iter()
                         .map(|(name, params_dict)| {
                             // 将 Py<PyDict> 转换为 &PyDict，以便访问其内容
                             let dict = params_dict.bind(py);
@@ -163,23 +171,40 @@ fn calculate_metrics_internal(converted_configs: ConvertedStrategyConfigs) -> Py
                     IndicatorParams::SMA(sma_param) => {
                         summary.push_str(&format!(
                             "  Strategy {}: Period {}, {} (SMA): period={}, weight={}\n",
-                            i + 1, j + 1, name, sma_param.period, sma_param.weight
+                            i + 1,
+                            j + 1,
+                            name,
+                            sma_param.period,
+                            sma_param.weight
                         ));
                     }
                     IndicatorParams::EMA(ema_param) => {
                         summary.push_str(&format!(
                             "  Strategy {}: Period {}, {} (EMA): period={}, weight={}\n",
-                            i + 1, j + 1, name, ema_param.period, ema_param.weight
+                            i + 1,
+                            j + 1,
+                            name,
+                            ema_param.period,
+                            ema_param.weight
                         ));
                     }
                     IndicatorParams::BBANDS(bbands_param) => {
                         summary.push_str(&format!(
                             "  Strategy {}: Period {}, {} (BBANDS): period={}, std={}, weight={}\n",
-                            i + 1, j + 1, name, bbands_param.period, bbands_param.std, bbands_param.weight
+                            i + 1,
+                            j + 1,
+                            name,
+                            bbands_param.period,
+                            bbands_param.std,
+                            bbands_param.weight
                         ));
                         // 示例计算: 利用纯 Rust 结构体进行数学计算
-                        let upper_band_calc = bbands_param.weight + bbands_param.std * bbands_param.period as f64;
-                        summary.push_str(&format!("    -> 上轨指数 (计算值): {:.2}\n", upper_band_calc));
+                        let upper_band_calc =
+                            bbands_param.weight + bbands_param.std * bbands_param.period as f64;
+                        summary.push_str(&format!(
+                            "    -> 上轨指数 (计算值): {:.2}\n",
+                            upper_band_calc
+                        ));
                     }
                 }
             }
@@ -202,7 +227,8 @@ fn calculate_metrics_internal(converted_configs: ConvertedStrategyConfigs) -> Py
 #[pyfunction]
 pub fn process_all_configs(py: Python, configs: AllStrategyConfigs) -> PyResult<String> {
     // 1. 调用内部函数进行数据转换 (与 Python GIL 交互)
-    let converted: Vec<Vec<HashMap<String, IndicatorParams>>> = convert_configs_internal(py, configs)?;
+    let converted: Vec<Vec<HashMap<String, IndicatorParams>>> =
+        convert_configs_internal(py, configs)?;
 
     // 2. 调用内部函数进行计算和总结 (纯 Rust 逻辑)
     calculate_metrics_internal(converted)

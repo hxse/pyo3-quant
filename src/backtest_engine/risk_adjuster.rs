@@ -1,7 +1,7 @@
-use polars::prelude::*;
-use pyo3::prelude::*;
-use pyo3::exceptions::PyKeyError;
 use crate::data_conversion::{BacktestParams, ProcessedDataDict, RiskTemplate};
+use polars::prelude::*;
+use pyo3::exceptions::PyKeyError;
+use pyo3::prelude::*;
 use std::collections::HashMap;
 
 // RiskParams 实际上是 HashMap<String, f64>
@@ -24,20 +24,19 @@ pub fn create_initial_position_series(
     position_pct: f64,
 ) -> PyResult<Series> {
     // 检查是否存在ohlcv
-    let ohlcv_vec = processed_data.data.get("ohlcv")
-        .ok_or_else(|| {
-            pyo3::exceptions::PyKeyError::new_err("Missing 'ohlcv' in processed_data.data")
-        })?;
-    let ohlcv = ohlcv_vec.first()
-        .ok_or_else(|| {
-            pyo3::exceptions::PyKeyError::new_err("Empty 'ohlcv' vector in processed_data.data")
-        })?;
+    let ohlcv_vec = &processed_data.ohlcv;
+    let ohlcv = ohlcv_vec.first().ok_or_else(|| {
+        pyo3::exceptions::PyKeyError::new_err("Empty 'ohlcv' vector in processed_data.ohlcv")
+    })?;
 
     // 获取行数
-    let row_count = ohlcv.height();
+    let row_count = ohlcv.as_ref().height();
 
     // 创建Series,值全部为position_pct
-    let series = Series::new(PlSmallStr::from_static("position"), vec![position_pct; row_count]);
+    let series = Series::new(
+        PlSmallStr::from_static("position"),
+        vec![position_pct; row_count],
+    );
     Ok(series)
 }
 
@@ -46,8 +45,8 @@ pub fn adjust_position_by_risk(
     result_df: &DataFrame,
     risk_template: &RiskTemplate,
     risk_params: &RiskParams,
-) -> PolarsResult<Series> {  // 返回Series而不是DataFrame
-
+) -> PolarsResult<Series> {
+    // 返回Series而不是DataFrame
 
     // // -----------------------------------------------------------------
     // // 🚨 测试目的：尝试访问一个不存在的 "test" 键，并处理缺失情况
@@ -59,10 +58,12 @@ pub fn adjust_position_by_risk(
     //     })?; // 问号操作符将 PyKeyError 转换为 PyResult 的 Err 变体并立即返回
 
     // // 如果代码到达这里，说明 'test' 键存在，我们可以使用 test_value
-    // println!("Found 'test' value: {}", test_value);
+    // // println!("Found 'test' value: {}", test_value);
     // // -----------------------------------------------------------------
 
-
     // 占位实现:返回一个空的Series
-    Ok(Series::new(PlSmallStr::from_static("adjusted_position"), Vec::<f64>::new()))
+    Ok(Series::new(
+        PlSmallStr::from_static("adjusted_position"),
+        Vec::<f64>::new(),
+    ))
 }

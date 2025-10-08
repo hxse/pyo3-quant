@@ -1,13 +1,12 @@
-use polars::prelude::*;
-use std::collections::HashMap;
 use crate::data_conversion::input::PerformanceParams;
 use crate::data_conversion::output::PerformanceMetrics;
+use polars::prelude::*;
+use std::collections::HashMap;
 
 pub fn analyze_performance(
     _backtest_result_df: &DataFrame,
     performance_params: &PerformanceParams,
 ) -> PolarsResult<HashMap<String, f64>> {
-
     let mut result = HashMap::new();
 
     for metric_name in &performance_params.metrics {

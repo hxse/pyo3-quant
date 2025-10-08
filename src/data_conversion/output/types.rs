@@ -47,4 +47,3 @@ impl<'py> IntoPyObject<'py> for BacktestSummary {
         Ok(dict)
     }
 }
-

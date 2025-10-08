@@ -5,7 +5,7 @@ use pyo3_polars::PyDataFrame;
 /// 原有函数，保持不变。
 #[pyfunction]
 pub fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
-    Ok((a + b + 8).to_string())
+    Ok((a + b + 10).to_string())
 }
 
 #[pyfunction]
@@ -29,5 +29,5 @@ pub fn process_dataframe(pydf: PyDataFrame) -> PyResult<PyDataFrame> {
     ))
     .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
 
-    Ok(PyDataFrame(df))  // 直接返回修改后的 df，无需 clone()
+    Ok(PyDataFrame(df)) // 直接返回修改后的 df，无需 clone()
 }

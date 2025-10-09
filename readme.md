@@ -1,6 +1,12 @@
 # wsl2
   * `uv tool install maturin`
   * `maturin init`
+  * 在本地文件`~/.cargo/config.toml`
+    ```
+    [target.x86_64-unknown-linux-gnu]
+    # 假设你的本地开发机是 x86_64
+    rustflags = ["-C", "linker=clang", "-C", "link-arg=-fuse-ld=mold"]
+    ```
   * install rust
     * `sudo apt update`
     * `sudo apt install build-essential`

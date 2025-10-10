@@ -1,0 +1,6 @@
+{
+    ".": {
+        "release-type": "rust",
+        "package-name": "pyo3-quant"
+    }
+}

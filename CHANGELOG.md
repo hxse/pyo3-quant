@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/hxse/pyo3-quant/compare/v0.1.0...v0.2.0) (2025-10-10)
+
+
+### Features
+
+* test6 ([1727c4d](https://github.com/hxse/pyo3-quant/commit/1727c4d2397a5b83ef9db436942f5f380eda6382))
+
 ## 0.1.0 (2025-10-10)
 
 

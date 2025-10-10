@@ -1,37 +1,33 @@
 # wsl2
   * `uv tool install maturin`
   * `maturin init`
-  * 在本地文件`~/.cargo/config.toml`
-    ```
-    [target.x86_64-unknown-linux-gnu]
-    # 假设你的本地开发机是 x86_64
-    rustflags = ["-C", "linker=clang", "-C", "link-arg=-fuse-ld=mold"]
-    ```
   * install rust
     * `sudo apt update`
     * `sudo apt install build-essential`
     * `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
     * `source "$HOME/.cargo/env"`
+## maturin_import_hook
   * `sudo apt install patchelf`
   * `uv run pip install patchelf`
   * `uv add --dev maturin_import_hook`
   * `source ./.venv/bin/activate`
   * `python -m maturin_import_hook site install --args="--release"`
+    * `python -m maturin_import_hook site uninstall`
     * 由于某些原因,不带release编译速度会特别慢
   * `/usr/bin/time -f "\n%e" python ./py_entry/main.py`
-    * `/usr/bin/time -f "\n%e" python ./py_entry/main.py`
+## linker
   * mold加速编译
     * `sudo apt install clang mold -y`
-    * `nano .cargo/config.toml`
+    * nano `~/.cargo/config.toml`
     ```
     [target.x86_64-unknown-linux-gnu]
     # 确保 clang 已安装
     rustflags = ["-C", "linker=clang", "-C", "link-arg=-fuse-ld=mold"]
     ```
-    `cargo clean`
+    * `cargo clean`
   * lld加速编译
     * `sudo apt install clang lld -y`
-    * `nano ~/.cargo/config.toml`
+    * nano `~/.cargo/config.toml`
     ```
     [target.x86_64-unknown-linux-gnu]
     # 使用 clang 驱动，并指示它使用 lld 链接器
@@ -51,6 +47,9 @@
   * 方法3
     * `source ./.venv/bin/activate`
     * `/usr/bin/time -f "\n%e" maturin develop --release`
+    * `/usr/bin/time -f "\n%e" python ./py_entry/main.py`
+  * 方法4
+    * `uv pip install whl_path`
     * `/usr/bin/time -f "\n%e" python ./py_entry/main.py`
 
 # 关于polars的异混淆点

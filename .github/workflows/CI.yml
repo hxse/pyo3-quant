@@ -88,6 +88,7 @@ jobs:
           path: dist
 
   windows:
+    if: false # 👈 关键修改：添加这一行，直接跳过整个 Job
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:

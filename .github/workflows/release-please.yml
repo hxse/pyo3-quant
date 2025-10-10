@@ -1,10 +1,14 @@
+# File: .github/workflows/release-please.yml
+
 name: Release Please
 on:
     push:
+        # 确保这里包含您的主分支 (master 或 main)
         branches:
-            - main
             - master
+            - main
 permissions:
+    # 必须有写入权限才能创建 PR 和推送 Tag
     contents: write
     pull-requests: write
 jobs:
@@ -15,5 +19,11 @@ jobs:
               id: release
               with:
                   token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
-                  command: manifest # 对于多语言，使用manifest模式
-                  manifest-file: release-please-manifest.json # 见下一步
+                  # 关键：指定 release-type 为 rust
+                  release-type: rust
+                  # 可选：指定包名，但不是必须的，因为它会从 Cargo.toml 获取
+                  package-name: pyo3-quant
+
+                  # 注意：不需要 command: manifest
+                  # 注意：不需要 manifest-file: ...
+                  # 注意：不需要 config-file: ...

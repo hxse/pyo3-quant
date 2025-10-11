@@ -15,7 +15,7 @@ mod utils;
 pub use crate::data_conversion::output::BacktestSummary;
 
 use crate::data_conversion::{
-    process_all_params, ProcessedConfig, ProcessedDataDict, ProcessedParamSet, ProcessedTemplate,
+    process_all_params, ProcessedDataDict, ProcessedParamSet, ProcessedSettings, ProcessedTemplate,
 };
 
 /// 主入口函数:运行回测引擎
@@ -25,11 +25,11 @@ pub fn run_backtest_engine(
     data_dict: ProcessedDataDict,
     param_set: ProcessedParamSet,
     template: ProcessedTemplate,
-    config: ProcessedConfig,
+    engine_settings: ProcessedSettings,
 ) -> PyResult<PyObject> {
     // 1. 处理所有参数
-    let (processed_data, processed_params, processed_template, processed_config) =
-        process_all_params(py, data_dict, param_set, template, config)?;
+    let (processed_data, processed_params, processed_template, processed_settings) =
+        process_all_params(py, data_dict, param_set, template, engine_settings)?;
 
     // 2. 根据任务数选择执行策略
     let total_tasks = processed_params.params.len();
@@ -44,7 +44,7 @@ pub fn run_backtest_engine(
                     &processed_data,
                     &single_param,
                     &processed_template,
-                    &processed_config,
+                    &processed_settings,
                 )
             })
             .collect::<Result<Vec<_>, _>>()
@@ -62,7 +62,7 @@ pub fn run_backtest_engine(
                         &processed_data,
                         single_param,
                         &processed_template,
-                        &processed_config,
+                        &processed_settings,
                     )
                 })
             })
@@ -91,7 +91,7 @@ fn execute_single_backtest(
     processed_data: &crate::data_conversion::ProcessedDataDict,
     single_param: &crate::data_conversion::ProcessedSingleParam,
     processed_template: &ProcessedTemplate,
-    processed_config: &crate::data_conversion::ProcessedConfig,
+    processed_settings: &crate::data_conversion::ProcessedSettings,
 ) -> PolarsResult<BacktestSummary> {
     // 2.1 计算指标
     let indicators_df =
@@ -142,7 +142,7 @@ fn execute_single_backtest(
 
     // 2.7 内存优化
     let (opt_indicators, opt_signals, opt_backtest, final_perf) = utils::optimize_memory_if_needed(
-        processed_config,
+        processed_settings,
         indicators_df,
         signals_df,
         result_df,

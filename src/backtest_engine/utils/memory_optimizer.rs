@@ -1,9 +1,9 @@
 use crate::data_conversion::output::PerformanceMetrics;
-use crate::data_conversion::ProcessedConfig;
+use crate::data_conversion::ProcessedSettings;
 use polars::prelude::*;
 
 pub fn optimize_memory_if_needed(
-    config: &ProcessedConfig,
+    processed_settings: &ProcessedSettings,
     indicators_df: DataFrame,
     signals_df: DataFrame,
     backtest_result_df: DataFrame,
@@ -14,7 +14,7 @@ pub fn optimize_memory_if_needed(
     Option<DataFrame>,
     PerformanceMetrics,
 ) {
-    if config.is_only_performance {
+    if processed_settings.is_only_performance {
         // 清空所有DataFrame,只保留绩效数据
         (None, None, None, performance)
     } else {

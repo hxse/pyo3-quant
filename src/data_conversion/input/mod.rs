@@ -12,7 +12,7 @@ pub mod param;
 pub mod param_set;
 pub mod template;
 
-pub use config::ProcessedConfig;
+pub use config::ProcessedSettings;
 pub use data_dict::ProcessedDataDict;
 pub use param::Param;
 pub use param_set::{
@@ -25,12 +25,12 @@ pub fn process_all_params(
     data_dict: ProcessedDataDict,
     param_set: ProcessedParamSet,
     template: ProcessedTemplate,
-    config: ProcessedConfig,
+    config: ProcessedSettings,
 ) -> PyResult<(
     ProcessedDataDict,
     ProcessedParamSet,
     ProcessedTemplate,
-    ProcessedConfig,
+    ProcessedSettings,
 )> {
     Ok((data_dict, param_set, template, config))
 }

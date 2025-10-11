@@ -1,6 +1,6 @@
 """条件快速构建辅助函数"""
 
-from py_entry.data_conversion.input.template import (
+from ..input import (
     CompareOp,
     SignalCondition,
     RiskCondition,

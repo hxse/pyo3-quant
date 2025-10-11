@@ -14,7 +14,7 @@
   * `python -m maturin_import_hook site install --args="--release"`
     * `python -m maturin_import_hook site uninstall`
     * 由于某些原因,不带release编译速度会特别慢
-  * `/usr/bin/time -f "\n%e" python ./py_entry/main.py`
+  * `/usr/bin/time -f "\n%e" python -m py_entry.main`
 ## linker
   * mold加速编译
     * `sudo apt install clang mold -y`
@@ -38,19 +38,19 @@
 # dev
   * `uv sync`
   * 方法1
-  * `/usr/bin/time -f "\n%e" uv run --no-sync python ./py_entry/main.py`
+  * `/usr/bin/time -f "\n%e" uv run --no-sync python -m py_entry.main`
   * 方法2
     * `source ./.venv/bin/activate`
     * `python -m maturin_import_hook site install --args="--release"`
-    * `python ./py_entry/main.py`
-      * `/usr/bin/time -f "\n%e" python ./py_entry/main.py`
+    * `python -m py_entry.main`
+      * `/usr/bin/time -f "\n%e" python -m py_entry.main`
   * 方法3
     * `source ./.venv/bin/activate`
     * `/usr/bin/time -f "\n%e" maturin develop --release`
-    * `/usr/bin/time -f "\n%e" python ./py_entry/main.py`
+    * `/usr/bin/time -f "\n%e" python -m py_entry.main`
   * 方法4
     * `uv pip install whl_path`
-    * `/usr/bin/time -f "\n%e" python ./py_entry/main.py`
+    * `/usr/bin/time -f "\n%e" python -m py_entry.main`
 
 # 关于polars的异混淆点
   * Python API (PyPolars)

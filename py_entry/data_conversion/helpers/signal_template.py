@@ -1,6 +1,7 @@
-from helpers.condition_builders import signal_data_vs_data, signal_data_vs_param
-from helpers.template_builders import create_signal_group, create_signal_template
-from py_entry.data_conversion.input.template import CompareOp
+from . import signal_data_vs_data, signal_data_vs_param
+from . import create_signal_group, create_signal_template
+
+from ..input import CompareOp
 
 
 def create_signal_template_instance():

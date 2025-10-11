@@ -8,7 +8,7 @@ import numpy as np
 from datetime import datetime
 import math
 
-from py_entry.data_conversion.input.data_dict import DataDict
+from ..input import DataDict
 
 time_format = "%Y-%m-%dT%H:%M:%S%.3f%Z"
 fixed_cols = ["time", "date"]

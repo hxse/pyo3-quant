@@ -1,67 +1,56 @@
-import sys
-from pathlib import Path
-
-root_path = next(
-    (p for p in Path(__file__).resolve().parents if (p / "pyproject.toml").is_file()),
-    None,
-)
-if root_path:
-    sys.path.insert(0, str(root_path))
-
 import polars as pl
 import pyo3_quant
 import time
 
 from py_entry.data_conversion.input import (
-    BacktestConfig,
-    DataDict,
-    ParamSet,
+    EngineSettings,
     TemplateConfig,
 )
-from py_entry.data_generator import generate_data_dict
-from py_entry.templates.signal_template import create_signal_template_instance
-from py_entry.templates.risk_template import create_risk_template_instance
-from py_entry.configs import create_param_set
-
-print("-" * 30)
-print("线程数", pl.thread_pool_size())
-
-# 原有调用
-res = pyo3_quant.sum_as_string(5, 25)
-print(res)  # 输出: 40
-
-print("-" * 30)
-print("线程数", pl.thread_pool_size())
-
-# 生成示例 data_dict
-data_dict = generate_data_dict(
-    timeframes=["15m", "1h"], start_time=1735689600000, num_bars=200, brick_size=2.0
+from py_entry.data_conversion.helpers import (
+    generate_data_dict,
+    create_signal_template_instance,
+    create_risk_template_instance,
+    create_param_set,
 )
 
-# 创建 param_set
-param_set = create_param_set(len(data_dict.ohlcv))
 
-# 创建配置
-config = BacktestConfig(is_only_performance=False)
+if __name__ == "__main__":
+    print("-" * 30)
+    start_time = time.perf_counter()
+    res = pyo3_quant.sum_as_string(5, 25)
+    print("sum_as_string:", res)
+    print("耗时", time.perf_counter() - start_time)
 
-# 创建模板配置
-template_config = TemplateConfig(
-    signal=create_signal_template_instance(), risk=create_risk_template_instance()
-)
+    print("-" * 30)
+    start_time = time.perf_counter()
+    data_dict = generate_data_dict(
+        timeframes=["15m", "1h"], start_time=1735689600000, num_bars=200, brick_size=2.0
+    )
 
-# 传递给 Rust
-print("-" * 30)
-print("测试回测引擎骨架")
-start_time = time.perf_counter()
+    param_set = create_param_set(10,len(data_dict.ohlcv))
 
-# 调用新的回测引擎入口函数
-backtest_result = pyo3_quant.run_backtest_engine(
-    data_dict,  # DataDict dataclass
-    param_set,  # ParamSet dataclass
-    template_config,  # TemplateConfig dataclass
-    config,  # BacktestConfig dataclass
-)
+    processed_settings = EngineSettings(is_only_performance=False)
 
-print("回测引擎结果:", backtest_result)
+    template_config = TemplateConfig(
+        signal=create_signal_template_instance(), risk=create_risk_template_instance()
+    )
+    print("配置生成:", len(param_set.params))
+    print("耗时", time.perf_counter() - start_time)
 
-print("耗时", time.perf_counter() - start_time)
+    print("-" * 30)
+    start_time = time.perf_counter()
+
+    backtest_result = pyo3_quant.run_backtest_engine(
+        data_dict,  # DataDict dataclass
+        param_set,  # ParamSet dataclass
+        template_config,  # TemplateConfig dataclass
+        processed_settings,  # EngineSettings dataclass
+    )
+
+    print("performance:", backtest_result[0]["performance"])
+
+    print("耗时", time.perf_counter() - start_time)
+    import pdb; pdb.set_trace()
+    
+    
+    

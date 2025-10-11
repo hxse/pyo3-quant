@@ -1,6 +1,12 @@
-from helpers.condition_builders import risk_data_vs_data, risk_data_vs_param
-from helpers.template_builders import create_risk_rule, create_risk_template
-from py_entry.data_conversion.input.template import CompareOp
+from . import (
+    risk_data_vs_data,
+    risk_data_vs_param,
+)
+from . import (
+    create_risk_rule,
+    create_risk_template,
+)
+from ..input import CompareOp
 
 
 def create_risk_template_instance():

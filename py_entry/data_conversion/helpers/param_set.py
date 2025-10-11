@@ -1,7 +1,6 @@
 """参数集生成逻辑"""
 
-from typing import List, Dict, Any
-from py_entry.data_conversion.input.param_set import (
+from ..input import (
     Param,
     ParamSet,
     SingleParamSet,
@@ -10,33 +9,21 @@ from py_entry.data_conversion.input.param_set import (
 )
 
 
-def create_param_set(data_dict_len: int) -> ParamSet:
+def create_param_set(params_count: int, period_count: int) -> ParamSet:
     """
     创建参数集。
     """
     single_param_sets = []
 
-    for i in range(data_dict_len):
+    for i in range(params_count):
         sma_0 = {
             "period": Param(
                 initial_value=14 + i, initial_min=5, initial_max=50, initial_step=1
-            ),
-            "weight": Param(
-                initial_value=0.5 + i / 10,
-                initial_min=0.1,
-                initial_max=1.0,
-                initial_step=0.1,
             ),
         }
         sma_1 = {
             "period": Param(
                 initial_value=50 + i, initial_min=10, initial_max=100, initial_step=5
-            ),
-            "weight": Param(
-                initial_value=0.8 + i / 10,
-                initial_min=0.1,
-                initial_max=1.0,
-                initial_step=0.1,
             ),
         }
 
@@ -44,8 +31,12 @@ def create_param_set(data_dict_len: int) -> ParamSet:
             {
                 "sma_0": sma_0,
                 "sma_1": sma_1,
-            }
+            },
+            {},
         ]
+        assert len(indicators_params) == period_count, (
+            f"需要为每个周期配置指标参数 {len(indicators_params)} {period_count}"
+        )
 
         backtest_params = BacktestParams(
             sl=Param(

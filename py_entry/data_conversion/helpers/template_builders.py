@@ -1,12 +1,12 @@
 """模版快速构建辅助函数"""
 
-from py_entry.data_conversion.input.template import (
+from ..input import (
     SignalGroup,
     RiskRule,
     SignalTemplate,
     RiskTemplate,
 )
-from py_entry.data_conversion.input.template import SignalCondition, RiskCondition
+from ..input import SignalCondition, RiskCondition
 from typing import List
 
 

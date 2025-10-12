@@ -49,7 +49,7 @@ impl<'py> FromPyObject<'py> for IndicatorConfig {
     }
 }
 
-#[derive(Debug, Clone, FromPyObject)] // 移除 #[pyclass]
+#[derive(Debug, Clone, FromPyObject)]
 pub struct ProcessedSingleParam {
     pub indicators: IndicatorsParams,
     pub signal: SignalParams,
@@ -58,7 +58,9 @@ pub struct ProcessedSingleParam {
     pub performance: PerformanceParams,
 }
 
-#[derive(Debug, Clone, FromPyObject)] // 移除 #[pyclass]
+#[derive(Debug, Clone, FromPyObject)]
 pub struct ProcessedParamSet {
     pub params: Vec<ProcessedSingleParam>,
+    pub period_count: i32,
+    pub param_count: i32,
 }

@@ -44,7 +44,7 @@ fn calculate_metrics_internal(
     template: &ProcessedTemplate,
     config: &ProcessedSettings,
 ) -> PyResult<String> {
-    if config.is_only_performance {
+    if config.return_only_final {
         return Ok("Performance metrics calculated (placeholder)".to_string());
     }
 

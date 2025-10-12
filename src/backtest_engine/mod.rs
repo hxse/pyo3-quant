@@ -1,3 +1,4 @@
+use crate::data_conversion::input::settings::ExecutionStage;
 use polars::prelude::*;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -7,6 +8,7 @@ use rayon::prelude::*; // 添加这一行
 // mod types; // 已移动到 data_conversion/output/types.rs
 mod backtester;
 mod indicator_calculator;
+mod indicators;
 mod performance_analyzer;
 mod risk_adjuster;
 mod signal_generator;
@@ -86,6 +88,7 @@ fn has_risk_template(template: &ProcessedTemplate) -> bool {
     // 占位实现:简单判断，检查 source 字段是否为空
     !template.risk.template.is_empty()
 }
+
 /// 执行单个回测任务
 fn execute_single_backtest(
     processed_data: &crate::data_conversion::ProcessedDataDict,
@@ -93,66 +96,86 @@ fn execute_single_backtest(
     processed_template: &ProcessedTemplate,
     processed_settings: &crate::data_conversion::ProcessedSettings,
 ) -> PolarsResult<BacktestSummary> {
-    // 2.1 计算指标
-    let indicators_df =
+    let mut indicator_dfs = None;
+    let mut signals_df = None;
+    let mut backtest_df = None;
+    let mut performance = None;
+
+    // 1. 始终执行: 计算指标
+    let calculated_indicator_dfs =
         indicator_calculator::calculate_indicators(processed_data, &single_param.indicators)?;
+    indicator_dfs = Some(calculated_indicator_dfs);
 
-    // 2.2 生成信号
-    let signals_df = signal_generator::generate_signals(
-        processed_data,
-        &indicators_df,
-        &single_param.signal,
-        &processed_template.signal.template,
-    )?;
-
-    // 2.3 创建初始仓位Series
-    let initial_position_series = risk_adjuster::create_initial_position_series(
-        processed_data,
-        single_param.backtest.position_pct.value,
-    )?;
-
-    // 2.4 第一次回测
-    let mut result_df = backtester::run_backtest(
-        processed_data,
-        &signals_df,
-        initial_position_series,
-        &single_param.backtest,
-    )?;
-
-    // 2.5 风控判断并可能进行第二次回测
-    if has_risk_template(processed_template) {
-        let adjusted_position_series = risk_adjuster::adjust_position_by_risk(
-            &single_param.backtest,
-            &result_df,
-            &processed_template.risk,
-            &single_param.risk,
-        )?;
-
-        result_df = backtester::run_backtest(
-            processed_data,
-            &signals_df,
-            adjusted_position_series,
-            &single_param.backtest,
-        )?;
+    // 2. 如果 execution_stage >= "signals": 执行信号生成
+    if processed_settings.execution_stage >= ExecutionStage::Signals {
+        if let Some(ref ind_dfs) = indicator_dfs {
+            let generated_signals_df = signal_generator::generate_signals(
+                processed_data,
+                ind_dfs,
+                &single_param.signal,
+                &processed_template.signal.template,
+            )?;
+            signals_df = Some(generated_signals_df);
+        }
     }
 
-    // 2.6 绩效评估
-    let performance =
-        performance_analyzer::analyze_performance(&result_df, &single_param.performance)?;
+    // 3. 如果 execution_stage >= "backtest": 执行回测
+    if processed_settings.execution_stage >= ExecutionStage::Backtest {
+        if let Some(ref sig_df) = signals_df {
+            let initial_position_series = risk_adjuster::create_initial_position_series(
+                processed_data,
+                single_param.backtest.position_pct.value,
+            )?;
 
-    // 2.7 内存优化
-    let (opt_indicators, opt_signals, opt_backtest, final_perf) = utils::optimize_memory_if_needed(
+            let mut first_backtest_df = backtester::run_backtest(
+                processed_data,
+                sig_df,
+                initial_position_series,
+                &single_param.backtest,
+            )?;
+
+            // 4. 如果 execution_stage >= "backtest" && !skip_risk && has_risk_template: 执行风控+二次回测
+            if !processed_settings.skip_risk && has_risk_template(processed_template) {
+                let adjusted_position_series = risk_adjuster::adjust_position_by_risk(
+                    &single_param.backtest,
+                    &first_backtest_df,
+                    &processed_template.risk,
+                    &single_param.risk,
+                )?;
+
+                first_backtest_df = backtester::run_backtest(
+                    processed_data,
+                    sig_df,
+                    adjusted_position_series,
+                    &single_param.backtest,
+                )?;
+            }
+            backtest_df = Some(first_backtest_df);
+        }
+    }
+
+    // 5. 如果 execution_stage == "performance": 执行绩效评估
+    if processed_settings.execution_stage == ExecutionStage::Performance {
+        if let Some(ref bt_df) = backtest_df {
+            let analyzed_performance =
+                performance_analyzer::analyze_performance(bt_df, &single_param.performance)?;
+            performance = Some(analyzed_performance);
+        }
+    }
+
+    // 6. 最后调用内存优化函数决定返回哪些结果
+    let (opt_indicators, opt_signals, opt_backtest, final_perf) = utils::optimize_memory_by_stage(
         processed_settings,
-        indicators_df,
+        indicator_dfs,
         signals_df,
-        result_df,
+        backtest_df,
         performance,
     );
 
     Ok(BacktestSummary {
         performance: final_perf,
-        indicators: opt_indicators.map(PyDataFrame),
+        indicators: opt_indicators.map(|dfs| dfs.into_iter().map(PyDataFrame).collect()),
         signals: opt_signals.map(PyDataFrame),
-        backtest_result: opt_backtest.map(PyDataFrame),
+        backtest: opt_backtest.map(PyDataFrame),
     })
 }

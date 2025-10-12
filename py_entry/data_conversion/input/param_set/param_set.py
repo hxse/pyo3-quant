@@ -42,3 +42,5 @@ class ParamSet:
     """完整参数集列表 - 对应 Rust ProcessedParamSet"""
 
     params: List[SingleParamSet]
+    period_count: int
+    param_count: int

@@ -9,10 +9,10 @@ pub type PerformanceMetrics = HashMap<String, f64>;
 
 #[derive(Debug)]
 pub struct BacktestSummary {
-    pub performance: PerformanceMetrics,
-    pub indicators: Option<PyDataFrame>,
+    pub performance: Option<PerformanceMetrics>,
+    pub indicators: Option<Vec<PyDataFrame>>, // 从 Option<PyDataFrame> 改为 Vec
     pub signals: Option<PyDataFrame>,
-    pub backtest_result: Option<PyDataFrame>,
+    pub backtest: Option<PyDataFrame>,
 }
 
 impl<'py> IntoPyObject<'py> for BacktestSummary {
@@ -24,11 +24,20 @@ impl<'py> IntoPyObject<'py> for BacktestSummary {
         let dict = PyDict::new(py);
 
         // 设置 performance 字段
-        dict.set_item("performance", self.performance)?;
+        match self.performance {
+            Some(perf) => dict.set_item("performance", perf)?,
+            None => dict.set_item("performance", py.None())?,
+        }
 
-        // 设置 indicators 字段，处理 Option<PyDataFrame>
+        // 设置 indicators 字段，处理 Option<Vec<PyDataFrame>>
         match self.indicators {
-            Some(df) => dict.set_item("indicators", df)?,
+            Some(dfs) => {
+                let py_list = pyo3::types::PyList::empty(py);
+                for df in dfs {
+                    py_list.append(df)?;
+                }
+                dict.set_item("indicators", py_list)?;
+            }
             None => dict.set_item("indicators", py.None())?,
         }
 
@@ -39,7 +48,7 @@ impl<'py> IntoPyObject<'py> for BacktestSummary {
         }
 
         // 设置 backtest_result 字段，处理 Option<PyDataFrame>
-        match self.backtest_result {
+        match self.backtest {
             Some(df) => dict.set_item("backtest_result", df)?,
             None => dict.set_item("backtest_result", py.None())?,
         }

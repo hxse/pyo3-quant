@@ -4,7 +4,7 @@ use polars::prelude::*;
 use std::collections::HashMap;
 
 pub fn analyze_performance(
-    _backtest_result_df: &DataFrame,
+    backtest_df: &DataFrame,
     performance_params: &PerformanceParams,
 ) -> PolarsResult<HashMap<String, f64>> {
     let mut result = HashMap::new();

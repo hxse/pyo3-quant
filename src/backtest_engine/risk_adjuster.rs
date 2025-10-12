@@ -1,12 +1,8 @@
-use crate::data_conversion::{BacktestParams, ProcessedDataDict, RiskTemplate};
+use crate::data_conversion::{BacktestParams, ProcessedDataDict, RiskParams, RiskTemplate};
 use polars::prelude::*;
 use pyo3::exceptions::PyKeyError;
 use pyo3::prelude::*;
 use std::collections::HashMap;
-
-// RiskParams 实际上是 HashMap<String, f64>
-use crate::data_conversion::input::param::Param;
-type RiskParams = HashMap<String, Param>;
 
 /// 创建初始仓位Series
 ///
@@ -42,7 +38,7 @@ pub fn create_initial_position_series(
 
 pub fn adjust_position_by_risk(
     backtest_params: &BacktestParams,
-    result_df: &DataFrame,
+    backtest_df: &DataFrame,
     risk_template: &RiskTemplate,
     risk_params: &RiskParams,
 ) -> PolarsResult<Series> {

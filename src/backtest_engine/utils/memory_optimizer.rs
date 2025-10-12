@@ -1,29 +1,36 @@
+use crate::data_conversion::input::settings::ExecutionStage;
 use crate::data_conversion::output::PerformanceMetrics;
 use crate::data_conversion::ProcessedSettings;
 use polars::prelude::*;
 
-pub fn optimize_memory_if_needed(
-    processed_settings: &ProcessedSettings,
-    indicators_df: DataFrame,
-    signals_df: DataFrame,
-    backtest_result_df: DataFrame,
-    performance: PerformanceMetrics,
+pub fn optimize_memory_by_stage(
+    settings: &ProcessedSettings,
+    indicator_dfs: Option<Vec<DataFrame>>,
+    signals: Option<DataFrame>,
+    backtest: Option<DataFrame>,
+    performance: Option<PerformanceMetrics>,
 ) -> (
+    Option<Vec<DataFrame>>,
     Option<DataFrame>,
     Option<DataFrame>,
-    Option<DataFrame>,
-    PerformanceMetrics,
+    Option<PerformanceMetrics>,
 ) {
-    if processed_settings.is_only_performance {
-        // 清空所有DataFrame,只保留绩效数据
-        (None, None, None, performance)
+    let stop_stage = settings.execution_stage;
+
+    if settings.return_only_final {
+        match stop_stage {
+            ExecutionStage::Indicator => (indicator_dfs, None, None, None),
+            ExecutionStage::Signals => (None, signals, None, None),
+            ExecutionStage::Backtest => (None, None, backtest, None),
+            ExecutionStage::Performance => (None, None, None, performance),
+        }
     } else {
-        // 保留所有数据
-        (
-            Some(indicators_df),
-            Some(signals_df),
-            Some(backtest_result_df),
-            performance,
-        )
+        // 情况二：保留直到目标阶段为止的所有结果 (累进式 match)
+        match stop_stage {
+            ExecutionStage::Indicator => (indicator_dfs, None, None, None),
+            ExecutionStage::Signals => (indicator_dfs, signals, None, None),
+            ExecutionStage::Backtest => (indicator_dfs, signals, backtest, None),
+            ExecutionStage::Performance => (indicator_dfs, signals, backtest, performance),
+        }
     }
 }

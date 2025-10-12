@@ -10,6 +10,7 @@ pub mod output;
 // 重新导出常用类型
 pub use input::{
     process_all_params, BacktestParams, ProcessedDataDict, ProcessedParamSet, ProcessedSettings,
-    ProcessedSingleParam, ProcessedTemplate, RiskTemplate, SignalParams, SignalTemplate,
+    ProcessedSingleParam, ProcessedTemplate, RiskParams, RiskTemplate, SignalParams,
+    SignalTemplate,
 };
 pub use output::{BacktestSummary, PerformanceMetrics};

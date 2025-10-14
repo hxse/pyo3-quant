@@ -1,5 +1,6 @@
 from typing import Optional, List
 
+from py_entry.data_conversion.output import BacktestSummary
 from py_entry.data_conversion.input import (
     DataDict,
     ParamSet,
@@ -140,7 +141,7 @@ class BacktestRunner:
         self._engine_settings = engine_settings_builder.build_engine_settings()
         return self
 
-    def run(self):
+    def run(self) -> list[BacktestSummary]:
         """执行回测。
 
         在执行回测之前，会验证所有必要的配置（数据、参数集、模板、引擎设置）是否已完成。
@@ -162,9 +163,10 @@ class BacktestRunner:
             "period_count应该等于ohlcv数量"
         )
 
-        return pyo3_quant.run_backtest_engine(
+        raw_results = pyo3_quant.run_backtest_engine(
             self._data_dict,
             self._param_set,
             self._template_config,
             self._engine_settings,
         )
+        return [BacktestSummary.from_dict(result) for result in raw_results]

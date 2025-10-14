@@ -2,6 +2,7 @@ import add_path
 import time
 from py_entry.data_conversion.backtest_runner import BacktestRunner
 import pyo3_quant
+from loguru import logger
 
 if __name__ == "__main__":
     print("-" * 30)
@@ -25,5 +26,8 @@ if __name__ == "__main__":
         .run()
     )
 
-    print("performance:", backtest_result[0]["performance"])
-    print("耗时", time.perf_counter() - start_time)
+    print(backtest_result)
+
+    logger.info(f"performance: {backtest_result[0].performance}")
+
+    logger.info(f"耗时 {time.perf_counter() - start_time}")

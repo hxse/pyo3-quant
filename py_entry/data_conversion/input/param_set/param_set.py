@@ -1,6 +1,7 @@
 """参数集定义"""
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Dict, List
 from .param import Param
 
@@ -8,6 +9,12 @@ from .param import Param
 IndicatorsParams = List[Dict[str, Dict[str, Param]]]
 SignalParams = Dict[str, Param]
 RiskParams = Dict[str, Param]
+
+
+class PerformanceMetric(str, Enum):
+    TOTAL_RETURN = "total_return"
+    SHARPE_RATIO = "sharpe_ratio"
+    MAX_DRAWDOWN = "max_drawdown"
 
 
 @dataclass
@@ -23,7 +30,7 @@ class BacktestParams:
 class PerformanceParams:
     """性能参数 - 对应 Rust PerformanceParams"""
 
-    metrics: List[str]
+    metrics: List[PerformanceMetric]
 
 
 @dataclass

@@ -6,7 +6,7 @@ from enum import Enum
 from .operands import ParamOperand, SignalDataOperand, RiskDataOperand
 
 
-class CompareOp(Enum):
+class CompareOp(str, Enum):
     """比较操作符 - 对应 Rust CompareOp"""
 
     GT = "GT"

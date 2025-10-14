@@ -1,4 +1,4 @@
-use crate::data_conversion::input::PerformanceParams;
+use crate::data_conversion::input::param_set::{PerformanceMetric, PerformanceParams};
 use crate::data_conversion::output::PerformanceMetrics;
 use polars::prelude::*;
 use std::collections::HashMap;
@@ -9,18 +9,14 @@ pub fn analyze_performance(
 ) -> PolarsResult<HashMap<String, f64>> {
     let mut result = HashMap::new();
 
-    for metric_name in &performance_params.metrics {
-        let value = match metric_name.as_ref() {
-            "total_return" => 0.0,
-            "sharpe_ratio" => 0.0,
-            "max_drawdown" => 0.0,
-            _ => {
-                eprintln!("Warning: Unknown metric '{}' skipped", metric_name);
-                continue;
-            }
+    for metric in &performance_params.metrics {
+        let value = match metric {
+            PerformanceMetric::TotalReturn => 0.0,
+            PerformanceMetric::SharpeRatio => 0.0,
+            PerformanceMetric::MaxDrawdown => 0.0,
         };
 
-        result.insert(metric_name.clone(), value);
+        result.insert(metric.as_str().to_string(), value);
     }
 
     Ok(result)

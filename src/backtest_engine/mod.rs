@@ -83,12 +83,6 @@ pub fn run_backtest_engine(
     Ok(py_list.into())
 }
 
-/// 辅助函数:判断是否有风控模板
-fn has_risk_template(template: &ProcessedTemplate) -> bool {
-    // 占位实现:简单判断，检查 source 字段是否为空
-    !template.risk.template.is_empty()
-}
-
 /// 执行单个回测任务
 fn execute_single_backtest(
     processed_data: &crate::data_conversion::ProcessedDataDict,
@@ -134,8 +128,8 @@ fn execute_single_backtest(
                 &single_param.backtest,
             )?;
 
-            // 4. 如果 execution_stage >= "backtest" && !skip_risk && has_risk_template: 执行风控+二次回测
-            if !processed_settings.skip_risk && has_risk_template(processed_template) {
+            // 4. 如果 execution_stage >= "backtest" 执行风控+二次回测
+            if !processed_settings.skip_risk {
                 let adjusted_position_series = risk_adjuster::adjust_position_by_risk(
                     &single_param.backtest,
                     &first_backtest_df,

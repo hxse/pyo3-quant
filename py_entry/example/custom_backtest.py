@@ -13,6 +13,8 @@ from py_entry.data_conversion.backtest_runner.engine_settings_builder import (
     DefaultEngineSettingsBuilder,
 )
 
+from loguru import logger
+
 # ==============================================================================
 # 自定义 Builder 类
 # ==============================================================================
@@ -141,7 +143,7 @@ if __name__ == "__main__":
         .run()
     )
 
-    print("indicators:", backtest_result[0]["indicators"])
+    print(backtest_result)
+    logger.info(f"performance: {backtest_result[0].performance}")
 
-    print("performance:", backtest_result[0]["performance"])
-    print("耗时", time.perf_counter() - start_time)
+    logger.info(f"耗时 {time.perf_counter() - start_time}")

@@ -12,6 +12,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
+    "loguru>=0.7.3",
     "numpy>=2.3.3",
     "polars>=1.33.1",
     "pyarrow>=21.0.0",

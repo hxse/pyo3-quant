@@ -44,9 +44,3 @@ impl Default for ProcessedSettings {
         }
     }
 }
-
-pub fn parse(settings: Bound<'_, PyDict>) -> PyResult<ProcessedSettings> {
-    settings
-        .extract()
-        .or_else(|_| Ok(ProcessedSettings::default()))
-}

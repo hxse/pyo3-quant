@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 
 from py_entry.data_conversion.input import Param, BacktestParams, PerformanceParams
+from py_entry.data_conversion.input.param_set.param_set import PerformanceMetric
 
 
 class BaseParamBuilder(ABC):
@@ -78,6 +79,4 @@ class DefaultParamBuilder(BaseParamBuilder):
         }
 
     def build_performance_params(self) -> PerformanceParams:
-        return PerformanceParams(
-            metrics=["total_return", "sharpe_ratio", "max_drawdown"]
-        )
+        return PerformanceParams(metrics=list(PerformanceMetric))

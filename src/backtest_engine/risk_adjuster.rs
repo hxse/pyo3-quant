@@ -26,7 +26,7 @@ pub fn create_initial_position_series(
     })?;
 
     // 获取行数
-    let row_count = ohlcv.as_ref().height();
+    let row_count = ohlcv.height();
 
     // 创建Series,值全部为position_pct
     let series = Series::new(

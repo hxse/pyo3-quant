@@ -63,7 +63,7 @@ fn calculate_metrics_internal(
     summary.push_str(&format!(
         ", data keys count={}, mapping rows={}",
         data.ohlcv.len(),
-        data.mapping.0.height()
+        data.mapping.height()
     ));
 
     Ok(summary)

@@ -1,5 +1,6 @@
-import add_path
+import path_tool
 import time
+from typing import List, Dict, Any
 
 
 import pyo3_quant
@@ -12,6 +13,7 @@ from py_entry.data_conversion.backtest_runner.template_builders import (
 from py_entry.data_conversion.backtest_runner.engine_settings_builder import (
     DefaultEngineSettingsBuilder,
 )
+from py_entry.data_conversion.input import Param
 
 from loguru import logger
 
@@ -27,13 +29,32 @@ class CustomParamBuilder(DefaultParamBuilder):
     如果某个方法未被覆盖，将使用父类 DefaultParamBuilder 的默认实现。
     """
 
-    def build_indicators_params(self, period_count):
+    def build_indicators_params(self, period_count: int) -> List[Dict[str, Any]]:
         """
         构建指标参数。
         用户可以通过取消注释并实现此方法来自定义指标参数。
         如果不覆盖此方法，将使用父类的默认实现。
         """
-        return super().build_indicators_params(period_count)
+        # return super().build_indicators_params(period_count)
+
+        sma_0 = {
+            "period": Param(
+                initial_value=14, initial_min=5, initial_max=50, initial_step=1
+            ),
+        }
+        sma_1 = {
+            "period": Param(
+                initial_value=60, initial_min=10, initial_max=100, initial_step=5
+            ),
+        }
+
+        return [
+            {
+                "sma_0": sma_0,
+                "sma_1": sma_1,
+            },
+            *[{} for i in range(period_count - 1)],
+        ]
 
     def build_signal_params(self):
         """

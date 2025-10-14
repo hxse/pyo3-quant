@@ -11,11 +11,16 @@ fn pyo3_quant(m: &Bound<'_, PyModule>) -> PyResult<()> {
         m
     )?)?;
     m.add_function(wrap_pyfunction!(
-        minimal_working_example::simple::create_dataframe,
+        minimal_working_example::polars_data_converter::create_dataframe,
         m
     )?)?;
     m.add_function(wrap_pyfunction!(
-        minimal_working_example::simple::process_dataframe,
+        minimal_working_example::polars_data_converter::process_dataframe,
+        m
+    )?)?;
+
+    m.add_function(wrap_pyfunction!(
+        minimal_working_example::polars_data_converter::test_custom_from_py_object,
         m
     )?)?;
     m.add_function(wrap_pyfunction!(

@@ -2,7 +2,6 @@ use crate::data_conversion::input::settings::ExecutionStage;
 use polars::prelude::*;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use pyo3_polars::PyDataFrame;
 use rayon::prelude::*; // 添加这一行
 
 // mod types; // 已移动到 data_conversion/output/types.rs
@@ -168,8 +167,8 @@ fn execute_single_backtest(
 
     Ok(BacktestSummary {
         performance: final_perf,
-        indicators: opt_indicators.map(|dfs| dfs.into_iter().map(PyDataFrame).collect()),
-        signals: opt_signals.map(PyDataFrame),
-        backtest: opt_backtest.map(PyDataFrame),
+        indicators: opt_indicators,
+        signals: opt_signals,
+        backtest: opt_backtest,
     })
 }

@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import List, Dict, Any, Callable
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Callable, Optional
 import numpy as np
 import pandas as pd
 
@@ -26,6 +26,8 @@ class IndicatorTestConfig:
     # 参数配置(每个timeframe一套),使用标准命名: bbands_0, bbands_1, ...
     params_config: List[Dict[str, Dict[str, Any]]]
 
+    suffixes: List[str]
+
     # 回测引擎结果提取器
     # 输入: (indicators polars DataFrame, indicator_key, params_dict)
     # 输出: Dict[列名, np.ndarray]
@@ -37,6 +39,11 @@ class IndicatorTestConfig:
     pandas_ta_result_extractor: Callable[
         [pd.DataFrame, str, Dict, bool], Dict[str, np.ndarray]
     ]
+
+    # 阈值自定义回调(可选)
+    # 输入: 列名(如 "bbands_0_percent")
+    # 输出: Dict,可包含 "custom_rtol" 和/或 "custom_atol" 键
+    tolerance_customizer: Optional[Callable[[str], Dict[str, float]]] = None
 
 
 def _test_indicator_accuracy(
@@ -99,47 +106,76 @@ def _test_indicator_accuracy(
         for indicator_key, params_dict in timeframe_params.items():
             # 提取回测引擎结果
             engine_results = config.engine_result_extractor(
-                indicators_df_current_timeframe, indicator_key, params_dict
+                indicators_df_current_timeframe,
+                indicator_key,
+                config.suffixes,
+                params_dict,
             )
 
             # 将Polars DataFrame转换为Pandas DataFrame以兼容pandas_ta
             pandas_df = ohlcv_dfs[timeframe_idx].to_pandas()
             # 提取pandas_ta结果
             pandas_ta_results = config.pandas_ta_result_extractor(
-                pandas_df, indicator_key, params_dict, enable_talib=False
+                pandas_df,
+                indicator_key,
+                config.suffixes,
+                params_dict,
+                enable_talib=False,
             )
 
-            # 比较结果
-            indicator_info = f"{indicator_key}: {params_dict}"
-            # 提取numpy数组
-            engine_array = engine_results[indicator_key]
-            pandas_ta_array = pandas_ta_results[indicator_key]
-
-            assert_func = (
-                assert_indicator_same
-                if assert_mode_pandas_ta
-                else assert_indicator_different
-            )
-            assert_func(
-                engine_array,
-                pandas_ta_array,
-                config.indicator_name,
-                indicator_info,
+            names = (
+                [indicator_key]
+                if not config.suffixes
+                else [f"{indicator_key}_{i}" for i in config.suffixes]
             )
 
-            if enable_talib:
-                talib_results = config.pandas_ta_result_extractor(
-                    pandas_df, indicator_key, params_dict, enable_talib=True
-                )
-                talib_array = talib_results[indicator_key]
+            for name in names:
+                if "percent" in name:
+                    continue
+
+                # 获取自定义阈值
+                tolerance_overrides = {}
+                if config.tolerance_customizer:
+                    tolerance_overrides = config.tolerance_customizer(name)
+
+                # 比较结果
+                indicator_info = f"{name}: {params_dict}"
+
+                # 提取numpy数组
+                engine_array = engine_results[name]
+                pandas_ta_array = pandas_ta_results[name]
+
                 assert_func = (
                     assert_indicator_same
-                    if assert_mode_talib
+                    if assert_mode_pandas_ta
                     else assert_indicator_different
                 )
                 assert_func(
                     engine_array,
-                    talib_array,
+                    pandas_ta_array,
                     config.indicator_name,
                     indicator_info,
+                    **tolerance_overrides,  # 使用**解包传递自定义阈值
                 )
+
+                if enable_talib:
+                    talib_results = config.pandas_ta_result_extractor(
+                        pandas_df,
+                        indicator_key,
+                        config.suffixes,
+                        params_dict,
+                        enable_talib=True,
+                    )
+                    talib_array = talib_results[name]
+                    assert_func = (
+                        assert_indicator_same
+                        if assert_mode_talib
+                        else assert_indicator_different
+                    )
+                    assert_func(
+                        engine_array,
+                        talib_array,
+                        config.indicator_name,
+                        indicator_info,
+                        **tolerance_overrides,  # 同样使用自定义阈值
+                    )

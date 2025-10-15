@@ -7,7 +7,7 @@ use rayon::prelude::*; // 添加这一行
 // mod types; // 已移动到 data_conversion/output/types.rs
 mod backtester;
 mod indicator_calculator;
-mod indicators;
+pub mod indicators;
 mod performance_analyzer;
 mod risk_adjuster;
 mod signal_generator;

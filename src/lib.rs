@@ -32,5 +32,10 @@ fn pyo3_quant(m: &Bound<'_, PyModule>) -> PyResult<()> {
         m
     )?)?;
     m.add_function(wrap_pyfunction!(backtest_engine::run_backtest_engine, m)?)?;
+    // debug
+    m.add_function(wrap_pyfunction!(
+        minimal_working_example::indicators::debug_bbands::debug_bbands,
+        m
+    )?)?;
     Ok(())
 }

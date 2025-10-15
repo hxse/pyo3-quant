@@ -14,7 +14,7 @@ from py_entry.Test.utils.conftest import data_dict
 
 # SMA引擎提取器(单列指标)
 def sma_engine_extractor(
-    indicators_df, indicator_key: str, params: Dict
+    indicators_df, indicator_key: str, suffixes: list[str], params: Dict
 ) -> Dict[str, np.ndarray]:
     """
     从回测引擎的indicators DataFrame中提取SMA单列
@@ -26,7 +26,11 @@ def sma_engine_extractor(
 
 # SMA pandas_ta提取器
 def sma_pandas_ta_extractor(
-    df: pd.DataFrame, indicator_key: str, params: Dict[str, Any], enable_talib: bool
+    df: pd.DataFrame,
+    indicator_key: str,
+    suffixes: list[str],
+    params: Dict[str, Any],
+    enable_talib: bool,
 ) -> Dict[str, np.ndarray]:
     """使用pandas_ta计算SMA,返回Dict格式"""
     period = int(params["period"].value)
@@ -40,15 +44,16 @@ sma_config = IndicatorTestConfig(
     params_config=[
         # timeframe 0
         {
-            "sma_0": {"period": create_param(14, 5, 50, 1)},
-            "sma_1": {"period": create_param(100, 50, 200, 10)},
+            "sma_0": {"period": create_param(14)},
+            "sma_1": {"period": create_param(100)},
         },
         # timeframe 1
         {
-            "sma_0": {"period": create_param(20, 5, 50, 1)},
-            "sma_1": {"period": create_param(200, 100, 300, 10)},
+            "sma_0": {"period": create_param(20)},
+            "sma_1": {"period": create_param(200)},
         },
     ],
+    suffixes=[],
     engine_result_extractor=sma_engine_extractor,
     pandas_ta_result_extractor=sma_pandas_ta_extractor,
 )

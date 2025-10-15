@@ -4,16 +4,20 @@ from typing import List, Dict, Any
 
 
 import pyo3_quant
-from py_entry.data_conversion.backtest_runner.runner import BacktestRunner
-from py_entry.data_conversion.backtest_runner.param_builders import DefaultParamBuilder
-from py_entry.data_conversion.backtest_runner.template_builders import (
+
+
+from py_entry.data_conversion.backtest_runner import (
+    BacktestRunner,
+    DefaultDataBuilder,
+    DefaultParamBuilder,
+    DefaultEngineSettingsBuilder,
+    EngineSettings,
+    ExecutionStage,
     DefaultSignalTemplateBuilder,
     DefaultRiskTemplateBuilder,
 )
-from py_entry.data_conversion.backtest_runner.engine_settings_builder import (
-    DefaultEngineSettingsBuilder,
-)
-from py_entry.data_conversion.input import Param
+from py_entry.data_conversion.helpers import create_param
+
 
 from loguru import logger
 
@@ -36,25 +40,21 @@ class CustomParamBuilder(DefaultParamBuilder):
         如果不覆盖此方法，将使用父类的默认实现。
         """
         # return super().build_indicators_params(period_count)
-
         sma_0 = {
-            "period": Param(
-                initial_value=14, initial_min=5, initial_max=50, initial_step=1
-            ),
+            "period": create_param(14, 5, 50, 1),
         }
         sma_1 = {
-            "period": Param(
-                initial_value=60, initial_min=10, initial_max=100, initial_step=5
-            ),
+            "period": create_param(200, 100, 300, 10),
+        }
+        indicators_0 = {
+            "sma_0": sma_0,
+            "sma_1": sma_1,
         }
 
         return [
-            {
-                "sma_0": sma_0,
-                "sma_1": sma_1,
-            },
-            *[{} for i in range(period_count - 1)],
-        ]
+            indicators_0,
+            *[{} for i in range(period_count)],
+        ][:period_count]
 
     def build_signal_params(self):
         """
@@ -134,7 +134,14 @@ class CustomEngineSettingsBuilder(DefaultEngineSettingsBuilder):
         用户可以通过取消注释并实现此方法来自定义引擎设置。
         如果不覆盖此方法，将使用父类的默认实现。
         """
-        return super().build_engine_settings()
+        # return super().build_engine_settings()
+
+        return EngineSettings(
+            execution_stage=ExecutionStage.INDICATOR,
+            # execution_stage=ExecutionStage.PERFORMANCE,
+            return_only_final=False,
+            skip_risk=True,
+        )
 
 
 if __name__ == "__main__":
@@ -151,11 +158,14 @@ if __name__ == "__main__":
 
     backtest_result = (
         br.with_data(
-            timeframes=["15m", "1h"],
-            start_time=1735689600000,
-            num_bars=200,
+            {
+                "timeframes": ["15m", "1h"],
+                "start_time": 1735689600000,
+                "num_bars": 200,
+            },
+            data_builder=DefaultDataBuilder(),
         )
-        .with_param_set(1, param_builder=CustomParamBuilder())
+        .with_param_set({"param_count": 1}, param_builder=CustomParamBuilder())
         .with_templates(
             signal_template_builder=CustomSignalTemplateBuilder(),
             risk_template_builder=CustomRiskTemplateBuilder(),

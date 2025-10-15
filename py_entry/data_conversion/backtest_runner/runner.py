@@ -8,6 +8,7 @@ from py_entry.data_conversion.input import (
     EngineSettings,
     SingleParamSet,
 )
+from .data_builders import BaseDataBuilder, DefaultDataBuilder
 from py_entry.data_conversion.helpers import generate_data_dict, validate_no_none_fields
 
 
@@ -45,45 +46,44 @@ class BacktestRunner:
         self._param_count: Optional[int] = None
         self._period_count: Optional[int] = None
 
-    def with_data(
-        self,
-        timeframes: List[str],
-        start_time: int,
-        num_bars: int,
-        brick_size: float = 2.0,
-    ):
-        """配置回测所需的数据。
-
-        通过调用 `generate_data_dict` 辅助函数来生成数据字典。
+    def with_data(self, config={}, data_builder: BaseDataBuilder = None):
+        """配置回测所需的数据
 
         Args:
-            timeframes: 时间框架列表，例如 ["15m", "1h"]。
-            start_time: 数据开始时间戳（毫秒）。
-            num_bars: 要生成的数据条数。
-            brick_size: 砖块大小，用于数据生成（默认为 2.0）。
+            data_builder: 数据构建器(可选,默认使用 DefaultDataBuilder)
+            **kwargs: 传递给 build_data_dict 的参数
+                - timeframes: List[str]
+                - start_time: int
+                - num_bars: int (默认 1000)
+                - brick_size: float (默认 2.0)
 
         Returns:
-            当前的 BacktestRunner 实例，支持链式调用。
-
-        Raises:
-            ValueError: 如果数据生成失败。
+            当前的 BacktestRunner 实例,支持链式调用
         """
-        self._data_dict = generate_data_dict(
-            timeframes, start_time, num_bars, brick_size
-        )
+        if data_builder is None:
+            data_builder = DefaultDataBuilder()
+
+        self._data_dict = data_builder.build_data_dict(**config)
         return self
 
-    def with_param_set(self, param_count: int, param_builder: BaseParamBuilder = None):
+    def with_param_set(
+        self,
+        config={},
+        param_builder: BaseParamBuilder = None,
+    ):
         """构建回测的参数集"""
+        self._param_count = config["param_count"]
+
+        if config.get("period_count", None) is None:
+            self._period_count = len(self._data_dict.ohlcv)
+        else:
+            self._period_count = config["period_count"]
 
         if param_builder is None:
             param_builder = DefaultParamBuilder()
 
-        self._param_count = param_count
-        self._period_count = len(self._data_dict.ohlcv)
-
         single_param_sets = []
-        for i in range(param_count):
+        for i in range(self._param_count):
             single_set = SingleParamSet(
                 indicators=param_builder.build_indicators_params(self._period_count),
                 signal=param_builder.build_signal_params(),

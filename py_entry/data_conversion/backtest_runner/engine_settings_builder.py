@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from py_entry.data_conversion.input.settings import EngineSettings, ExecutionStage
+from py_entry.data_conversion.input import EngineSettings, ExecutionStage
 
 
 class BaseEngineSettingsBuilder(ABC):

@@ -16,11 +16,13 @@ if __name__ == "__main__":
     br = BacktestRunner()
     backtest_result = (
         br.with_data(
-            timeframes=["15m", "1h"],
-            start_time=1735689600000,
-            num_bars=200,
+            {
+                "timeframes": ["15m", "1h"],
+                "start_time": 1735689600000,
+                "num_bars": 200,
+            },
         )
-        .with_param_set(1)
+        .with_param_set({"param_count": 1})
         .with_templates()
         .with_engine_settings()
         .run()

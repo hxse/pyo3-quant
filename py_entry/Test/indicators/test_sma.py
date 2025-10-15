@@ -1,68 +1,66 @@
-import sys
-from pathlib import Path
+import path_tool
+from typing import Dict, Any
+import numpy as np
+import pandas as pd
+import pandas_ta as ta
 
-root_path = next(
-    (p for p in Path(__file__).resolve().parents if (p / "pyproject.toml").is_file()),
-    None,
+from py_entry.data_conversion.helpers import create_param
+from py_entry.Test.indicators.indicator_test_template import (
+    IndicatorTestConfig,
+    _test_indicator_accuracy,
 )
-if root_path:
-    sys.path.insert(0, str(root_path))
+from py_entry.Test.utils.conftest import data_dict
 
 
-from Test.utils.over_constants import numba_config
+# SMA引擎提取器(单列指标)
+def sma_engine_extractor(
+    indicators_df, indicator_key: str, params: Dict
+) -> Dict[str, np.ndarray]:
+    """
+    从回测引擎的indicators DataFrame中提取SMA单列
+    indicator_key格式: sma_0, sma_1
+    返回Dict保持与BBands一致的接口
+    """
+    return {indicator_key: indicators_df[indicator_key].to_numpy()}
 
 
-from Test.indicators.indicators_template import (
-    compare_indicator_accuracy,
-    compare_pandas_ta_with_talib,
+# SMA pandas_ta提取器
+def sma_pandas_ta_extractor(
+    df: pd.DataFrame, indicator_key: str, params: Dict[str, Any], enable_talib: bool
+) -> Dict[str, np.ndarray]:
+    """使用pandas_ta计算SMA,返回Dict格式"""
+    period = int(params["period"].value)
+    result = ta.sma(df["close"], length=period, talib=enable_talib)
+    return {indicator_key: result.to_numpy()}
+
+
+# SMA配置(保留原有的两个timeframe参数配置)
+sma_config = IndicatorTestConfig(
+    indicator_name="sma",
+    params_config=[
+        # timeframe 0
+        {
+            "sma_0": {"period": create_param(14, 5, 50, 1)},
+            "sma_1": {"period": create_param(100, 50, 200, 10)},
+        },
+        # timeframe 1
+        {
+            "sma_0": {"period": create_param(20, 5, 50, 1)},
+            "sma_1": {"period": create_param(200, 100, 300, 10)},
+        },
+    ],
+    engine_result_extractor=sma_engine_extractor,
+    pandas_ta_result_extractor=sma_pandas_ta_extractor,
 )
 
 
-from Test.utils.conftest import np_data_mock, df_data_mock
-
-
-np_float = numba_config["np"]["float"]
-
-
-name = "sma"
-params_config_list = [{"nb_params": {"period": 14}, "pd_params": {"length": 14}}]
-input_data_keys = ["close"]
-
-nb_pd_talib_key_maps = None
-pd_talib_key_maps = None
-assert_func_kwargs = {}
-
-
-def test_accuracy(
-    np_data_mock,
-    df_data_mock,
-    talib=False,
-    assert_mode=True,
-):
-    compare_indicator_accuracy(
-        name=name,
-        params_config_list=params_config_list,
-        tohlcv_np=np_data_mock,
-        df_data_mock=df_data_mock,
-        input_data_keys=input_data_keys,
-        talib=talib,
-        assert_mode=assert_mode,
-        output_key_maps=nb_pd_talib_key_maps,
-        assert_func_kwargs=assert_func_kwargs,
-    )
-
-
-def test_accuracy_talib(np_data_mock, df_data_mock, talib=True, assert_mode=True):
-    test_accuracy(np_data_mock, df_data_mock, talib=talib, assert_mode=assert_mode)
-
-
-def test_pandas_ta_and_talib(df_data_mock, assert_mode=True):
-    compare_pandas_ta_with_talib(
-        name=name,
-        params_config_list=params_config_list,
-        df_data_mock=df_data_mock,
-        input_data_keys=input_data_keys,
-        assert_mode=assert_mode,
-        assert_func_kwargs=assert_func_kwargs,
-        output_key_maps=pd_talib_key_maps,
+# 重构后的测试函数(保持原有签名以兼容现有测试)
+def test_accuracy(data_dict):
+    """测试SMA指标计算结果与pandas-ta的一致性"""
+    _test_indicator_accuracy(
+        sma_config,
+        data_dict,
+        enable_talib=True,
+        assert_mode_talib=True,
+        assert_mode_pandas_ta=True,
     )

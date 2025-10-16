@@ -112,6 +112,9 @@ jobs:
     if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'  }}
     runs-on: ${{ matrix.platform.runner }}
     needs: [cache-decision]
+    env:
+      # 专为 aarch64 交叉编译设置，以修复 ring 库的 ARM 汇编错误
+      CFLAGS_aarch64_unknown_linux_gnu: "-D__ARM_ARCH=8"
     strategy:
       matrix:
         platform:

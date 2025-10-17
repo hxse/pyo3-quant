@@ -23,7 +23,7 @@ pub fn debug_bbands(pydf: PyDataFrame, length: i64, std: f64) -> PyResult<PyData
 
     // 调用 bbands 计算函数
     let (lower, middle, upper, bandwidth, percent) =
-        crate::backtest_engine::indicators::bbands::calculate_bbands(&df, length, std)
+        crate::backtest_engine::indicators::bbands::bbands_eager(&df, length, std)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
 
     // 将返回的 Series 组装成新的 DataFrame

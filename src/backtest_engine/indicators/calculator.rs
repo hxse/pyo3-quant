@@ -1,5 +1,7 @@
-use crate::backtest_engine::indicators::bbands::calculate_bbands;
-use crate::backtest_engine::indicators::sma::calculate_sma;
+use crate::backtest_engine::indicators::bbands::bbands_eager;
+use crate::backtest_engine::indicators::ema::ema_eager;
+use crate::backtest_engine::indicators::sma::sma_eager;
+use crate::backtest_engine::indicators::tr::tr_eager; // 导入 TR
 use crate::data_conversion::input::param::Param;
 use polars::prelude::*;
 use pyo3::{exceptions::PyRuntimeError, PyResult};
@@ -18,7 +20,7 @@ pub fn calculate_single_period_indicators(
         if indicator_key.starts_with("sma_") {
             if let Some(period_param) = param_map.get("period") {
                 let period = period_param.value as i64; // 将 f64 转换为 i64
-                let sma_series = calculate_sma(ohlcv_df, period)
+                let sma_series = sma_eager(ohlcv_df, period)
                     .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
                 // 使用 with_name 返回新 Series，并转换字符串类型
                 let named_sma = sma_series.with_name(indicator_key.as_str().into());
@@ -36,7 +38,7 @@ pub fn calculate_single_period_indicators(
 
                 // 调用calculate_bbands
                 let (lower, middle, upper, bandwidth, percent) =
-                    calculate_bbands(ohlcv_df, length, std)
+                    bbands_eager(ohlcv_df, length, std)
                         .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
                 // 添加5个Series到indicators_df,使用正确的列名
@@ -67,6 +69,23 @@ pub fn calculate_single_period_indicators(
                     .with_column(percent_named)
                     .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
             }
+        } else if indicator_key.starts_with("ema_") {
+            if let Some(period_param) = param_map.get("period") {
+                let period = period_param.value as i64;
+                let ema_series = ema_eager(ohlcv_df, period)
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+                let named_ema = ema_series.with_name(indicator_key.as_str().into());
+                indicators_df
+                    .with_column(named_ema)
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+            }
+        } else if indicator_key.starts_with("tr_") {
+            let tr_series =
+                tr_eager(ohlcv_df).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+            let named_tr = tr_series.with_name(indicator_key.as_str().into());
+            indicators_df
+                .with_column(named_tr)
+                .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
         }
     }
     Ok(indicators_df)

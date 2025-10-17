@@ -31,3 +31,6 @@ dev = [
     "ta-lib >=0.6.7 ; sys_platform != 'win32'",
 ]
 
+[tool.pytest.ini_options]
+# 列表中的字符串是想要忽略的文件夹名称
+norecursedirs = ["source_ref"]

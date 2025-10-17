@@ -2035,6 +2035,7 @@ name = "pyo3-quant"
 version = "0.1.0"
 dependencies = [
  "polars",
+ "polars-ops",
  "pyo3",
  "pyo3-polars",
  "rayon",

@@ -1,4 +1,8 @@
 target/
+# source_ref 目录包含第三方库源代码,仅用于开发时分析
+# 项目 push 时应保持此项启用
+# 开发时如需参考源代码,可以临时注释掉此行
+source_ref/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

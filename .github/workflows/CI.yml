@@ -41,71 +41,83 @@ jobs:
           CURRENT_REF="${{ github.ref }}"
           CURRENT_TAG="${{ github.ref_name }}"
 
+          echo "--- 1. 当前触发信息 ---"
           echo "Debug: CURRENT_REF=$CURRENT_REF"
           echo "Debug: CURRENT_TAG=$CURRENT_TAG"
 
           # --- 非 Tag 触发，强制启用缓存 ---
-          # 覆盖 Branch push, PR 或 Workflow Dispatch 的情况
           if [[ ! "$CURRENT_REF" =~ ^refs/tags/ ]]; then
+            echo "--- 2. 决策结果：非Tag触发，强制启用缓存 ---"
             echo "use_sccache=true" >> $GITHUB_OUTPUT
-            echo "Non-tag trigger (Branch push, PR or Workflow Dispatch); enabling sccache."
+            echo "**DECISION: ENABLING sccache** (Non-tag trigger: $CURRENT_REF)"
             exit 0
           fi
 
           # 以下逻辑仅针对 Tag 触发
 
-          # 获取上一个标签（修复：使用标签排序提取第二个标签，确保鲁棒性）
-          # 优先使用 --sort=-version:refname（语义版本排序），回退到 --sort=-refname
+          # 获取标签并打印
           TAGS=$(git tag --list --sort=-version:refname 2>/dev/null || git tag --list --sort=-refname 2>/dev/null || echo "")
           PREV_TAG=$(echo "$TAGS" | tail -n +2 | head -n1 2>/dev/null || echo "")
 
-          echo "Debug: TAGS=$TAGS"
+          echo "--- 2. Git Tag 信息 ---"
+          echo "Debug: 所有 Tag 列表 (按版本倒序):"
+          echo "$TAGS"
           echo "Debug: PREV_TAG=$PREV_TAG"
 
           if [ -z "$PREV_TAG" ]; then
             # 首次发布，视为 patch（启用缓存）
+            echo "--- 3. 决策结果：首次发布，启用缓存 ---"
             echo "use_sccache=true" >> $GITHUB_OUTPUT
-            echo "No previous tag; enabling sccache for initial release."
+            echo "**DECISION: ENABLING sccache** (Reason: No previous tag found.)"
             exit 0
           fi
 
           # 检查区间内 commit 消息
-          # 确保 $LOG_RANGE 格式正确
           LOG_RANGE="$PREV_TAG".."$CURRENT_TAG"
           COMMITS_COUNT=$( { git log --oneline "$LOG_RANGE" 2>/dev/null || true; } | wc -l )
 
+          echo "--- 3. 提交记录检查 ($LOG_RANGE) ---"
           echo "Debug: LOG_RANGE=$LOG_RANGE"
           echo "Debug: COMMITS_COUNT=$COMMITS_COUNT"
 
           if [ "$COMMITS_COUNT" -eq 0 ]; then
+            echo "--- 4. 决策结果：无新增提交，启用缓存 ---"
             echo "use_sccache=true" >> $GITHUB_OUTPUT
-            echo "No commits between tags ($PREV_TAG...$CURRENT_TAG); enabling sccache."
+            echo "**DECISION: ENABLING sccache** (Reason: No commits between tags.)"
             exit 0
           fi
+
+          # 打印区间内的所有 Commit 消息
+          echo "Debug: 区间内所有 Commit 消息/Body:"
+          git log "$LOG_RANGE" --pretty=format:'%s%n%b' 2>/dev/null || true
+          echo "-------------------------------------"
+
 
           # ⭐ 更新后的逻辑：检查是否包含自定义的关键词
-          # 使用 grep 查找 commit 消息或 body 中是否包含指定标记（修复：使用 (grep || true) 确保纯输出）
           MANUAL_DISABLE_CACHE=$( { git log "$LOG_RANGE" --pretty=format:%B 2>/dev/null || true; } | (grep -E "$CACHE_DISABLE_KEYWORDS" || true) | wc -l )
 
-          echo "Debug: MANUAL_DISABLE_CACHE=$MANUAL_DISABLE_CACHE"
+          echo "Debug: MANUAL_DISABLE_CACHE (匹配到禁用关键词的数量)=$MANUAL_DISABLE_CACHE"
 
           if [ "$MANUAL_DISABLE_CACHE" -gt 0 ]; then
+            echo "--- 5. 决策结果：发现自定义禁用关键词，禁用缓存 ---"
             echo "use_sccache=false" >> $GITHUB_OUTPUT
-            echo "Custom keyword ($CACHE_DISABLE_KEYWORDS) detected; disabling sccache."
+            echo "**DECISION: DISABLING sccache** (Reason: Custom keyword ($CACHE_DISABLE_KEYWORDS) detected.)"
             exit 0
           fi
 
-          # 原有逻辑：检查是否存在 'feat:' 或 'BREAKING CHANGE:' 提交（修复：同上）
+          # 原有逻辑：检查是否存在 'feat:' 或 'BREAKING CHANGE:' 提交
           NON_PATCH_COMMITS=$( { git log --oneline "$LOG_RANGE" 2>/dev/null || true; } | (grep -E 'feat:|BREAKING CHANGE:' || true) | wc -l )
 
-          echo "Debug: NON_PATCH_COMMITS=$NON_PATCH_COMMITS"
+          echo "Debug: NON_PATCH_COMMITS (匹配到非 Patch 提交的数量)=$NON_PATCH_COMMITS"
 
           if [ "$NON_PATCH_COMMITS" -eq 0 ]; then
+            echo "--- 6. 决策结果：只有 Patch 提交，启用缓存 ---"
             echo "use_sccache=true" >> $GITHUB_OUTPUT
-            echo "Only patch commits between $PREV_TAG and $CURRENT_TAG; enabling sccache."
+            echo "**DECISION: ENABLING sccache** (Reason: Only patch commits between $PREV_TAG and $CURRENT_TAG.)"
           else
+            echo "--- 6. 决策结果：发现非 Patch 提交，禁用缓存 ---"
             echo "use_sccache=false" >> $GITHUB_OUTPUT
-            echo "Non-patch commits (feat or BREAKING) detected; disabling sccache."
+            echo "**DECISION: DISABLING sccache** (Reason: Non-patch commits (feat or BREAKING) detected.)"
           fi
 
   linux:

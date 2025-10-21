@@ -6,7 +6,7 @@ use super::sma::sma_expr;
 use super::sma::SMAConfig;
 
 /// 布林带的配置结构体，将所有输入参数和输出列名抽象化。
-struct BBandsConfig {
+pub struct BBandsConfig {
     pub column_name: String,
     pub length: i64,
     pub std_multiplier: f64,
@@ -25,7 +25,7 @@ struct BBandsConfig {
 ///
 /// **表达式层 (Exprs)**
 /// 接收配置结构体，所有列名均通过结构体参数传入。
-fn bbands_expr(config: &BBandsConfig) -> PolarsResult<(Expr, Expr, Expr, Expr, Expr, Expr)> {
+pub fn bbands_expr(config: &BBandsConfig) -> PolarsResult<(Expr, Expr, Expr, Expr, Expr, Expr)> {
     let col_name = config.column_name.as_str();
     let length = config.length;
     let std_multiplier = config.std_multiplier;

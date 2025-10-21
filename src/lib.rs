@@ -37,5 +37,13 @@ fn pyo3_quant(m: &Bound<'_, PyModule>) -> PyResult<()> {
         minimal_working_example::indicators::debug_bbands::debug_bbands,
         m
     )?)?;
+    m.add_function(wrap_pyfunction!(
+        minimal_working_example::indicators::debug_macd::debug_macd,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        minimal_working_example::indicators::debug_adx::debug_adx,
+        m
+    )?)?;
     Ok(())
 }

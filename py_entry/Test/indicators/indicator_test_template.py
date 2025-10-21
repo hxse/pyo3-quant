@@ -13,7 +13,6 @@ from py_entry.data_conversion.backtest_runner import (
 )
 from py_entry.Test.utils.comparison_tool import (
     assert_indicator_same,
-    assert_indicator_different,
 )
 
 
@@ -44,6 +43,62 @@ class IndicatorTestConfig:
     # 输入: 列名(如 "bbands_0_percent")
     # 输出: Dict,可包含 "custom_rtol" 和/或 "custom_atol" 键
     tolerance_customizer: Optional[Callable[[str], Dict[str, float]]] = None
+
+    skip_suffixes: List[str] = field(default_factory=list)
+
+
+def print_array_details(name, arr):
+    """
+    打印 NumPy 数组的详细统计信息。
+
+    参数:
+        name (str): 数组的名称（用于打印输出）。
+        arr (np.ndarray): 要分析的 NumPy 数组。
+    """
+    print(f"\n--- 数组详细信息: {name} ---")
+
+    # 1. 总数量
+    total_count = arr.size
+    print(f"1. 总元素数量 (Total Count): {total_count}")
+
+    # 2. 前导 NaN 数量
+    # 使用 isfinite() 找到第一个非 NaN/inf 值（有效数据）的索引
+    first_valid_idx = np.where(np.isfinite(arr))[0]
+
+    if first_valid_idx.size == 0:
+        # 数组全为 NaN 或 Inf
+        leading_nan_count = total_count
+        first_valid_start = "无有效数据"
+    else:
+        leading_nan_count = first_valid_idx[0]
+        first_valid_start = leading_nan_count
+
+    print(f"2. 前导 NaN 数量 (Leading NaNs): {leading_nan_count}")
+
+    # 3. 前 10 个值 (从头开始)
+    print(f"3. 数组头部前 {min(10, total_count)} 个值 (Head):")
+    print(arr[:10])
+
+    # 4. 后 10 个值 (从尾部开始)
+    if total_count > 10:
+        print(f"4. 数组尾部后 10 个值 (Tail):")
+        print(arr[-10:])
+    elif total_count > 0:
+        print(f"4. 数组元素不足 10 个，尾部值同头部:")
+        print(arr)
+    else:
+        print("4. 数组为空，无尾部值。")
+
+    # 5. 前 10 个非前导 NaN 的值 (即第一个有效值开始的 10 个值)
+    print(
+        f"5. 第一个有效值开始的前 {min(10, total_count - leading_nan_count)} 个值 (Valid Head):"
+    )
+    if first_valid_idx.size > 0:
+        start_idx = first_valid_idx[0]
+        # 打印从第一个有效索引开始的 10 个值
+        print(arr[start_idx : start_idx + 10])
+    else:
+        print("数组中无有效非 NaN/Inf 数据可打印。")
 
 
 def _test_indicator_accuracy(
@@ -126,13 +181,17 @@ def _test_indicator_accuracy(
             names = (
                 [indicator_key]
                 if not config.suffixes
-                else [f"{indicator_key}_{i}" for i in config.suffixes]
+                else [
+                    f"{indicator_key}_{i}"
+                    for i in config.suffixes
+                    if i not in config.skip_suffixes
+                ]
             )
 
-            for name in names:
-                if "percent" in name:
-                    continue
+            pandas_ta_diff_count = 0
+            talib_diff_count = 0
 
+            for name in names:
                 # 获取自定义阈值
                 tolerance_overrides = {}
                 if config.tolerance_customizer:
@@ -145,19 +204,25 @@ def _test_indicator_accuracy(
                 engine_array = engine_results[name]
                 pandas_ta_array = pandas_ta_results[name]
 
-                assert_func = (
-                    assert_indicator_same
-                    if assert_mode_pandas_ta
-                    else assert_indicator_different
-                )
-                assert_func(
-                    engine_array,
-                    pandas_ta_array,
-                    config.indicator_name,
-                    indicator_info,
-                    **tolerance_overrides,  # 使用**解包传递自定义阈值
-                )
+                # pandas_ta 验证逻辑
+                try:
+                    assert_indicator_same(
+                        engine_array,
+                        pandas_ta_array,
+                        name,
+                        indicator_info,
+                        is_nested_call=True,
+                        **tolerance_overrides,
+                    )
+                except AssertionError:
+                    if assert_mode_pandas_ta:
+                        print_array_details(f"engine {name}", engine_array)
+                        print_array_details(f"pandas_ta {name}", pandas_ta_array)
+                        raise
+                    else:
+                        pandas_ta_diff_count += 1
 
+                # talib 验证逻辑
                 if enable_talib:
                     talib_results = config.pandas_ta_result_extractor(
                         pandas_df,
@@ -167,15 +232,31 @@ def _test_indicator_accuracy(
                         enable_talib=True,
                     )
                     talib_array = talib_results[name]
-                    assert_func = (
-                        assert_indicator_same
-                        if assert_mode_talib
-                        else assert_indicator_different
-                    )
-                    assert_func(
-                        engine_array,
-                        talib_array,
-                        config.indicator_name,
-                        indicator_info,
-                        **tolerance_overrides,  # 同样使用自定义阈值
-                    )
+
+                    try:
+                        assert_indicator_same(
+                            engine_array,
+                            talib_array,
+                            name,
+                            indicator_info,
+                            is_nested_call=True,
+                            **tolerance_overrides,
+                        )
+                    except AssertionError:
+                        if assert_mode_talib:
+                            print_array_details(f"engine {name}", engine_array)
+                            print_array_details(f"talib {name}", talib_array)
+                            raise
+                        else:
+                            talib_diff_count += 1
+
+            # 循环结束后检查计数
+            if not assert_mode_pandas_ta and pandas_ta_diff_count == 0:
+                raise AssertionError(
+                    f"预期 pandas_ta 结果至少有一列不同，但所有列都相同。指标: {config.indicator_name}, 参数: {params_dict}"
+                )
+
+            if enable_talib and not assert_mode_talib and talib_diff_count == 0:
+                raise AssertionError(
+                    f"预期 talib 结果至少有一列不同，但所有列都相同。指标: {config.indicator_name}, 参数: {params_dict}"
+                )

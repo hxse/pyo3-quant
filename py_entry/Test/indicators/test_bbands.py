@@ -50,15 +50,6 @@ def bbands_pandas_ta_extractor(
     return result
 
 
-# BBands阈值自定义函数
-def bbands_tolerance_customizer(name: str) -> Dict[str, float]:
-    """根据列名返回自定义阈值"""
-    if "_percent" in name:
-        # percent列精度要求较低
-        return {"custom_rtol": 1e-3, "custom_atol": 1e-6}
-    return {}
-
-
 # BBands配置
 bbands_config = IndicatorTestConfig(
     indicator_name="bbands",
@@ -89,7 +80,7 @@ bbands_config = IndicatorTestConfig(
     suffixes=["lower", "middle", "upper", "bandwidth", "percent"],
     engine_result_extractor=bbands_engine_extractor,
     pandas_ta_result_extractor=bbands_pandas_ta_extractor,
-    tolerance_customizer=bbands_tolerance_customizer,
+    tolerance_customizer=None,
 )
 
 

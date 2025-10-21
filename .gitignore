@@ -2,7 +2,12 @@ target/
 # source_ref 目录包含第三方库源代码,仅用于开发时分析
 # 项目 push 时应保持此项启用
 # 开发时如需参考源代码,可以临时注释掉此行
-source_ref/
+# source_ref/
+source_ref/doc/
+source_ref/pandas-ta/
+source_ref/polars/
+source_ref/ta-lib/
+source_ref/example_source/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

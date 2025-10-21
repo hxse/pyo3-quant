@@ -15,6 +15,7 @@ polars = { version = "0.51", features = [
     "rolling_window",
     "ewma",
     "abs",
+    "diff",
 ] }
 polars-ops = { version = "0.51.0", features = ["ewma"] }
 pyo3 = { version = "0.25", features = ["extension-module"] }

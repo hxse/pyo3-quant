@@ -1,7 +1,13 @@
+use crate::backtest_engine::indicators::adx::{adx_eager, ADXConfig};
+use crate::backtest_engine::indicators::atr::atr_eager;
 use crate::backtest_engine::indicators::bbands::bbands_eager;
 use crate::backtest_engine::indicators::ema::ema_eager;
+use crate::backtest_engine::indicators::macd::macd_eager;
+use crate::backtest_engine::indicators::psar::psar_eager;
+use crate::backtest_engine::indicators::rma::rma_eager;
+use crate::backtest_engine::indicators::rsi::rsi_eager;
 use crate::backtest_engine::indicators::sma::sma_eager;
-use crate::backtest_engine::indicators::tr::tr_eager; // 导入 TR
+use crate::backtest_engine::indicators::tr::tr_eager;
 use crate::data_conversion::input::param::Param;
 use polars::prelude::*;
 use pyo3::{exceptions::PyRuntimeError, PyResult};
@@ -86,6 +92,148 @@ pub fn calculate_single_period_indicators(
             indicators_df
                 .with_column(named_tr)
                 .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        } else if indicator_key.starts_with("rma_") {
+            if let Some(period_param) = param_map.get("period") {
+                let period = period_param.value as i64;
+                let rma_series = rma_eager(ohlcv_df, period)
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+                let named_rma = rma_series.with_name(indicator_key.as_str().into());
+                indicators_df
+                    .with_column(named_rma)
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+            }
+        } else if indicator_key.starts_with("atr_") {
+            if let Some(period_param) = param_map.get("period") {
+                let period = period_param.value as i64;
+                let atr_series = atr_eager(ohlcv_df, period)
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+                let named_atr = atr_series.with_name(indicator_key.as_str().into());
+                indicators_df
+                    .with_column(named_atr)
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+            }
+        } else if indicator_key.starts_with("rsi_") {
+            if let Some(period_param) = param_map.get("period") {
+                let period = period_param.value as i64;
+                let rsi_series = rsi_eager(ohlcv_df, period)
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+                let named_atr = rsi_series.with_name(indicator_key.as_str().into());
+                indicators_df
+                    .with_column(named_atr)
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+            }
+        } else if indicator_key.starts_with("psar_") {
+            if let (Some(af0_param), Some(af_step_param), Some(max_af_param)) = (
+                param_map.get("af0"),
+                param_map.get("af_step"),
+                param_map.get("max_af"),
+            ) {
+                let af0 = af0_param.value;
+                let af_step = af_step_param.value;
+                let max_af = max_af_param.value;
+
+                let (psar_long, psar_short, psar_af, psar_reversal) =
+                    psar_eager(ohlcv_df, af0, af_step, max_af)
+                        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+
+                indicators_df
+                    .with_column(
+                        psar_long.with_name(format!("{}_long", indicator_key).as_str().into()),
+                    )
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+
+                indicators_df
+                    .with_column(
+                        psar_short.with_name(format!("{}_short", indicator_key).as_str().into()),
+                    )
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+
+                indicators_df
+                    .with_column(psar_af.with_name(format!("{}_af", indicator_key).as_str().into()))
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+
+                indicators_df
+                    .with_column(
+                        psar_reversal
+                            .with_name(format!("{}_reversal", indicator_key).as_str().into()),
+                    )
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+            }
+        } else if indicator_key.starts_with("macd_") {
+            if let (Some(fast_period_param), Some(slow_period_param), Some(signal_period_param)) = (
+                param_map.get("fast_period"),
+                param_map.get("slow_period"),
+                param_map.get("signal_period"),
+            ) {
+                let fast_period = fast_period_param.value as i64;
+                let slow_period = slow_period_param.value as i64;
+                let signal_period = signal_period_param.value as i64;
+
+                let macd_alias_str = format!("{}_macd", indicator_key);
+                let signal_alias_str = format!("{}_signal", indicator_key);
+                let hist_alias_str = format!("{}_hist", indicator_key);
+
+                let (macd_series, signal_series, hist_series) = macd_eager(
+                    ohlcv_df,
+                    "close", // MACD通常基于close价格计算
+                    fast_period,
+                    slow_period,
+                    signal_period,
+                    macd_alias_str.as_str(),
+                    signal_alias_str.as_str(),
+                    hist_alias_str.as_str(),
+                )
+                .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+
+                indicators_df
+                    .with_column(macd_series)
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+                indicators_df
+                    .with_column(signal_series)
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+                indicators_df
+                    .with_column(hist_series)
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+            }
+        } else if indicator_key.starts_with("adx_") {
+            if let Some(period_param) = param_map.get("period") {
+                let period = period_param.value as i64;
+                let adxr_length = param_map
+                    .get("adxr_length")
+                    .map(|p| p.value as i64)
+                    .unwrap_or(2); // 默认值为 2
+
+                let adx_alias_str = format!("{}_adx", indicator_key);
+                let plus_dm_alias_str = format!("{}_plus_dm", indicator_key);
+                let minus_dm_alias_str = format!("{}_minus_dm", indicator_key);
+                let adxr_alias_str = format!("{}_adxr", indicator_key);
+
+                let (adx_series, adxr_series, plus_dm_series, minus_dm_series) = adx_eager(
+                    ohlcv_df,
+                    &ADXConfig {
+                        high_col: "high".to_string(),
+                        low_col: "low".to_string(),
+                        close_col: "close".to_string(),
+                        period,
+                        adx_alias: adx_alias_str.clone(),
+                        plus_dm_alias: plus_dm_alias_str.clone(),
+                        minus_dm_alias: minus_dm_alias_str.clone(),
+                        adxr_length,
+                        adxr_alias: adxr_alias_str.clone(),
+                    },
+                )
+                .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+
+                indicators_df
+                    .with_column(adx_series.with_name(adx_alias_str.as_str().into()))
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?
+                    .with_column(adxr_series.with_name(adxr_alias_str.as_str().into()))
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?
+                    .with_column(plus_dm_series.with_name(plus_dm_alias_str.as_str().into()))
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?
+                    .with_column(minus_dm_series.with_name(minus_dm_alias_str.as_str().into()))
+                    .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+            }
         }
     }
     Ok(indicators_df)

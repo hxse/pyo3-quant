@@ -10,7 +10,7 @@ if root_path:
 
 import pandas as pd
 import pandas_ta as ta
-from py_entry.data_conversion.helpers.data_generator import generate_data_dict
+from py_entry.data_conversion.helpers.data_generator import generate_ohlcv
 from py_entry.Test.utils.comparison_tool import (
     assert_indicator_same,
     assert_indicator_different,
@@ -21,17 +21,16 @@ import pyo3_quant
 
 def run_debug_bbands():
     timeframes = ["15m"]
-    data = generate_data_dict(
-        timeframes=timeframes, start_time=1735689600000, num_bars=5000
-    )
+
+    ohlcv_df = generate_ohlcv(
+        timeframe="15m", start_time=1735689600000, num_bars=100
+    )  # generate_ohlcv 返回 polars DataFrame
 
     length = 20
     std = 2.0
 
     for idx, tf in enumerate(timeframes):
         print(f"\n--- Timeframe: {tf} ---")
-
-        ohlcv_df = data.ohlcv[idx]
 
         # 调用 Rust 实现
         result_rust_pydf = pyo3_quant.debug_bbands(ohlcv_df, length=length, std=std)

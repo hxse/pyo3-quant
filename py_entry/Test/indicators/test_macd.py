@@ -60,34 +60,36 @@ def macd_pandas_ta_extractor(
 # MACD配置
 macd_config = IndicatorTestConfig(
     indicator_name="macd",
-    params_config=[
-        # timeframe 0
-        {
-            "macd_0": {
-                "fast_period": create_param(12),
-                "slow_period": create_param(26),
-                "signal_period": create_param(9),
+    params_config={
+        "ohlcv": [
+            # timeframe 0
+            {
+                "macd_0": {
+                    "fast_period": create_param(12),
+                    "slow_period": create_param(26),
+                    "signal_period": create_param(9),
+                },
+                "macd_1": {
+                    "fast_period": create_param(5),
+                    "slow_period": create_param(40),
+                    "signal_period": create_param(5),
+                },
             },
-            "macd_1": {
-                "fast_period": create_param(5),
-                "slow_period": create_param(40),
-                "signal_period": create_param(5),
+            # timeframe 1
+            {
+                "macd_0": {
+                    "fast_period": create_param(8),
+                    "slow_period": create_param(21),
+                    "signal_period": create_param(7),
+                },
+                "macd_1": {
+                    "fast_period": create_param(10),
+                    "slow_period": create_param(30),
+                    "signal_period": create_param(10),
+                },
             },
-        },
-        # timeframe 1
-        {
-            "macd_0": {
-                "fast_period": create_param(8),
-                "slow_period": create_param(21),
-                "signal_period": create_param(7),
-            },
-            "macd_1": {
-                "fast_period": create_param(10),
-                "slow_period": create_param(30),
-                "signal_period": create_param(10),
-            },
-        },
-    ],
+        ]
+    },
     suffixes=["macd", "hist", "signal"],
     engine_result_extractor=macd_engine_extractor,
     pandas_ta_result_extractor=macd_pandas_ta_extractor,

@@ -10,7 +10,7 @@ pub type PerformanceMetrics = HashMap<String, f64>;
 #[derive(Debug)]
 pub struct BacktestSummary {
     pub performance: Option<PerformanceMetrics>,
-    pub indicators: Option<Vec<DataFrame>>,
+    pub indicators: Option<HashMap<String, Vec<DataFrame>>>,
     pub signals: Option<DataFrame>,
     pub backtest: Option<DataFrame>,
 }
@@ -31,12 +31,16 @@ impl<'py> IntoPyObject<'py> for BacktestSummary {
 
         // 设置 indicators 字段，处理 Option<Vec<DataFrame>>
         match self.indicators {
-            Some(dfs) => {
-                let py_list = pyo3::types::PyList::empty(py);
-                for df in dfs {
-                    py_list.append(PyDataFrame(df))?;
+            Some(indicators_map) => {
+                let py_dict = PyDict::new(py);
+                for (key, dfs) in indicators_map {
+                    let py_list = pyo3::types::PyList::empty(py);
+                    for df in dfs {
+                        py_list.append(PyDataFrame(df))?;
+                    }
+                    py_dict.set_item(key, py_list)?;
                 }
-                dict.set_item("indicators", py_list)?;
+                dict.set_item("indicators", py_dict)?;
             }
             None => dict.set_item("indicators", py.None())?,
         }

@@ -6,6 +6,8 @@ on:
 permissions:
     contents: write
 
+# #major #minor #patch #none
+
 jobs:
     autotag:
         runs-on: ubuntu-latest

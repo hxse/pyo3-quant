@@ -6,9 +6,9 @@ use std::collections::HashMap;
 
 pub fn generate_signals(
     processed_data: &ProcessedDataDict,
-    indicator_dfs: &[DataFrame], // 使用切片引用
+    indicator_dfs: &HashMap<String, Vec<DataFrame>>, // 使用 HashMap 引用
     signal_params: &SignalParams,
-    signal_template: &Vec<SignalGroup>,
+    signal_template: &SignalTemplate,
 ) -> PolarsResult<DataFrame> {
     // 占位实现:返回空DataFrame
     Ok(DataFrame::empty())

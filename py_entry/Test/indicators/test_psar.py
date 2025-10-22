@@ -75,34 +75,36 @@ def psar_pandas_ta_extractor(
 # PSAR配置
 psar_config = IndicatorTestConfig(
     indicator_name="psar",
-    params_config=[
-        # timeframe 0
-        {
-            "psar_0": {
-                "af0": create_param(0.02),
-                "af_step": create_param(0.02),
-                "max_af": create_param(0.2),
+    params_config={
+        "ohlcv": [
+            # timeframe 0
+            {
+                "psar_0": {
+                    "af0": create_param(0.02),
+                    "af_step": create_param(0.02),
+                    "max_af": create_param(0.2),
+                },
+                "psar_1": {
+                    "af0": create_param(0.03),
+                    "af_step": create_param(0.03),
+                    "max_af": create_param(0.3),
+                },
             },
-            "psar_1": {
-                "af0": create_param(0.03),
-                "af_step": create_param(0.03),
-                "max_af": create_param(0.3),
+            # timeframe 1
+            {
+                "psar_0": {
+                    "af0": create_param(0.01),
+                    "af_step": create_param(0.01),
+                    "max_af": create_param(0.15),
+                },
+                "psar_1": {
+                    "af0": create_param(0.025),
+                    "af_step": create_param(0.025),
+                    "max_af": create_param(0.25),
+                },
             },
-        },
-        # timeframe 1
-        {
-            "psar_0": {
-                "af0": create_param(0.01),
-                "af_step": create_param(0.01),
-                "max_af": create_param(0.15),
-            },
-            "psar_1": {
-                "af0": create_param(0.025),
-                "af_step": create_param(0.025),
-                "max_af": create_param(0.25),
-            },
-        },
-    ],
+        ]
+    },
     suffixes=["long", "short", "af", "reversal"],
     engine_result_extractor=psar_engine_extractor,
     pandas_ta_result_extractor=psar_pandas_ta_extractor,

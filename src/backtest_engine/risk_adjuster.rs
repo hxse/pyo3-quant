@@ -20,10 +20,13 @@ pub fn create_initial_position_series(
     position_pct: f64,
 ) -> PyResult<Series> {
     // 检查是否存在ohlcv
-    let ohlcv_vec = &processed_data.ohlcv;
-    let ohlcv = ohlcv_vec.first().ok_or_else(|| {
-        pyo3::exceptions::PyKeyError::new_err("Empty 'ohlcv' vector in processed_data.ohlcv")
-    })?;
+    let ohlcv_vec = processed_data
+        .source
+        .get("ohlcv")
+        .ok_or_else(|| PyKeyError::new_err("数据源 'ohlcv' 未找到"))?;
+    let ohlcv = ohlcv_vec
+        .first()
+        .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err("数据源 'ohlcv' 为空"))?;
 
     // 获取行数
     let row_count = ohlcv.height();

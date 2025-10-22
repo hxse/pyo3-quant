@@ -33,7 +33,9 @@ class CustomParamBuilder(DefaultParamBuilder):
     如果某个方法未被覆盖，将使用父类 DefaultParamBuilder 的默认实现。
     """
 
-    def build_indicators_params(self, period_count: int) -> List[Dict[str, Any]]:
+    def build_indicators_params(
+        self, period_count: int
+    ) -> Dict[str, List[Dict[str, Any]]]:
         """
         构建指标参数。
         用户可以通过取消注释并实现此方法来自定义指标参数。
@@ -51,10 +53,12 @@ class CustomParamBuilder(DefaultParamBuilder):
             "sma_1": sma_1,
         }
 
-        return [
-            indicators_0,
-            *[{} for i in range(period_count)],
-        ][:period_count]
+        return {
+            "ohlcv": [
+                indicators_0,
+                *[{} for i in range(period_count)],
+            ][:period_count]
+        }
 
     def build_signal_params(self):
         """
@@ -165,7 +169,7 @@ if __name__ == "__main__":
             },
             data_builder=DefaultDataBuilder(),
         )
-        .with_param_set({"param_count": 1}, param_builder=CustomParamBuilder())
+        .with_param_set(param_builder=CustomParamBuilder())
         .with_templates(
             signal_template_builder=CustomSignalTemplateBuilder(),
             risk_template_builder=CustomRiskTemplateBuilder(),

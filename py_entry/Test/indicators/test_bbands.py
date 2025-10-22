@@ -53,30 +53,32 @@ def bbands_pandas_ta_extractor(
 # BBands配置
 bbands_config = IndicatorTestConfig(
     indicator_name="bbands",
-    params_config=[
-        # timeframe 0
-        {
-            "bbands_0": {
-                "length": create_param(14),
-                "std": create_param(2.0),
+    params_config={
+        "ohlcv": [
+            # timeframe 0
+            {
+                "bbands_0": {
+                    "length": create_param(14),
+                    "std": create_param(2.0),
+                },
+                "bbands_1": {
+                    "length": create_param(20),
+                    "std": create_param(2.5),
+                },
             },
-            "bbands_1": {
-                "length": create_param(20),
-                "std": create_param(2.5),
+            # timeframe 1
+            {
+                "bbands_0": {
+                    "length": create_param(20),
+                    "std": create_param(2.0),
+                },
+                "bbands_1": {
+                    "length": create_param(30),
+                    "std": create_param(3.0),
+                },
             },
-        },
-        # timeframe 1
-        {
-            "bbands_0": {
-                "length": create_param(20),
-                "std": create_param(2.0),
-            },
-            "bbands_1": {
-                "length": create_param(30),
-                "std": create_param(3.0),
-            },
-        },
-    ],
+        ]
+    },
     suffixes=["lower", "middle", "upper", "bandwidth", "percent"],
     engine_result_extractor=bbands_engine_extractor,
     pandas_ta_result_extractor=bbands_pandas_ta_extractor,

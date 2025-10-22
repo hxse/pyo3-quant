@@ -51,6 +51,8 @@ class DefaultDataBuilder(BaseDataBuilder):
         Returns:
             DataDict 数据字典
         """
+        # generate_data_dict 应该已经返回新的 DataDict 结构，其中包含 source 字段
+        # ohlcv 和 extra_data 会被合并到 source 字典中
         return generate_data_dict(
             timeframes=timeframes,
             start_time=start_time,

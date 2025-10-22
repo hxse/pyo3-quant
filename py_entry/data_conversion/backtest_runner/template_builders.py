@@ -22,16 +22,42 @@ class DefaultSignalTemplateBuilder(BaseSignalTemplateBuilder):
     def build_signal_template_instance(self) -> SignalTemplate:
         enter_long_group = create_signal_group(
             logic="and",
-            target="enter_long",
             conditions=[
-                signal_data_vs_data("sma_0", "sma_1", CompareOp.GT, mtf=2),
-                signal_data_vs_param("rsi_0", "rsi_midline", CompareOp.GT, mtf=1),
-                signal_data_vs_data("close", "bbands_upper", CompareOp.CGT),
+                signal_data_vs_data(
+                    compare=CompareOp.GT,
+                    a_name="sma_0",
+                    a_source="ohlcv",
+                    a_source_idx=0,
+                    a_offset=0,
+                    b_name="sma_1",
+                    b_source="ohlcv",
+                    b_source_idx=0,
+                    b_offset=0,
+                ),
+                signal_data_vs_param(
+                    compare=CompareOp.GT,
+                    a_name="rsi_0",
+                    a_source="ohlcv",
+                    a_source_idx=1,
+                    a_offset=0,
+                    b_param="rsi_midline",
+                ),
+                signal_data_vs_data(
+                    compare=CompareOp.CGT,
+                    a_name="close",
+                    a_source="ohlcv",
+                    a_source_idx=2,
+                    a_offset=0,
+                    b_name="bbands_upper",
+                    b_source="ohlcv",
+                    b_source_idx=2,
+                    b_offset=0,
+                ),
             ],
         )
 
         return SignalTemplate(
-            name="multi_timeframe_dynamic_strategy", template=[enter_long_group]
+            name="multi_timeframe_dynamic_strategy", enter_long=enter_long_group
         )
 
 
@@ -43,22 +69,56 @@ class BaseRiskTemplateBuilder(ABC):
 
 class DefaultRiskTemplateBuilder(BaseRiskTemplateBuilder):
     def build_risk_template_instance(self) -> RiskTemplate:
-        rules = [
-            create_risk_rule(
-                "and",
-                "size_up_pct",
-                [risk_data_vs_data("balance", "bbands_upper", CompareOp.GT)],
-            ),
-            create_risk_rule(
-                "and",
-                "size_down_pct",
-                [risk_data_vs_data("balance", "bbands_lower", CompareOp.LT)],
-            ),
-            create_risk_rule(
-                "and",
-                "size_mid_pct",
-                [risk_data_vs_param("balance", "zero_value", CompareOp.GE)],
-            ),
-        ]
-
-        return RiskTemplate(name="bbands_position_sizing", template=rules)
+        size_neutral_pct = create_risk_rule(
+            logic="and",
+            conditions=[
+                risk_data_vs_param(
+                    compare=CompareOp.GE,
+                    a_name="balance",
+                    a_source="balance",
+                    b_param="zero_value",
+                )
+            ],
+        )
+        size_up_pct = create_risk_rule(
+            logic="and",
+            conditions=[
+                risk_data_vs_data(
+                    compare=CompareOp.GT,
+                    a_name="balance",
+                    a_source="balance",
+                    b_name="bbands_upper",
+                    b_source="balance",
+                ),
+            ],
+        )
+        size_down_pct = create_risk_rule(
+            logic="and",
+            conditions=[
+                risk_data_vs_data(
+                    compare=CompareOp.LT,
+                    a_name="balance",
+                    a_source="balance",
+                    b_name="bbands_lower",
+                    b_source="balance",
+                )
+            ],
+        )
+        size_skip_pct = create_risk_rule(
+            logic="and",
+            conditions=[
+                risk_data_vs_param(
+                    compare=CompareOp.LE,
+                    a_name="balance",
+                    a_source="balance",
+                    b_param="zero_value",
+                )
+            ],
+        )
+        return RiskTemplate(
+            name="bbands_position_sizing",
+            size_neutral_pct=size_neutral_pct,
+            size_up_pct=size_up_pct,
+            size_down_pct=size_down_pct,
+            size_skip_pct=size_skip_pct,
+        )

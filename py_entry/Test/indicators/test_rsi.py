@@ -37,18 +37,20 @@ def rsi_pandas_ta_extractor(
 # RSI配置
 rsi_config = IndicatorTestConfig(
     indicator_name="rsi",
-    params_config=[
-        # timeframe 0
-        {
-            "rsi_0": {"period": create_param(14)},
-            "rsi_1": {"period": create_param(21)},
-        },
-        # timeframe 1
-        {
-            "rsi_0": {"period": create_param(9)},
-            "rsi_1": {"period": create_param(25)},
-        },
-    ],
+    params_config={
+        "ohlcv": [
+            # timeframe 0
+            {
+                "rsi_0": {"period": create_param(14)},
+                "rsi_1": {"period": create_param(21)},
+            },
+            # timeframe 1
+            {
+                "rsi_0": {"period": create_param(9)},
+                "rsi_1": {"period": create_param(25)},
+            },
+        ]
+    },
     suffixes=[],
     engine_result_extractor=rsi_engine_extractor,
     pandas_ta_result_extractor=rsi_pandas_ta_extractor,

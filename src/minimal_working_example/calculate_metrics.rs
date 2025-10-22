@@ -20,7 +20,7 @@ pub fn calculate_metrics(
 
     // 计算
     let mut summaries = Vec::new();
-    for single_param in &processed_params.params {
+    for single_param in &processed_params {
         let summary = calculate_metrics_internal(
             &processed_data,
             single_param,
@@ -48,10 +48,17 @@ fn calculate_metrics_internal(
         return Ok("Performance metrics calculated (placeholder)".to_string());
     }
 
+    let enter_long_count = template
+        .signal
+        .enter_long
+        .as_ref()
+        .map(|group| group.conditions.len())
+        .unwrap_or(0);
+
     let mut summary = format!(
         "Strategy: indicators count={}, signal_templates={}",
         params.indicators.len(),
-        template.signal.template.len()
+        enter_long_count
     );
 
     summary.push_str(&format!(
@@ -62,7 +69,7 @@ fn calculate_metrics_internal(
     // 添加数据信息
     summary.push_str(&format!(
         ", data keys count={}, mapping rows={}",
-        data.ohlcv.len(),
+        data.source.get("ohlcv").map_or(0, |df| df.len()),
         data.mapping.height()
     ));
 

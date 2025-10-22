@@ -41,18 +41,20 @@ def ema_pandas_ta_extractor(
 # EMA配置
 ema_config = IndicatorTestConfig(
     indicator_name="ema",
-    params_config=[
-        # timeframe 0
-        {
-            "ema_0": {"period": create_param(14)},
-            "ema_1": {"period": create_param(100)},
-        },
-        # timeframe 1
-        {
-            "ema_0": {"period": create_param(20)},
-            "ema_1": {"period": create_param(200)},
-        },
-    ],
+    params_config={
+        "ohlcv": [
+            # timeframe 0
+            {
+                "ema_0": {"period": create_param(14)},
+                "ema_1": {"period": create_param(100)},
+            },
+            # timeframe 1
+            {
+                "ema_0": {"period": create_param(20)},
+                "ema_1": {"period": create_param(200)},
+            },
+        ]
+    },
     suffixes=[],
     engine_result_extractor=ema_engine_extractor,
     pandas_ta_result_extractor=ema_pandas_ta_extractor,

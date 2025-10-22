@@ -2,7 +2,7 @@
 
 from typing import Union, Optional
 
-from ..input import SignalGroup, RiskRule, Param
+from ..input import SignalGroup, RiskGroup, Param
 from ..input import SignalCondition, RiskCondition
 from typing import List
 
@@ -29,15 +29,11 @@ def create_param(
     )
 
 
-def create_signal_group(
-    logic: str, target: str, conditions: List[SignalCondition]
-) -> SignalGroup:
+def create_signal_group(logic: str, conditions: List[SignalCondition]) -> SignalGroup:
     """创建信号组"""
-    return SignalGroup(logic=logic, target=target, conditions=conditions)
+    return SignalGroup(logic=logic, conditions=conditions)
 
 
-def create_risk_rule(
-    logic: str, target: str, conditions: List[RiskCondition]
-) -> RiskRule:
+def create_risk_rule(logic: str, conditions: List[RiskCondition]) -> RiskGroup:
     """创建风险规则"""
-    return RiskRule(logic=logic, target=target, conditions=conditions)
+    return RiskGroup(logic=logic, conditions=conditions)

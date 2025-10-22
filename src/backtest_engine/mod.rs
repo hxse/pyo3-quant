@@ -33,12 +33,11 @@ pub fn run_backtest_engine(
         process_all_params(py, data_dict, param_set, template, engine_settings)?;
 
     // 2. 根据任务数选择执行策略
-    let total_tasks = processed_params.params.len();
+    let total_tasks = processed_params.len();
 
     let results: Vec<BacktestSummary> = if total_tasks == 1 {
         // 单任务：直接执行，不限制 Polars 并发
         processed_params
-            .params
             .into_iter()
             .map(|single_param| {
                 execute_single_backtest(
@@ -55,7 +54,6 @@ pub fn run_backtest_engine(
     } else {
         // 多任务：使用 Rayon 并行，限制每个任务的 Polars 为单线程
         processed_params
-            .params
             .par_iter()
             .map(|single_param| {
                 utils::process_param_in_single_thread(|| {
@@ -89,7 +87,7 @@ fn execute_single_backtest(
     processed_template: &ProcessedTemplate,
     processed_settings: &crate::data_conversion::ProcessedSettings,
 ) -> PolarsResult<BacktestSummary> {
-    let mut indicator_dfs = None;
+    let mut indicator_dfs: Option<std::collections::HashMap<String, Vec<DataFrame>>> = None;
     let mut signals_df = None;
     let mut backtest_df = None;
     let mut performance = None;
@@ -106,7 +104,7 @@ fn execute_single_backtest(
                 processed_data,
                 ind_dfs,
                 &single_param.signal,
-                &processed_template.signal.template,
+                &processed_template.signal,
             )?;
             signals_df = Some(generated_signals_df);
         }

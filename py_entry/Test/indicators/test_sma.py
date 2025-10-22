@@ -41,18 +41,20 @@ def sma_pandas_ta_extractor(
 # SMA配置(保留原有的两个timeframe参数配置)
 sma_config = IndicatorTestConfig(
     indicator_name="sma",
-    params_config=[
-        # timeframe 0
-        {
-            "sma_0": {"period": create_param(14)},
-            "sma_1": {"period": create_param(100)},
-        },
-        # timeframe 1
-        {
-            "sma_0": {"period": create_param(20)},
-            "sma_1": {"period": create_param(200)},
-        },
-    ],
+    params_config={
+        "ohlcv": [
+            # timeframe 0
+            {
+                "sma_0": {"period": create_param(14)},
+                "sma_1": {"period": create_param(100)},
+            },
+            # timeframe 1
+            {
+                "sma_0": {"period": create_param(20)},
+                "sma_1": {"period": create_param(200)},
+            },
+        ]
+    },
     suffixes=[],
     engine_result_extractor=sma_engine_extractor,
     pandas_ta_result_extractor=sma_pandas_ta_extractor,

@@ -39,12 +39,14 @@ def atr_pandas_ta_extractor(
 # ATR配置
 atr_config = IndicatorTestConfig(
     indicator_name="atr",
-    params_config=[
-        # timeframe 0
-        {"atr_0": {"period": create_param(14)}},
-        # timeframe 1
-        {"atr_0": {"period": create_param(20)}},
-    ],
+    params_config={
+        "ohlcv": [
+            # timeframe 0
+            {"atr_0": {"period": create_param(14)}},
+            # timeframe 1
+            {"atr_0": {"period": create_param(20)}},
+        ]
+    },
     suffixes=[],
     engine_result_extractor=atr_engine_extractor,
     pandas_ta_result_extractor=atr_pandas_ta_extractor,

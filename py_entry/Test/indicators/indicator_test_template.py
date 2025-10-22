@@ -131,7 +131,9 @@ def _test_indicator_accuracy(
         def __init__(self, params_config):
             self.params_config = params_config
 
-        def build_indicators_params(self, period_count: int):
+        def build_indicators_params(
+            self, period_count: int
+        ) -> Dict[str, List[Dict[str, Any]]]:
             return self.params_config
 
     class CustomSettingsBuilder(DefaultEngineSettingsBuilder):
@@ -143,21 +145,21 @@ def _test_indicator_accuracy(
             )
 
     timeframes, data = data_dict
-    ohlcv_dfs = data.ohlcv
+    ohlcv_dfs = data.source["ohlcv"]
 
     runner = BacktestRunner()
     backtest_results = (
         runner.with_data(data_builder=CustomDataBuilder(data))
-        .with_param_set(
-            {"param_count": 1}, param_builder=CustomParamBuilder(config.params_config)
-        )
+        .with_param_set(param_builder=CustomParamBuilder(config.params_config))
         .with_templates()
         .with_engine_settings(engine_settings_builder=CustomSettingsBuilder())
         .run()
     )
 
-    for timeframe_idx, timeframe_params in enumerate(config.params_config):
-        indicators_df_current_timeframe = backtest_results[0].indicators[timeframe_idx]
+    for timeframe_idx, timeframe_params in enumerate(config.params_config["ohlcv"]):
+        indicators_df_current_timeframe = backtest_results[0].indicators["ohlcv"][
+            timeframe_idx
+        ]
         for indicator_key, params_dict in timeframe_params.items():
             # 提取回测引擎结果
             engine_results = config.engine_result_extractor(

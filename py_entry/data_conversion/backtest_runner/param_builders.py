@@ -11,7 +11,9 @@ from py_entry.data_conversion.helpers import create_param
 
 class BaseParamBuilder(ABC):
     @abstractmethod
-    def build_indicators_params(self, period_count: int) -> List[Dict[str, Any]]:
+    def build_indicators_params(
+        self, period_count: int
+    ) -> Dict[str, List[Dict[str, Any]]]:
         pass
 
     @abstractmethod
@@ -32,7 +34,9 @@ class BaseParamBuilder(ABC):
 
 
 class DefaultParamBuilder(BaseParamBuilder):
-    def build_indicators_params(self, period_count: int) -> List[Dict[str, Any]]:
+    def build_indicators_params(
+        self, period_count: int
+    ) -> Dict[str, List[Dict[str, Any]]]:
         sma_0 = {
             "period": create_param(14, 5, 50, 1),
         }
@@ -44,13 +48,15 @@ class DefaultParamBuilder(BaseParamBuilder):
             "sma_1": sma_1,
         }
 
-        return [
-            indicators_0,
-            *[{} for i in range(period_count)],
-        ][:period_count]
+        return {
+            "ohlcv": [
+                indicators_0,
+                *[{} for i in range(period_count)],
+            ][:period_count]
+        }
 
     def build_signal_params(self) -> Dict[str, Any]:
-        return {"b": create_param(20, 5, 100, 5)}
+        return {"rsi_midline": create_param(20, 10, 90, 5)}
 
     def build_backtest_params(self) -> BacktestParams:
         return BacktestParams(

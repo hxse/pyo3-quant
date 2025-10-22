@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Dict, Optional
 import polars as pl
 
 
@@ -17,7 +17,7 @@ class BacktestSummary:
     """
 
     performance: Optional[dict[str, float]] = None
-    indicators: Optional[list[pl.DataFrame]] = None
+    indicators: Optional[Dict[str, list[pl.DataFrame]]] = None
     signals: Optional[pl.DataFrame] = None
     backtest_result: Optional[pl.DataFrame] = None
 
@@ -44,7 +44,7 @@ class BacktestSummary:
         perf_summary = f"{len(self.performance)} keys" if self.performance else "None"
 
         ind_summary = (
-            f"[{', '.join(str(i.shape) for i in self.indicators)}]"
+            f"{{{', '.join(f'{k}: [{", ".join(str(i.shape) for i in v)}]' for k, v in self.indicators.items())}}}"
             if self.indicators
             else "None"
         )

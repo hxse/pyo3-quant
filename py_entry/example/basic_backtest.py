@@ -22,7 +22,7 @@ if __name__ == "__main__":
                 "num_bars": 200,
             },
         )
-        .with_param_set({"param_count": 1})
+        .with_param_set()
         .with_templates()
         .with_engine_settings()
         .run()

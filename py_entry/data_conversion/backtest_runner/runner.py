@@ -43,8 +43,7 @@ class BacktestRunner:
         self._param_set: Optional[ParamSet] = None
         self._template_config: Optional[TemplateConfig] = None
         self._engine_settings: Optional[EngineSettings] = None
-        self._param_count: Optional[int] = None
-        self._period_count: Optional[int] = None
+        self._param_set: Optional[ParamSet] = None
 
     def with_data(self, config={}, data_builder: BaseDataBuilder = None):
         """配置回测所需的数据
@@ -68,36 +67,29 @@ class BacktestRunner:
 
     def with_param_set(
         self,
-        config={},
         param_builder: BaseParamBuilder = None,
     ):
         """构建回测的参数集"""
-        self._param_count = config["param_count"]
-
-        if config.get("period_count", None) is None:
-            self._period_count = len(self._data_dict.ohlcv)
-        else:
-            self._period_count = config["period_count"]
-
         if param_builder is None:
             param_builder = DefaultParamBuilder()
 
-        single_param_sets = []
-        for i in range(self._param_count):
-            single_set = SingleParamSet(
-                indicators=param_builder.build_indicators_params(self._period_count),
-                signal=param_builder.build_signal_params(),
-                backtest=param_builder.build_backtest_params(),
-                risk=param_builder.build_risk_params(),
-                performance=param_builder.build_performance_params(),
-            )
-            single_param_sets.append(single_set)
+        # period_count 可以从 len(data_dict.source["ohlcv"]) 实时计算
+        period_count = len(self._data_dict.source["ohlcv"])
 
-        self._param_set = ParamSet(
-            params=single_param_sets,
-            param_count=self._param_count,
-            period_count=self._period_count,
+        single_param_sets = []
+        # param_count 可以从 len(param_set) 实时计算，这里假设只构建一个 SingleParamSet
+        # 如果需要多个，则需要外部传入一个数量，或者 param_builder 内部决定
+        # 暂时按照 REFACTOR_PLAN.md 的描述，删除 param_count 的计算和传递
+        single_set = SingleParamSet(
+            indicators=param_builder.build_indicators_params(period_count),
+            signal=param_builder.build_signal_params(),
+            backtest=param_builder.build_backtest_params(),
+            risk=param_builder.build_risk_params(),
+            performance=param_builder.build_performance_params(),
         )
+        single_param_sets.append(single_set)
+
+        self._param_set = single_param_sets  # ParamSet 现在是 List[SingleParamSet]
         return self
 
     def with_templates(
@@ -122,6 +114,7 @@ class BacktestRunner:
             signal=signal_template_builder.build_signal_template_instance(),
             risk=risk_template_builder.build_risk_template_instance(),
         )
+
         return self
 
     def with_engine_settings(
@@ -153,15 +146,12 @@ class BacktestRunner:
             ValueError: 如果任何必要的配置缺失。
         """
         validate_no_none_fields(self._data_dict)
-        validate_no_none_fields(self._param_set)
         validate_no_none_fields(self._template_config)
         validate_no_none_fields(self._engine_settings)
-        for i in self._param_set.params:
+        for i in self._param_set:  # ParamSet 现在是 List[SingleParamSet]
             validate_no_none_fields(i)
 
-        assert len(self._data_dict.ohlcv) == self._period_count, (
-            "period_count应该等于ohlcv数量"
-        )
+        # period_count 可以从 len(data_dict.source["ohlcv"]) 实时计算，无需断言
 
         raw_results = pyo3_quant.run_backtest_engine(
             self._data_dict,

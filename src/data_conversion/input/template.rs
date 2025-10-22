@@ -36,15 +36,16 @@ impl<'py> FromPyObject<'py> for CompareOp {
 
 #[derive(Debug, Clone, FromPyObject)]
 pub struct ParamOperand {
-    pub source: String,
+    pub name: String,
 }
 
 // Signal 专用：带时间框架
 #[derive(Debug, Clone, FromPyObject)]
 pub struct SignalDataOperand {
+    pub name: String,
     pub source: String,
+    pub source_idx: i32,
     pub offset: i32,
-    pub mtf: i32,
 }
 
 // Signal 专用条件
@@ -60,19 +61,22 @@ pub struct SignalCondition {
 #[derive(Debug, Clone, FromPyObject)]
 pub struct SignalGroup {
     pub logic: String,
-    pub target: String,
     pub conditions: Vec<SignalCondition>,
 }
 
 #[derive(Debug, Clone, FromPyObject)]
 pub struct SignalTemplate {
     pub name: String,
-    pub template: Vec<SignalGroup>,
+    pub enter_long: Option<SignalGroup>,
+    pub exit_long: Option<SignalGroup>,
+    pub enter_short: Option<SignalGroup>,
+    pub exit_short: Option<SignalGroup>,
 }
 
 // Risk 专用：只有数据源
 #[derive(Debug, Clone, FromPyObject)]
 pub struct RiskDataOperand {
+    pub name: String,
     pub source: String,
 }
 
@@ -87,16 +91,18 @@ pub struct RiskCondition {
 }
 
 #[derive(Debug, Clone, FromPyObject)]
-pub struct RiskRule {
+pub struct RiskGroup {
     pub logic: String,
-    pub target: String,
     pub conditions: Vec<RiskCondition>,
 }
 
 #[derive(Debug, Clone, FromPyObject)]
 pub struct RiskTemplate {
     pub name: String,
-    pub template: Vec<RiskRule>,
+    pub size_neutral_pct: Option<RiskGroup>,
+    pub size_up_pct: Option<RiskGroup>,
+    pub size_down_pct: Option<RiskGroup>,
+    pub size_skip_pct: Option<RiskGroup>,
 }
 
 #[derive(Debug, Clone, FromPyObject)] // 添加 FromPyObject

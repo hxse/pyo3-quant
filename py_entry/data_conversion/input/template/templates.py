@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import List
 from .conditions import SignalCondition, RiskCondition
+from typing import Optional
 
 
 @dataclass
@@ -10,7 +11,6 @@ class SignalGroup:
     """信号组 - 对应 Rust SignalGroup"""
 
     logic: str
-    target: str
     conditions: List[SignalCondition]
 
 
@@ -19,15 +19,17 @@ class SignalTemplate:
     """信号模板 - 对应 Rust SignalTemplate"""
 
     name: str
-    template: List[SignalGroup]
+    enter_long: Optional[SignalGroup] = None
+    exit_long: Optional[SignalGroup] = None
+    enter_short: Optional[SignalGroup] = None
+    exit_short: Optional[SignalGroup] = None
 
 
 @dataclass
-class RiskRule:
+class RiskGroup:
     """风险规则 - 对应 Rust RiskRule"""
 
     logic: str
-    target: str
     conditions: List[RiskCondition]
 
 
@@ -36,7 +38,10 @@ class RiskTemplate:
     """风险模板 - 对应 Rust RiskTemplate"""
 
     name: str
-    template: List[RiskRule]
+    size_neutral_pct: Optional[RiskGroup] = None
+    size_up_pct: Optional[RiskGroup] = None
+    size_down_pct: Optional[RiskGroup] = None
+    size_skip_pct: Optional[RiskGroup] = None
 
 
 @dataclass

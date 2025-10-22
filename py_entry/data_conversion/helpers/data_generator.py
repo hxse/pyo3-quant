@@ -535,8 +535,8 @@ def generate_data_dict(
     return DataDict(
         mapping=mapping_df,
         skip_mask=skip_mask_df,
-        ohlcv=ohlcv_dfs,
-        extra_data={
+        source={
+            "ohlcv": ohlcv_dfs,
             "ha": ha_dfs,
             "renko": renko_dfs,
         },

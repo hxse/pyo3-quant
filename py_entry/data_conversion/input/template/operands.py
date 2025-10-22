@@ -7,20 +7,22 @@ from dataclasses import dataclass
 class ParamOperand:
     """参数操作数 - 对应 Rust ParamOperand"""
 
-    source: str
+    name: str
 
 
 @dataclass
 class SignalDataOperand:
     """信号数据操作数 - 对应 Rust SignalDataOperand"""
 
+    name: str
     source: str
+    source_idx: int
     offset: int
-    mtf: int
 
 
 @dataclass
 class RiskDataOperand:
     """风险数据操作数 - 对应 Rust RiskDataOperand"""
 
+    name: str
     source: str

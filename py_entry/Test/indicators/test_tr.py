@@ -46,16 +46,18 @@ def tr_pandas_ta_extractor(
 # tr配置(保留原有的两个timeframe参数配置)
 tr_config = IndicatorTestConfig(
     indicator_name="tr",
-    params_config=[
-        # timeframe 0
-        {
-            "tr_0": {"": create_param(1)},
-        },
-        # timeframe 1
-        {
-            "tr_0": {"": create_param(1)},
-        },
-    ],
+    params_config={
+        "ohlcv": [
+            # timeframe 0
+            {
+                "tr_0": {"": create_param(1)},
+            },
+            # timeframe 1
+            {
+                "tr_0": {"": create_param(1)},
+            },
+        ]
+    },
     suffixes=[],
     engine_result_extractor=tr_engine_extractor,
     pandas_ta_result_extractor=tr_pandas_ta_extractor,

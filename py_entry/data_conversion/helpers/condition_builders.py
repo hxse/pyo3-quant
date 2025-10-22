@@ -11,44 +11,63 @@ from ..input import (
 
 
 def signal_data_vs_data(
-    a_source: str, b_source: str, compare: CompareOp, offset: int = 0, mtf: int = 0
+    compare: CompareOp,
+    a_name: str,
+    a_source: str,
+    a_source_idx: int,
+    b_name: str,
+    b_source: str,
+    b_source_idx: int,
+    a_offset: int = 0,
+    b_offset: int = 0,
 ) -> SignalCondition:
     """Signal: data vs data"""
     return SignalCondition(
         compare=compare.value,
-        a_data=SignalDataOperand(source=a_source, offset=offset, mtf=mtf),
-        b_data=SignalDataOperand(source=b_source, offset=offset, mtf=mtf),
+        a_data=SignalDataOperand(
+            name=a_name, source=a_source, source_idx=a_source_idx, offset=a_offset
+        ),
+        b_data=SignalDataOperand(
+            name=b_name, source=b_source, source_idx=b_source_idx, offset=b_offset
+        ),
     )
 
 
 def signal_data_vs_param(
-    a_source: str, b_param: str, compare: CompareOp, offset: int = 0, mtf: int = 0
+    compare: CompareOp,
+    a_name: str,
+    a_source: str,
+    a_source_idx: int,
+    b_param: str,
+    a_offset: int = 0,
 ) -> SignalCondition:
     """Signal: data vs param"""
     return SignalCondition(
         compare=compare.value,
-        a_data=SignalDataOperand(source=a_source, offset=offset, mtf=mtf),
-        b_param=ParamOperand(source=b_param),
+        a_data=SignalDataOperand(
+            name=a_name, source=a_source, source_idx=a_source_idx, offset=a_offset
+        ),
+        b_param=ParamOperand(name=b_param),
     )
 
 
 def risk_data_vs_data(
-    a_source: str, b_source: str, compare: CompareOp
+    compare: CompareOp, a_name: str, a_source: str, b_name: str, b_source: str
 ) -> RiskCondition:
     """Risk: data vs data"""
     return RiskCondition(
         compare=compare.value,
-        a_data=RiskDataOperand(source=a_source),
-        b_data=RiskDataOperand(source=b_source),
+        a_data=RiskDataOperand(name=a_name, source=a_source),
+        b_data=RiskDataOperand(name=b_name, source=b_source),
     )
 
 
 def risk_data_vs_param(
-    a_source: str, b_param: str, compare: CompareOp
+    compare: CompareOp, a_name: str, a_source: str, b_param: str
 ) -> RiskCondition:
     """Risk: data vs param"""
     return RiskCondition(
         compare=compare.value,
-        a_data=RiskDataOperand(source=a_source),
-        b_param=ParamOperand(source=b_param),
+        a_data=RiskDataOperand(name=a_name, source=a_source),
+        b_param=ParamOperand(name=b_param),
     )

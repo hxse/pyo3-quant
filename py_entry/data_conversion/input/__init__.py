@@ -23,7 +23,7 @@ from .template.templates import (
     SignalTemplate,
     RiskTemplate,
     SignalGroup,
-    RiskRule,
+    RiskGroup,
 )
 from .template.conditions import (
     CompareOp,

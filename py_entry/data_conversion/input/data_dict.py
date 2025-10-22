@@ -11,5 +11,4 @@ class DataDict:
 
     mapping: pl.DataFrame
     skip_mask: pl.DataFrame
-    ohlcv: List[pl.DataFrame]
-    extra_data: Dict[str, List[pl.DataFrame]]
+    source: Dict[str, List[pl.DataFrame]]

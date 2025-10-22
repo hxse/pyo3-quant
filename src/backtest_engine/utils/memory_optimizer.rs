@@ -3,14 +3,16 @@ use crate::data_conversion::output::PerformanceMetrics;
 use crate::data_conversion::ProcessedSettings;
 use polars::prelude::*;
 
+use std::collections::HashMap;
+
 pub fn optimize_memory_by_stage(
     settings: &ProcessedSettings,
-    indicator_dfs: Option<Vec<DataFrame>>,
+    indicator_dfs: Option<HashMap<String, Vec<DataFrame>>>,
     signals: Option<DataFrame>,
     backtest: Option<DataFrame>,
     performance: Option<PerformanceMetrics>,
 ) -> (
-    Option<Vec<DataFrame>>,
+    Option<HashMap<String, Vec<DataFrame>>>,
     Option<DataFrame>,
     Option<DataFrame>,
     Option<PerformanceMetrics>,

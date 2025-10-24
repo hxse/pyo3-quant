@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pandas_ta as ta
 
-from py_entry.data_conversion.helpers import create_param
+from py_entry.data_conversion.input import Param
 from py_entry.Test.indicators.indicator_test_template import (
     IndicatorTestConfig,
     _test_indicator_accuracy,
@@ -80,27 +80,27 @@ psar_config = IndicatorTestConfig(
             # timeframe 0
             {
                 "psar_0": {
-                    "af0": create_param(0.02),
-                    "af_step": create_param(0.02),
-                    "max_af": create_param(0.2),
+                    "af0": Param.create(0.02),
+                    "af_step": Param.create(0.02),
+                    "max_af": Param.create(0.2),
                 },
                 "psar_1": {
-                    "af0": create_param(0.03),
-                    "af_step": create_param(0.03),
-                    "max_af": create_param(0.3),
+                    "af0": Param.create(0.03),
+                    "af_step": Param.create(0.03),
+                    "max_af": Param.create(0.3),
                 },
             },
             # timeframe 1
             {
                 "psar_0": {
-                    "af0": create_param(0.01),
-                    "af_step": create_param(0.01),
-                    "max_af": create_param(0.15),
+                    "af0": Param.create(0.01),
+                    "af_step": Param.create(0.01),
+                    "max_af": Param.create(0.15),
                 },
                 "psar_1": {
-                    "af0": create_param(0.025),
-                    "af_step": create_param(0.025),
-                    "max_af": create_param(0.25),
+                    "af0": Param.create(0.025),
+                    "af_step": Param.create(0.025),
+                    "max_af": Param.create(0.25),
                 },
             },
         ]

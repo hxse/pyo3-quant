@@ -1,6 +1,6 @@
-use crate::data_conversion::input::ProcessedSingleParam;
+use crate::data_conversion::input::SingleParam;
 use crate::data_conversion::{
-    process_all_params, ProcessedDataDict, ProcessedParamSet, ProcessedSettings, ProcessedTemplate,
+    process_all_params, DataContainer, ParamContainer, SettingContainer, TemplateContainer,
 };
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -9,10 +9,10 @@ use pyo3::types::PyDict;
 #[pyfunction]
 pub fn calculate_metrics(
     py: Python<'_>,
-    data_dict: ProcessedDataDict,
-    param_set: ProcessedParamSet,
-    template: ProcessedTemplate,
-    config: ProcessedSettings,
+    data_dict: DataContainer,
+    param_set: ParamContainer,
+    template: TemplateContainer,
+    config: SettingContainer,
 ) -> PyResult<PyObject> {
     // 调用统一的参数处理入口函数
     let (processed_data, processed_params, processed_template, processed_config) =
@@ -39,10 +39,10 @@ pub fn calculate_metrics(
 
 // 计算逻辑
 fn calculate_metrics_internal(
-    data: &ProcessedDataDict,
-    params: &ProcessedSingleParam,
-    template: &ProcessedTemplate,
-    config: &ProcessedSettings,
+    data: &DataContainer,
+    params: &SingleParam,
+    template: &TemplateContainer,
+    config: &SettingContainer,
 ) -> PyResult<String> {
     if config.return_only_final {
         return Ok("Performance metrics calculated (placeholder)".to_string());

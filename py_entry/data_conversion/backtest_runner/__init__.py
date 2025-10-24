@@ -9,7 +9,7 @@ from .template_builders import (
 from .engine_settings_builder import (
     BaseEngineSettingsBuilder,
     DefaultEngineSettingsBuilder,
-    EngineSettings,
+    SettingContainer,
     ExecutionStage,
 )
 from .data_builders import BaseDataBuilder, DefaultDataBuilder

@@ -1,8 +1,8 @@
-use crate::data_conversion::{BacktestParams, ProcessedDataDict};
+use crate::data_conversion::{BacktestParams, DataContainer};
 use polars::prelude::*;
 
 pub fn run_backtest(
-    processed_data: &ProcessedDataDict,
+    processed_data: &DataContainer,
     signals_df: &DataFrame,
     position_series: Series,
     backtest_params: &BacktestParams,

@@ -2,10 +2,10 @@ from typing import Optional, List
 
 from py_entry.data_conversion.output import BacktestSummary
 from py_entry.data_conversion.input import (
-    DataDict,
-    ParamSet,
-    TemplateConfig,
-    EngineSettings,
+    DataContainer,
+    ParamContainer,
+    TemplateContainer,
+    SettingContainer,
     SingleParamSet,
 )
 from .data_builders import BaseDataBuilder, DefaultDataBuilder
@@ -39,11 +39,11 @@ class BacktestRunner:
 
         设置所有内部状态变量为 None，表示尚未进行任何配置。
         """
-        self._data_dict: Optional[DataDict] = None
-        self._param_set: Optional[ParamSet] = None
-        self._template_config: Optional[TemplateConfig] = None
-        self._engine_settings: Optional[EngineSettings] = None
-        self._param_set: Optional[ParamSet] = None
+        self._data_dict: Optional[DataContainer] = None
+        self._param_set: Optional[ParamContainer] = None
+        self._template_config: Optional[TemplateContainer] = None
+        self._engine_settings: Optional[SettingContainer] = None
+        self._param_set: Optional[ParamContainer] = None
 
     def with_data(self, config={}, data_builder: BaseDataBuilder = None):
         """配置回测所需的数据
@@ -110,7 +110,7 @@ class BacktestRunner:
         if risk_template_builder is None:
             risk_template_builder = DefaultRiskTemplateBuilder()
 
-        self._template_config = TemplateConfig(
+        self._template_config = TemplateContainer(
             signal=signal_template_builder.build_signal_template_instance(),
             risk=risk_template_builder.build_risk_template_instance(),
         )

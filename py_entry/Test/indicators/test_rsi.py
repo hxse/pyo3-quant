@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pandas_ta as ta
 
-from py_entry.data_conversion.helpers import create_param
+from py_entry.data_conversion.input import Param
 from py_entry.Test.indicators.indicator_test_template import (
     IndicatorTestConfig,
     _test_indicator_accuracy,
@@ -41,13 +41,13 @@ rsi_config = IndicatorTestConfig(
         "ohlcv": [
             # timeframe 0
             {
-                "rsi_0": {"period": create_param(14)},
-                "rsi_1": {"period": create_param(21)},
+                "rsi_0": {"period": Param.create(14)},
+                "rsi_1": {"period": Param.create(21)},
             },
             # timeframe 1
             {
-                "rsi_0": {"period": create_param(9)},
-                "rsi_1": {"period": create_param(25)},
+                "rsi_0": {"period": Param.create(9)},
+                "rsi_1": {"period": Param.create(25)},
             },
         ]
     },

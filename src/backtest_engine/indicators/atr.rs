@@ -21,9 +21,6 @@ pub struct ATRConfig {
 /// **表达式层 (Expr)**
 /// 接收配置结构体，所有列名均通过结构体参数传入。
 pub fn atr_expr(config: &ATRConfig) -> PolarsResult<(Expr, Expr)> {
-    let high_col = config.high_col.as_str();
-    let low_col = config.low_col.as_str();
-    let close_col = config.close_col.as_str();
     let alias_name = config.alias_name.as_str();
     let period = config.period;
 

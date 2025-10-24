@@ -1,10 +1,8 @@
 use crate::data_conversion::input::settings::ExecutionStage;
 use polars::prelude::*;
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
-use rayon::prelude::*; // 添加这一行
+use rayon::prelude::*;
 
-// mod types; // 已移动到 data_conversion/output/types.rs
 mod backtester;
 mod indicator_calculator;
 pub mod indicators;
@@ -16,17 +14,17 @@ mod utils;
 pub use crate::data_conversion::output::BacktestSummary;
 
 use crate::data_conversion::{
-    process_all_params, ProcessedDataDict, ProcessedParamSet, ProcessedSettings, ProcessedTemplate,
+    process_all_params, DataContainer, ParamContainer, SettingContainer, TemplateContainer,
 };
 
 /// 主入口函数:运行回测引擎
 #[pyfunction]
 pub fn run_backtest_engine(
     py: Python<'_>,
-    data_dict: ProcessedDataDict,
-    param_set: ProcessedParamSet,
-    template: ProcessedTemplate,
-    engine_settings: ProcessedSettings,
+    data_dict: DataContainer,
+    param_set: ParamContainer,
+    template: TemplateContainer,
+    engine_settings: SettingContainer,
 ) -> PyResult<PyObject> {
     // 1. 处理所有参数
     let (processed_data, processed_params, processed_template, processed_settings) =
@@ -82,10 +80,10 @@ pub fn run_backtest_engine(
 
 /// 执行单个回测任务
 fn execute_single_backtest(
-    processed_data: &crate::data_conversion::ProcessedDataDict,
-    single_param: &crate::data_conversion::ProcessedSingleParam,
-    processed_template: &ProcessedTemplate,
-    processed_settings: &crate::data_conversion::ProcessedSettings,
+    processed_data: &crate::data_conversion::DataContainer,
+    single_param: &crate::data_conversion::SingleParam,
+    processed_template: &TemplateContainer,
+    processed_settings: &crate::data_conversion::SettingContainer,
 ) -> PolarsResult<BacktestSummary> {
     let mut indicator_dfs: Option<std::collections::HashMap<String, Vec<DataFrame>>> = None;
     let mut signals_df = None;

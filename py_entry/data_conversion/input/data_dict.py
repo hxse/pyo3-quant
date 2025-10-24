@@ -6,7 +6,7 @@ import polars as pl
 
 
 @dataclass
-class DataDict:
+class DataContainer:
     """回测数据字典 - 对应 Rust ProcessedDataDict"""
 
     mapping: pl.DataFrame

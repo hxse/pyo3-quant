@@ -1,13 +1,13 @@
 """数据转换输入模块：所有输入数据结构的统一接口"""
 
-from .settings import EngineSettings, ExecutionStage
+from .settings import SettingContainer, ExecutionStage
 
-from .data_dict import DataDict
+from .data_dict import DataContainer
 
 from .param_set.param import Param
 
 from .param_set.param_set import (
-    ParamSet,
+    ParamContainer,
     SingleParamSet,
     IndicatorsParams,
     SignalParams,
@@ -19,7 +19,7 @@ from .param_set.param_set import (
 
 
 from .template.templates import (
-    TemplateConfig,
+    TemplateContainer,
     SignalTemplate,
     RiskTemplate,
     SignalGroup,

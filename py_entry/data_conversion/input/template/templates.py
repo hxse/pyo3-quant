@@ -45,7 +45,7 @@ class RiskTemplate:
 
 
 @dataclass
-class TemplateConfig:
+class TemplateContainer:
     """模板配置 - 包装 signal 和 risk"""
 
     signal: SignalTemplate

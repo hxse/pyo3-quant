@@ -10,5 +10,6 @@ pub struct Param {
     pub initial_max: f64,
     pub step: f64,
     pub initial_step: f64,
-    pub optimize: bool, // 新增字段
+    pub optimize: bool,  // 是否开启参数优化
+    pub log_scale: bool, // 是否开启对数分布
 }

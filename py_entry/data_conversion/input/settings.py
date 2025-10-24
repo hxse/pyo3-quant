@@ -14,7 +14,7 @@ class ExecutionStage(str, Enum):
 
 
 @dataclass
-class EngineSettings:
+class SettingContainer:
     """回测配置 - 对应 Rust ProcessedSettings"""
 
     execution_stage: ExecutionStage = ExecutionStage.PERFORMANCE

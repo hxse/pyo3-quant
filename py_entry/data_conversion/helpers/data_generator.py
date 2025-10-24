@@ -8,7 +8,7 @@ import numpy as np
 from datetime import datetime
 import math
 
-from ..input import DataDict
+from ..input import DataContainer
 
 time_format = "%Y-%m-%dT%H:%M:%S%.3f%Z"
 fixed_cols = ["time", "date"]
@@ -501,7 +501,7 @@ def generate_data_dict(
     start_time: int,
     num_bars: int = 1000,
     brick_size: float = 2.0,
-) -> DataDict:
+) -> DataContainer:
     """
     生成完整的数据字典
 
@@ -532,7 +532,7 @@ def generate_data_dict(
         {"skip": [False] * len(ohlcv_dfs[0])}, schema={"skip": pl.Boolean}
     )
 
-    return DataDict(
+    return DataContainer(
         mapping=mapping_df,
         skip_mask=skip_mask_df,
         source={

@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
-
-from py_entry.data_conversion.input import SignalTemplate, RiskTemplate, CompareOp
+from py_entry.data_conversion.input import (
+    SignalTemplate,
+    RiskTemplate,
+    CompareOp,
+    SignalGroup,
+    RiskGroup,
+)
 from py_entry.data_conversion.helpers import (
-    create_signal_group,
-    create_risk_rule,
     signal_data_vs_data,
     signal_data_vs_param,
     risk_data_vs_data,
@@ -20,7 +22,7 @@ class BaseSignalTemplateBuilder(ABC):
 
 class DefaultSignalTemplateBuilder(BaseSignalTemplateBuilder):
     def build_signal_template_instance(self) -> SignalTemplate:
-        enter_long_group = create_signal_group(
+        enter_long_group = SignalGroup(
             logic="and",
             conditions=[
                 signal_data_vs_data(
@@ -69,7 +71,7 @@ class BaseRiskTemplateBuilder(ABC):
 
 class DefaultRiskTemplateBuilder(BaseRiskTemplateBuilder):
     def build_risk_template_instance(self) -> RiskTemplate:
-        size_neutral_pct = create_risk_rule(
+        size_neutral_pct = RiskGroup(
             logic="and",
             conditions=[
                 risk_data_vs_param(
@@ -80,7 +82,7 @@ class DefaultRiskTemplateBuilder(BaseRiskTemplateBuilder):
                 )
             ],
         )
-        size_up_pct = create_risk_rule(
+        size_up_pct = RiskGroup(
             logic="and",
             conditions=[
                 risk_data_vs_data(
@@ -92,7 +94,7 @@ class DefaultRiskTemplateBuilder(BaseRiskTemplateBuilder):
                 ),
             ],
         )
-        size_down_pct = create_risk_rule(
+        size_down_pct = RiskGroup(
             logic="and",
             conditions=[
                 risk_data_vs_data(
@@ -104,7 +106,7 @@ class DefaultRiskTemplateBuilder(BaseRiskTemplateBuilder):
                 )
             ],
         )
-        size_skip_pct = create_risk_rule(
+        size_skip_pct = RiskGroup(
             logic="and",
             conditions=[
                 risk_data_vs_param(

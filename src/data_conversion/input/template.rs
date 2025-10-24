@@ -1,6 +1,5 @@
 use pyo3::exceptions::PyKeyError;
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
 
 #[derive(Debug, Clone)] // 移除 FromPyObject
 pub enum CompareOp {
@@ -106,7 +105,7 @@ pub struct RiskTemplate {
 }
 
 #[derive(Debug, Clone, FromPyObject)] // 添加 FromPyObject
-pub struct ProcessedTemplate {
+pub struct TemplateContainer {
     pub signal: SignalTemplate,
     pub risk: RiskTemplate,
 }

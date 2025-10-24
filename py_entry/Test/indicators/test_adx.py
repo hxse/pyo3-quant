@@ -5,7 +5,7 @@ import pandas as pd
 import pandas_ta as ta
 import polars as pl
 
-from py_entry.data_conversion.helpers import create_param
+from py_entry.data_conversion.input import Param
 from py_entry.Test.indicators.indicator_test_template import (
     IndicatorTestConfig,
     _test_indicator_accuracy,
@@ -71,14 +71,14 @@ adx_config = IndicatorTestConfig(
             # timeframe 0
             {
                 "adx_0": {
-                    "period": create_param(14),
-                    "adxr_length": create_param(2),
+                    "period": Param.create(14),
+                    "adxr_length": Param.create(2),
                 },
             },
             {
                 "adx_0": {
-                    "period": create_param(20),
-                    "adxr_length": create_param(4),
+                    "period": Param.create(20),
+                    "adxr_length": Param.create(4),
                 },
             },
         ]

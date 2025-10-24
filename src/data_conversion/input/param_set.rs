@@ -1,7 +1,5 @@
 use crate::data_conversion::input::Param;
-use pyo3::exceptions::PyKeyError;
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
 use pyo3::Bound;
 use std::collections::HashMap;
 
@@ -54,7 +52,7 @@ pub struct PerformanceParams {
 }
 
 #[derive(Debug, Clone, FromPyObject)]
-pub struct ProcessedSingleParam {
+pub struct SingleParam {
     pub indicators: IndicatorsParams,
     pub signal: SignalParams,
     pub backtest: BacktestParams,
@@ -62,4 +60,4 @@ pub struct ProcessedSingleParam {
     pub performance: PerformanceParams,
 }
 
-pub type ProcessedParamSet = Vec<ProcessedSingleParam>;
+pub type ParamContainer = Vec<SingleParam>;

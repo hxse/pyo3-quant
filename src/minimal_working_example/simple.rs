@@ -1,6 +1,4 @@
-use polars::prelude::*;
 use pyo3::prelude::*;
-use pyo3_polars::PyDataFrame;
 
 /// 原有函数，保持不变。
 #[pyfunction]

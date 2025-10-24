@@ -1,5 +1,5 @@
 use super::indicators::calculate_single_period_indicators;
-use crate::data_conversion::{input::param_set::IndicatorsParams, ProcessedDataDict};
+use crate::data_conversion::{input::param_set::IndicatorsParams, DataContainer};
 use polars::prelude::*;
 use pyo3::{exceptions::PyRuntimeError, PyResult};
 use std::collections::HashMap;
@@ -7,7 +7,7 @@ use std::collections::HashMap;
 /// 计算多周期指标
 /// 对每个数据源的每个周期分别计算指标,返回 HashMap<String, Vec<DataFrame>>
 pub fn calculate_indicators(
-    processed_data: &ProcessedDataDict,
+    processed_data: &DataContainer,
     indicators_params: &IndicatorsParams,
 ) -> PyResult<HashMap<String, Vec<DataFrame>>> {
     let mut all_indicators: HashMap<String, Vec<DataFrame>> = HashMap::new();

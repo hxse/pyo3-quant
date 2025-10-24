@@ -6,7 +6,7 @@ use std::collections::HashMap;
 pub fn analyze_performance(
     backtest_df: &DataFrame,
     performance_params: &PerformanceParams,
-) -> PolarsResult<HashMap<String, f64>> {
+) -> PolarsResult<PerformanceMetrics> {
     let mut result = HashMap::new();
 
     for metric in &performance_params.metrics {

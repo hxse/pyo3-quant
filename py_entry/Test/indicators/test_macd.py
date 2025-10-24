@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pandas_ta as ta
 
-from py_entry.data_conversion.helpers import create_param
+from py_entry.data_conversion.input import Param
 from py_entry.Test.indicators.indicator_test_template import (
     IndicatorTestConfig,
     _test_indicator_accuracy,
@@ -65,27 +65,27 @@ macd_config = IndicatorTestConfig(
             # timeframe 0
             {
                 "macd_0": {
-                    "fast_period": create_param(12),
-                    "slow_period": create_param(26),
-                    "signal_period": create_param(9),
+                    "fast_period": Param.create(12),
+                    "slow_period": Param.create(26),
+                    "signal_period": Param.create(9),
                 },
                 "macd_1": {
-                    "fast_period": create_param(5),
-                    "slow_period": create_param(40),
-                    "signal_period": create_param(5),
+                    "fast_period": Param.create(5),
+                    "slow_period": Param.create(40),
+                    "signal_period": Param.create(5),
                 },
             },
             # timeframe 1
             {
                 "macd_0": {
-                    "fast_period": create_param(8),
-                    "slow_period": create_param(21),
-                    "signal_period": create_param(7),
+                    "fast_period": Param.create(8),
+                    "slow_period": Param.create(21),
+                    "signal_period": Param.create(7),
                 },
                 "macd_1": {
-                    "fast_period": create_param(10),
-                    "slow_period": create_param(30),
-                    "signal_period": create_param(10),
+                    "fast_period": Param.create(10),
+                    "slow_period": Param.create(30),
+                    "signal_period": Param.create(10),
                 },
             },
         ]

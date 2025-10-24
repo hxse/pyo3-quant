@@ -1,9 +1,5 @@
 import path_tool
 import time
-from typing import List, Dict, Any
-
-
-import pyo3_quant
 
 
 from py_entry.data_conversion.backtest_runner import (
@@ -11,12 +7,24 @@ from py_entry.data_conversion.backtest_runner import (
     DefaultDataBuilder,
     DefaultParamBuilder,
     DefaultEngineSettingsBuilder,
-    EngineSettings,
+    SettingContainer,
     ExecutionStage,
     DefaultSignalTemplateBuilder,
     DefaultRiskTemplateBuilder,
 )
-from py_entry.data_conversion.helpers import create_param
+from py_entry.data_conversion.input import (
+    IndicatorsParams,
+    SignalParams,
+    BacktestParams,
+    RiskParams,
+    PerformanceParams,
+    SignalTemplate,
+    RiskTemplate,
+    Param,
+)
+
+
+import pyo3_quant
 
 
 from loguru import logger
@@ -33,9 +41,7 @@ class CustomParamBuilder(DefaultParamBuilder):
     如果某个方法未被覆盖，将使用父类 DefaultParamBuilder 的默认实现。
     """
 
-    def build_indicators_params(
-        self, period_count: int
-    ) -> Dict[str, List[Dict[str, Any]]]:
+    def build_indicators_params(self, period_count: int) -> IndicatorsParams:
         """
         构建指标参数。
         用户可以通过取消注释并实现此方法来自定义指标参数。
@@ -43,10 +49,10 @@ class CustomParamBuilder(DefaultParamBuilder):
         """
         # return super().build_indicators_params(period_count)
         sma_0 = {
-            "period": create_param(14, 5, 50, 1),
+            "period": Param.create(14, 5, 50, 1),
         }
         sma_1 = {
-            "period": create_param(200, 100, 300, 10),
+            "period": Param.create(200, 100, 300, 10),
         }
         indicators_0 = {
             "sma_0": sma_0,
@@ -60,7 +66,7 @@ class CustomParamBuilder(DefaultParamBuilder):
             ][:period_count]
         }
 
-    def build_signal_params(self):
+    def build_signal_params(self) -> SignalParams:
         """
         构建信号参数。
         用户可以通过取消注释并实现此方法来自定义信号参数。
@@ -68,7 +74,7 @@ class CustomParamBuilder(DefaultParamBuilder):
         """
         return super().build_signal_params()
 
-    def build_backtest_params(self):
+    def build_backtest_params(self) -> BacktestParams:
         """
         构建回测参数。
         用户可以通过取消注释并实现此方法来自定义回测参数。
@@ -76,7 +82,7 @@ class CustomParamBuilder(DefaultParamBuilder):
         """
         return super().build_backtest_params()
 
-    def build_risk_params(self):
+    def build_risk_params(self) -> RiskParams:
         """
         构建风险参数。
         用户可以通过取消注释并实现此方法来自定义风险参数。
@@ -84,7 +90,7 @@ class CustomParamBuilder(DefaultParamBuilder):
         """
         return super().build_risk_params()
 
-    def build_performance_params(self):
+    def build_performance_params(self) -> PerformanceParams:
         """
         构建性能参数。
         用户可以通过取消注释并实现此方法来自定义性能参数。
@@ -100,7 +106,7 @@ class CustomSignalTemplateBuilder(DefaultSignalTemplateBuilder):
     如果某个方法未被覆盖，将使用父类 DefaultSignalTemplateBuilder 的默认实现。
     """
 
-    def build_signal_template_instance(self):
+    def build_signal_template_instance(self) -> SignalTemplate:
         """
         构建信号模板实例。
         用户可以通过取消注释并实现此方法来自定义信号模板实例。
@@ -116,7 +122,7 @@ class CustomRiskTemplateBuilder(DefaultRiskTemplateBuilder):
     如果某个方法未被覆盖，将使用父类 DefaultRiskTemplateBuilder 的默认实现。
     """
 
-    def build_risk_template_instance(self):
+    def build_risk_template_instance(self) -> RiskTemplate:
         """
         构建风险模板实例。
         用户可以通过取消注释并实现此方法来自定义风险模板实例。
@@ -132,7 +138,7 @@ class CustomEngineSettingsBuilder(DefaultEngineSettingsBuilder):
     如果某个方法未被覆盖，将使用父类 DefaultEngineSettingsBuilder 的默认实现。
     """
 
-    def build_engine_settings(self):
+    def build_engine_settings(self) -> SettingContainer:
         """
         构建引擎设置。
         用户可以通过取消注释并实现此方法来自定义引擎设置。
@@ -140,9 +146,9 @@ class CustomEngineSettingsBuilder(DefaultEngineSettingsBuilder):
         """
         # return super().build_engine_settings()
 
-        return EngineSettings(
-            execution_stage=ExecutionStage.INDICATOR,
-            # execution_stage=ExecutionStage.PERFORMANCE,
+        return SettingContainer(
+            # execution_stage=ExecutionStage.INDICATOR,
+            execution_stage=ExecutionStage.PERFORMANCE,
             return_only_final=False,
             skip_risk=True,
         )

@@ -44,4 +44,4 @@ class SingleParamSet:
     performance: PerformanceParams
 
 
-ParamSet = List[SingleParamSet]
+ParamContainer = List[SingleParamSet]

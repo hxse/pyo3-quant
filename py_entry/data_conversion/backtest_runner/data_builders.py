@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from py_entry.data_conversion.input import DataDict
+from py_entry.data_conversion.input import DataContainer
 from py_entry.data_conversion.helpers import generate_data_dict
 
 
@@ -15,7 +15,7 @@ class BaseDataBuilder(ABC):
         start_time: int,
         num_bars: int,
         brick_size: float,
-    ) -> DataDict:
+    ) -> DataContainer:
         """构建数据字典
 
         Args:
@@ -39,7 +39,7 @@ class DefaultDataBuilder(BaseDataBuilder):
         start_time: int = 1735689600000,
         num_bars: int = 1000,
         brick_size: float = 2.0,
-    ) -> DataDict:
+    ) -> DataContainer:
         """构建数据字典
 
         Args:

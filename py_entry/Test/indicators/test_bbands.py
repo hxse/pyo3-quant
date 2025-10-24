@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pandas_ta as ta
 
-from py_entry.data_conversion.helpers import create_param
+from py_entry.data_conversion.input import Param
 from py_entry.Test.indicators.indicator_test_template import (
     IndicatorTestConfig,
     _test_indicator_accuracy,
@@ -58,23 +58,23 @@ bbands_config = IndicatorTestConfig(
             # timeframe 0
             {
                 "bbands_0": {
-                    "length": create_param(14),
-                    "std": create_param(2.0),
+                    "length": Param.create(14),
+                    "std": Param.create(2.0),
                 },
                 "bbands_1": {
-                    "length": create_param(20),
-                    "std": create_param(2.5),
+                    "length": Param.create(20),
+                    "std": Param.create(2.5),
                 },
             },
             # timeframe 1
             {
                 "bbands_0": {
-                    "length": create_param(20),
-                    "std": create_param(2.0),
+                    "length": Param.create(20),
+                    "std": Param.create(2.0),
                 },
                 "bbands_1": {
-                    "length": create_param(30),
-                    "std": create_param(3.0),
+                    "length": Param.create(30),
+                    "std": Param.create(3.0),
                 },
             },
         ]

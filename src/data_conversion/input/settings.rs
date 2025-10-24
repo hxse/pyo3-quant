@@ -1,5 +1,4 @@
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
 use pyo3::{Bound, FromPyObject};
 
 // 定义执行阶段枚举，派生 PartialOrd、Ord 以支持阶段比较
@@ -29,13 +28,13 @@ impl<'py> FromPyObject<'py> for ExecutionStage {
 }
 
 #[derive(Debug, Clone, FromPyObject)]
-pub struct ProcessedSettings {
+pub struct SettingContainer {
     pub execution_stage: ExecutionStage,
     pub return_only_final: bool,
     pub skip_risk: bool,
 }
 
-impl Default for ProcessedSettings {
+impl Default for SettingContainer {
     fn default() -> Self {
         Self {
             execution_stage: ExecutionStage::Performance,

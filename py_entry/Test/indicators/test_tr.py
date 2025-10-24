@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pandas_ta as ta
 
-from py_entry.data_conversion.helpers import create_param
+from py_entry.data_conversion.input import Param
 from py_entry.Test.indicators.indicator_test_template import (
     IndicatorTestConfig,
     _test_indicator_accuracy,
@@ -50,11 +50,11 @@ tr_config = IndicatorTestConfig(
         "ohlcv": [
             # timeframe 0
             {
-                "tr_0": {"": create_param(1)},
+                "tr_0": {"": Param.create(1)},
             },
             # timeframe 1
             {
-                "tr_0": {"": create_param(1)},
+                "tr_0": {"": Param.create(1)},
             },
         ]
     },

@@ -1,8 +1,7 @@
-use crate::data_conversion::{BacktestParams, ProcessedDataDict, RiskParams, RiskTemplate};
+use crate::data_conversion::{BacktestParams, DataContainer, RiskParams, RiskTemplate};
 use polars::prelude::*;
 use pyo3::exceptions::PyKeyError;
 use pyo3::prelude::*;
-use std::collections::HashMap;
 
 /// 创建初始仓位Series
 ///
@@ -16,7 +15,7 @@ use std::collections::HashMap;
 /// # 错误
 /// * 如果processed_data中没有ohlcv字段,返回PyKeyError
 pub fn create_initial_position_series(
-    processed_data: &ProcessedDataDict,
+    processed_data: &DataContainer,
     position_pct: f64,
 ) -> PyResult<Series> {
     // 检查是否存在ohlcv

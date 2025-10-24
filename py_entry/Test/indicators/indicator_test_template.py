@@ -8,7 +8,7 @@ from py_entry.data_conversion.backtest_runner import (
     DefaultDataBuilder,
     DefaultParamBuilder,
     DefaultEngineSettingsBuilder,
-    EngineSettings,
+    SettingContainer,
     ExecutionStage,
 )
 from py_entry.Test.utils.comparison_tool import (
@@ -137,8 +137,8 @@ def _test_indicator_accuracy(
             return self.params_config
 
     class CustomSettingsBuilder(DefaultEngineSettingsBuilder):
-        def build_engine_settings(self) -> EngineSettings:
-            return EngineSettings(
+        def build_engine_settings(self) -> SettingContainer:
+            return SettingContainer(
                 execution_stage=ExecutionStage.INDICATOR,
                 return_only_final=True,
                 skip_risk=True,

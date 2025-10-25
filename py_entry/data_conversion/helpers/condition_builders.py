@@ -24,10 +24,10 @@ def signal_data_vs_data(
     """Signal: data vs data"""
     return SignalCondition(
         compare=compare.value,
-        a_data=SignalDataOperand(
+        a=SignalDataOperand(
             name=a_name, source=a_source, source_idx=a_source_idx, offset=a_offset
         ),
-        b_data=SignalDataOperand(
+        b=SignalDataOperand(
             name=b_name, source=b_source, source_idx=b_source_idx, offset=b_offset
         ),
     )
@@ -44,10 +44,10 @@ def signal_data_vs_param(
     """Signal: data vs param"""
     return SignalCondition(
         compare=compare.value,
-        a_data=SignalDataOperand(
+        a=SignalDataOperand(
             name=a_name, source=a_source, source_idx=a_source_idx, offset=a_offset
         ),
-        b_param=ParamOperand(name=b_param),
+        b=ParamOperand(name=b_param),
     )
 
 
@@ -57,8 +57,8 @@ def risk_data_vs_data(
     """Risk: data vs data"""
     return RiskCondition(
         compare=compare.value,
-        a_data=RiskDataOperand(name=a_name, source=a_source),
-        b_data=RiskDataOperand(name=b_name, source=b_source),
+        a=RiskDataOperand(name=a_name, source=a_source),
+        b=RiskDataOperand(name=b_name, source=b_source),
     )
 
 
@@ -68,6 +68,6 @@ def risk_data_vs_param(
     """Risk: data vs param"""
     return RiskCondition(
         compare=compare.value,
-        a_data=RiskDataOperand(name=a_name, source=a_source),
-        b_param=ParamOperand(name=b_param),
+        a=RiskDataOperand(name=a_name, source=a_source),
+        b=ParamOperand(name=b_param),
     )

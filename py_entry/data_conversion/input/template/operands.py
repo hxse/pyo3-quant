@@ -1,28 +1,28 @@
-"""操作数定义"""
-
 from dataclasses import dataclass
+from typing import Union, Literal
 
 
 @dataclass
 class ParamOperand:
-    """参数操作数 - 对应 Rust ParamOperand"""
-
     name: str
+    _tag: Literal["Param"] = "Param"
 
 
 @dataclass
 class SignalDataOperand:
-    """信号数据操作数 - 对应 Rust SignalDataOperand"""
-
     name: str
     source: str
     source_idx: int
     offset: int
+    _tag: Literal["Data"] = "Data"
 
 
 @dataclass
 class RiskDataOperand:
-    """风险数据操作数 - 对应 Rust RiskDataOperand"""
-
     name: str
     source: str
+    _tag: Literal["Data"] = "Data"
+
+
+SignalRightOperand = Union[SignalDataOperand, ParamOperand]
+RiskRightOperand = Union[RiskDataOperand, ParamOperand]

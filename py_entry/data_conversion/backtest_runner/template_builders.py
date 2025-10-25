@@ -3,6 +3,7 @@ from py_entry.data_conversion.input import (
     SignalTemplate,
     RiskTemplate,
     CompareOp,
+    LogicOp,
     SignalGroup,
     RiskGroup,
 )
@@ -23,7 +24,7 @@ class BaseSignalTemplateBuilder(ABC):
 class DefaultSignalTemplateBuilder(BaseSignalTemplateBuilder):
     def build_signal_template_instance(self) -> SignalTemplate:
         enter_long_group = SignalGroup(
-            logic="and",
+            logic=LogicOp.AND,
             conditions=[
                 signal_data_vs_data(
                     compare=CompareOp.GT,
@@ -59,7 +60,7 @@ class DefaultSignalTemplateBuilder(BaseSignalTemplateBuilder):
         )
 
         return SignalTemplate(
-            name="multi_timeframe_dynamic_strategy", enter_long=enter_long_group
+            name="multi_timeframe_dynamic_strategy", enter_long=[enter_long_group]
         )
 
 
@@ -72,7 +73,7 @@ class BaseRiskTemplateBuilder(ABC):
 class DefaultRiskTemplateBuilder(BaseRiskTemplateBuilder):
     def build_risk_template_instance(self) -> RiskTemplate:
         size_neutral_pct = RiskGroup(
-            logic="and",
+            logic=LogicOp.AND,
             conditions=[
                 risk_data_vs_param(
                     compare=CompareOp.GE,
@@ -83,7 +84,7 @@ class DefaultRiskTemplateBuilder(BaseRiskTemplateBuilder):
             ],
         )
         size_up_pct = RiskGroup(
-            logic="and",
+            logic=LogicOp.AND,
             conditions=[
                 risk_data_vs_data(
                     compare=CompareOp.GT,
@@ -95,7 +96,7 @@ class DefaultRiskTemplateBuilder(BaseRiskTemplateBuilder):
             ],
         )
         size_down_pct = RiskGroup(
-            logic="and",
+            logic=LogicOp.AND,
             conditions=[
                 risk_data_vs_data(
                     compare=CompareOp.LT,
@@ -107,7 +108,7 @@ class DefaultRiskTemplateBuilder(BaseRiskTemplateBuilder):
             ],
         )
         size_skip_pct = RiskGroup(
-            logic="and",
+            logic=LogicOp.AND,
             conditions=[
                 risk_data_vs_param(
                     compare=CompareOp.LE,
@@ -119,8 +120,8 @@ class DefaultRiskTemplateBuilder(BaseRiskTemplateBuilder):
         )
         return RiskTemplate(
             name="bbands_position_sizing",
-            size_neutral_pct=size_neutral_pct,
-            size_up_pct=size_up_pct,
-            size_down_pct=size_down_pct,
-            size_skip_pct=size_skip_pct,
+            size_neutral_pct=[size_neutral_pct],
+            size_up_pct=[size_up_pct],
+            size_down_pct=[size_down_pct],
+            size_skip_pct=[size_skip_pct],
         )

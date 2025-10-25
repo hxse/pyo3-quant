@@ -1,5 +1,7 @@
+use crate::data_conversion::input::param_set::SignalParams;
 use crate::data_conversion::input::template::SignalTemplate;
-use crate::data_conversion::{input::param_set::SignalParams, DataContainer};
+use crate::data_conversion::input::DataContainer;
+
 use polars::prelude::*;
 use std::collections::HashMap;
 

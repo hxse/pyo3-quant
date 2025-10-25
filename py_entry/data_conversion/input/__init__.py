@@ -25,13 +25,5 @@ from .template.templates import (
     SignalGroup,
     RiskGroup,
 )
-from .template.conditions import (
-    CompareOp,
-    SignalCondition,
-    RiskCondition,
-)
-from .template.operands import (
-    ParamOperand,
-    SignalDataOperand,
-    RiskDataOperand,
-)
+from .template.conditions import CompareOp, SignalCondition, RiskCondition, LogicOp
+from .template.operands import ParamOperand, SignalDataOperand, RiskDataOperand

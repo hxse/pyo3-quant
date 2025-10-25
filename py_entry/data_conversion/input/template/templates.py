@@ -1,16 +1,15 @@
 """模板定义"""
 
 from dataclasses import dataclass
-from typing import List
-from .conditions import SignalCondition, RiskCondition
-from typing import Optional
+from typing import List, Optional
+from .conditions import SignalCondition, RiskCondition, LogicOp
 
 
 @dataclass
 class SignalGroup:
     """信号组 - 对应 Rust SignalGroup"""
 
-    logic: str
+    logic: LogicOp
     conditions: List[SignalCondition]
 
 
@@ -19,17 +18,17 @@ class SignalTemplate:
     """信号模板 - 对应 Rust SignalTemplate"""
 
     name: str
-    enter_long: Optional[SignalGroup] = None
-    exit_long: Optional[SignalGroup] = None
-    enter_short: Optional[SignalGroup] = None
-    exit_short: Optional[SignalGroup] = None
+    enter_long: Optional[List[SignalGroup]] = None
+    exit_long: Optional[List[SignalGroup]] = None
+    enter_short: Optional[List[SignalGroup]] = None
+    exit_short: Optional[List[SignalGroup]] = None
 
 
 @dataclass
 class RiskGroup:
     """风险规则 - 对应 Rust RiskRule"""
 
-    logic: str
+    logic: LogicOp
     conditions: List[RiskCondition]
 
 
@@ -38,10 +37,10 @@ class RiskTemplate:
     """风险模板 - 对应 Rust RiskTemplate"""
 
     name: str
-    size_neutral_pct: Optional[RiskGroup] = None
-    size_up_pct: Optional[RiskGroup] = None
-    size_down_pct: Optional[RiskGroup] = None
-    size_skip_pct: Optional[RiskGroup] = None
+    size_neutral_pct: Optional[List[RiskGroup]] = None
+    size_up_pct: Optional[List[RiskGroup]] = None
+    size_down_pct: Optional[List[RiskGroup]] = None
+    size_skip_pct: Optional[List[RiskGroup]] = None
 
 
 @dataclass

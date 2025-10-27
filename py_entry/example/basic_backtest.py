@@ -7,7 +7,7 @@ from loguru import logger
 if __name__ == "__main__":
     print("-" * 30)
     start_time = time.perf_counter()
-    res = pyo3_quant.sum_as_string(5, 25)
+    res = pyo3_quant.minimal_working_example.sum_as_string(5, 25)
     print("sum_as_string:", res)
     print("耗时", time.perf_counter() - start_time)
 

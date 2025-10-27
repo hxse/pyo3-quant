@@ -14,22 +14,16 @@ def signal_data_vs_data(
     compare: CompareOp,
     a_name: str,
     a_source: str,
-    a_source_idx: int,
     b_name: str,
     b_source: str,
-    b_source_idx: int,
     a_offset: int = 0,
     b_offset: int = 0,
 ) -> SignalCondition:
     """Signal: data vs data"""
     return SignalCondition(
         compare=compare.value,
-        a=SignalDataOperand(
-            name=a_name, source=a_source, source_idx=a_source_idx, offset=a_offset
-        ),
-        b=SignalDataOperand(
-            name=b_name, source=b_source, source_idx=b_source_idx, offset=b_offset
-        ),
+        a=SignalDataOperand(name=a_name, source=a_source, offset=a_offset),
+        b=SignalDataOperand(name=b_name, source=b_source, offset=b_offset),
     )
 
 
@@ -37,16 +31,13 @@ def signal_data_vs_param(
     compare: CompareOp,
     a_name: str,
     a_source: str,
-    a_source_idx: int,
     b_param: str,
     a_offset: int = 0,
 ) -> SignalCondition:
     """Signal: data vs param"""
     return SignalCondition(
         compare=compare.value,
-        a=SignalDataOperand(
-            name=a_name, source=a_source, source_idx=a_source_idx, offset=a_offset
-        ),
+        a=SignalDataOperand(name=a_name, source=a_source, offset=a_offset),
         b=ParamOperand(name=b_param),
     )
 

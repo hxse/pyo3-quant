@@ -4,11 +4,10 @@ use pyo3::prelude::*;
 use rayon::prelude::*;
 
 mod backtester;
-mod indicator_calculator;
 pub mod indicators;
 mod performance_analyzer;
 mod risk_adjuster;
-mod signal_generator;
+pub mod signal_generator;
 mod utils;
 
 pub use crate::data_conversion::output::BacktestSummary;
@@ -92,7 +91,7 @@ fn execute_single_backtest(
 
     // 1. 始终执行: 计算指标
     let calculated_indicator_dfs =
-        indicator_calculator::calculate_indicators(processed_data, &single_param.indicators)?;
+        indicators::calculate_indicators(processed_data, &single_param.indicators)?;
     indicator_dfs = Some(calculated_indicator_dfs);
 
     // 2. 如果 execution_stage >= "signals": 执行信号生成
@@ -167,4 +166,11 @@ fn execute_single_backtest(
         signals: opt_signals,
         backtest: opt_backtest,
     })
+}
+
+pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(run_backtest_engine, m)?)?;
+    m.add_function(wrap_pyfunction!(signal_generator::py_generate_signals, m)?)?;
+    m.add_function(wrap_pyfunction!(indicators::py_calculate_indicators, m)?)?;
+    Ok(())
 }

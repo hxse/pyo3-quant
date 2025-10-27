@@ -8,7 +8,7 @@ use super::sma::SMAConfig;
 /// 布林带的配置结构体，将所有输入参数和输出列名抽象化。
 pub struct BBandsConfig {
     pub column_name: String,
-    pub length: i64,
+    pub period: i64,
     pub std_multiplier: f64,
     // 所有输出列名，现已参数化
     pub middle_band_name: String,
@@ -27,7 +27,7 @@ pub struct BBandsConfig {
 /// 接收配置结构体，所有列名均通过结构体参数传入。
 pub fn bbands_expr(config: &BBandsConfig) -> PolarsResult<(Expr, Expr, Expr, Expr, Expr, Expr)> {
     let col_name = config.column_name.as_str();
-    let length = config.length;
+    let period = config.period;
     let std_multiplier = config.std_multiplier;
 
     let middle_name = config.middle_band_name.as_str();
@@ -39,8 +39,8 @@ pub fn bbands_expr(config: &BBandsConfig) -> PolarsResult<(Expr, Expr, Expr, Exp
 
     // 确保依赖顺序的 RollingOptions
     let rolling_options = RollingOptionsFixedWindow {
-        window_size: length as usize,
-        min_periods: length as usize,
+        window_size: period as usize,
+        min_periods: period as usize,
         weights: None,
         center: false,
         fn_params: Some(RollingFnParams::Var(RollingVarParams { ddof: 0 })),
@@ -51,7 +51,7 @@ pub fn bbands_expr(config: &BBandsConfig) -> PolarsResult<(Expr, Expr, Expr, Exp
     let sma_config = SMAConfig {
         column_name: col_name.to_string(),     // e.g., "close"
         alias_name: "middle_band".to_string(), // 中轨的别名
-        period: length,                        // e.g., 20
+        period,                                // e.g., 20
     };
 
     // 2. 将配置的引用传递给 sma_expr
@@ -97,13 +97,13 @@ pub fn bbands_expr(config: &BBandsConfig) -> PolarsResult<(Expr, Expr, Expr, Exp
 /// **蓝图层 (LazyFrame -> LazyFrame)**
 pub fn bbands_lazy(
     lazy_df: LazyFrame,
-    length: i64,
+    period: i64,
     std_multiplier: f64,
 ) -> PolarsResult<LazyFrame> {
     // 蓝图层负责定义配置，包括输入列名和默认的输出列名
     let config = BBandsConfig {
         column_name: "close".to_string(), // 默认使用 "close" 列作为输入
-        length,
+        period,
         std_multiplier,
         // 定义默认输出列名 (与 eager 函数的返回签名匹配)
         middle_band_name: "middle_band".to_string(),
@@ -142,12 +142,12 @@ pub fn bbands_lazy(
 /// **计算层 (Eager Wrapper)**
 pub fn bbands_eager(
     ohlcv_df: &DataFrame,
-    length: i64,
+    period: i64,
     std_multiplier: f64,
 ) -> PolarsResult<(Series, Series, Series, Series, Series)> {
-    if length <= 0 {
+    if period <= 0 {
         return Err(PolarsError::InvalidOperation(
-            "Length must be positive".into(),
+            "Period must be positive".into(),
         ));
     }
 
@@ -166,7 +166,7 @@ pub fn bbands_eager(
     let lazy_df = ohlcv_df.clone().lazy();
 
     // 2. 调用蓝图函数构建计算计划
-    let lazy_plan = bbands_lazy(lazy_df, length, std_multiplier)?;
+    let lazy_plan = bbands_lazy(lazy_df, period, std_multiplier)?;
 
     // 3. 触发计算，只选择需要的指标列。
     // 注意：这里使用与 bbands_lazy 中默认配置相匹配的列名

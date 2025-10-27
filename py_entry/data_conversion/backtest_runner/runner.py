@@ -153,7 +153,7 @@ class BacktestRunner:
 
         # period_count 可以从 len(data_dict.source["ohlcv"]) 实时计算，无需断言
 
-        raw_results = pyo3_quant.run_backtest_engine(
+        raw_results = pyo3_quant.backtest_engine.run_backtest_engine(
             self._data_dict,
             self._param_set,
             self._template_config,

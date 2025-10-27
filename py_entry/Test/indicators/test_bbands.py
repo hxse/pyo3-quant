@@ -1,4 +1,3 @@
-import path_tool
 from typing import Dict, Any
 import numpy as np
 import pandas as pd
@@ -34,16 +33,16 @@ def bbands_pandas_ta_extractor(
     params: Dict[str, Any],
     enable_talib: bool,
 ) -> Dict[str, np.ndarray]:
-    length = int(params["length"].value)
+    period = int(params["period"].value)
     std = float(params["std"].value)
 
-    bbands_df = ta.bbands(df["close"], length=length, std=std, talib=enable_talib)
+    bbands_df = ta.bbands(df["close"], length=period, std=std, talib=enable_talib)
 
     # 提取5个列
     _s = ["L", "M", "U", "B", "P"]
     result = {}
     for suffix_ta, suffix_custom in zip(_s, suffixes):
-        col_name_ta = f"BB{suffix_ta}_{length}_{std}"
+        col_name_ta = f"BB{suffix_ta}_{period}_{std}"
         col_name_custom = f"{indicator_key}_{suffix_custom}"
         result[col_name_custom] = bbands_df[col_name_ta].to_numpy()
 
@@ -58,22 +57,22 @@ bbands_config = IndicatorTestConfig(
             # timeframe 0
             {
                 "bbands_0": {
-                    "length": Param.create(14),
+                    "period": Param.create(14),
                     "std": Param.create(2.0),
                 },
                 "bbands_1": {
-                    "length": Param.create(20),
+                    "period": Param.create(20),
                     "std": Param.create(2.5),
                 },
             },
             # timeframe 1
             {
                 "bbands_0": {
-                    "length": Param.create(20),
+                    "period": Param.create(20),
                     "std": Param.create(2.0),
                 },
                 "bbands_1": {
-                    "length": Param.create(30),
+                    "period": Param.create(30),
                     "std": Param.create(3.0),
                 },
             },

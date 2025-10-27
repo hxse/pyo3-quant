@@ -16,6 +16,7 @@
     * 由于某些原因,不带release编译速度会特别慢
   * `/usr/bin/time -f "\n%e" python -m py_entry.main`
 ## linker
+  * Rust 1.90.0之后, 默认链接器是lld, 但是mold性能更好, 建议换成mold
   * mold加速编译
     * `sudo apt install clang mold -y`
     * nano `~/.cargo/config.toml`
@@ -23,15 +24,6 @@
     [target.x86_64-unknown-linux-gnu]
     # 确保 clang 已安装
     rustflags = ["-C", "linker=clang", "-C", "link-arg=-fuse-ld=mold"]
-    ```
-    * `cargo clean`
-  * lld加速编译
-    * `sudo apt install clang lld -y`
-    * nano `~/.cargo/config.toml`
-    ```
-    [target.x86_64-unknown-linux-gnu]
-    # 使用 clang 驱动，并指示它使用 lld 链接器
-    rustflags = ["-C", "linker=clang", "-C", "link-arg=-fuse-ld=lld"]
     ```
     * `cargo clean`
 

@@ -12,7 +12,6 @@ class ParamOperand:
 class SignalDataOperand:
     name: str
     source: str
-    source_idx: int
     offset: int
     _tag: Literal["Data"] = "Data"
 

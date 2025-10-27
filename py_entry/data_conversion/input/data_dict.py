@@ -11,4 +11,5 @@ class DataContainer:
 
     mapping: pl.DataFrame
     skip_mask: pl.DataFrame
+    skip_mapping: Dict[str, bool]
     source: Dict[str, List[pl.DataFrame]]

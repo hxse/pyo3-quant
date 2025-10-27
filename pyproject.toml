@@ -34,3 +34,5 @@ dev = [
 [tool.pytest.ini_options]
 # 列表中的字符串是想要忽略的文件夹名称
 norecursedirs = ["source_ref"]
+pythonpath = ["py_entry"]
+addopts = ["--import-mode=importlib"]

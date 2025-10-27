@@ -8,8 +8,15 @@ pub mod input;
 pub mod output;
 
 // 重新导出常用类型
+use pyo3::prelude::*;
+
 pub use input::{
     process_all_params, BacktestParams, DataContainer, ParamContainer, RiskParams, RiskTemplate,
     SettingContainer, SignalParams, SignalTemplate, SingleParam, TemplateContainer,
 };
 pub use output::{BacktestSummary, PerformanceMetrics};
+
+pub fn register_py_module(_m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // 目前没有直接从该模块导出的函数，函数体可以暂时只包含 `Ok(())`
+    Ok(())
+}

@@ -1,6 +1,8 @@
 use polars::lazy::dsl::{col, lit, when};
 use polars::prelude::*;
 
+use crate::error::{IndicatorError, QuantError};
+
 /// EMA 的配置结构体
 pub struct EMAConfig {
     pub column_name: String,            // 要计算 EMA 的输入列名 (e.g., "close")
@@ -29,7 +31,7 @@ impl EMAConfig {
 
 // --- 表达式分离函数 ---
 /// 🔍 返回计算 EMA 所需的所有核心表达式。
-pub fn ema_expr(config: &EMAConfig) -> PolarsResult<(Expr, Expr)> {
+pub fn ema_expr(config: &EMAConfig) -> Result<(Expr, Expr), QuantError> {
     let col_name = config.column_name.as_str();
     let alias_name = config.alias_name.as_str();
     let period = config.period;
@@ -81,7 +83,7 @@ pub fn ema_expr(config: &EMAConfig) -> PolarsResult<(Expr, Expr)> {
 }
 
 // --- 蓝图函数 (复用分离出的表达式) ---
-pub fn ema_lazy(lazy_df: LazyFrame, period: i64) -> PolarsResult<LazyFrame> {
+pub fn ema_lazy(lazy_df: LazyFrame, period: i64) -> Result<LazyFrame, QuantError> {
     let config = EMAConfig::new(period);
     let (processed_close_expr, ema_expr) = ema_expr(&config)?;
     let result_lazy_df = lazy_df
@@ -92,11 +94,13 @@ pub fn ema_lazy(lazy_df: LazyFrame, period: i64) -> PolarsResult<LazyFrame> {
 }
 
 // --- Eager 包装函数 (保持不变) ---
-pub fn ema_eager(ohlcv_df: &DataFrame, period: i64) -> PolarsResult<Series> {
+pub fn ema_eager(ohlcv_df: &DataFrame, period: i64) -> Result<Series, QuantError> {
     if period <= 0 {
-        return Err(PolarsError::InvalidOperation(
-            "Period must be positive".into(),
-        ));
+        return Err(IndicatorError::InvalidParameter(
+            "ema".to_string(),
+            "Period must be positive".to_string(),
+        )
+        .into());
     }
     let series_len = ohlcv_df.height();
     if series_len == 0 {
@@ -104,10 +108,17 @@ pub fn ema_eager(ohlcv_df: &DataFrame, period: i64) -> PolarsResult<Series> {
     }
     let n_periods = period as usize;
     if series_len < n_periods {
-        return Ok(Series::new_null("ema".into(), series_len));
+        return Err(IndicatorError::DataTooShort("ema".to_string(), period).into());
     }
     let lazy_df = ohlcv_df.clone().lazy();
     let lazy_plan = ema_lazy(lazy_df, period)?;
-    let result_df = lazy_plan.select([col("ema")]).collect()?;
-    Ok(result_df.column("ema")?.as_materialized_series().clone())
+    let result_df = lazy_plan
+        .select([col("ema")])
+        .collect()
+        .map_err(QuantError::from)?;
+    Ok(result_df
+        .column("ema")
+        .map_err(QuantError::from)?
+        .as_materialized_series()
+        .clone())
 }

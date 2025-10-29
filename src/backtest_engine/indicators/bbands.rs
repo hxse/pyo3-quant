@@ -4,6 +4,7 @@ use polars::prelude::*;
 // 引入抽象后的 sma_expr 函数
 use super::sma::sma_expr;
 use super::sma::SMAConfig;
+use crate::error::{IndicatorError, QuantError};
 
 /// 布林带的配置结构体，将所有输入参数和输出列名抽象化。
 pub struct BBandsConfig {
@@ -25,7 +26,9 @@ pub struct BBandsConfig {
 ///
 /// **表达式层 (Exprs)**
 /// 接收配置结构体，所有列名均通过结构体参数传入。
-pub fn bbands_expr(config: &BBandsConfig) -> PolarsResult<(Expr, Expr, Expr, Expr, Expr, Expr)> {
+pub fn bbands_expr(
+    config: &BBandsConfig,
+) -> Result<(Expr, Expr, Expr, Expr, Expr, Expr), QuantError> {
     let col_name = config.column_name.as_str();
     let period = config.period;
     let std_multiplier = config.std_multiplier;
@@ -99,7 +102,7 @@ pub fn bbands_lazy(
     lazy_df: LazyFrame,
     period: i64,
     std_multiplier: f64,
-) -> PolarsResult<LazyFrame> {
+) -> Result<LazyFrame, QuantError> {
     // 蓝图层负责定义配置，包括输入列名和默认的输出列名
     let config = BBandsConfig {
         column_name: "close".to_string(), // 默认使用 "close" 列作为输入
@@ -144,22 +147,20 @@ pub fn bbands_eager(
     ohlcv_df: &DataFrame,
     period: i64,
     std_multiplier: f64,
-) -> PolarsResult<(Series, Series, Series, Series, Series)> {
+) -> Result<(Series, Series, Series, Series, Series), QuantError> {
     if period <= 0 {
-        return Err(PolarsError::InvalidOperation(
-            "Period must be positive".into(),
-        ));
+        return Err(IndicatorError::InvalidParameter(
+            "bbands".to_string(),
+            "Period must be positive".to_string(),
+        )
+        .into());
     }
 
-    // 边界条件处理
-    if ohlcv_df.height() == 0 {
-        return Ok((
-            Series::new_empty("lower_band".into(), &DataType::Float64),
-            Series::new_empty("middle_band".into(), &DataType::Float64),
-            Series::new_empty("upper_band".into(), &DataType::Float64),
-            Series::new_empty("bandwidth".into(), &DataType::Float64),
-            Series::new_empty("percent_b".into(), &DataType::Float64),
-        ));
+    let series_len = ohlcv_df.height();
+    let n_periods = period as usize;
+
+    if series_len < n_periods {
+        return Err(IndicatorError::DataTooShort("bbands".to_string(), period).into());
     }
 
     // 1. 将 DataFrame 转换为 LazyFrame
@@ -179,28 +180,34 @@ pub fn bbands_eager(
             col("percent_b"),
             // 不选择 std_dev
         ])
-        .collect()?;
+        .collect()
+        .map_err(QuantError::from)?;
 
     // 4. 提取结果 Series
     Ok((
         combined_df
-            .column("lower_band")?
+            .column("lower_band")
+            .map_err(QuantError::from)?
             .as_materialized_series()
             .clone(),
         combined_df
-            .column("middle_band")?
+            .column("middle_band")
+            .map_err(QuantError::from)?
             .as_materialized_series()
             .clone(),
         combined_df
-            .column("upper_band")?
+            .column("upper_band")
+            .map_err(QuantError::from)?
             .as_materialized_series()
             .clone(),
         combined_df
-            .column("bandwidth")?
+            .column("bandwidth")
+            .map_err(QuantError::from)?
             .as_materialized_series()
             .clone(),
         combined_df
-            .column("percent_b")?
+            .column("percent_b")
+            .map_err(QuantError::from)?
             .as_materialized_series()
             .clone(),
     ))

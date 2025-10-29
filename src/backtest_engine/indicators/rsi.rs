@@ -1,4 +1,5 @@
 use crate::backtest_engine::indicators::rma::{rma_expr, RMAConfig};
+use crate::error::{IndicatorError, QuantError};
 use polars::lazy::dsl::{col, lit, when};
 use polars::prelude::*;
 
@@ -19,7 +20,7 @@ pub struct RSIConfig {
 /// 接收配置结构体，所有列名均通过结构体参数传入。
 pub fn rsi_expr(
     config: &RSIConfig,
-) -> PolarsResult<(Expr, Expr, Expr, Expr, Expr, Expr, Expr, Expr)> {
+) -> Result<(Expr, Expr, Expr, Expr, Expr, Expr, Expr, Expr), QuantError> {
     let col_name = config.column_name.as_str();
     let period = config.period;
 
@@ -87,13 +88,15 @@ pub fn rsi_expr(
         column_name: processed_gain_temp_name.to_string(),
         alias_name: avg_gain_temp_name.to_string(),
         period,
-    })?;
+    })
+    .map_err(QuantError::from)?;
 
     let avg_loss_expr = rma_expr(&RMAConfig {
         column_name: processed_loss_temp_name.to_string(),
         alias_name: avg_loss_temp_name.to_string(),
         period,
-    })?;
+    })
+    .map_err(QuantError::from)?;
 
     // 6. 计算 RSI
     // RSI = 100.0 * (avg_gain / (avg_gain + avg_loss))
@@ -118,7 +121,7 @@ pub fn rsi_expr(
 /// 🧱 相对强弱指数 (RSI) 惰性蓝图函数：接收 LazyFrame，返回包含 "rsi" 列的 LazyFrame。
 ///
 /// **蓝图层 (LazyFrame -> LazyFrame)**
-pub fn rsi_lazy(lazy_df: LazyFrame, period: i64) -> PolarsResult<LazyFrame> {
+pub fn rsi_lazy(lazy_df: LazyFrame, period: i64) -> Result<LazyFrame, QuantError> {
     let config = RSIConfig {
         column_name: "close".to_string(),
         alias_name: "rsi".to_string(),
@@ -168,11 +171,13 @@ pub fn rsi_lazy(lazy_df: LazyFrame, period: i64) -> PolarsResult<LazyFrame> {
 /// 📈 相对强弱指数 (RSI) 急切计算函数
 ///
 /// **计算层 (Eager Wrapper)**
-pub fn rsi_eager(ohlcv_df: &DataFrame, period: i64) -> PolarsResult<Series> {
+pub fn rsi_eager(ohlcv_df: &DataFrame, period: i64) -> Result<Series, QuantError> {
     if period <= 0 {
-        return Err(PolarsError::InvalidOperation(
-            "Period must be positive".into(),
-        ));
+        return Err(IndicatorError::InvalidParameter(
+            "rsi".to_string(),
+            "Period must be positive".to_string(),
+        )
+        .into());
     }
     let series_len = ohlcv_df.height();
     if series_len == 0 {
@@ -180,12 +185,15 @@ pub fn rsi_eager(ohlcv_df: &DataFrame, period: i64) -> PolarsResult<Series> {
     }
     let n_periods = period as usize;
     if series_len <= n_periods {
-        return Ok(Series::new_null("rsi".into(), series_len));
+        return Err(IndicatorError::DataTooShort("rsi".to_string(), period).into());
     }
 
     let lazy_df = ohlcv_df.clone().lazy();
     let lazy_plan = rsi_lazy(lazy_df, period)?;
-    let df = lazy_plan.select([col("rsi")]).collect()?;
+    let df = lazy_plan
+        .select([col("rsi")])
+        .collect()
+        .map_err(QuantError::from)?;
 
     Ok(df.column("rsi")?.as_materialized_series().clone())
 }

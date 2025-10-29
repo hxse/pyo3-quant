@@ -1,5 +1,6 @@
+use crate::error::{IndicatorError, QuantError};
 use polars::prelude::*;
-use std::sync::Arc;
+use std::sync::Arc; // 新增导入
 
 mod psar_core;
 use psar_core::{psar_first_iteration, psar_update};
@@ -20,7 +21,8 @@ pub struct PSARConfig {
 }
 
 // --- 表达式层：使用 map_many 封装逐行状态更新 ---
-pub fn psar_expr(config: &PSARConfig) -> PolarsResult<Expr> {
+pub fn psar_expr(config: &PSARConfig) -> Result<Expr, QuantError> {
+    // 修改返回类型
     let high_col = col(&config.high_col);
     let low_col = col(&config.low_col);
     let close_col = col(&config.close_col);
@@ -45,20 +47,17 @@ pub fn psar_expr(config: &PSARConfig) -> PolarsResult<Expr> {
                 let low_series = &s[1];
                 let close_series = &s[2];
                 let high_vec: Vec<f64> = high_series
-                    .f64()
-                    .unwrap()
+                    .f64()? //，因为闭包返回 PolarsResult
                     .into_iter()
                     .map(|x| x.unwrap_or(f64::NAN))
                     .collect();
                 let low_vec: Vec<f64> = low_series
-                    .f64()
-                    .unwrap()
+                    .f64()?
                     .into_iter()
                     .map(|x| x.unwrap_or(f64::NAN))
                     .collect();
                 let close_vec: Vec<f64> = close_series
-                    .f64()
-                    .unwrap()
+                    .f64()?
                     .into_iter()
                     .map(|x| x.unwrap_or(f64::NAN))
                     .collect();
@@ -70,22 +69,14 @@ pub fn psar_expr(config: &PSARConfig) -> PolarsResult<Expr> {
                 let mut psar_reversal = vec![0.0; n];
 
                 if n < 2 {
-                    let psar_long_series = Series::new(psar_long_alias.as_str().into(), psar_long);
-                    let psar_short_series =
-                        Series::new(psar_short_alias.as_str().into(), psar_short);
-                    let psar_af_series = Series::new(psar_af_alias.as_str().into(), psar_af);
-                    let psar_reversal_series =
-                        Series::new(psar_reversal_alias.as_str().into(), psar_reversal);
-                    let df_temp = DataFrame::new(vec![
-                        psar_long_series.into(),
-                        psar_short_series.into(),
-                        psar_af_series.into(),
-                        psar_reversal_series.into(),
-                    ])?;
-                    return Ok(df_temp
-                        .into_struct("psar_struct".into())
-                        .into_series()
-                        .into());
+                    // 对于数据不足的情况，返回 PolarsError::ComputeError
+                    return Err(PolarsError::ComputeError(
+                        format!(
+                            "Input data is too short to calculate psar. Minimum 2 data points required. Details: {}",
+                            IndicatorError::DataTooShort("psar".to_string(), 2)
+                        )
+                        .into(),
+                    ));
                 }
 
                 // 逐行状态更新（封装在 expr 閉包內）
@@ -108,6 +99,9 @@ pub fn psar_expr(config: &PSARConfig) -> PolarsResult<Expr> {
                 psar_reversal[1] = rev_val;
 
                 if state.current_psar.is_nan() {
+                    // 这种情况可能表示初始计算失败，或者数据不足以进行有效计算
+                    // 暂时不抛出错误，而是返回全 NaN 的 Series，这与 Polars 的行为更一致
+                    // 如果需要更严格的错误处理，可以考虑抛出 IndicatorError::ComputeError
                     let psar_long_series = Series::new(psar_long_alias.as_str().into(), psar_long);
                     let psar_short_series =
                         Series::new(psar_short_alias.as_str().into(), psar_short);
@@ -174,7 +168,8 @@ pub fn psar_lazy(
     af0: f64,
     af_step: f64,
     max_af: f64,
-) -> PolarsResult<LazyFrame> {
+) -> Result<LazyFrame, QuantError> {
+    // 修改返回类型
     let config = PSARConfig {
         high_col: "high".to_string(),
         low_col: "low".to_string(),
@@ -222,24 +217,34 @@ pub fn psar_eager(
     af0: f64,
     af_step: f64,
     max_af: f64,
-) -> PolarsResult<(Series, Series, Series, Series)> {
+) -> Result<(Series, Series, Series, Series), QuantError> {
+    // 修改返回类型
+    if ohlcv_df.height() < 2 {
+        // PSAR 至少需要2个数据点
+        return Err(IndicatorError::DataTooShort("psar".to_string(), 2).into());
+    }
+
     let lazy_df = psar_lazy(ohlcv_df.clone().lazy(), af0, af_step, max_af)?;
-    let result_df = lazy_df.collect()?;
+    let result_df = lazy_df.collect().map_err(QuantError::from)?; // 错误转换
     Ok((
         result_df
-            .column("psar_long")?
+            .column("psar_long")
+            .map_err(QuantError::from)? // 错误转换
             .as_materialized_series()
             .clone(),
         result_df
-            .column("psar_short")?
+            .column("psar_short")
+            .map_err(QuantError::from)? // 错误转换
             .as_materialized_series()
             .clone(),
         result_df
-            .column("psar_af")?
+            .column("psar_af")
+            .map_err(QuantError::from)? // 错误转换
             .as_materialized_series()
             .clone(),
         result_df
-            .column("psar_reversal")?
+            .column("psar_reversal")
+            .map_err(QuantError::from)? // 错误转换
             .as_materialized_series()
             .clone(),
     ))

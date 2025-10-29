@@ -1,3 +1,4 @@
+use crate::error::{IndicatorError, QuantError};
 use polars::lazy::dsl::col;
 use polars::prelude::*;
 
@@ -14,15 +15,17 @@ pub struct SMAConfig {
 ///
 /// **表达式层 (Expr)**
 /// 接收配置结构体，实现了参数的高度抽象化。
-pub fn sma_expr(config: &SMAConfig) -> PolarsResult<Expr> {
+pub fn sma_expr(config: &SMAConfig) -> Result<Expr, QuantError> {
     let column_name = config.column_name.as_str();
     let alias_name = config.alias_name.as_str();
     let period = config.period;
 
     if period <= 0 {
-        return Err(polars::prelude::PolarsError::InvalidOperation(
-            "Period must be positive for SMA calculation".into(),
-        ));
+        return Err(IndicatorError::InvalidParameter(
+            "sma".to_string(),
+            "Period must be positive for SMA calculation".to_string(),
+        )
+        .into());
     }
 
     let sma_expr = col(column_name) // 使用抽象的输入列名
@@ -44,7 +47,7 @@ pub fn sma_expr(config: &SMAConfig) -> PolarsResult<Expr> {
 /// 🧱 SMA 惰性蓝图函数：接收 LazyFrame，返回包含 "sma" 列的 LazyFrame。
 ///
 /// **蓝图层 (LazyFrame -> LazyFrame)**
-pub fn sma_lazy(lazy_df: LazyFrame, period: i64) -> PolarsResult<LazyFrame> {
+pub fn sma_lazy(lazy_df: LazyFrame, period: i64) -> Result<LazyFrame, QuantError> {
     // 蓝图层负责定义配置（包括默认输入列名和输出别名）
     let config = SMAConfig {
         column_name: "close".to_string(), // 默认输入 "close" 列
@@ -66,12 +69,14 @@ pub fn sma_lazy(lazy_df: LazyFrame, period: i64) -> PolarsResult<LazyFrame> {
 /// 📈 SMA 急切计算函数
 ///
 /// **计算层 (Eager Wrapper)**
-pub fn sma_eager(ohlcv_df: &DataFrame, period: i64) -> PolarsResult<Series> {
+pub fn sma_eager(ohlcv_df: &DataFrame, period: i64) -> Result<Series, QuantError> {
     // 边界检查
     if period <= 0 {
-        return Err(polars::prelude::PolarsError::InvalidOperation(
-            "Period must be positive for SMA calculation".into(),
-        ));
+        return Err(IndicatorError::InvalidParameter(
+            "sma".to_string(),
+            "Period must be positive for SMA calculation".to_string(),
+        )
+        .into());
     }
 
     if ohlcv_df.height() == 0 {
@@ -85,7 +90,10 @@ pub fn sma_eager(ohlcv_df: &DataFrame, period: i64) -> PolarsResult<Series> {
     let lazy_plan = sma_lazy(lazy_df, period)?;
 
     // 3. 触发计算，只选择最终结果
-    let df = lazy_plan.select([col("sma")]).collect()?;
+    let df = lazy_plan
+        .select([col("sma")])
+        .collect()
+        .map_err(QuantError::from)?;
 
     // 4. 提取结果 Series
     Ok(df.column("sma")?.as_materialized_series().clone())

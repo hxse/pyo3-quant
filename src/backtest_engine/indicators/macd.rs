@@ -3,6 +3,7 @@ use polars::prelude::*;
 
 // 從 ema.rs 導入封裝的 EMA 邏輯
 use crate::backtest_engine::indicators::ema::{ema_expr, EMAConfig};
+use crate::error::{IndicatorError, QuantError};
 
 /// MACD 的配置結構體
 pub struct MACDConfig {
@@ -18,7 +19,7 @@ pub struct MACDConfig {
 // 表達式層（使用封裝的 ema_expr）
 pub fn macd_expr(
     config: &MACDConfig,
-) -> PolarsResult<(Expr, Expr, Expr, Expr, Expr, Expr, Expr, Expr)> {
+) -> Result<(Expr, Expr, Expr, Expr, Expr, Expr, Expr, Expr), QuantError> {
     let column_name = &config.column_name;
     let mut fast_period = config.fast_period;
     let mut slow_period = config.slow_period;
@@ -98,7 +99,7 @@ pub fn macd_lazy(
     macd_alias: &str,
     signal_alias: &str,
     hist_alias: &str,
-) -> PolarsResult<LazyFrame> {
+) -> Result<LazyFrame, QuantError> {
     let config = MACDConfig {
         column_name: column_name.to_string(),
         fast_period,
@@ -200,17 +201,34 @@ pub fn macd_eager(
     macd_alias: &str,
     signal_alias: &str,
     hist_alias: &str,
-) -> PolarsResult<(Series, Series, Series)> {
+) -> Result<(Series, Series, Series), QuantError> {
     // 1. 邊界檢查
-    if fast_period <= 0 || slow_period <= 0 || signal_period <= 0 {
-        return Err(PolarsError::ComputeError(
-            "Periods must be greater than 0.".into(),
-        ));
+    if fast_period <= 0 {
+        return Err(IndicatorError::InvalidParameter(
+            "macd".to_string(),
+            "Fast period must be positive".to_string(),
+        )
+        .into());
     }
-    if ohlcv_df.height() < (std::cmp::max(fast_period, slow_period) + signal_period - 2) as usize {
-        return Err(PolarsError::ComputeError(
-            "DataFrame is too small to calculate MACD.".into(),
-        ));
+    if slow_period <= 0 {
+        return Err(IndicatorError::InvalidParameter(
+            "macd".to_string(),
+            "Slow period must be positive".to_string(),
+        )
+        .into());
+    }
+    if signal_period <= 0 {
+        return Err(IndicatorError::InvalidParameter(
+            "macd".to_string(),
+            "Signal period must be positive".to_string(),
+        )
+        .into());
+    }
+
+    let series_len = ohlcv_df.height();
+    let min_len = (std::cmp::max(fast_period, slow_period) + signal_period - 2);
+    if series_len < min_len as usize {
+        return Err(IndicatorError::DataTooShort("macd".to_string(), min_len).into());
     }
 
     // 2. 調用 macd_lazy 並 collect
@@ -224,12 +242,25 @@ pub fn macd_eager(
         signal_alias,
         hist_alias,
     )?
-    .collect()?;
+    .collect()
+    .map_err(QuantError::from)?;
 
     // 3. 返回三個 Series
-    let macd = df.column(macd_alias)?.as_materialized_series().clone();
-    let signal = df.column(signal_alias)?.as_materialized_series().clone();
-    let hist = df.column(hist_alias)?.as_materialized_series().clone();
+    let macd = df
+        .column(macd_alias)
+        .map_err(QuantError::from)?
+        .as_materialized_series()
+        .clone();
+    let signal = df
+        .column(signal_alias)
+        .map_err(QuantError::from)?
+        .as_materialized_series()
+        .clone();
+    let hist = df
+        .column(hist_alias)
+        .map_err(QuantError::from)?
+        .as_materialized_series()
+        .clone();
 
     Ok((macd, signal, hist))
 }

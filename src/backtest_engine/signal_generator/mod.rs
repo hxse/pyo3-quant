@@ -1,6 +1,7 @@
 use crate::data_conversion::input::param_set::SignalParams;
 use crate::data_conversion::input::template::{SignalGroup, SignalTemplate};
 use crate::data_conversion::input::DataContainer;
+use crate::error::QuantError;
 
 use pyo3::{prelude::*, types::PyAny};
 use pyo3_polars::PyDataFrame;
@@ -21,7 +22,7 @@ fn process_signal_field_helper(
     indicator_dfs: &HashMap<String, Vec<DataFrame>>,
     signal_params: &SignalParams,
     target_series: &mut Series,
-) -> PolarsResult<()> {
+) -> Result<(), QuantError> {
     if let Some(groups) = groups {
         for group in groups {
             let group_result =
@@ -38,7 +39,7 @@ pub fn generate_signals(
     indicator_dfs: &HashMap<String, Vec<DataFrame>>,
     signal_params: &SignalParams,
     signal_template: &SignalTemplate,
-) -> PolarsResult<DataFrame> {
+) -> Result<DataFrame, QuantError> {
     // 从 processed_data.mapping 获取数据长度
     let data_len = processed_data.mapping.height();
 
@@ -119,13 +120,7 @@ pub fn py_generate_signals(
         &indicator_dfs,
         &signal_params,
         &signal_template,
-    )
-    .map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-            "Rust error in generate_signals: {}",
-            e
-        ))
-    })?;
+    )?;
 
     // 3. 将返回的 Rust DataFrame 转换为 PyDataFrame
     Ok(PyDataFrame(result_df))

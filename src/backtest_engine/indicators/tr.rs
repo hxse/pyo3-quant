@@ -1,3 +1,4 @@
+use crate::error::{IndicatorError, QuantError};
 use polars::lazy::dsl::{col, lit, max_horizontal, when};
 use polars::prelude::*;
 
@@ -17,7 +18,7 @@ pub struct TRConfig {
 ///
 /// **表达式层 (Expr)**
 /// 接收配置结构体，所有列名均通过结构体参数传入。
-pub fn tr_expr(config: &TRConfig) -> PolarsResult<Expr> {
+pub fn tr_expr(config: &TRConfig) -> Result<Expr, QuantError> {
     let high_col = config.high_col.as_str();
     let low_col = config.low_col.as_str();
     let close_col = config.close_col.as_str();
@@ -48,7 +49,7 @@ pub fn tr_expr(config: &TRConfig) -> PolarsResult<Expr> {
 /// 🧱 真实波幅 (TR) 惰性蓝图函数：接收 LazyFrame，返回包含 "tr" 列的 LazyFrame。
 ///
 /// **蓝图层 (LazyFrame -> LazyFrame)**
-pub fn tr_lazy(lazy_df: LazyFrame) -> PolarsResult<LazyFrame> {
+pub fn tr_lazy(lazy_df: LazyFrame) -> Result<LazyFrame, QuantError> {
     // 1. 蓝图层负责定义配置（默认 OHLCV 列名）
     let config = TRConfig {
         high_col: "high".to_string(),
@@ -71,7 +72,7 @@ pub fn tr_lazy(lazy_df: LazyFrame) -> PolarsResult<LazyFrame> {
 /// 📈 真实波幅 (TR) 急切计算函数
 ///
 /// **计算层 (Eager Wrapper)**
-pub fn tr_eager(ohlcv_df: &DataFrame) -> PolarsResult<Series> {
+pub fn tr_eager(ohlcv_df: &DataFrame) -> Result<Series, QuantError> {
     if ohlcv_df.height() == 0 {
         return Ok(Series::new_empty("tr".into(), &DataType::Float64));
     }
@@ -83,7 +84,10 @@ pub fn tr_eager(ohlcv_df: &DataFrame) -> PolarsResult<Series> {
     let lazy_plan = tr_lazy(lazy_df)?;
 
     // 3. 触发计算，只选择最终的 "tr" 结果
-    let df = lazy_plan.select([col("tr")]).collect()?; // 触发计算
+    let df = lazy_plan
+        .select([col("tr")])
+        .collect()
+        .map_err(QuantError::from)?; // 触发计算
 
     // 4. 提取结果 Series
     Ok(df.column("tr")?.as_materialized_series().clone())

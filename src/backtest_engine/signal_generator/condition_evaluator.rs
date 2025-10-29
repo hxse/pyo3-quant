@@ -2,9 +2,8 @@ use super::operand_resolver::{resolve_data_operand, resolve_right_operand, Resol
 use crate::data_conversion::input::param_set::SignalParams;
 use crate::data_conversion::input::template::{CompareOp, SignalCondition};
 use crate::data_conversion::input::DataContainer;
+use crate::error::QuantError;
 use polars::prelude::*;
-use pyo3::exceptions::PyValueError;
-use pyo3::prelude::*;
 use std::collections::HashMap;
 use std::ops::{BitAnd, Not};
 
@@ -14,14 +13,10 @@ fn perform_comparison(
     operand: &ResolvedOperand,
     compare_series: impl Fn(&Series, &Series) -> PolarsResult<BooleanChunked>,
     compare_scalar: impl Fn(&Series, f64) -> PolarsResult<BooleanChunked>,
-) -> PyResult<BooleanChunked> {
+) -> Result<BooleanChunked, QuantError> {
     match operand {
-        ResolvedOperand::Series(ref b) => {
-            compare_series(series, b).map_err(|e| PyValueError::new_err(e.to_string()))
-        }
-        ResolvedOperand::Scalar(value) => {
-            compare_scalar(series, *value).map_err(|e| PyValueError::new_err(e.to_string()))
-        }
+        ResolvedOperand::Series(ref b) => Ok(compare_series(series, b)?),
+        ResolvedOperand::Scalar(value) => Ok(compare_scalar(series, *value)?),
     }
 }
 
@@ -31,7 +26,7 @@ pub fn evaluate_condition(
     processed_data: &DataContainer,
     indicator_dfs: &HashMap<String, Vec<DataFrame>>,
     signal_params: &SignalParams,
-) -> PyResult<Series> {
+) -> Result<Series, QuantError> {
     let series_a = resolve_data_operand(&condition.a, processed_data, indicator_dfs)?;
     let resolved_b =
         resolve_right_operand(&condition.b, processed_data, indicator_dfs, signal_params)?;

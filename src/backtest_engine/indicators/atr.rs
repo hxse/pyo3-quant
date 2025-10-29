@@ -2,6 +2,7 @@ use polars::lazy::dsl::{col, lit, when};
 use polars::prelude::*;
 
 use crate::backtest_engine::indicators::tr::{tr_expr, TRConfig};
+use crate::error::{IndicatorError, QuantError};
 
 /// ATR (Average True Range) 的配置结构体
 pub struct ATRConfig {
@@ -20,7 +21,7 @@ pub struct ATRConfig {
 ///
 /// **表达式层 (Expr)**
 /// 接收配置结构体，所有列名均通过结构体参数传入。
-pub fn atr_expr(config: &ATRConfig) -> PolarsResult<(Expr, Expr)> {
+pub fn atr_expr(config: &ATRConfig) -> Result<(Expr, Expr), QuantError> {
     let alias_name = config.alias_name.as_str();
     let period = config.period;
 
@@ -73,7 +74,7 @@ pub fn atr_expr(config: &ATRConfig) -> PolarsResult<(Expr, Expr)> {
 /// 🧱 平均真实波幅 (ATR) 惰性蓝图函数：接收 LazyFrame，返回包含 "atr" 列的 LazyFrame。
 ///
 /// **蓝图层 (LazyFrame -> LazyFrame)**
-pub fn atr_lazy(lazy_df: LazyFrame, period: i64) -> PolarsResult<LazyFrame> {
+pub fn atr_lazy(lazy_df: LazyFrame, period: i64) -> Result<LazyFrame, QuantError> {
     let config = ATRConfig {
         high_col: "high".to_string(),
         low_col: "low".to_string(),
@@ -116,24 +117,37 @@ pub fn atr_lazy(lazy_df: LazyFrame, period: i64) -> PolarsResult<LazyFrame> {
 /// 📈 平均真实波幅 (ATR) 急切计算函数
 ///
 /// **计算层 (Eager Wrapper)**
-pub fn atr_eager(ohlcv_df: &DataFrame, period: i64) -> PolarsResult<Series> {
+pub fn atr_eager(ohlcv_df: &DataFrame, period: i64) -> Result<Series, QuantError> {
     if period <= 0 {
-        return Err(PolarsError::InvalidOperation(
-            "Period must be positive".into(),
-        ));
+        return Err(IndicatorError::InvalidParameter(
+            "atr".to_string(),
+            "Period must be positive".to_string(),
+        )
+        .into());
     }
     let series_len = ohlcv_df.height();
     if series_len == 0 {
-        return Ok(Series::new_empty("atr".into(), &DataType::Float64));
+        return Err(IndicatorError::DataTooShort(
+            "atr".to_string(),
+            0, // Corrected: Pass i64 for period
+        )
+        .into());
     }
     let n_periods = period as usize;
     if series_len < n_periods {
-        return Ok(Series::new_null("atr".into(), series_len));
+        return Err(IndicatorError::DataTooShort(
+            "atr".to_string(),
+            period, // Corrected: Pass i64 for period
+        )
+        .into());
     }
 
     let lazy_df = ohlcv_df.clone().lazy();
     let lazy_plan = atr_lazy(lazy_df, period)?;
-    let df = lazy_plan.select([col("atr")]).collect()?;
+    let df = lazy_plan
+        .select([col("atr")])
+        .collect()
+        .map_err(QuantError::from)?;
 
     Ok(df.column("atr")?.as_materialized_series().clone())
 }

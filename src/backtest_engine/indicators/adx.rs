@@ -3,6 +3,7 @@
 // ... (omitted comments for brevity)
 //!
 use crate::backtest_engine::indicators::tr::{tr_expr, TRConfig};
+use crate::error::{IndicatorError, QuantError};
 use polars::lazy::dsl::{col, lit, when};
 use polars::prelude::*;
 
@@ -49,8 +50,15 @@ fn get_fixed_aggregate(
     dm1_col_name: &str,
     period: i64,
     index_col_name: &str,
-) -> PolarsResult<(Expr, Expr)> {
+) -> Result<(Expr, Expr), QuantError> {
     let period_usize = period as usize;
+    if period <= 0 {
+        return Err(IndicatorError::InvalidParameter(
+            "adx".to_string(),
+            "Period must be positive".to_string(),
+        )
+        .into());
+    }
     // 移除所有用于防止优化的 period literal 别名
     let period_lit_f64 = lit(period as f64);
     let alpha = 1.0 / period as f64;
@@ -111,7 +119,7 @@ fn get_fixed_aggregate(
 fn get_raw_dm_tr_exprs(
     config: &ADXConfig,
     index_col_name: &str,
-) -> PolarsResult<(Expr, Expr, Expr)> {
+) -> Result<(Expr, Expr, Expr), QuantError> {
     let high = col(&config.high_col);
     let low = col(&config.low_col);
     let index = col(index_col_name);
@@ -159,11 +167,26 @@ fn get_raw_dm_tr_exprs(
 }
 
 /// 🏗 Constructs a lazy DataFrame for ADX, Plus DM, and Minus DM.
-pub fn adx_lazy(lazy_df: LazyFrame, config: &ADXConfig) -> PolarsResult<LazyFrame> {
+pub fn adx_lazy(lazy_df: LazyFrame, config: &ADXConfig) -> Result<LazyFrame, QuantError> {
     let period = config.period;
     let adxr_length = config.adxr_length;
     let index_col_name = "index";
     let period_usize = period as usize;
+
+    if period <= 0 {
+        return Err(IndicatorError::InvalidParameter(
+            "adx".to_string(),
+            "Period must be positive".to_string(),
+        )
+        .into());
+    }
+    if adxr_length <= 0 {
+        return Err(IndicatorError::InvalidParameter(
+            "adx".to_string(),
+            "ADXR Length must be positive".to_string(),
+        )
+        .into());
+    }
 
     // --------------------------------------------------------------------------------
     // --- Polars 优化器常量定义 (简化别名) ---
@@ -354,9 +377,11 @@ pub fn adx_lazy(lazy_df: LazyFrame, config: &ADXConfig) -> PolarsResult<LazyFram
 pub fn adx_eager(
     df: &DataFrame,
     config: &ADXConfig,
-) -> PolarsResult<(Series, Series, Series, Series)> {
+) -> Result<(Series, Series, Series, Series), QuantError> {
     let lazy_df = df.clone().lazy();
-    let df_with_adx = adx_lazy(lazy_df, config)?.collect()?;
+    let df_with_adx = adx_lazy(lazy_df, config)?
+        .collect()
+        .map_err(QuantError::from)?;
 
     let adx_series = df_with_adx
         .column(&config.adx_alias)?

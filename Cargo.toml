@@ -21,6 +21,7 @@ polars-ops = { version = "0.51.0", features = ["ewma"] }
 pyo3 = { version = "0.25", features = ["extension-module"] }
 pyo3-polars = "0.24"
 rayon = "1.11.0"
+thiserror = "2.0.17"
 
 
 [profile.dev]

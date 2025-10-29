@@ -15,6 +15,7 @@ pub use crate::data_conversion::output::BacktestSummary;
 use crate::data_conversion::{
     process_all_params, DataContainer, ParamContainer, SettingContainer, TemplateContainer,
 };
+use crate::error::QuantError;
 
 /// 主入口函数:运行回测引擎
 #[pyfunction]
@@ -44,10 +45,7 @@ pub fn run_backtest_engine(
                     &processed_settings,
                 )
             })
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Backtest error: {}", e))
-            })?
+            .collect::<Result<Vec<_>, QuantError>>()?
     } else {
         // 多任务：使用 Rayon 并行，限制每个任务的 Polars 为单线程
         processed_params
@@ -62,10 +60,7 @@ pub fn run_backtest_engine(
                     )
                 })
             })
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Backtest error: {}", e))
-            })?
+            .collect::<Result<Vec<_>, QuantError>>()?
     };
 
     // 3. 将results转换为Python字典列表
@@ -83,7 +78,7 @@ fn execute_single_backtest(
     single_param: &crate::data_conversion::SingleParam,
     processed_template: &TemplateContainer,
     processed_settings: &crate::data_conversion::SettingContainer,
-) -> PolarsResult<BacktestSummary> {
+) -> Result<BacktestSummary, QuantError> {
     let mut indicator_dfs: Option<std::collections::HashMap<String, Vec<DataFrame>>> = None;
     let mut signals_df = None;
     let mut backtest_df = None;

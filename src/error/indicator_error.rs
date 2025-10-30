@@ -10,7 +10,10 @@ pub enum IndicatorError {
 
     #[error("Input column '{0}' not found")]
     ColumnNotFound(String),
-    
+
     #[error("Input data is too short to calculate indicator '{0}' with period '{1}'")]
     DataTooShort(String, i64),
+
+    #[error("Indicator '{0}' is not implemented or supported.")]
+    NotImplemented(String),
 }

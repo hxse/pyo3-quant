@@ -1,16 +1,31 @@
+// src/backtest_engine/indicators/atr.rs
+use super::registry::Indicator;
+use crate::backtest_engine::indicators::tr::{tr_expr, TRConfig};
+use crate::data_conversion::input::param::Param;
+use crate::error::{IndicatorError, QuantError};
 use polars::lazy::dsl::{col, lit, when};
 use polars::prelude::*;
-
-use crate::backtest_engine::indicators::tr::{tr_expr, TRConfig};
-use crate::error::{IndicatorError, QuantError};
+use std::collections::HashMap;
 
 /// ATR (Average True Range) 的配置结构体
 pub struct ATRConfig {
+    pub period: i64,
     pub high_col: String,
     pub low_col: String,
     pub close_col: String,
     pub alias_name: String,
-    pub period: i64,
+}
+
+impl ATRConfig {
+    pub fn new(period: i64) -> Self {
+        ATRConfig {
+            period,
+            high_col: "high".to_string(),
+            low_col: "low".to_string(),
+            close_col: "close".to_string(),
+            alias_name: "atr".to_string(),
+        }
+    }
 }
 
 // --- 表达式层 ---
@@ -74,15 +89,7 @@ pub fn atr_expr(config: &ATRConfig) -> Result<(Expr, Expr), QuantError> {
 /// 🧱 平均真实波幅 (ATR) 惰性蓝图函数：接收 LazyFrame，返回包含 "atr" 列的 LazyFrame。
 ///
 /// **蓝图层 (LazyFrame -> LazyFrame)**
-pub fn atr_lazy(lazy_df: LazyFrame, period: i64) -> Result<LazyFrame, QuantError> {
-    let config = ATRConfig {
-        high_col: "high".to_string(),
-        low_col: "low".to_string(),
-        close_col: "close".to_string(),
-        alias_name: "atr".to_string(),
-        period,
-    };
-
+pub fn atr_lazy(lazy_df: LazyFrame, config: &ATRConfig) -> Result<LazyFrame, QuantError> {
     // 1. 获取所有核心表达式
     let (processed_tr_expr, atr_expr) = atr_expr(&config)?;
 
@@ -117,37 +124,60 @@ pub fn atr_lazy(lazy_df: LazyFrame, period: i64) -> Result<LazyFrame, QuantError
 /// 📈 平均真实波幅 (ATR) 急切计算函数
 ///
 /// **计算层 (Eager Wrapper)**
-pub fn atr_eager(ohlcv_df: &DataFrame, period: i64) -> Result<Series, QuantError> {
+pub fn atr_eager(ohlcv_df: &DataFrame, config: &ATRConfig) -> Result<Series, QuantError> {
+    let period = config.period;
+    let alias_name = &config.alias_name;
+
     if period <= 0 {
         return Err(IndicatorError::InvalidParameter(
-            "atr".to_string(),
+            alias_name.to_string(),
             "Period must be positive".to_string(),
         )
         .into());
     }
     let series_len = ohlcv_df.height();
     if series_len == 0 {
-        return Err(IndicatorError::DataTooShort(
-            "atr".to_string(),
-            0, // Corrected: Pass i64 for period
-        )
-        .into());
+        return Err(IndicatorError::DataTooShort(alias_name.to_string(), 0).into());
     }
     let n_periods = period as usize;
     if series_len < n_periods {
-        return Err(IndicatorError::DataTooShort(
-            "atr".to_string(),
-            period, // Corrected: Pass i64 for period
-        )
-        .into());
+        return Err(IndicatorError::DataTooShort(alias_name.to_string(), period).into());
     }
 
     let lazy_df = ohlcv_df.clone().lazy();
-    let lazy_plan = atr_lazy(lazy_df, period)?;
+    let lazy_plan = atr_lazy(lazy_df, config)?;
     let df = lazy_plan
-        .select([col("atr")])
+        .select([col(alias_name)])
         .collect()
         .map_err(QuantError::from)?;
 
-    Ok(df.column("atr")?.as_materialized_series().clone())
+    Ok(df.column(alias_name)?.as_materialized_series().clone())
+}
+
+pub struct AtrIndicator;
+
+impl Indicator for AtrIndicator {
+    fn calculate(
+        &self,
+        ohlcv_df: &DataFrame,
+        indicator_key: &str,
+        param_map: &HashMap<String, Param>,
+    ) -> Result<Vec<Series>, QuantError> {
+        let period = param_map
+            .get("period")
+            .and_then(|p| Some(p.value))
+            .ok_or_else(|| {
+                IndicatorError::InvalidParameter(
+                    indicator_key.to_string(),
+                    "Missing or invalid 'period' parameter".to_string(),
+                )
+            })? as i64;
+
+        let mut config = ATRConfig::new(period);
+        config.alias_name = indicator_key.to_string();
+
+        let atr_series = atr_eager(ohlcv_df, &config)?;
+
+        Ok(vec![atr_series])
+    }
 }

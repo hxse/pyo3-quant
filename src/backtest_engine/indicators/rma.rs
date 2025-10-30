@@ -1,11 +1,25 @@
+// src/backtest_engine/indicators/rma.rs
+use super::registry::Indicator;
+use crate::data_conversion::input::param::Param;
 use crate::error::{IndicatorError, QuantError};
 use polars::lazy::dsl::col;
 use polars::prelude::*;
+use std::collections::HashMap;
 
 pub struct RMAConfig {
+    pub period: i64,
     pub column_name: String,
     pub alias_name: String,
-    pub period: i64,
+}
+
+impl RMAConfig {
+    pub fn new(period: i64) -> Self {
+        Self {
+            period,
+            column_name: "close".to_string(),
+            alias_name: "rma".to_string(),
+        }
+    }
 }
 
 // 表达式层: 直接使用ewm,无前导NaN
@@ -30,21 +44,16 @@ pub fn rma_expr(config: &RMAConfig) -> Result<Expr, QuantError> {
 }
 
 // 蓝图层: 简化,不需要row_index
-pub fn rma_lazy(lazy_df: LazyFrame, period: i64) -> Result<LazyFrame, QuantError> {
-    let config = RMAConfig {
-        column_name: "close".to_string(),
-        alias_name: "rma".to_string(),
-        period,
-    };
-
-    let rma_expr = rma_expr(&config)?;
+pub fn rma_lazy(lazy_df: LazyFrame, config: &RMAConfig) -> Result<LazyFrame, QuantError> {
+    let rma_expr = rma_expr(config)?;
     let result_lazy_df = lazy_df.with_column(rma_expr);
 
     Ok(result_lazy_df)
 }
 
 // 计算层: 保持不变
-pub fn rma_eager(ohlcv_df: &DataFrame, period: i64) -> Result<Series, QuantError> {
+pub fn rma_eager(ohlcv_df: &DataFrame, config: &RMAConfig) -> Result<Series, QuantError> {
+    let period = config.period;
     if period <= 0 {
         return Err(IndicatorError::InvalidParameter(
             "rma".to_string(),
@@ -54,7 +63,10 @@ pub fn rma_eager(ohlcv_df: &DataFrame, period: i64) -> Result<Series, QuantError
     }
     let series_len = ohlcv_df.height();
     if series_len == 0 {
-        return Ok(Series::new_empty("rma".into(), &DataType::Float64));
+        return Ok(Series::new_empty(
+            config.alias_name.clone().into(),
+            &DataType::Float64,
+        ));
     }
     let n_periods = period as usize;
     if series_len < n_periods {
@@ -62,8 +74,39 @@ pub fn rma_eager(ohlcv_df: &DataFrame, period: i64) -> Result<Series, QuantError
     }
 
     let lazy_df = ohlcv_df.clone().lazy();
-    let lazy_plan = rma_lazy(lazy_df, period)?;
-    let result_df = lazy_plan.select([col("rma")]).collect()?;
+    let lazy_plan = rma_lazy(lazy_df, config)?;
+    let result_df = lazy_plan.select([col(&config.alias_name)]).collect()?;
 
-    Ok(result_df.column("rma")?.as_materialized_series().clone())
+    Ok(result_df
+        .column(&config.alias_name)?
+        .as_materialized_series()
+        .clone())
+}
+
+pub struct RmaIndicator;
+
+impl Indicator for RmaIndicator {
+    fn calculate(
+        &self,
+        ohlcv_df: &DataFrame,
+        indicator_key: &str,
+        param_map: &HashMap<String, Param>,
+    ) -> Result<Vec<Series>, QuantError> {
+        let period = param_map
+            .get("period")
+            .and_then(|p| Some(p.value as i64))
+            .ok_or_else(|| {
+                IndicatorError::InvalidParameter(
+                    indicator_key.to_string(),
+                    "Missing or invalid 'period' parameter".to_string(),
+                )
+            })?;
+
+        let mut config = RMAConfig::new(period);
+        config.alias_name = indicator_key.to_string();
+
+        let result_series = rma_eager(ohlcv_df, &config)?;
+
+        Ok(vec![result_series])
+    }
 }

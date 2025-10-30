@@ -2,22 +2,40 @@ use polars::lazy::dsl::{col, lit};
 use polars::prelude::*;
 
 // 引入抽象后的 sma_expr 函数
+use super::registry::Indicator;
 use super::sma::sma_expr;
 use super::sma::SMAConfig;
+use crate::data_conversion::input::param::Param;
 use crate::error::{IndicatorError, QuantError};
+use std::collections::HashMap;
 
 /// 布林带的配置结构体，将所有输入参数和输出列名抽象化。
 pub struct BBandsConfig {
-    pub column_name: String,
     pub period: i64,
     pub std_multiplier: f64,
-    // 所有输出列名，现已参数化
-    pub middle_band_name: String,
-    pub std_dev_name: String,
-    pub upper_band_name: String,
-    pub lower_band_name: String,
-    pub bandwidth_name: String,
-    pub percent_b_name: String,
+    pub close_col: String,
+    pub middle_band_alias: String,
+    pub std_dev_alias: String,
+    pub upper_band_alias: String,
+    pub lower_band_alias: String,
+    pub bandwidth_alias: String,
+    pub percent_alias: String,
+}
+
+impl BBandsConfig {
+    pub fn new(period: i64, std_multiplier: f64) -> Self {
+        Self {
+            period,
+            std_multiplier,
+            close_col: "close".to_string(),
+            middle_band_alias: "middle_band".to_string(),
+            std_dev_alias: "std_dev".to_string(),
+            upper_band_alias: "upper_band".to_string(),
+            lower_band_alias: "lower_band".to_string(),
+            bandwidth_alias: "bandwidth".to_string(),
+            percent_alias: "percent".to_string(),
+        }
+    }
 }
 
 // --- 表达式层 ---
@@ -29,16 +47,16 @@ pub struct BBandsConfig {
 pub fn bbands_expr(
     config: &BBandsConfig,
 ) -> Result<(Expr, Expr, Expr, Expr, Expr, Expr), QuantError> {
-    let col_name = config.column_name.as_str();
+    let col_name = config.close_col.as_str();
     let period = config.period;
     let std_multiplier = config.std_multiplier;
 
-    let middle_name = config.middle_band_name.as_str();
-    let std_dev_name = config.std_dev_name.as_str();
-    let upper_name = config.upper_band_name.as_str();
-    let lower_name = config.lower_band_name.as_str();
-    let bandwidth_name = config.bandwidth_name.as_str();
-    let percent_b_name = config.percent_b_name.as_str();
+    let middle_alias = config.middle_band_alias.as_str();
+    let std_dev_alias = config.std_dev_alias.as_str();
+    let upper_alias = config.upper_band_alias.as_str();
+    let lower_alias = config.lower_band_alias.as_str();
+    let bandwidth_alias = config.bandwidth_alias.as_str();
+    let percent_alias = config.percent_alias.as_str();
 
     // 确保依赖顺序的 RollingOptions
     let rolling_options = RollingOptionsFixedWindow {
@@ -52,9 +70,9 @@ pub fn bbands_expr(
     // 1. 中轨（Middle Band）：【复用】抽象化的 sma_expr
     // 1. 创建 SMAConfig 实例
     let sma_config = SMAConfig {
-        column_name: col_name.to_string(),     // e.g., "close"
-        alias_name: "middle_band".to_string(), // 中轨的别名
-        period,                                // e.g., 20
+        column_name: col_name.to_string(),
+        alias_name: middle_alias.to_string(), // 中轨的别名应与配置中的 middle_band_alias 保持一致
+        period,
     };
 
     // 2. 将配置的引用传递给 sma_expr
@@ -64,24 +82,24 @@ pub fn bbands_expr(
     let std_dev_expr = col(col_name)
         .cast(DataType::Float64)
         .rolling_std(rolling_options)
-        .alias(std_dev_name);
+        .alias(std_dev_alias);
 
-    // 3. 上轨（Upper Band）：依赖 middle_band_name 和 std_dev_name
+    // 3. 上轨（Upper Band）：依赖 middle_band_alias 和 std_dev_alias
     let upper_band_expr =
-        (col(middle_name) + lit(std_multiplier) * col(std_dev_name)).alias(upper_name);
+        (col(middle_alias) + lit(std_multiplier) * col(std_dev_alias)).alias(upper_alias);
 
-    // 4. 下轨（Lower Band）：依赖 middle_band_name 和 std_dev_name
+    // 4. 下轨（Lower Band）：依赖 middle_band_alias 和 std_dev_alias
     let lower_band_expr =
-        (col(middle_name) - lit(std_multiplier) * col(std_dev_name)).alias(lower_name);
+        (col(middle_alias) - lit(std_multiplier) * col(std_dev_alias)).alias(lower_alias);
 
-    // 5. 带宽（Bandwidth）：依赖 upper_name, lower_name, middle_name
-    let bandwidth_expr =
-        (lit(100.0) * (col(upper_name) - col(lower_name)) / col(middle_name)).alias(bandwidth_name);
+    // 5. 带宽（Bandwidth）：依赖 upper_alias, lower_alias, middle_alias
+    let bandwidth_expr = (lit(100.0) * (col(upper_alias) - col(lower_alias)) / col(middle_alias))
+        .alias(bandwidth_alias);
 
-    // 6. %B（Percent B）：依赖 输入列, upper_name, lower_name
-    let percent_b_expr = ((col(col_name).cast(DataType::Float64) - col(lower_name))
-        / (col(upper_name) - col(lower_name)))
-    .alias(percent_b_name);
+    // 6. %B（Percent B）：依赖 输入列, upper_alias, lower_alias
+    let percent_b_expr = ((col(col_name).cast(DataType::Float64) - col(lower_alias))
+        / (col(upper_alias) - col(lower_alias)))
+    .alias(percent_alias);
 
     Ok((
         middle_band_expr,
@@ -98,25 +116,7 @@ pub fn bbands_expr(
 /// 🧱 布林带惰性蓝图函数：接收 LazyFrame，返回包含所有布林带指标列的 LazyFrame。
 ///
 /// **蓝图层 (LazyFrame -> LazyFrame)**
-pub fn bbands_lazy(
-    lazy_df: LazyFrame,
-    period: i64,
-    std_multiplier: f64,
-) -> Result<LazyFrame, QuantError> {
-    // 蓝图层负责定义配置，包括输入列名和默认的输出列名
-    let config = BBandsConfig {
-        column_name: "close".to_string(), // 默认使用 "close" 列作为输入
-        period,
-        std_multiplier,
-        // 定义默认输出列名 (与 eager 函数的返回签名匹配)
-        middle_band_name: "middle_band".to_string(),
-        std_dev_name: "std_dev".to_string(),
-        upper_band_name: "upper_band".to_string(),
-        lower_band_name: "lower_band".to_string(),
-        bandwidth_name: "bandwidth".to_string(),
-        percent_b_name: "percent_b".to_string(),
-    };
-
+pub fn bbands_lazy(lazy_df: LazyFrame, config: &BBandsConfig) -> Result<LazyFrame, QuantError> {
     let (
         middle_band_expr,
         std_dev_expr, // 包含 std_dev，尽管它最终不会被 select
@@ -124,7 +124,7 @@ pub fn bbands_lazy(
         lower_band_expr,
         bandwidth_expr,
         percent_b_expr,
-    ) = bbands_expr(&config)?; // 传入配置结构体
+    ) = bbands_expr(config)?; // 传入配置结构体
 
     // 核心：保持多步 with_columns 调用以确保表达式的依赖顺序
     let result_lazy_df = lazy_df
@@ -145,10 +145,9 @@ pub fn bbands_lazy(
 /// **计算层 (Eager Wrapper)**
 pub fn bbands_eager(
     ohlcv_df: &DataFrame,
-    period: i64,
-    std_multiplier: f64,
+    config: &BBandsConfig,
 ) -> Result<(Series, Series, Series, Series, Series), QuantError> {
-    if period <= 0 {
+    if config.period <= 0 {
         return Err(IndicatorError::InvalidParameter(
             "bbands".to_string(),
             "Period must be positive".to_string(),
@@ -157,27 +156,27 @@ pub fn bbands_eager(
     }
 
     let series_len = ohlcv_df.height();
-    let n_periods = period as usize;
+    let n_periods = config.period as usize;
 
     if series_len < n_periods {
-        return Err(IndicatorError::DataTooShort("bbands".to_string(), period).into());
+        return Err(IndicatorError::DataTooShort("bbands".to_string(), config.period).into());
     }
 
     // 1. 将 DataFrame 转换为 LazyFrame
     let lazy_df = ohlcv_df.clone().lazy();
 
     // 2. 调用蓝图函数构建计算计划
-    let lazy_plan = bbands_lazy(lazy_df, period, std_multiplier)?;
+    let lazy_plan = bbands_lazy(lazy_df, config)?;
 
     // 3. 触发计算，只选择需要的指标列。
     // 注意：这里使用与 bbands_lazy 中默认配置相匹配的列名
     let combined_df = lazy_plan
         .select([
-            col("lower_band"),
-            col("middle_band"),
-            col("upper_band"),
-            col("bandwidth"),
-            col("percent_b"),
+            col(config.lower_band_alias.as_str()),
+            col(config.middle_band_alias.as_str()),
+            col(config.upper_band_alias.as_str()),
+            col(config.bandwidth_alias.as_str()),
+            col(config.percent_alias.as_str()),
             // 不选择 std_dev
         ])
         .collect()
@@ -186,29 +185,65 @@ pub fn bbands_eager(
     // 4. 提取结果 Series
     Ok((
         combined_df
-            .column("lower_band")
+            .column(config.lower_band_alias.as_str())
             .map_err(QuantError::from)?
             .as_materialized_series()
             .clone(),
         combined_df
-            .column("middle_band")
+            .column(config.middle_band_alias.as_str())
             .map_err(QuantError::from)?
             .as_materialized_series()
             .clone(),
         combined_df
-            .column("upper_band")
+            .column(config.upper_band_alias.as_str())
             .map_err(QuantError::from)?
             .as_materialized_series()
             .clone(),
         combined_df
-            .column("bandwidth")
+            .column(config.bandwidth_alias.as_str())
             .map_err(QuantError::from)?
             .as_materialized_series()
             .clone(),
         combined_df
-            .column("percent_b")
+            .column(config.percent_alias.as_str())
             .map_err(QuantError::from)?
             .as_materialized_series()
             .clone(),
     ))
+}
+
+pub struct BbandsIndicator;
+
+impl Indicator for BbandsIndicator {
+    fn calculate(
+        &self,
+        ohlcv_df: &DataFrame,
+        indicator_key: &str,
+        params: &HashMap<String, Param>,
+    ) -> Result<Vec<Series>, QuantError> {
+        let period = params
+            .get("period")
+            .ok_or_else(|| {
+                IndicatorError::ParameterNotFound("period".to_string(), indicator_key.to_string())
+            })?
+            .value as i64;
+        let std_multiplier = params
+            .get("std")
+            .ok_or_else(|| {
+                IndicatorError::ParameterNotFound("std".to_string(), indicator_key.to_string())
+            })?
+            .value;
+
+        let mut config = BBandsConfig::new(period, std_multiplier);
+        config.middle_band_alias = format!("{}_middle", indicator_key);
+        config.std_dev_alias = format!("{}_std_dev", indicator_key);
+        config.upper_band_alias = format!("{}_upper", indicator_key);
+        config.lower_band_alias = format!("{}_lower", indicator_key);
+        config.bandwidth_alias = format!("{}_bandwidth", indicator_key);
+        config.percent_alias = format!("{}_percent", indicator_key);
+
+        let (lower, middle, upper, bandwidth, percent) = bbands_eager(ohlcv_df, &config)?;
+
+        Ok(vec![lower, middle, upper, bandwidth, percent])
+    }
 }

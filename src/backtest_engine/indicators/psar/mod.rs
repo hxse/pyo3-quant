@@ -1,5 +1,8 @@
+use crate::backtest_engine::indicators::registry::Indicator;
+use crate::data_conversion::input::param::Param;
 use crate::error::{IndicatorError, QuantError};
 use polars::prelude::*;
+use std::collections::HashMap;
 use std::sync::Arc; // 新增导入
 
 mod psar_core;
@@ -18,6 +21,23 @@ pub struct PSARConfig {
     pub psar_short_alias: String,
     pub psar_af_alias: String,
     pub psar_reversal_alias: String,
+}
+
+impl PSARConfig {
+    pub fn new(af0: f64, af_step: f64, max_af: f64) -> Self {
+        PSARConfig {
+            high_col: "high".to_string(),
+            low_col: "low".to_string(),
+            close_col: "close".to_string(),
+            af0,
+            af_step,
+            max_af,
+            psar_long_alias: "psar_long".to_string(),
+            psar_short_alias: "psar_short".to_string(),
+            psar_af_alias: "psar_af".to_string(),
+            psar_reversal_alias: "psar_reversal".to_string(),
+        }
+    }
 }
 
 // --- 表达式层：使用 map_many 封装逐行状态更新 ---
@@ -163,26 +183,8 @@ pub fn psar_expr(config: &PSARConfig) -> Result<Expr, QuantError> {
 }
 
 // --- 蓝图层 ---
-pub fn psar_lazy(
-    lazy_df: LazyFrame,
-    af0: f64,
-    af_step: f64,
-    max_af: f64,
-) -> Result<LazyFrame, QuantError> {
-    // 修改返回类型
-    let config = PSARConfig {
-        high_col: "high".to_string(),
-        low_col: "low".to_string(),
-        close_col: "close".to_string(),
-        af0,
-        af_step,
-        max_af,
-        psar_long_alias: "psar_long".to_string(),
-        psar_short_alias: "psar_short".to_string(),
-        psar_af_alias: "psar_af".to_string(),
-        psar_reversal_alias: "psar_reversal".to_string(),
-    };
-    let psar_struct_expr = psar_expr(&config)?;
+pub fn psar_lazy(lazy_df: LazyFrame, config: &PSARConfig) -> Result<LazyFrame, QuantError> {
+    let psar_struct_expr = psar_expr(config)?;
     let struct_col_name = "psar_struct";
     let final_df = lazy_df
         .with_column(psar_struct_expr)
@@ -212,40 +214,77 @@ pub fn psar_lazy(
 }
 
 // --- 计算层 (Eager) ---
-pub fn psar_eager(
-    ohlcv_df: &DataFrame,
-    af0: f64,
-    af_step: f64,
-    max_af: f64,
-) -> Result<(Series, Series, Series, Series), QuantError> {
-    // 修改返回类型
+pub fn psar_eager(ohlcv_df: &DataFrame, config: &PSARConfig) -> Result<DataFrame, QuantError> {
     if ohlcv_df.height() < 2 {
-        // PSAR 至少需要2个数据点
         return Err(IndicatorError::DataTooShort("psar".to_string(), 2).into());
     }
 
-    let lazy_df = psar_lazy(ohlcv_df.clone().lazy(), af0, af_step, max_af)?;
-    let result_df = lazy_df.collect().map_err(QuantError::from)?; // 错误转换
-    Ok((
-        result_df
-            .column("psar_long")
-            .map_err(QuantError::from)? // 错误转换
+    let lazy_df = psar_lazy(ohlcv_df.clone().lazy(), config)?;
+    let result_df = lazy_df.collect().map_err(QuantError::from)?;
+    Ok(result_df)
+}
+
+pub struct PsarIndicator;
+
+impl Indicator for PsarIndicator {
+    fn calculate(
+        &self,
+        ohlcv_df: &DataFrame,
+        indicator_key: &str,
+        params: &HashMap<String, Param>,
+    ) -> Result<Vec<Series>, QuantError> {
+        let af0 = params
+            .get("af0")
+            .ok_or_else(|| {
+                IndicatorError::ParameterNotFound("af0".to_string(), indicator_key.to_string())
+            })?
+            .value;
+        let af_step = params
+            .get("af_step")
+            .ok_or_else(|| {
+                IndicatorError::ParameterNotFound("af_step".to_string(), indicator_key.to_string())
+            })?
+            .value;
+        let max_af = params
+            .get("max_af")
+            .ok_or_else(|| {
+                IndicatorError::ParameterNotFound("max_af".to_string(), indicator_key.to_string())
+            })?
+            .value;
+
+        let config = PSARConfig::new(af0, af_step, max_af);
+        let result_df = psar_eager(ohlcv_df, &config)?;
+
+        let psar_long_named = result_df
+            .column(&config.psar_long_alias)
+            .map_err(QuantError::from)?
             .as_materialized_series()
-            .clone(),
-        result_df
-            .column("psar_short")
-            .map_err(QuantError::from)? // 错误转换
+            .clone()
+            .with_name(format!("{}_long", indicator_key).into());
+        let psar_short_named = result_df
+            .column(&config.psar_short_alias)
+            .map_err(QuantError::from)?
             .as_materialized_series()
-            .clone(),
-        result_df
-            .column("psar_af")
-            .map_err(QuantError::from)? // 错误转换
+            .clone()
+            .with_name(format!("{}_short", indicator_key).into());
+        let psar_af_named = result_df
+            .column(&config.psar_af_alias)
+            .map_err(QuantError::from)?
             .as_materialized_series()
-            .clone(),
-        result_df
-            .column("psar_reversal")
-            .map_err(QuantError::from)? // 错误转换
+            .clone()
+            .with_name(format!("{}_af", indicator_key).into());
+        let psar_reversal_named = result_df
+            .column(&config.psar_reversal_alias)
+            .map_err(QuantError::from)?
             .as_materialized_series()
-            .clone(),
-    ))
+            .clone()
+            .with_name(format!("{}_reversal", indicator_key).into());
+
+        Ok(vec![
+            psar_long_named,
+            psar_short_named,
+            psar_af_named,
+            psar_reversal_named,
+        ])
+    }
 }

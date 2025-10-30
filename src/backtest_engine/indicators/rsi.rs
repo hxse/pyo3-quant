@@ -1,13 +1,27 @@
+// src/backtest_engine/indicators/rsi.rs
+use super::registry::Indicator;
 use crate::backtest_engine::indicators::rma::{rma_expr, RMAConfig};
+use crate::data_conversion::input::param::Param;
 use crate::error::{IndicatorError, QuantError};
 use polars::lazy::dsl::{col, lit, when};
 use polars::prelude::*;
+use std::collections::HashMap;
 
 /// RSI 的配置结构体
 pub struct RSIConfig {
+    pub period: i64,
     pub column_name: String,
     pub alias_name: String,
-    pub period: i64,
+}
+
+impl RSIConfig {
+    pub fn new(period: i64) -> Self {
+        Self {
+            period,
+            column_name: "close".to_string(),
+            alias_name: "rsi".to_string(), // 临时默认值，将在 impl Indicator 中动态设置
+        }
+    }
 }
 
 // --- 表达式层 ---
@@ -121,13 +135,7 @@ pub fn rsi_expr(
 /// 🧱 相对强弱指数 (RSI) 惰性蓝图函数：接收 LazyFrame，返回包含 "rsi" 列的 LazyFrame。
 ///
 /// **蓝图层 (LazyFrame -> LazyFrame)**
-pub fn rsi_lazy(lazy_df: LazyFrame, period: i64) -> Result<LazyFrame, QuantError> {
-    let config = RSIConfig {
-        column_name: "close".to_string(),
-        alias_name: "rsi".to_string(),
-        period,
-    };
-
+pub fn rsi_lazy(lazy_df: LazyFrame, config: &RSIConfig) -> Result<LazyFrame, QuantError> {
     // 1. 获取所有核心表达式
     let (
         change_expr,
@@ -138,7 +146,7 @@ pub fn rsi_lazy(lazy_df: LazyFrame, period: i64) -> Result<LazyFrame, QuantError
         avg_gain_expr,
         avg_loss_expr,
         rsi_expr,
-    ) = rsi_expr(&config)?;
+    ) = rsi_expr(config)?;
 
     // 2. 链接到 LazyFrame 上
     let result_lazy_df = lazy_df
@@ -171,8 +179,8 @@ pub fn rsi_lazy(lazy_df: LazyFrame, period: i64) -> Result<LazyFrame, QuantError
 /// 📈 相对强弱指数 (RSI) 急切计算函数
 ///
 /// **计算层 (Eager Wrapper)**
-pub fn rsi_eager(ohlcv_df: &DataFrame, period: i64) -> Result<Series, QuantError> {
-    if period <= 0 {
+pub fn rsi_eager(ohlcv_df: &DataFrame, config: &RSIConfig) -> Result<Series, QuantError> {
+    if config.period <= 0 {
         return Err(IndicatorError::InvalidParameter(
             "rsi".to_string(),
             "Period must be positive".to_string(),
@@ -181,19 +189,53 @@ pub fn rsi_eager(ohlcv_df: &DataFrame, period: i64) -> Result<Series, QuantError
     }
     let series_len = ohlcv_df.height();
     if series_len == 0 {
-        return Ok(Series::new_empty("rsi".into(), &DataType::Float64));
+        return Ok(Series::new_empty(
+            config.alias_name.clone().into(),
+            &DataType::Float64,
+        ));
     }
-    let n_periods = period as usize;
+    let n_periods = config.period as usize;
     if series_len <= n_periods {
-        return Err(IndicatorError::DataTooShort("rsi".to_string(), period).into());
+        return Err(IndicatorError::DataTooShort("rsi".to_string(), config.period).into());
     }
 
     let lazy_df = ohlcv_df.clone().lazy();
-    let lazy_plan = rsi_lazy(lazy_df, period)?;
+    let lazy_plan = rsi_lazy(lazy_df, config)?;
     let df = lazy_plan
-        .select([col("rsi")])
+        .select([col(&config.alias_name)])
         .collect()
         .map_err(QuantError::from)?;
 
-    Ok(df.column("rsi")?.as_materialized_series().clone())
+    Ok(df
+        .column(&config.alias_name)?
+        .as_materialized_series()
+        .clone())
+}
+
+pub struct RsiIndicator;
+
+impl Indicator for RsiIndicator {
+    fn calculate(
+        &self,
+        ohlcv_df: &DataFrame,
+        indicator_key: &str,
+        param_map: &HashMap<String, Param>,
+    ) -> Result<Vec<Series>, QuantError> {
+        let period = param_map
+            .get("period")
+            .map(|p| p.value as i64)
+            .ok_or_else(|| {
+                IndicatorError::InvalidParameter(
+                    indicator_key.to_string(),
+                    "Missing or invalid 'period' parameter".to_string(),
+                )
+            })?;
+
+        let mut config = RSIConfig::new(period);
+        config.alias_name = indicator_key.to_string();
+
+        let result_series = rsi_eager(ohlcv_df, &config)?;
+
+        Ok(vec![result_series])
+    }
 }

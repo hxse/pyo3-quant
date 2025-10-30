@@ -19,4 +19,3 @@ class SettingContainer:
 
     execution_stage: ExecutionStage = ExecutionStage.PERFORMANCE
     return_only_final: bool = False
-    skip_risk: bool = True

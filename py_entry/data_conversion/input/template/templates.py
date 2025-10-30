@@ -25,27 +25,7 @@ class SignalTemplate:
 
 
 @dataclass
-class RiskGroup:
-    """风险规则 - 对应 Rust RiskRule"""
-
-    logic: LogicOp
-    conditions: List[RiskCondition]
-
-
-@dataclass
-class RiskTemplate:
-    """风险模板 - 对应 Rust RiskTemplate"""
-
-    name: str
-    size_neutral_pct: Optional[List[RiskGroup]] = None
-    size_up_pct: Optional[List[RiskGroup]] = None
-    size_down_pct: Optional[List[RiskGroup]] = None
-    size_skip_pct: Optional[List[RiskGroup]] = None
-
-
-@dataclass
 class TemplateContainer:
-    """模板配置 - 包装 signal 和 risk"""
+    """模板配置 - 包装 signal"""
 
     signal: SignalTemplate
-    risk: RiskTemplate

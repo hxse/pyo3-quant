@@ -8,7 +8,6 @@ from .param import Param
 # Type Aliases - 对应 Rust 的 type alias
 IndicatorsParams = Dict[str, List[Dict[str, Dict[str, Param]]]]
 SignalParams = Dict[str, Param]
-RiskParams = Dict[str, Param]
 
 
 class PerformanceMetric(str, Enum):
@@ -40,7 +39,6 @@ class SingleParamSet:
     indicators: IndicatorsParams  # 注意：复数
     signal: SignalParams
     backtest: BacktestParams
-    risk: RiskParams
     performance: PerformanceParams
 
 

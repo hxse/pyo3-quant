@@ -4,7 +4,6 @@ from py_entry.data_conversion.input import (
     IndicatorsParams,
     SignalParams,
     BacktestParams,
-    RiskParams,
     PerformanceParams,
     Param,
 )
@@ -21,10 +20,6 @@ class BaseParamBuilder(ABC):
 
     @abstractmethod
     def build_backtest_params(self) -> BacktestParams:
-        pass
-
-    @abstractmethod
-    def build_risk_params(self) -> RiskParams:
         pass
 
     @abstractmethod
@@ -61,12 +56,6 @@ class DefaultParamBuilder(BaseParamBuilder):
             tp=Param.create(2, 0.5, 5, 0.1),
             position_pct=Param.create(1, 0.1, 1, 0.1),
         )
-
-    def build_risk_params(self) -> RiskParams:
-        return {
-            "size_up_pct": Param.create(1.5, 1.0, 3.0, 0.1),
-            "size_down_pct": Param.create(0.5, 0.1, 1.0, 0.1),
-        }
 
     def build_performance_params(self) -> PerformanceParams:
         return PerformanceParams(metrics=list(PerformanceMetric))

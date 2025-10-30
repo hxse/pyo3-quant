@@ -14,5 +14,4 @@ class DefaultEngineSettingsBuilder(BaseEngineSettingsBuilder):
         return SettingContainer(
             execution_stage=ExecutionStage.PERFORMANCE,
             return_only_final=False,
-            skip_risk=True,
         )

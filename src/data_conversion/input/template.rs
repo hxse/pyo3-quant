@@ -116,58 +116,7 @@ pub struct SignalTemplate {
     pub exit_short: Option<Vec<SignalGroup>>,
 }
 
-// Risk 专用：只有数据源
-#[derive(Debug, Clone, FromPyObject)]
-pub struct RiskDataOperand {
-    pub name: String,
-    pub source: String,
-}
-
-#[derive(Debug, Clone)]
-pub enum RiskRightOperand {
-    Data(RiskDataOperand),
-    Param(ParamOperand),
-}
-
-impl<'py> FromPyObject<'py> for RiskRightOperand {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let tag: String = ob.getattr("_tag")?.extract()?;
-        match tag.as_str() {
-            "Data" => Ok(RiskRightOperand::Data(ob.extract()?)),
-            "Param" => Ok(RiskRightOperand::Param(ob.extract()?)),
-            _ => Err(PyErr::new::<PyKeyError, _>(format!(
-                "Invalid _tag for RiskRightOperand: {}",
-                tag
-            ))),
-        }
-    }
-}
-
-// Risk 专用条件
-#[derive(Debug, Clone, FromPyObject)]
-pub struct RiskCondition {
-    pub a: RiskDataOperand,
-    pub b: RiskRightOperand,
-    pub compare: CompareOp,
-}
-
-#[derive(Debug, Clone, FromPyObject)]
-pub struct RiskGroup {
-    pub logic: LogicOp,
-    pub conditions: Vec<RiskCondition>,
-}
-
-#[derive(Debug, Clone, FromPyObject)]
-pub struct RiskTemplate {
-    pub name: String,
-    pub size_neutral_pct: Option<Vec<RiskGroup>>,
-    pub size_up_pct: Option<Vec<RiskGroup>>,
-    pub size_down_pct: Option<Vec<RiskGroup>>,
-    pub size_skip_pct: Option<Vec<RiskGroup>>,
-}
-
 #[derive(Debug, Clone, FromPyObject)] // 添加 FromPyObject
 pub struct TemplateContainer {
     pub signal: SignalTemplate,
-    pub risk: RiskTemplate,
 }

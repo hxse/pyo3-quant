@@ -10,29 +10,23 @@ from py_entry.data_conversion.backtest_runner import (
     SettingContainer,
     ExecutionStage,
     DefaultSignalTemplateBuilder,
-    DefaultRiskTemplateBuilder,
 )
 from py_entry.data_conversion.input import (
     IndicatorsParams,
     SignalParams,
     BacktestParams,
-    RiskParams,
     PerformanceParams,
     SignalTemplate,
-    RiskTemplate,
     Param,
 )
 
 from py_entry.data_conversion.helpers import (
     signal_data_vs_data,
     signal_data_vs_param,
-    risk_data_vs_data,
-    risk_data_vs_param,
 )
 
 from py_entry.data_conversion.input import (
     SignalTemplate,
-    RiskTemplate,
     CompareOp,
     LogicOp,
     SignalGroup,
@@ -112,14 +106,6 @@ class CustomParamBuilder(DefaultParamBuilder):
         """
         return super().build_backtest_params()
 
-    def build_risk_params(self) -> RiskParams:
-        """
-        构建风险参数。
-        用户可以通过取消注释并实现此方法来自定义风险参数。
-        如果不覆盖此方法，将使用父类的默认实现。
-        """
-        return super().build_risk_params()
-
     def build_performance_params(self) -> PerformanceParams:
         """
         构建性能参数。
@@ -180,22 +166,6 @@ class CustomSignalTemplateBuilder(DefaultSignalTemplateBuilder):
         )
 
 
-class CustomRiskTemplateBuilder(DefaultRiskTemplateBuilder):
-    """
-    自定义风险模板构建器。
-    用户可以通过覆盖此类的特定方法来定制风险模板。
-    如果某个方法未被覆盖，将使用父类 DefaultRiskTemplateBuilder 的默认实现。
-    """
-
-    def build_risk_template_instance(self) -> RiskTemplate:
-        """
-        构建风险模板实例。
-        用户可以通过取消注释并实现此方法来自定义风险模板实例。
-        如果不覆盖此方法，将使用父类的默认实现。
-        """
-        return super().build_risk_template_instance()
-
-
 class CustomEngineSettingsBuilder(DefaultEngineSettingsBuilder):
     """
     自定义引擎设置构建器。
@@ -215,7 +185,6 @@ class CustomEngineSettingsBuilder(DefaultEngineSettingsBuilder):
             # execution_stage=ExecutionStage.INDICATOR,
             execution_stage=ExecutionStage.PERFORMANCE,
             return_only_final=False,
-            skip_risk=True,
         )
 
 
@@ -243,7 +212,6 @@ if __name__ == "__main__":
         .with_param_set(param_builder=CustomParamBuilder())
         .with_templates(
             signal_template_builder=CustomSignalTemplateBuilder(),
-            risk_template_builder=CustomRiskTemplateBuilder(),
         )
         .with_engine_settings(engine_settings_builder=CustomEngineSettingsBuilder())
         .run()

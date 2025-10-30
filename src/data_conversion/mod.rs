@@ -11,8 +11,8 @@ pub mod output;
 use pyo3::prelude::*;
 
 pub use input::{
-    process_all_params, BacktestParams, DataContainer, ParamContainer, RiskParams, RiskTemplate,
-    SettingContainer, SignalParams, SignalTemplate, SingleParam, TemplateContainer,
+    process_all_params, BacktestParams, DataContainer, ParamContainer, SettingContainer,
+    SignalParams, SignalTemplate, SingleParam, TemplateContainer,
 };
 pub use output::{BacktestSummary, PerformanceMetrics};
 

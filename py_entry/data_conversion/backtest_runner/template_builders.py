@@ -1,17 +1,13 @@
 from abc import ABC, abstractmethod
 from py_entry.data_conversion.input import (
     SignalTemplate,
-    RiskTemplate,
     CompareOp,
     LogicOp,
     SignalGroup,
-    RiskGroup,
 )
 from py_entry.data_conversion.helpers import (
     signal_data_vs_data,
     signal_data_vs_param,
-    risk_data_vs_data,
-    risk_data_vs_param,
 )
 
 
@@ -40,67 +36,4 @@ class DefaultSignalTemplateBuilder(BaseSignalTemplateBuilder):
 
         return SignalTemplate(
             name="multi_timeframe_dynamic_strategy", enter_long=[enter_long_group]
-        )
-
-
-class BaseRiskTemplateBuilder(ABC):
-    @abstractmethod
-    def build_risk_template_instance(self) -> RiskTemplate:
-        pass
-
-
-class DefaultRiskTemplateBuilder(BaseRiskTemplateBuilder):
-    def build_risk_template_instance(self) -> RiskTemplate:
-        size_neutral_pct = RiskGroup(
-            logic=LogicOp.AND,
-            conditions=[
-                risk_data_vs_param(
-                    compare=CompareOp.GE,
-                    a_name="balance",
-                    a_source="balance",
-                    b_param="zero_value",
-                )
-            ],
-        )
-        size_up_pct = RiskGroup(
-            logic=LogicOp.AND,
-            conditions=[
-                risk_data_vs_data(
-                    compare=CompareOp.GT,
-                    a_name="balance",
-                    a_source="balance",
-                    b_name="bbands_upper",
-                    b_source="balance",
-                ),
-            ],
-        )
-        size_down_pct = RiskGroup(
-            logic=LogicOp.AND,
-            conditions=[
-                risk_data_vs_data(
-                    compare=CompareOp.LT,
-                    a_name="balance",
-                    a_source="balance",
-                    b_name="bbands_lower",
-                    b_source="balance",
-                )
-            ],
-        )
-        size_skip_pct = RiskGroup(
-            logic=LogicOp.AND,
-            conditions=[
-                risk_data_vs_param(
-                    compare=CompareOp.LE,
-                    a_name="balance",
-                    a_source="balance",
-                    b_param="zero_value",
-                )
-            ],
-        )
-        return RiskTemplate(
-            name="bbands_position_sizing",
-            size_neutral_pct=[size_neutral_pct],
-            size_up_pct=[size_up_pct],
-            size_down_pct=[size_down_pct],
-            size_skip_pct=[size_skip_pct],
         )

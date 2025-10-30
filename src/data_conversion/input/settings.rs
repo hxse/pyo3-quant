@@ -31,7 +31,6 @@ impl<'py> FromPyObject<'py> for ExecutionStage {
 pub struct SettingContainer {
     pub execution_stage: ExecutionStage,
     pub return_only_final: bool,
-    pub skip_risk: bool,
 }
 
 impl Default for SettingContainer {
@@ -39,7 +38,6 @@ impl Default for SettingContainer {
         Self {
             execution_stage: ExecutionStage::Performance,
             return_only_final: false,
-            skip_risk: false,
         }
     }
 }

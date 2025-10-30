@@ -11,7 +11,6 @@ from .param_set.param_set import (
     SingleParamSet,
     IndicatorsParams,
     SignalParams,
-    RiskParams,
     BacktestParams,
     PerformanceParams,
     PerformanceMetric,
@@ -21,9 +20,7 @@ from .param_set.param_set import (
 from .template.templates import (
     TemplateContainer,
     SignalTemplate,
-    RiskTemplate,
     SignalGroup,
-    RiskGroup,
 )
 from .template.conditions import CompareOp, SignalCondition, RiskCondition, LogicOp
 from .template.operands import ParamOperand, SignalDataOperand, RiskDataOperand

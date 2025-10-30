@@ -141,7 +141,6 @@ def _test_indicator_accuracy(
             return SettingContainer(
                 execution_stage=ExecutionStage.INDICATOR,
                 return_only_final=True,
-                skip_risk=True,
             )
 
     timeframes, data = data_dict

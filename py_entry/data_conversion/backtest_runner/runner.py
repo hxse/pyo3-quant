@@ -16,8 +16,6 @@ from .param_builders import BaseParamBuilder, DefaultParamBuilder
 from .template_builders import (
     BaseSignalTemplateBuilder,
     DefaultSignalTemplateBuilder,
-    BaseRiskTemplateBuilder,
-    DefaultRiskTemplateBuilder,
 )
 from .engine_settings_builder import (
     BaseEngineSettingsBuilder,
@@ -84,7 +82,6 @@ class BacktestRunner:
             indicators=param_builder.build_indicators_params(period_count),
             signal=param_builder.build_signal_params(),
             backtest=param_builder.build_backtest_params(),
-            risk=param_builder.build_risk_params(),
             performance=param_builder.build_performance_params(),
         )
         single_param_sets.append(single_set)
@@ -95,7 +92,6 @@ class BacktestRunner:
     def with_templates(
         self,
         signal_template_builder: BaseSignalTemplateBuilder = None,
-        risk_template_builder: BaseRiskTemplateBuilder = None,
     ):
         """构建回测所需的模板配置。
 
@@ -107,12 +103,9 @@ class BacktestRunner:
         """
         if signal_template_builder is None:
             signal_template_builder = DefaultSignalTemplateBuilder()
-        if risk_template_builder is None:
-            risk_template_builder = DefaultRiskTemplateBuilder()
 
         self._template_config = TemplateContainer(
             signal=signal_template_builder.build_signal_template_instance(),
-            risk=risk_template_builder.build_risk_template_instance(),
         )
 
         return self

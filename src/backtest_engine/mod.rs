@@ -6,7 +6,6 @@ use rayon::prelude::*;
 mod backtester;
 pub mod indicators;
 mod performance_analyzer;
-mod risk_adjuster;
 pub mod signal_generator;
 mod utils;
 
@@ -105,35 +104,9 @@ fn execute_single_backtest(
     // 3. 如果 execution_stage >= "backtest": 执行回测
     if processed_settings.execution_stage >= ExecutionStage::Backtest {
         if let Some(ref sig_df) = signals_df {
-            let initial_position_series = risk_adjuster::create_initial_position_series(
-                processed_data,
-                single_param.backtest.position_pct.value,
-            )?;
-
-            let mut first_backtest_df = backtester::run_backtest(
-                processed_data,
-                sig_df,
-                initial_position_series,
-                &single_param.backtest,
-            )?;
-
-            // 4. 如果 execution_stage >= "backtest" 执行风控+二次回测
-            if !processed_settings.skip_risk {
-                let adjusted_position_series = risk_adjuster::adjust_position_by_risk(
-                    &single_param.backtest,
-                    &first_backtest_df,
-                    &processed_template.risk,
-                    &single_param.risk,
-                )?;
-
-                first_backtest_df = backtester::run_backtest(
-                    processed_data,
-                    sig_df,
-                    adjusted_position_series,
-                    &single_param.backtest,
-                )?;
-            }
-            backtest_df = Some(first_backtest_df);
+            let backtest_df_result =
+                backtester::run_backtest(processed_data, sig_df, &single_param.backtest)?;
+            backtest_df = Some(backtest_df_result);
         }
     }
 

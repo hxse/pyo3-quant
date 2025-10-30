@@ -5,7 +5,6 @@ use std::collections::HashMap;
 
 pub type IndicatorsParams = HashMap<String, Vec<HashMap<String, HashMap<String, Param>>>>;
 pub type SignalParams = HashMap<String, Param>;
-pub type RiskParams = HashMap<String, Param>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum PerformanceMetric {
@@ -56,7 +55,6 @@ pub struct SingleParam {
     pub indicators: IndicatorsParams,
     pub signal: SignalParams,
     pub backtest: BacktestParams,
-    pub risk: RiskParams,
     pub performance: PerformanceParams,
 }
 

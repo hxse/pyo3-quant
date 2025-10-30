@@ -12,11 +12,9 @@ pub mod template;
 
 pub use data_dict::DataContainer;
 pub use param::Param;
-pub use param_set::{
-    BacktestParams, ParamContainer, PerformanceParams, RiskParams, SignalParams, SingleParam,
-};
+pub use param_set::{BacktestParams, ParamContainer, PerformanceParams, SignalParams, SingleParam};
 pub use settings::SettingContainer;
-pub use template::{RiskTemplate, SignalTemplate, TemplateContainer};
+pub use template::{SignalTemplate, TemplateContainer};
 
 pub fn process_all_params(
     _py: Python<'_>,

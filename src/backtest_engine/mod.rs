@@ -3,7 +3,7 @@ use polars::prelude::*;
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
-mod backtester;
+pub mod backtester;
 pub mod indicators;
 mod performance_analyzer;
 pub mod signal_generator;
@@ -138,7 +138,12 @@ fn execute_single_backtest(
 
 pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(run_backtest_engine, m)?)?;
-    m.add_function(wrap_pyfunction!(signal_generator::py_generate_signals, m)?)?;
     m.add_function(wrap_pyfunction!(indicators::py_calculate_indicators, m)?)?;
+    m.add_function(wrap_pyfunction!(signal_generator::py_generate_signals, m)?)?;
+    m.add_function(wrap_pyfunction!(backtester::py_run_backtest, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        performance_analyzer::py_analyze_performance,
+        m
+    )?)?;
     Ok(())
 }

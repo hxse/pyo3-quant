@@ -14,7 +14,7 @@ pub use input::{
     process_all_params, BacktestParams, DataContainer, ParamContainer, SettingContainer,
     SignalParams, SignalTemplate, SingleParam, TemplateContainer,
 };
-pub use output::{BacktestSummary, PerformanceMetrics};
+pub use output::{BacktestSummary, IndicatorResults, PerformanceMetrics};
 
 pub fn register_py_module(_m: &Bound<'_, PyModule>) -> PyResult<()> {
     // 目前没有直接从该模块导出的函数，函数体可以暂时只包含 `Ok(())`

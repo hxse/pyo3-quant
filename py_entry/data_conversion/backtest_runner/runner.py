@@ -95,8 +95,7 @@ class BacktestRunner:
     ):
         """构建回测所需的模板配置。
 
-        不接受参数，通过覆盖 `_build_signal_template_instance()` 和
-        `_build_risk_template_instance()` 方法来自定义模板。
+        不接受参数，通过覆盖 `_build_signal_template_instance()`
 
         Returns:
             当前的 BacktestRunner 实例，支持链式调用。

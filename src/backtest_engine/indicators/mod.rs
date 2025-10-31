@@ -23,6 +23,8 @@ use pyo3::{prelude::*, types::PyAny};
 use pyo3_polars::PyDataFrame;
 use std::collections::HashMap;
 
+use crate::data_conversion::IndicatorResults;
+
 /// 计算单个周期的指标 (已重构)
 pub fn calculate_single_period_indicators(
     ohlcv_df: &DataFrame,
@@ -51,12 +53,12 @@ pub fn calculate_single_period_indicators(
 }
 
 /// 计算多周期指标
-/// 对每个数据源的每个周期分别计算指标,返回 HashMap<String, Vec<DataFrame>>
+/// 对每个数据源的每个周期分别计算指标,返回 IndicatorResults
 pub fn calculate_indicators(
     processed_data: &DataContainer,
     indicators_params: &IndicatorsParams,
-) -> Result<HashMap<String, Vec<DataFrame>>, QuantError> {
-    let mut all_indicators: HashMap<String, Vec<DataFrame>> = HashMap::new();
+) -> Result<IndicatorResults, QuantError> {
+    let mut all_indicators: IndicatorResults = HashMap::new();
 
     for (source_name, mtf_indicator_params) in indicators_params.iter() {
         let source_data = processed_data.source.get(source_name).ok_or_else(|| {
@@ -84,7 +86,7 @@ pub fn calculate_indicators(
     Ok(all_indicators)
 }
 
-#[pyfunction]
+#[pyfunction(name = "calculate_indicators")]
 pub fn py_calculate_indicators(
     processed_data_py: &Bound<'_, PyAny>,
     indicators_params_py: &Bound<'_, PyAny>,
@@ -94,7 +96,7 @@ pub fn py_calculate_indicators(
 
     let result_map = calculate_indicators(&processed_data, &indicators_params)?;
 
-    let py_result_map: HashMap<String, Vec<PyDataFrame>> = result_map
+    let py_result_map = result_map
         .into_iter()
         .map(|(k, v)| (k, v.into_iter().map(PyDataFrame).collect()))
         .collect();

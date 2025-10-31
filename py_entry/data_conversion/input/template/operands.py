@@ -16,12 +16,4 @@ class SignalDataOperand:
     _tag: Literal["Data"] = "Data"
 
 
-@dataclass
-class RiskDataOperand:
-    name: str
-    source: str
-    _tag: Literal["Data"] = "Data"
-
-
 SignalRightOperand = Union[SignalDataOperand, ParamOperand]
-RiskRightOperand = Union[RiskDataOperand, ParamOperand]

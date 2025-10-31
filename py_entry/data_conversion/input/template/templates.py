@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from typing import List, Optional
-from .conditions import SignalCondition, RiskCondition, LogicOp
+from .conditions import SignalCondition, LogicOp
 
 
 @dataclass

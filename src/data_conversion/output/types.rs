@@ -6,11 +6,12 @@ use std::collections::HashMap;
 
 // 替换原来的 struct 定义
 pub type PerformanceMetrics = HashMap<String, f64>;
+pub type IndicatorResults = HashMap<String, Vec<DataFrame>>;
 
 #[derive(Debug)]
 pub struct BacktestSummary {
     pub performance: Option<PerformanceMetrics>,
-    pub indicators: Option<HashMap<String, Vec<DataFrame>>>,
+    pub indicators: Option<IndicatorResults>,
     pub signals: Option<DataFrame>,
     pub backtest: Option<DataFrame>,
 }

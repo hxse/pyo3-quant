@@ -1,6 +1,7 @@
 use crate::data_conversion::input::param_set::SignalParams;
 use crate::data_conversion::input::template::{SignalGroup, SignalTemplate};
 use crate::data_conversion::input::DataContainer;
+use crate::data_conversion::output::IndicatorResults;
 use crate::error::QuantError;
 
 use pyo3::{prelude::*, types::PyAny};
@@ -95,7 +96,7 @@ pub fn generate_signals(
     Ok(signals_df)
 }
 
-#[pyfunction]
+#[pyfunction(name = "generate_signals")]
 pub fn py_generate_signals(
     processed_data_py: &Bound<'_, PyAny>,
     indicator_dfs_py: &Bound<'_, PyAny>,
@@ -106,7 +107,7 @@ pub fn py_generate_signals(
     let processed_data: DataContainer = processed_data_py.extract()?;
 
     let indicator_dfs_py_map: HashMap<String, Vec<PyDataFrame>> = indicator_dfs_py.extract()?;
-    let indicator_dfs: HashMap<String, Vec<DataFrame>> = indicator_dfs_py_map
+    let indicator_dfs = indicator_dfs_py_map
         .into_iter()
         .map(|(k, v)| (k, v.into_iter().map(|df| df.into()).collect()))
         .collect();

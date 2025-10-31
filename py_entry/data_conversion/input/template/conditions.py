@@ -4,9 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 from .operands import (
     SignalDataOperand,
-    RiskDataOperand,
     SignalRightOperand,
-    RiskRightOperand,
 )
 
 
@@ -40,13 +38,4 @@ class SignalCondition:
 
     a: SignalDataOperand
     b: SignalRightOperand
-    compare: CompareOp
-
-
-@dataclass
-class RiskCondition:
-    """风险条件 - 对应 Rust RiskCondition"""
-
-    a: RiskDataOperand
-    b: RiskRightOperand
     compare: CompareOp

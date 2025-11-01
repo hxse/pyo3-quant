@@ -556,13 +556,11 @@ def generate_data_dict(
     mapping_df, skip_mapping = generate_time_mapping(ohlcv_dfs, ha_dfs, renko_dfs)
 
     # skip_mask 占位,暂时全为 False
-    skip_mask_df = pl.DataFrame(
-        {"skip": [False] * len(ohlcv_dfs[0])}, schema={"skip": pl.Boolean}
-    )
+    skip_mask_series = pl.Series("skip", np.zeros(len(ohlcv_dfs[0])), dtype=pl.Boolean)
 
     return DataContainer(
         mapping=mapping_df,
-        skip_mask=skip_mask_df,
+        skip_mask=skip_mask_series,
         skip_mapping=skip_mapping,
         source={
             "ohlcv": ohlcv_dfs,

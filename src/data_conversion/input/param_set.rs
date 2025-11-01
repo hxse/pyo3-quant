@@ -42,7 +42,6 @@ impl<'source> FromPyObject<'source> for PerformanceMetric {
 pub struct BacktestParams {
     pub sl: Param,
     pub tp: Param,
-    pub position_pct: Param,
 }
 
 #[derive(Debug, Clone, FromPyObject)]

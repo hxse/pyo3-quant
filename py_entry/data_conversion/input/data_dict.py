@@ -10,6 +10,6 @@ class DataContainer:
     """回测数据字典 - 对应 Rust ProcessedDataDict"""
 
     mapping: pl.DataFrame
-    skip_mask: pl.DataFrame
+    skip_mask: pl.Series
     skip_mapping: Dict[str, bool]
     source: Dict[str, List[pl.DataFrame]]

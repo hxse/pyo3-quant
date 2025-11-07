@@ -4,14 +4,15 @@ use crate::data_conversion::input::param_set::SignalParams;
 use crate::data_conversion::input::template::{
     ParamOperand, SignalDataOperand, SignalRightOperand,
 };
-use crate::data_conversion::input::DataContainer;
+
+use crate::data_conversion::input::{DataContainer, DataSource};
+use crate::data_conversion::output::IndicatorResults;
 use polars::prelude::*;
-use std::collections::HashMap;
 
 /// 辅助函数：尝试从给定的数据源中解析 &Series
 fn try_resolve_series<'a>(
     operand: &SignalDataOperand,
-    data_source: &'a HashMap<String, Vec<DataFrame>>,
+    data_source: &'a DataSource,
 ) -> Result<&'a Series, SignalError> {
     // 从 operand.source (例如 "ohlcv_0") 中拆分出 source_name ("ohlcv") 和 source_idx (0)
     let parts: Vec<&str> = operand.source.splitn(2, '_').collect();
@@ -92,7 +93,7 @@ fn apply_mapping_if_needed(
 pub fn resolve_data_operand(
     operand: &SignalDataOperand,
     processed_data: &DataContainer,
-    indicator_dfs: &HashMap<String, Vec<DataFrame>>,
+    indicator_dfs: &IndicatorResults,
 ) -> Result<Series, SignalError> {
     let mut res = try_resolve_series(operand, &processed_data.source);
 
@@ -128,7 +129,7 @@ pub enum ResolvedOperand {
 pub fn resolve_right_operand(
     operand: &SignalRightOperand,
     processed_data: &DataContainer,
-    indicator_dfs: &HashMap<String, Vec<DataFrame>>,
+    indicator_dfs: &IndicatorResults,
     signal_params: &SignalParams,
 ) -> Result<ResolvedOperand, QuantError> {
     match operand {

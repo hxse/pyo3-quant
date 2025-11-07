@@ -1,4 +1,5 @@
-use crate::data_conversion::input::Param;
+use super::param::Param;
+use crate::error::BacktestError;
 use pyo3::prelude::*;
 use pyo3::Bound;
 use std::collections::HashMap;
@@ -38,10 +39,173 @@ impl<'source> FromPyObject<'source> for PerformanceMetric {
     }
 }
 
+/// 回测引擎的参数结构体。
+/// 包含止损止盈、ATR、资金管理、手续费等所有可配置参数。
+/// 参数值为 `Param` 类型，通过 `.value` 访问实际数值。
 #[derive(Clone, Debug, FromPyObject)]
 pub struct BacktestParams {
-    pub sl: Param,
-    pub tp: Param,
+    // === 止损止盈参数 (百分比) ===
+    /// 百分比止损阈值。当仓位亏损达到此百分比时触发止损。
+    /// 如果值 <= 0.0，则不使用百分比止损功能。
+    pub sl_pct: Param,
+    /// 百分比止盈阈值。当仓位盈利达到此百分比时触发止盈。
+    /// 如果值 <= 0.0，则不使用百分比止盈功能。
+    pub tp_pct: Param,
+    /// 百分比跟踪止损阈值。当仓位盈利回撤达到此百分比时触发跟踪止损。
+    /// 如果值 <= 0.0，则不使用百分比跟踪止损功能。
+    pub tsl_pct: Param,
+
+    // === ATR止损止盈参数 ===
+    /// ATR止损倍数。止损价格基于入场价格减去ATR值乘以该倍数。
+    /// 如果值 <= 0.0，则不使用ATR止损功能。
+    /// 依赖 `atr_period`，如果 `atr_period` <= 0.0，即使 `sl_atr` > 0.0 也不会启用。
+    pub sl_atr: Param,
+    /// ATR止盈倍数。止盈价格基于入场价格加上ATR值乘以该倍数。
+    /// 如果值 <= 0.0，则不使用ATR止盈功能。
+    /// 依赖 `atr_period`，如果 `atr_period` <= 0.0，即使 `tp_atr` > 0.0 也不会启用。
+    pub tp_atr: Param,
+    /// ATR跟踪止损倍数。跟踪止损价格基于最高价减去ATR值乘以该倍数。
+    /// 如果值 <= 0.0，则不使用ATR跟踪止损功能。
+    /// 依赖 `atr_period`，如果 `atr_period` <= 0.0，即使 `tsl_atr` > 0.0 也不会启用。
+    pub tsl_atr: Param,
+    /// ATR计算周期。用于计算平均真实范围 (ATR) 的K线周期数。
+    /// 如果值 <= 0.0，则所有ATR相关的止损止盈功能都不会启用。
+    pub atr_period: Param,
+
+    // === 跟踪止损选项 ===
+    /// 跟踪止损锚点选择。
+    /// `true` 表示使用K线的最高价 (high) 作为跟踪止损的锚点。
+    /// `false` 表示使用K线的收盘价 (close) 作为跟踪止损的锚点。
+    pub tsl_use_high: bool,
+    /// 跟踪止损更新方式。
+    /// `true` 表示每根K线都更新跟踪止损价格。
+    /// `false` 表示只在突破高点或低点时才更新跟踪止损价格。
+    pub tsl_per_bar_update: bool,
+
+    // === 离场方式 ===
+    /// 离场时机选择。
+    /// `true` 表示在当前K线内部触发条件时立即离场。
+    /// `false` 表示延迟到下一根K线的开盘价离场。
+    pub exit_in_bar: bool,
+
+    // === 资金管理 ===
+    /// 初始本金。回测开始时的账户资金量 (USD)。
+    /// 必须大于 0.0。
+    pub initial_capital: f64,
+    /// 暂停开仓阈值。当账户净值从历史最高点回撤达到此百分比时，暂停所有新开仓。
+    /// 如果值 <= 0.0，则不使用暂停开仓功能。
+    /// 依赖 `resume_pct`，两者必须同时启用或禁用。
+    pub stop_pct: Param,
+    /// 恢复开仓阈值。当账户净值从最低点恢复达到此百分比时，恢复开仓。
+    /// 如果值 <= 0.0，则不使用恢复开仓功能。
+    /// 依赖 `stop_pct`，两者必须同时启用或禁用。
+    pub resume_pct: Param,
+
+    // === 手续费 ===
+    /// 固定手续费。每笔交易的固定手续费金额 (USD)。
+    /// 必须 >= 0.0。
+    pub fee_fixed: f64,
+    /// 百分比手续费。每笔交易金额的百分比手续费。
+    /// 必须 >= 0.0。
+    pub fee_pct: f64,
+}
+
+impl BacktestParams {
+    /// 检查sl_pct是否有效。
+    /// 当 `sl_pct.value` 大于 0.0 时，百分比止损功能启用。
+    pub fn is_sl_pct_enabled(&self) -> bool {
+        self.sl_pct.value > 0.0
+    }
+
+    /// 检查tp_pct是否有效。
+    /// 当 `tp_pct.value` 大于 0.0 时，百分比止盈功能启用。
+    pub fn is_tp_pct_enabled(&self) -> bool {
+        self.tp_pct.value > 0.0
+    }
+
+    /// 检查tsl_pct是否有效。
+    /// 当 `tsl_pct.value` 大于 0.0 时，百分比跟踪止损功能启用。
+    pub fn is_tsl_pct_enabled(&self) -> bool {
+        self.tsl_pct.value > 0.0
+    }
+
+    /// 检查sl_atr是否有效。
+    /// 当 `sl_atr.value` 大于 0.0 且 `atr_period.value` 大于 0.0 时，ATR止损功能启用。
+    pub fn is_sl_atr_enabled(&self) -> bool {
+        self.sl_atr.value > 0.0 && self.atr_period.value > 0.0
+    }
+
+    /// 检查tp_atr是否有效。
+    /// 当 `tp_atr.value` 大于 0.0 且 `atr_period.value` 大于 0.0 时，ATR止盈功能启用。
+    pub fn is_tp_atr_enabled(&self) -> bool {
+        self.tp_atr.value > 0.0 && self.atr_period.value > 0.0
+    }
+
+    /// 检查tsl_atr是否有效。
+    /// 当 `tsl_atr.value` 大于 0.0 且 `atr_period.value` 大于 0.0 时，ATR跟踪止损功能启用。
+    pub fn is_tsl_atr_enabled(&self) -> bool {
+        self.tsl_atr.value > 0.0 && self.atr_period.value > 0.0
+    }
+
+    /// 验证所有参数的有效性。
+    /// 返回 `Ok(())` 如果所有参数有效，否则返回详细的错误信息 `BacktestError::InvalidParameter`。
+    pub fn validate(&self) -> Result<(), BacktestError> {
+        // 1. 验证initial_capital > 0
+        if self.initial_capital <= 0.0 {
+            return Err(BacktestError::InvalidParameter {
+                param_name: "initial_capital".to_string(),
+                value: self.initial_capital.to_string(),
+                reason: "初始本金必须大于0".to_string(),
+            });
+        }
+
+        // 2. 验证手续费参数 >= 0
+        if self.fee_fixed < 0.0 {
+            return Err(BacktestError::InvalidParameter {
+                param_name: "fee_fixed".to_string(),
+                value: self.fee_fixed.to_string(),
+                reason: "固定手续费不能为负".to_string(),
+            });
+        }
+
+        if self.fee_pct < 0.0 {
+            return Err(BacktestError::InvalidParameter {
+                param_name: "fee_pct".to_string(),
+                value: self.fee_pct.to_string(),
+                reason: "百分比手续费不能为负".to_string(),
+            });
+        }
+
+        // 3. 验证仓位管理参数的一致性
+        // 如果启用仓位管理,stop_pct和resume_pct都必须>0
+        let stop_enabled = self.stop_pct.value > 0.0;
+        let resume_enabled = self.resume_pct.value > 0.0;
+
+        if stop_enabled != resume_enabled {
+            return Err(BacktestError::InvalidParameter {
+                param_name: "stop_pct/resume_pct".to_string(),
+                value: format!(
+                    "stop_pct={}, resume_pct={}",
+                    self.stop_pct.value, self.resume_pct.value
+                ),
+                reason: "stop_pct和resume_pct必须同时启用或禁用".to_string(),
+            });
+        }
+
+        // 4. 验证ATR参数一致性
+        // 如果使用任何ATR止损,atr_period必须>0
+        if (self.sl_atr.value > 0.0 || self.tp_atr.value > 0.0 || self.tsl_atr.value > 0.0)
+            && self.atr_period.value <= 0.0
+        {
+            return Err(BacktestError::InvalidParameter {
+                param_name: "atr_period".to_string(),
+                value: self.atr_period.value.to_string(),
+                reason: "使用ATR止损时,atr_period必须>0".to_string(),
+            });
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, FromPyObject)]

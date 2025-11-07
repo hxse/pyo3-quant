@@ -1,3 +1,4 @@
+use super::backtest_error::BacktestError;
 use super::indicator_error::IndicatorError;
 use super::signal_error::SignalError;
 use polars::prelude::PolarsError;
@@ -20,6 +21,15 @@ pub enum QuantError {
     #[error("Indicator error: {0}")]
     Indicator(#[from] IndicatorError),
 
+    #[error("Backtest error: {0}")]
+    Backtest(BacktestError),
+
     #[error("Infrastructure error: {0}")]
     InfrastructureError(String),
+}
+
+impl From<BacktestError> for QuantError {
+    fn from(err: BacktestError) -> Self {
+        QuantError::Backtest(err)
+    }
 }

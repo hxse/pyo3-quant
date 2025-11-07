@@ -15,11 +15,6 @@ import polars as pl
 import numpy as np
 import pandas_ta as ta
 
-# Add the project root to the sys.path to allow importing modules
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(current_dir, "../../.."))
-sys.path.insert(0, project_root)
-
 from py_entry.data_conversion.helpers.data_generator import generate_data_dict
 from py_entry.Test.utils.comparison_tool import assert_indicator_same
 

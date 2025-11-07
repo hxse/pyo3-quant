@@ -2,9 +2,9 @@ use super::operand_resolver::{resolve_data_operand, resolve_right_operand, Resol
 use crate::data_conversion::input::param_set::SignalParams;
 use crate::data_conversion::input::template::{CompareOp, SignalCondition};
 use crate::data_conversion::input::DataContainer;
+use crate::data_conversion::output::IndicatorResults;
 use crate::error::QuantError;
 use polars::prelude::*;
-use std::collections::HashMap;
 use std::ops::{BitAnd, Not};
 
 /// 执行比较操作的通用函数
@@ -24,7 +24,7 @@ fn perform_comparison(
 pub fn evaluate_condition(
     condition: &SignalCondition,
     processed_data: &DataContainer,
-    indicator_dfs: &HashMap<String, Vec<DataFrame>>,
+    indicator_dfs: &IndicatorResults,
     signal_params: &SignalParams,
 ) -> Result<Series, QuantError> {
     let series_a = resolve_data_operand(&condition.a, processed_data, indicator_dfs)?;

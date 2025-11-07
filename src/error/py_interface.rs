@@ -3,14 +3,16 @@ use pyo3::{
     create_exception, exceptions::PyException, types::PyModule, Bound, PyErr, PyResult, PyTypeInfo,
 };
 
+use super::backtest_error::BacktestError;
 use super::indicator_error::IndicatorError;
 use super::quant_error::QuantError;
-use super::signal_error::SignalError; // 导入 IndicatorError
+use super::signal_error::SignalError;
 
 // 定义自定义 Python 异常的基类
 create_exception!(pyo3_quant.errors, PyQuantError, PyException);
 create_exception!(pyo3_quant.errors, PySignalError, PyQuantError);
 create_exception!(pyo3_quant.errors, PyIndicatorError, PyQuantError);
+create_exception!(pyo3_quant.errors, PyBacktestError, PyQuantError);
 
 // 定义 SignalError 相关的 Python 异常
 create_exception!(pyo3_quant.errors, PySourceNotFoundError, PySignalError);
@@ -100,12 +102,18 @@ fn convert_indicator_error(indicator_error: IndicatorError) -> PyErr {
     }
 }
 
+// 辅助函数：将 BacktestError 转换为 PyErr
+fn convert_backtest_error(backtest_error: BacktestError) -> PyErr {
+    PyBacktestError::new_err(backtest_error.to_string())
+}
+
 // 实现从 QuantError 到 PyErr 的转换，以便在 PyO3 接口层抛出
 impl From<QuantError> for PyErr {
     fn from(err: QuantError) -> PyErr {
         match err {
             QuantError::Signal(signal_error) => convert_signal_error(signal_error),
             QuantError::Indicator(indicator_error) => convert_indicator_error(indicator_error),
+            QuantError::Backtest(backtest_error) => convert_backtest_error(backtest_error),
             QuantError::PyO3(e) => e,
             QuantError::Polars(e) => PyQuantError::new_err(e.to_string()),
             QuantError::InfrastructureError(s) => PyQuantError::new_err(s),
@@ -117,6 +125,7 @@ pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("PyQuantError", PyQuantError::type_object(m.py()))?;
     m.add("PySignalError", PySignalError::type_object(m.py()))?;
     m.add("PyIndicatorError", PyIndicatorError::type_object(m.py()))?;
+    m.add("PyBacktestError", PyBacktestError::type_object(m.py()))?;
 
     // 注册 SignalError 相关的异常
     m.add(

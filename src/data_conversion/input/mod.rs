@@ -10,11 +10,10 @@ pub mod param_set;
 pub mod settings;
 pub mod template;
 
-pub use data_dict::DataContainer;
-pub use param::Param;
-pub use param_set::{BacktestParams, ParamContainer, PerformanceParams, SignalParams, SingleParam};
+pub use data_dict::{DataContainer, DataSource};
+pub use param_set::{BacktestParams, ParamContainer, SingleParam};
 pub use settings::SettingContainer;
-pub use template::{SignalTemplate, TemplateContainer};
+pub use template::TemplateContainer;
 
 pub fn process_all_params(
     _py: Python<'_>,

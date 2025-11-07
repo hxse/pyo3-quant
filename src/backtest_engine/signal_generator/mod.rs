@@ -20,7 +20,7 @@ pub use group_processor::*;
 fn process_signal_field_helper(
     groups: Option<&Vec<SignalGroup>>,
     processed_data: &DataContainer,
-    indicator_dfs: &HashMap<String, Vec<DataFrame>>,
+    indicator_dfs: &IndicatorResults,
     signal_params: &SignalParams,
     target_series: &mut Series,
 ) -> Result<(), QuantError> {
@@ -37,7 +37,7 @@ fn process_signal_field_helper(
 
 pub fn generate_signals(
     processed_data: &DataContainer,
-    indicator_dfs: &HashMap<String, Vec<DataFrame>>,
+    indicator_dfs: &IndicatorResults,
     signal_params: &SignalParams,
     signal_template: &SignalTemplate,
 ) -> Result<DataFrame, QuantError> {

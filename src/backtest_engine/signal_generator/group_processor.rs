@@ -2,15 +2,15 @@ use super::condition_evaluator::evaluate_condition;
 use crate::data_conversion::input::param_set::SignalParams;
 use crate::data_conversion::input::template::{LogicOp, SignalGroup};
 use crate::data_conversion::input::DataContainer;
+use crate::data_conversion::output::IndicatorResults;
 use crate::error::QuantError;
 use polars::prelude::*;
-use std::collections::HashMap;
 
 /// 处理 SignalGroup，根据 LogicOp 组合多个 SignalCondition 的结果
 pub fn process_signal_group(
     group: &SignalGroup,
     processed_data: &DataContainer,
-    indicator_dfs: &HashMap<String, Vec<DataFrame>>,
+    indicator_dfs: &IndicatorResults,
     signal_params: &SignalParams,
 ) -> Result<Series, QuantError> {
     let mut aggregated_result: Option<Series> = None;

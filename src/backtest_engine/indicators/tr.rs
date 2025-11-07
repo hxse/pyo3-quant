@@ -1,6 +1,6 @@
 use super::registry::Indicator;
 use crate::data_conversion::input::param::Param;
-use crate::error::{IndicatorError, QuantError};
+use crate::error::QuantError;
 use polars::lazy::dsl::{col, lit, max_horizontal, when};
 use polars::prelude::*;
 use std::collections::HashMap;

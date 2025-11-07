@@ -3,12 +3,14 @@ use pyo3::prelude::*;
 use pyo3_polars::{PyDataFrame, PySeries};
 use std::collections::HashMap;
 
+pub type DataSource = HashMap<String, Vec<DataFrame>>;
+
 #[derive(Clone)]
 pub struct DataContainer {
     pub mapping: DataFrame,
     pub skip_mask: Series,
     pub skip_mapping: HashMap<String, bool>,
-    pub source: HashMap<String, Vec<DataFrame>>,
+    pub source: DataSource,
 }
 
 impl<'py> FromPyObject<'py> for DataContainer {

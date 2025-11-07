@@ -1,5 +1,4 @@
 use crate::data_conversion::input::settings::ExecutionStage;
-use polars::prelude::*;
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
@@ -78,15 +77,15 @@ fn execute_single_backtest(
     processed_template: &TemplateContainer,
     processed_settings: &crate::data_conversion::SettingContainer,
 ) -> Result<BacktestSummary, QuantError> {
-    let mut indicator_dfs: Option<std::collections::HashMap<String, Vec<DataFrame>>> = None;
     let mut signals_df = None;
     let mut backtest_df = None;
     let mut performance = None;
 
     // 1. 始终执行: 计算指标
-    let calculated_indicator_dfs =
-        indicators::calculate_indicators(processed_data, &single_param.indicators)?;
-    indicator_dfs = Some(calculated_indicator_dfs);
+    let indicator_dfs = Some(indicators::calculate_indicators(
+        processed_data,
+        &single_param.indicators,
+    )?);
 
     // 2. 如果 execution_stage >= "signals": 执行信号生成
     if processed_settings.execution_stage >= ExecutionStage::Signals {

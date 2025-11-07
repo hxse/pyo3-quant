@@ -1,8 +1,10 @@
-mod indicator_error;
+pub mod backtest_error;
+pub mod indicator_error;
 pub mod py_interface;
-mod quant_error;
-mod signal_error;
+pub mod quant_error;
+pub mod signal_error;
 
+pub use backtest_error::BacktestError;
 pub use indicator_error::IndicatorError;
 pub use quant_error::QuantError;
 pub use signal_error::SignalError;

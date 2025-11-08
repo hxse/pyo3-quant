@@ -159,7 +159,12 @@ pub fn bbands_eager(
     let n_periods = config.period as usize;
 
     if series_len < n_periods {
-        return Err(IndicatorError::DataTooShort("bbands".to_string(), config.period).into());
+        return Err(IndicatorError::DataTooShort(
+            "bbands".to_string(),
+            config.period,
+            series_len as i64,
+        )
+        .into());
     }
 
     // 1. 将 DataFrame 转换为 LazyFrame

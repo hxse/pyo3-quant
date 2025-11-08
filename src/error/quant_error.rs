@@ -13,23 +13,15 @@ pub enum QuantError {
     #[error("PyO3 error: {0}")]
     PyO3(#[from] PyErr),
 
-    // 将 SignalError 作为子错误集成进来
     #[error("Signal generation error: {0}")]
     Signal(#[from] SignalError),
 
-    // 将 IndicatorError 作为子错误集成进来
     #[error("Indicator error: {0}")]
     Indicator(#[from] IndicatorError),
 
     #[error("Backtest error: {0}")]
-    Backtest(BacktestError),
+    Backtest(#[from] BacktestError),
 
     #[error("Infrastructure error: {0}")]
     InfrastructureError(String),
-}
-
-impl From<BacktestError> for QuantError {
-    fn from(err: BacktestError) -> Self {
-        QuantError::Backtest(err)
-    }
 }

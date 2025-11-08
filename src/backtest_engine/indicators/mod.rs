@@ -62,16 +62,17 @@ pub fn calculate_indicators(
 
     for (source_name, mtf_indicator_params) in indicators_params.iter() {
         let source_data = processed_data.source.get(source_name).ok_or_else(|| {
-            QuantError::InfrastructureError(format!("数据源 {} 未找到", source_name))
+            QuantError::Indicator(IndicatorError::DataSourceNotFound(source_name.to_string()))
         })?;
 
         if source_data.len() != mtf_indicator_params.len() {
-            return Err(QuantError::InfrastructureError(format!(
-                "数据源 {} 的长度与指标参数长度不匹配: {} vs {}",
-                source_name,
-                source_data.len(),
-                mtf_indicator_params.len()
-            )));
+            return Err(QuantError::Indicator(
+                IndicatorError::DataSourceLengthMismatch(
+                    source_name.to_string(),
+                    source_data.len(),
+                    mtf_indicator_params.len(),
+                ),
+            ));
         }
 
         let indicators_for_source = source_data

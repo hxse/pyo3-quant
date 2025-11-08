@@ -114,7 +114,12 @@ pub fn ema_eager(ohlcv_df: &DataFrame, config: &EMAConfig) -> Result<Series, Qua
     }
     let n_periods = config.period as usize;
     if series_len < n_periods {
-        return Err(IndicatorError::DataTooShort(alias_name.to_string(), config.period).into());
+        return Err(IndicatorError::DataTooShort(
+            alias_name.to_string(),
+            config.period,
+            series_len as i64,
+        )
+        .into());
     }
     let lazy_df = ohlcv_df.clone().lazy();
     let lazy_plan = ema_lazy(lazy_df, config)?;

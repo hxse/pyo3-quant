@@ -11,6 +11,7 @@
   - 若任一列名缺失 → 直接报错
   - **只读**：不写入，尽量避免 `clone`
   - 若出现 `NaN` → 直接报错
+  - 为了提高性能, 方便处理, 用polars的方法转换成整数列
 
 * **skip_mask Series**
   - 类型为布尔 `Series`
@@ -285,6 +286,7 @@
 - **内存连续性**：
   - 所有输入 `DataFrame` `Series` 必须 `.is_contiguous()`
   - 不连续 → 报错，要求用户在外层 `.rechunk()`
+  - signal DataFrame是布尔列, 为了提高性能, 用polars的方法转换成整数列, 然后用`.is_contiguous()`处理
 - **零拷贝循环**：
   - 使用 `contiguous_slice()` 获取 `&[f64]`，避免迭代器开销
 - 循环中优先检查 `skip_mask[i]` 和 `atr[i].is_nan()`，短路后续计算
@@ -304,4 +306,4 @@
 @/src/data_conversion/input/data_dict.rs
 @/src/data_conversion/input/param_set.rs
 @/src/backtest_engine/indicators/atr.rs
-@/src/error
+src/error/backtest_error.rs

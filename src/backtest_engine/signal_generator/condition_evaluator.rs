@@ -35,22 +35,27 @@ pub fn evaluate_condition(
         CompareOp::GT => {
             perform_comparison(&series_a, &resolved_b, |a, b| a.gt(b), |a, v| a.gt(v))?
                 .into_series()
+                .fill_null(FillNullStrategy::Zero)?
         }
         CompareOp::LT => {
             perform_comparison(&series_a, &resolved_b, |a, b| a.lt(b), |a, v| a.lt(v))?
                 .into_series()
+                .fill_null(FillNullStrategy::Zero)?
         }
         CompareOp::GE => {
             perform_comparison(&series_a, &resolved_b, |a, b| a.gt_eq(b), |a, v| a.gt_eq(v))?
                 .into_series()
+                .fill_null(FillNullStrategy::Zero)?
         }
         CompareOp::LE => {
             perform_comparison(&series_a, &resolved_b, |a, b| a.lt_eq(b), |a, v| a.lt_eq(v))?
                 .into_series()
+                .fill_null(FillNullStrategy::Zero)?
         }
         CompareOp::EQ => {
             perform_comparison(&series_a, &resolved_b, |a, b| a.equal(b), |a, v| a.equal(v))?
                 .into_series()
+                .fill_null(FillNullStrategy::Zero)?
         }
         CompareOp::NE => perform_comparison(
             &series_a,
@@ -58,7 +63,8 @@ pub fn evaluate_condition(
             |a, b| a.not_equal(b),
             |a, v| a.not_equal(v),
         )?
-        .into_series(),
+        .into_series()
+        .fill_null(FillNullStrategy::Zero)?,
         CompareOp::CGT => {
             let current_gt =
                 perform_comparison(&series_a, &resolved_b, |a, b| a.gt(b), |a, v| a.gt(v))?;
@@ -69,7 +75,10 @@ pub fn evaluate_condition(
             };
             let previous_gt =
                 perform_comparison(&previous_a, &previous_b, |a, b| a.gt(b), |a, v| a.gt(v))?;
-            current_gt.bitand(previous_gt.not()).into_series()
+            current_gt
+                .bitand(previous_gt.not())
+                .into_series()
+                .fill_null(FillNullStrategy::Zero)?
         }
         CompareOp::CLT => {
             let current_lt =
@@ -81,7 +90,10 @@ pub fn evaluate_condition(
             };
             let previous_lt =
                 perform_comparison(&previous_a, &previous_b, |a, b| a.lt(b), |a, v| a.lt(v))?;
-            current_lt.bitand(previous_lt.not()).into_series()
+            current_lt
+                .bitand(previous_lt.not())
+                .into_series()
+                .fill_null(FillNullStrategy::Zero)?
         }
         CompareOp::CGE => {
             let current_ge =
@@ -97,7 +109,10 @@ pub fn evaluate_condition(
                 |a, b| a.gt_eq(b),
                 |a, v| a.gt_eq(v),
             )?;
-            current_ge.bitand(previous_ge.not()).into_series()
+            current_ge
+                .bitand(previous_ge.not())
+                .into_series()
+                .fill_null(FillNullStrategy::Zero)?
         }
         CompareOp::CLE => {
             let current_le =
@@ -113,7 +128,10 @@ pub fn evaluate_condition(
                 |a, b| a.lt_eq(b),
                 |a, v| a.lt_eq(v),
             )?;
-            current_le.bitand(previous_le.not()).into_series()
+            current_le
+                .bitand(previous_le.not())
+                .into_series()
+                .fill_null(FillNullStrategy::Zero)?
         }
         CompareOp::CEQ => {
             let current_eq =
@@ -129,7 +147,10 @@ pub fn evaluate_condition(
                 |a, b| a.equal(b),
                 |a, v| a.equal(v),
             )?;
-            current_eq.bitand(previous_eq.not()).into_series()
+            current_eq
+                .bitand(previous_eq.not())
+                .into_series()
+                .fill_null(FillNullStrategy::Zero)?
         }
         CompareOp::CNE => {
             let current_ne = perform_comparison(
@@ -149,7 +170,10 @@ pub fn evaluate_condition(
                 |a, b| a.not_equal(b),
                 |a, v| a.not_equal(v),
             )?;
-            current_ne.bitand(previous_ne.not()).into_series()
+            current_ne
+                .bitand(previous_ne.not())
+                .into_series()
+                .fill_null(FillNullStrategy::Zero)?
         }
     };
 

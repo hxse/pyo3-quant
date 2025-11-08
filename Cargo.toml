@@ -10,16 +10,17 @@ name = "pyo3_quant"
 crate-type = ["cdylib"]
 
 [dependencies]
-polars = { version = "0.51", features = [
+polars = { version = "0.52", default-features = false, features = [
     "lazy",
     "rolling_window",
     "ewma",
     "abs",
     "diff",
+    "dtype-struct",
+
 ] }
-polars-ops = { version = "0.51.0", features = ["ewma"] }
-pyo3 = { version = "0.25", features = ["extension-module"] }
-pyo3-polars = "0.24"
+pyo3 = { version = "0.26" }
+pyo3-polars = "0.25"
 rayon = "1.11.0"
 thiserror = "2.0.17"
 

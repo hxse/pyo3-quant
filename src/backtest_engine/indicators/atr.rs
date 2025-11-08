@@ -137,11 +137,18 @@ pub fn atr_eager(ohlcv_df: &DataFrame, config: &ATRConfig) -> Result<Series, Qua
     }
     let series_len = ohlcv_df.height();
     if series_len == 0 {
-        return Err(IndicatorError::DataTooShort(alias_name.to_string(), 0).into());
+        return Err(
+            IndicatorError::DataTooShort(alias_name.to_string(), 0, series_len as i64).into(),
+        );
     }
     let n_periods = period as usize;
     if series_len < n_periods {
-        return Err(IndicatorError::DataTooShort(alias_name.to_string(), period).into());
+        return Err(IndicatorError::DataTooShort(
+            alias_name.to_string(),
+            period,
+            series_len as i64,
+        )
+        .into());
     }
 
     let lazy_df = ohlcv_df.clone().lazy();

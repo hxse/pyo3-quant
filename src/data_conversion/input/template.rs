@@ -71,7 +71,7 @@ pub struct ParamOperand {
 pub struct SignalDataOperand {
     pub name: String,
     pub source: String,
-    pub offset: i32,
+    pub offset: u32,
 }
 
 #[derive(Debug, Clone)]

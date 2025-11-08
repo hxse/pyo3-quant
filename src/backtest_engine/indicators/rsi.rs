@@ -196,7 +196,12 @@ pub fn rsi_eager(ohlcv_df: &DataFrame, config: &RSIConfig) -> Result<Series, Qua
     }
     let n_periods = config.period as usize;
     if series_len <= n_periods {
-        return Err(IndicatorError::DataTooShort("rsi".to_string(), config.period).into());
+        return Err(IndicatorError::DataTooShort(
+            "rsi".to_string(),
+            config.period,
+            series_len as i64,
+        )
+        .into());
     }
 
     let lazy_df = ohlcv_df.clone().lazy();

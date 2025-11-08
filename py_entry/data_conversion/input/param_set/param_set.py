@@ -20,9 +20,25 @@ class PerformanceMetric(str, Enum):
 class BacktestParams:
     """回测参数 - 对应 Rust BacktestParams struct"""
 
-    sl: Param
-    tp: Param
-    position_pct: Param
+    sl_pct: Param
+    tp_pct: Param
+    tsl_pct: Param
+
+    sl_atr: Param
+    tp_atr: Param
+    tsl_atr: Param
+    atr_period: Param
+
+    tsl_use_high: bool
+    tsl_per_bar_update: bool
+    exit_in_bar: bool
+
+    initial_capital: float
+    stop_pct: Param
+    resume_pct: Param
+
+    fee_fixed: float
+    fee_pct: float
 
 
 @dataclass

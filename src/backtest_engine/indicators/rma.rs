@@ -70,7 +70,9 @@ pub fn rma_eager(ohlcv_df: &DataFrame, config: &RMAConfig) -> Result<Series, Qua
     }
     let n_periods = period as usize;
     if series_len < n_periods {
-        return Err(IndicatorError::DataTooShort("rma".to_string(), period).into());
+        return Err(
+            IndicatorError::DataTooShort("rma".to_string(), period, series_len as i64).into(),
+        );
     }
 
     let lazy_df = ohlcv_df.clone().lazy();

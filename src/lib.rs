@@ -20,7 +20,7 @@ fn pyo3_quant(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_submodule(&minimal_working_example_submodule)?;
 
     let errors_submodule = PyModule::new(m.py(), "errors")?;
-    error::py_interface::register_py_module(&errors_submodule)?;
+    error::py_interface::register_py_exceptions(&errors_submodule)?;
     m.add_submodule(&errors_submodule)?;
 
     Ok(())

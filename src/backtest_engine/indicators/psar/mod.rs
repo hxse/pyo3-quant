@@ -93,7 +93,7 @@ pub fn psar_expr(config: &PSARConfig) -> Result<Expr, QuantError> {
                     return Err(PolarsError::ComputeError(
                         format!(
                             "Input data is too short to calculate psar. Minimum 2 data points required. Details: {}",
-                            IndicatorError::DataTooShort("psar".to_string(), 2)
+                            IndicatorError::DataTooShort("psar".to_string(), 2, n as i64)
                         )
                         .into(),
                     ));
@@ -216,7 +216,9 @@ pub fn psar_lazy(lazy_df: LazyFrame, config: &PSARConfig) -> Result<LazyFrame, Q
 // --- 计算层 (Eager) ---
 pub fn psar_eager(ohlcv_df: &DataFrame, config: &PSARConfig) -> Result<DataFrame, QuantError> {
     if ohlcv_df.height() < 2 {
-        return Err(IndicatorError::DataTooShort("psar".to_string(), 2).into());
+        return Err(
+            IndicatorError::DataTooShort("psar".to_string(), 2, ohlcv_df.height() as i64).into(),
+        );
     }
 
     let lazy_df = psar_lazy(ohlcv_df.clone().lazy(), config)?;

@@ -69,7 +69,8 @@ fn calculate_metrics_internal(
 
     summary.push_str(&format!(
         ", backtest sl={}, tp={}",
-        params.backtest.sl_pct.value, params.backtest.tp_pct.value
+        params.backtest.sl_pct.as_ref().map(|p| p.value).unwrap_or(0.0),
+        params.backtest.tp_pct.as_ref().map(|p| p.value).unwrap_or(0.0)
     ));
 
     // 添加数据信息

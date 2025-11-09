@@ -194,7 +194,7 @@
 
 ### 可选列（动态生成）
 - 若参数 `> 0` → 添加对应列，记录**持仓期间的止损/止盈价**
-  - `sl_price`, `tp_price`, `tsl_price`
+  - `sl_price`, `tp_price`, `tsl_price`, `atr`
 
 ### 状态记录规则（与实盘完全对齐）
 - **所有 `position` 和 `exit_mode` 均在【信号触发 bar】记录**

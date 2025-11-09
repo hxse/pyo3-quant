@@ -1,4 +1,5 @@
-use crate::data_conversion::DataContainer;
+use crate::backtest_engine::indicators::atr::{atr_eager, ATRConfig};
+use crate::data_conversion::{input::param_set::BacktestParams, DataContainer};
 use crate::error::backtest_error::BacktestError;
 use crate::error::QuantError;
 use polars::prelude::*;
@@ -23,11 +24,10 @@ pub fn apply_skip_mask(
     skip_mask: &Series,
     signals_df: &DataFrame,
 ) -> Result<DataFrame, QuantError> {
-    let mut df_with_mask = signals_df.clone();
-    df_with_mask.with_column(skip_mask.clone().with_name("skip_mask".into()))?;
-
-    let new_df = df_with_mask
+    let new_df = signals_df
+        .clone() // 必须：lazy() 消耗所有权
         .lazy()
+        .with_column(lit(skip_mask.clone()).alias("skip_mask"))
         .with_column(
             when(col("skip_mask"))
                 .then(lit(false))
@@ -59,10 +59,8 @@ pub fn apply_skip_mask(
             col("exit_short"),
         ])
         .collect()?;
-
     Ok(new_df)
 }
-
 /// 预处理数据结构体，包含所有回测所需的连续内存数组切片
 pub struct PreparedData<'a> {
     /// 时间戳数组
@@ -85,11 +83,15 @@ pub struct PreparedData<'a> {
     pub enter_short: Vec<i32>,
     /// 做空离场信号数组
     pub exit_short: Vec<i32>,
+    /// ATR 指标数组，可选
+    pub atr: Option<Vec<f64>>,
 }
+
 /// 准备回测数据，将 Polars DataFrame/Series 转换为连续的内存数组切片
 pub fn prepare_data<'a>(
     processed_data: &'a DataContainer,
     signals_df: &'a DataFrame,
+    atr_series: &'a Option<Series>,
 ) -> Result<PreparedData<'a>, QuantError> {
     // 1. 提取OHLCV数据
     let ohlcv_df = get_ohlcv_dataframe(processed_data)?;
@@ -122,6 +124,15 @@ pub fn prepare_data<'a>(
         casted.i32()?.cont_slice()?.to_vec()
     };
 
+    // 3. 处理 ATR 数据
+    let atr = match atr_series {
+        Some(series) => {
+            let atr_vec = series.f64()?.cont_slice()?.to_vec();
+            Some(atr_vec)
+        }
+        None => None,
+    };
+
     // 4. 构建并返回PreparedData结构体
     Ok(PreparedData {
         time,
@@ -134,5 +145,6 @@ pub fn prepare_data<'a>(
         exit_long,
         enter_short,
         exit_short,
+        atr,
     })
 }

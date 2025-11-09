@@ -47,30 +47,30 @@ pub struct BacktestParams {
     // === 止损止盈参数 (百分比) ===
     /// 百分比止损阈值。当仓位亏损达到此百分比时触发止损。
     /// 如果值 <= 0.0，则不使用百分比止损功能。
-    pub sl_pct: Param,
+    pub sl_pct: Option<Param>,
     /// 百分比止盈阈值。当仓位盈利达到此百分比时触发止盈。
     /// 如果值 <= 0.0，则不使用百分比止盈功能。
-    pub tp_pct: Param,
+    pub tp_pct: Option<Param>,
     /// 百分比跟踪止损阈值。当仓位盈利回撤达到此百分比时触发跟踪止损。
     /// 如果值 <= 0.0，则不使用百分比跟踪止损功能。
-    pub tsl_pct: Param,
+    pub tsl_pct: Option<Param>,
 
     // === ATR止损止盈参数 ===
     /// ATR止损倍数。止损价格基于入场价格减去ATR值乘以该倍数。
     /// 如果值 <= 0.0，则不使用ATR止损功能。
     /// 依赖 `atr_period`，如果 `atr_period` <= 0.0，即使 `sl_atr` > 0.0 也不会启用。
-    pub sl_atr: Param,
+    pub sl_atr: Option<Param>,
     /// ATR止盈倍数。止盈价格基于入场价格加上ATR值乘以该倍数。
     /// 如果值 <= 0.0，则不使用ATR止盈功能。
     /// 依赖 `atr_period`，如果 `atr_period` <= 0.0，即使 `tp_atr` > 0.0 也不会启用。
-    pub tp_atr: Param,
+    pub tp_atr: Option<Param>,
     /// ATR跟踪止损倍数。跟踪止损价格基于最高价减去ATR值乘以该倍数。
     /// 如果值 <= 0.0，则不使用ATR跟踪止损功能。
     /// 依赖 `atr_period`，如果 `atr_period` <= 0.0，即使 `tsl_atr` > 0.0 也不会启用。
-    pub tsl_atr: Param,
+    pub tsl_atr: Option<Param>,
     /// ATR计算周期。用于计算平均真实范围 (ATR) 的K线周期数。
     /// 如果值 <= 0.0，则所有ATR相关的止损止盈功能都不会启用。
-    pub atr_period: Param,
+    pub atr_period: Option<Param>,
 
     // === 跟踪止损选项 ===
     /// 跟踪止损锚点选择。
@@ -111,44 +111,103 @@ pub struct BacktestParams {
 }
 
 impl BacktestParams {
-    /// 检查sl_pct是否有效。
-    /// 当 `sl_pct.value` 大于 0.0 时，百分比止损功能启用。
-    pub fn is_sl_pct_enabled(&self) -> bool {
-        self.sl_pct.value > 0.0
+    /// 检查sl_pct参数是否有效（不验证其他参数）。
+    /// 当 `sl_pct` 存在且其值大于 0.0 时，返回 true。
+    pub fn is_sl_pct_param_valid(&self) -> bool {
+        self.sl_pct
+            .as_ref()
+            .map_or(false, |param| param.value > 0.0)
     }
 
-    /// 检查tp_pct是否有效。
-    /// 当 `tp_pct.value` 大于 0.0 时，百分比止盈功能启用。
-    pub fn is_tp_pct_enabled(&self) -> bool {
-        self.tp_pct.value > 0.0
+    /// 检查tp_pct参数是否有效（不验证其他参数）。
+    /// 当 `tp_pct` 存在且其值大于 0.0 时，返回 true。
+    pub fn is_tp_pct_param_valid(&self) -> bool {
+        self.tp_pct
+            .as_ref()
+            .map_or(false, |param| param.value > 0.0)
     }
 
-    /// 检查tsl_pct是否有效。
-    /// 当 `tsl_pct.value` 大于 0.0 时，百分比跟踪止损功能启用。
-    pub fn is_tsl_pct_enabled(&self) -> bool {
-        self.tsl_pct.value > 0.0
+    /// 检查tsl_pct参数是否有效（不验证其他参数）。
+    /// 当 `tsl_pct` 存在且其值大于 0.0 时，返回 true。
+    pub fn is_tsl_pct_param_valid(&self) -> bool {
+        self.tsl_pct
+            .as_ref()
+            .map_or(false, |param| param.value > 0.0)
     }
 
-    /// 检查sl_atr是否有效。
-    /// 当 `sl_atr.value` 大于 0.0 且 `atr_period.value` 大于 0.0 时，ATR止损功能启用。
-    pub fn is_sl_atr_enabled(&self) -> bool {
-        self.sl_atr.value > 0.0 && self.atr_period.value > 0.0
+    /// 检查是否有任一百分比参数（sl_pct、tp_pct、tsl_pct）有效。
+    pub fn has_any_pct_param(&self) -> bool {
+        self.is_sl_pct_param_valid()
+            || self.is_tp_pct_param_valid()
+            || self.is_tsl_pct_param_valid()
     }
 
-    /// 检查tp_atr是否有效。
-    /// 当 `tp_atr.value` 大于 0.0 且 `atr_period.value` 大于 0.0 时，ATR止盈功能启用。
-    pub fn is_tp_atr_enabled(&self) -> bool {
-        self.tp_atr.value > 0.0 && self.atr_period.value > 0.0
+    /// 检查sl_atr参数是否有效（不验证atr_period）。
+    /// 当 `sl_atr` 存在且其值大于 0.0 时，返回 true。
+    pub fn is_sl_atr_param_valid(&self) -> bool {
+        self.sl_atr
+            .as_ref()
+            .map_or(false, |param| param.value > 0.0)
     }
 
-    /// 检查tsl_atr是否有效。
-    /// 当 `tsl_atr.value` 大于 0.0 且 `atr_period.value` 大于 0.0 时，ATR跟踪止损功能启用。
-    pub fn is_tsl_atr_enabled(&self) -> bool {
-        self.tsl_atr.value > 0.0 && self.atr_period.value > 0.0
+    /// 检查tp_atr参数是否有效（不验证atr_period）。
+    /// 当 `tp_atr` 存在且其值大于 0.0 时，返回 true。
+    pub fn is_tp_atr_param_valid(&self) -> bool {
+        self.tp_atr
+            .as_ref()
+            .map_or(false, |param| param.value > 0.0)
+    }
+
+    /// 检查tsl_atr参数是否有效（不验证atr_period）。
+    /// 当 `tsl_atr` 存在且其值大于 0.0 时，返回 true。
+    pub fn is_tsl_atr_param_valid(&self) -> bool {
+        self.tsl_atr
+            .as_ref()
+            .map_or(false, |param| param.value > 0.0)
+    }
+
+    /// 检查是否有任一ATR参数（sl_atr、tp_atr、tsl_atr）有效。
+    pub fn has_any_atr_param(&self) -> bool {
+        self.is_sl_atr_param_valid()
+            || self.is_tp_atr_param_valid()
+            || self.is_tsl_atr_param_valid()
+    }
+
+    /// 验证ATR参数的一致性。
+    /// 当任一ATR参数有效时，atr_period必须存在且有效。
+    /// 如果验证失败，返回错误信息。
+    /// 返回 `has_any_atr_param` 的值，表示ATR参数整体是否有效。
+    pub fn validate_atr_consistency(&self) -> Result<bool, BacktestError> {
+        let has_any_atr_param = self.has_any_atr_param();
+
+        // 只有当存在ATR参数时，才需要验证atr_period
+        if has_any_atr_param {
+            let atr_period_valid = self
+                .atr_period
+                .as_ref()
+                .map_or(false, |param| param.value > 0.0);
+
+            if !atr_period_valid {
+                return Err(BacktestError::InvalidParameter {
+                    param_name: "atr_period".to_string(),
+                    value: self
+                        .atr_period
+                        .as_ref()
+                        .map(|p| p.value.to_string())
+                        .unwrap_or_else(|| "None".to_string()),
+                    reason: "当使用任何ATR相关参数时，atr_period必须存在且大于0".to_string(),
+                });
+            }
+        }
+
+        // 如果没有ATR参数，则ATR相关参数视为有效
+        // 如果有ATR参数且atr_period有效，则ATR相关参数视为有效
+        Ok(has_any_atr_param)
     }
 
     /// 验证所有参数的有效性。
     /// 返回 `Ok(())` 如果所有参数有效，否则返回详细的错误信息 `BacktestError::InvalidParameter`。
+    /// 注意：基本参数验证已在 FromPyObject 实现中进行，此方法主要用于运行时验证。
     pub fn validate(&self) -> Result<(), BacktestError> {
         // 1. 验证initial_capital > 0
         if self.initial_capital <= 0.0 {
@@ -189,18 +248,6 @@ impl BacktestParams {
                     self.stop_pct.value, self.resume_pct.value
                 ),
                 reason: "stop_pct和resume_pct必须同时启用或禁用".to_string(),
-            });
-        }
-
-        // 4. 验证ATR参数一致性
-        // 如果使用任何ATR止损,atr_period必须>0
-        if (self.sl_atr.value > 0.0 || self.tp_atr.value > 0.0 || self.tsl_atr.value > 0.0)
-            && self.atr_period.value <= 0.0
-        {
-            return Err(BacktestError::InvalidParameter {
-                param_name: "atr_period".to_string(),
-                value: self.atr_period.value.to_string(),
-                reason: "使用ATR止损时,atr_period必须>0".to_string(),
             });
         }
 

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List
+from typing import Dict, List, Optional
 from .param import Param
 
 # Type Aliases - 对应 Rust 的 type alias
@@ -20,14 +20,14 @@ class PerformanceMetric(str, Enum):
 class BacktestParams:
     """回测参数 - 对应 Rust BacktestParams struct"""
 
-    sl_pct: Param
-    tp_pct: Param
-    tsl_pct: Param
+    sl_pct: Optional[Param] = None
+    tp_pct: Optional[Param] = None
+    tsl_pct: Optional[Param] = None
 
-    sl_atr: Param
-    tp_atr: Param
-    tsl_atr: Param
-    atr_period: Param
+    sl_atr: Optional[Param] = None
+    tp_atr: Optional[Param] = None
+    tsl_atr: Optional[Param] = None
+    atr_period: Optional[Param] = None
 
     tsl_use_high: bool
     tsl_per_bar_update: bool

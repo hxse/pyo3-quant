@@ -18,16 +18,17 @@ pub fn calculate_atr_if_needed(
     ohlcv: &DataFrame,
     params: &BacktestParams,
 ) -> Result<Option<Series>, QuantError> {
-    // 检查是否需要 ATR
-    if params.sl_atr.value <= 0.0 && params.tp_atr.value <= 0.0 && params.tsl_atr.value <= 0.0 {
-        return Ok(None);
+    // 使用 param_set.rs 中的 validate_atr_consistency 方法验证 ATR 参数一致性
+    let has_atr_params = params.validate_atr_consistency()?;
+
+    if has_atr_params {
+        // ATR 参数有效，计算 ATR
+        let atr_period = params.atr_period.as_ref().unwrap().value as i64;
+        let atr_config = ATRConfig::new(atr_period);
+        let atr_series = atr_eager(ohlcv, &atr_config)?;
+        Ok(Some(atr_series))
+    } else {
+        // 没有 ATR 参数，不计算 ATR
+        Ok(None)
     }
-
-    // 创建 ATR 配置
-    let atr_config = ATRConfig::new(params.atr_period.value as i64);
-
-    // 计算 ATR
-    let atr_series = atr_eager(ohlcv, &atr_config)?;
-
-    Ok(Some(atr_series))
 }

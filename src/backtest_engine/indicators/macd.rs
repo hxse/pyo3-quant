@@ -3,6 +3,7 @@ use polars::prelude::*;
 
 // 從 ema.rs 導入封裝的 EMA 邏輯
 use super::registry::Indicator;
+use super::utils::null_to_nan_expr;
 use crate::backtest_engine::indicators::ema::{ema_expr, EMAConfig};
 use crate::data_conversion::input::param::Param;
 use crate::error::{IndicatorError, QuantError};
@@ -199,6 +200,10 @@ pub fn macd_lazy(lazy_df: LazyFrame, config: &MACDConfig) -> Result<LazyFrame, Q
                 .cast(DataType::Float64)
                 .alias(hist_alias),
         )
+        // 在蓝图层将所有 MACD 输出的 NULL 转换为 NaN
+        .with_column(null_to_nan_expr(macd_alias))
+        .with_column(null_to_nan_expr(signal_alias))
+        .with_column(null_to_nan_expr(hist_alias))
         .select(&[col(macd_alias), col(signal_alias), col(hist_alias)]);
 
     Ok(lazy_df)

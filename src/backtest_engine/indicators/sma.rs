@@ -1,4 +1,5 @@
 use super::registry::Indicator;
+use super::utils::null_to_nan_expr;
 use crate::data_conversion::input::param::Param;
 use crate::error::{IndicatorError, QuantError};
 use polars::lazy::dsl::col;
@@ -71,8 +72,10 @@ pub fn sma_lazy(lazy_df: LazyFrame, config: &SMAConfig) -> Result<LazyFrame, Qua
     // 1. 获取 SMA 表达式
     let sma_expr = sma_expr(config)?;
 
-    // 2. 构建 LazyFrame 管道：添加 SMA 列
-    let result_lazy_df = lazy_df.with_column(sma_expr);
+    // 2. 构建 LazyFrame 管道：添加 SMA 列，并转换 NULL 为 NaN
+    let result_lazy_df = lazy_df
+        .with_column(sma_expr)
+        .with_column(null_to_nan_expr(&config.alias_name));
 
     Ok(result_lazy_df)
 }

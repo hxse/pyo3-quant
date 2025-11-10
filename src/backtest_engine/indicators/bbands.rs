@@ -5,6 +5,7 @@ use polars::prelude::*;
 use super::registry::Indicator;
 use super::sma::sma_expr;
 use super::sma::SMAConfig;
+use super::utils::null_to_nan_expr;
 use crate::data_conversion::input::param::Param;
 use crate::error::{IndicatorError, QuantError};
 use std::collections::HashMap;
@@ -133,7 +134,15 @@ pub fn bbands_lazy(lazy_df: LazyFrame, config: &BBandsConfig) -> Result<LazyFram
         // 步骤2：使用上一步生成的列来计算 upper_band 和 lower_band
         .with_columns([upper_band_expr, lower_band_expr])
         // 步骤3：最后计算依赖于 band 的指标
-        .with_columns([bandwidth_expr, percent_b_expr]);
+        .with_columns([bandwidth_expr, percent_b_expr])
+        // 步骤4：将所有布林带指标的 NULL 转换为 NaN
+        .with_columns([
+            null_to_nan_expr(&config.lower_band_alias),
+            null_to_nan_expr(&config.middle_band_alias),
+            null_to_nan_expr(&config.upper_band_alias),
+            null_to_nan_expr(&config.bandwidth_alias),
+            null_to_nan_expr(&config.percent_alias),
+        ]);
 
     Ok(result_lazy_df)
 }

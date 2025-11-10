@@ -11,9 +11,7 @@ from py_entry.data_conversion.backtest_runner import (
     SettingContainer,
     ExecutionStage,
 )
-from py_entry.Test.utils.comparison_tool import (
-    assert_indicator_same,
-)
+from py_entry.Test.utils.comparison_tool import assert_indicator_same
 
 
 @dataclass

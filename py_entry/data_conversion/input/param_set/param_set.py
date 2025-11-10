@@ -20,15 +20,6 @@ class PerformanceMetric(str, Enum):
 class BacktestParams:
     """回测参数 - 对应 Rust BacktestParams struct"""
 
-    sl_pct: Optional[Param] = None
-    tp_pct: Optional[Param] = None
-    tsl_pct: Optional[Param] = None
-
-    sl_atr: Optional[Param] = None
-    tp_atr: Optional[Param] = None
-    tsl_atr: Optional[Param] = None
-    atr_period: Optional[Param] = None
-
     tsl_use_high: bool
     tsl_per_bar_update: bool
     exit_in_bar: bool
@@ -39,6 +30,15 @@ class BacktestParams:
 
     fee_fixed: float
     fee_pct: float
+
+    sl_pct: Optional[Param] = None
+    tp_pct: Optional[Param] = None
+    tsl_pct: Optional[Param] = None
+
+    sl_atr: Optional[Param] = None
+    tp_atr: Optional[Param] = None
+    tsl_atr: Optional[Param] = None
+    atr_period: Optional[Param] = None
 
 
 @dataclass

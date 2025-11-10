@@ -13,7 +13,7 @@ pub struct OutputBuffers {
     /// 累计回报率，带复利
     pub cumulative_return: Vec<f64>,
     /// 仓位状态（i8）
-    /// 0=无仓位, 1=进多, 2=持多, 3=平多, 4=平空进多
+    /// 0=无仓位, 1=进多, 2=持多, 3=平多, 4=平短进多
     /// -1=进空, -2=持空, -3=平空, -4=平多进空
     pub position: Vec<i8>,
     /// 离场模式（u8）
@@ -179,88 +179,50 @@ impl OutputBuffers {
     pub fn to_dataframe(&self) -> Result<DataFrame, BacktestError> {
         let mut columns: Vec<Column> = Vec::new();
 
-        // 添加固定列
-        let balance_series = Series::new("balance".into(), self.balance.as_slice()).into();
-        columns.push(balance_series);
-
-        let equity_series = Series::new("equity".into(), self.equity.as_slice()).into();
-        columns.push(equity_series);
-
-        let cumulative_return_series = Series::new(
-            "cumulative_return".into(),
-            self.cumulative_return.as_slice(),
-        )
-        .into();
-        columns.push(cumulative_return_series);
-
-        // 简化position：Vec<i8> → Vec<i32> → Series<Int8>
-        let position_series = Series::new(
-            "position".into(),
-            &self.position.iter().map(|&x| x as i32).collect::<Vec<_>>(),
-        )
-        .cast(&DataType::Int8)
-        .map_err(|e| BacktestError::ValidationError(format!("Failed to cast position to Int8: {}", e)))?;
+        // 添加需要类型转换的固定列
+        let position_data: Vec<i32> = self.position.iter().map(|&x| x as i32).collect();
+        let position_series = Series::new("position".into(), position_data);
         columns.push(position_series.into());
 
-        // 简化exit_mode：Vec<u8> → Vec<u32> → Series<UInt8>
-        let exit_mode_series = Series::new(
-            "exit_mode".into(),
-            &self.exit_mode.iter().map(|&x| x as u32).collect::<Vec<_>>(),
-        )
-        .cast(&DataType::UInt8)
-        .map_err(|e| BacktestError::ValidationError(format!("Failed to cast exit_mode to UInt8: {}", e)))?;
+        let exit_mode_data: Vec<u32> = self.exit_mode.iter().map(|&x| x as u32).collect();
+        let exit_mode_series = Series::new("exit_mode".into(), exit_mode_data);
         columns.push(exit_mode_series.into());
 
-        let entry_price_series =
-            Series::new("entry_price".into(), self.entry_price.as_slice()).into();
-        columns.push(entry_price_series);
+        // 定义固定列的名称和数据
+        let fixed_columns = [
+            ("balance", &self.balance as &[f64]),
+            ("equity", &self.equity as &[f64]),
+            ("cumulative_return", &self.cumulative_return as &[f64]),
+            ("entry_price", &self.entry_price as &[f64]),
+            ("exit_price", &self.exit_price as &[f64]),
+            ("pct_return", &self.pct_return as &[f64]),
+            ("fee", &self.fee as &[f64]),
+            ("fee_cum", &self.fee_cum as &[f64]),
+        ];
 
-        let exit_price_series = Series::new("exit_price".into(), self.exit_price.as_slice()).into();
-        columns.push(exit_price_series);
+        // 添加固定列
+        for (name, data) in fixed_columns.iter() {
+            let series = Series::new((*name).into(), data);
+            columns.push(series.into());
+        }
 
-        let pct_return_series = Series::new("pct_return".into(), self.pct_return.as_slice()).into();
-        columns.push(pct_return_series);
-
-        let fee_series = Series::new("fee".into(), self.fee.as_slice()).into();
-        columns.push(fee_series);
-
-        let fee_cum_series = Series::new("fee_cum".into(), self.fee_cum.as_slice()).into();
-        columns.push(fee_cum_series);
+        // 定义可选列的名称和数据
+        let optional_columns = [
+            ("sl_pct_price", &self.sl_pct_price),
+            ("tp_pct_price", &self.tp_pct_price),
+            ("tsl_pct_price", &self.tsl_pct_price),
+            ("atr", &self.atr),
+            ("sl_atr_price", &self.sl_atr_price),
+            ("tp_atr_price", &self.tp_atr_price),
+            ("tsl_atr_price", &self.tsl_atr_price),
+        ];
 
         // 添加可选列（仅当它们不为 None 时）
-        if let Some(ref sl_pct_price) = self.sl_pct_price {
-            let sl_pct_price_series =
-                Series::new("sl_pct_price".into(), sl_pct_price.as_slice()).into();
-            columns.push(sl_pct_price_series);
-        }
-        if let Some(ref tp_pct_price) = self.tp_pct_price {
-            let tp_pct_price_series =
-                Series::new("tp_pct_price".into(), tp_pct_price.as_slice()).into();
-            columns.push(tp_pct_price_series);
-        }
-        if let Some(ref tsl_pct_price) = self.tsl_pct_price {
-            let tsl_pct_price_series =
-                Series::new("tsl_pct_price".into(), tsl_pct_price.as_slice()).into();
-            columns.push(tsl_pct_price_series);
-        }
-        if let Some(ref atr) = self.atr {
-            let atr_series = Series::new("atr".into(), atr.as_slice()).into();
-            columns.push(atr_series);
-        }
-        if let Some(ref sl_atr_price) = self.sl_atr_price {
-            let sl_atr_price_series =
-                Series::new("sl_atr_price".into(), sl_atr_price.as_slice()).into();
-            columns.push(sl_atr_price_series);
-        }
-        if let Some(ref tp_atr_price) = self.tp_atr_price {
-            let tp_atr_price_series =
-                Series::new("tp_atr_price".into(), tp_atr_price.as_slice()).into();
-            columns.push(tp_atr_price_series);
-        }
-        if let Some(ref tsl_atr_price) = self.tsl_atr_price {
-            let tsl_atr_price_series =
-                Series::new("tsl_atr_price".into(), tsl_atr_price.as_slice()).into();
-            columns.push(tsl_atr_price_series);
+        for (name, data) in optional_columns.iter() {
+            if let Some(ref vec_data) = data {
+                let series = Series::new((*name).into(), vec_data);
+                columns.push(series.into());
+            }
         }
 
         DataFrame::new(columns).map_err(|e| {

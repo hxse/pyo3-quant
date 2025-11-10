@@ -74,3 +74,12 @@ This file provides guidance to agents when working with code in this repository.
 - **回测逻辑调试**: `src/backtest_engine/backtester.rs` 中的 `run_backtest` 函数目前是占位符。调试回测结果时,请注意此函数的当前状态,并确保实际逻辑实现后进行彻底测试。
 - **指标精度调试**: 调试指标计算结果时,特别是布林带的 `_percent` 列,请记住 `py_entry/Test/indicators/test_bbands.py` 中定义的较低精度容差 (`custom_rtol: 1e-3, custom_atol: 1e-6`)。
 - **内存优化调试**: 调试内存使用问题时,请检查 `src/backtest_engine/utils/memory_optimizer.rs` 中的 `optimize_memory_by_stage` 函数是否按预期工作,以根据执行阶段优化返回结果。
+
+# null和nan处理
+## NULL 和 NaN 在 Polars 中的区别
+  * 在 Polars 中：
+  * NULL 表示数据的缺失值，是一个逻辑概念，不占用实际的存储空间
+  * NaN (Not a Number) 是一个特殊的浮点数值，表示无效的数值计算结果
+  * 计算指标的过程中, 尽量用Null, 避免nan传播, 影响计算逻辑, 计算结尾的时候把null统一转换成nan
+  * 我已经定义好了null和nan处理工具函数, 在计算指标的过程中直接使用`src/backtest_engine/indicators/utils.rs`
+  * 优先在lazy计算函数结尾处把null转换为nan, 然后eager计算函数直接调用lazy计算函数就行了, 不用再转换了

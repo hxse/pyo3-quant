@@ -22,7 +22,8 @@ pub fn run_backtest(
     backtest_params: &BacktestParams,
 ) -> Result<DataFrame, QuantError> {
     // 在准备数据之前，先验证参数
-    backtest_params.validate()
+    backtest_params
+        .validate()
         .map_err(|e| QuantError::Backtest(e))?;
 
     // 在准备数据之前，先应用 skip_mask 逻辑
@@ -48,7 +49,7 @@ pub fn run_backtest(
     )?;
 
     // 把atr记录到输出结果
-    output_buffers.atr = prepared_data.atr;
+    output_buffers.atr = prepared_data.atr.map(|atr_slice| atr_slice.to_vec());
     // 验证所有数组的长度是否相等
     output_buffers.validate_array_lengths()?;
 

@@ -103,33 +103,41 @@ pub fn prepare_data<'a>(
     let volume = ohlcv_df.column("volume")?.f64()?.cont_slice()?;
 
     // 2. 处理信号列：内联转换逻辑
-    let enter_long: Vec<i32> = {
-        let series = signals_df.column("enter_long")?;
-        let casted = series.cast(&DataType::Int32)?;
-        casted.i32()?.cont_slice()?.to_vec()
-    };
-    let exit_long: Vec<i32> = {
-        let series = signals_df.column("exit_long")?;
-        let casted = series.cast(&DataType::Int32)?;
-        casted.i32()?.cont_slice()?.to_vec()
-    };
-    let enter_short: Vec<i32> = {
-        let series = signals_df.column("enter_short")?;
-        let casted = series.cast(&DataType::Int32)?;
-        casted.i32()?.cont_slice()?.to_vec()
-    };
-    let exit_short: Vec<i32> = {
-        let series = signals_df.column("exit_short")?;
-        let casted = series.cast(&DataType::Int32)?;
-        casted.i32()?.cont_slice()?.to_vec()
-    };
+    let enter_long: Vec<i32> = signals_df
+        .column("enter_long")?
+        .cast(&DataType::Int32)?
+        .i32()?
+        .rechunk()
+        .cont_slice()?
+        .to_vec();
+
+    let exit_long: Vec<i32> = signals_df
+        .column("exit_long")?
+        .cast(&DataType::Int32)?
+        .i32()?
+        .rechunk()
+        .cont_slice()?
+        .to_vec();
+
+    let enter_short: Vec<i32> = signals_df
+        .column("enter_short")?
+        .cast(&DataType::Int32)?
+        .i32()?
+        .rechunk()
+        .cont_slice()?
+        .to_vec();
+
+    let exit_short: Vec<i32> = signals_df
+        .column("exit_short")?
+        .cast(&DataType::Int32)?
+        .i32()?
+        .rechunk()
+        .cont_slice()?
+        .to_vec();
 
     // 3. 处理 ATR 数据
     let atr = match atr_series {
-        Some(series) => {
-            let atr_vec = series.f64()?.cont_slice()?.to_vec();
-            Some(atr_vec)
-        }
+        Some(series) => Some(series.f64()?.cont_slice()?.to_vec()),
         None => None,
     };
 

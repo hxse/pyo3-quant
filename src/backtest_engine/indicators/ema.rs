@@ -2,6 +2,7 @@ use polars::lazy::dsl::{col, lit, when};
 use polars::prelude::*;
 
 use super::registry::Indicator;
+use super::utils::{null_to_nan_expr, null_when_expr};
 use crate::data_conversion::input::param::Param;
 use crate::error::{IndicatorError, QuantError};
 use std::collections::HashMap;
@@ -91,7 +92,9 @@ pub fn ema_lazy(lazy_df: LazyFrame, config: &EMAConfig) -> Result<LazyFrame, Qua
     let result_lazy_df = lazy_df
         .with_row_index("index", None)
         .with_column(processed_close_expr)
-        .with_column(ema_expr);
+        .with_column(ema_expr)
+        // 在蓝图层将 EMA 结果的 NULL 转换为 NaN
+        .with_column(null_to_nan_expr(&config.alias_name));
     Ok(result_lazy_df)
 }
 

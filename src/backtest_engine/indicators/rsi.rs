@@ -1,5 +1,6 @@
 // src/backtest_engine/indicators/rsi.rs
 use super::registry::Indicator;
+use super::utils::{null_to_nan_expr, null_when_expr};
 use crate::backtest_engine::indicators::rma::{rma_expr, RMAConfig};
 use crate::data_conversion::input::param::Param;
 use crate::error::{IndicatorError, QuantError};
@@ -83,14 +84,20 @@ pub fn rsi_expr(
     //    第 period 个位置 (索引 period) 放入 SMA 初始值
     //    其余位置为原始 gain/loss 值
     let processed_gain_expr = when(col(index_col_name).cast(DataType::Int64).lt(lit(period)))
-        .then(lit(NULL))
+        .then(null_when_expr(
+            col(index_col_name).cast(DataType::Int64).lt(lit(period)),
+            col(gain_temp_name),
+        ))
         .when(col(index_col_name).cast(DataType::Int64).eq(lit(period)))
         .then(initial_avg_gain_expr)
         .otherwise(col(gain_temp_name))
         .alias(processed_gain_temp_name);
 
     let processed_loss_expr = when(col(index_col_name).cast(DataType::Int64).lt(lit(period)))
-        .then(lit(NULL))
+        .then(null_when_expr(
+            col(index_col_name).cast(DataType::Int64).lt(lit(period)),
+            col(loss_temp_name),
+        ))
         .when(col(index_col_name).cast(DataType::Int64).eq(lit(period)))
         .then(initial_avg_loss_expr)
         .otherwise(col(loss_temp_name))
@@ -168,6 +175,8 @@ pub fn rsi_lazy(lazy_df: LazyFrame, config: &RSIConfig) -> Result<LazyFrame, Qua
         .with_column(avg_loss_expr)
         // 计算最终的 "rsi"
         .with_column(rsi_expr)
+        // 将 NULL 转换为 NaN，以与 pandas-ta/TA-Lib 保持一致
+        .with_column(null_to_nan_expr(&config.alias_name))
         // 删除所有临时列，只保留原始列和最终的 RSI 列
         .select(&[col(&config.column_name), col(&config.alias_name)]);
 

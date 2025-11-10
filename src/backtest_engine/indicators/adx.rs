@@ -3,6 +3,7 @@
 // ... (omitted comments for brevity)
 //!
 use super::registry::Indicator;
+use super::utils::{null_to_nan_expr, null_when_expr};
 use crate::backtest_engine::indicators::tr::{tr_expr, TRConfig};
 use crate::data_conversion::input::param::Param;
 use crate::error::{IndicatorError, QuantError};
@@ -87,14 +88,9 @@ fn get_fixed_aggregate(
 
     // Store the alias name for the processed column
     let processed_col_name = format!("{}_processed_temp", dm1_col_name);
-    // 唯一的 NULL 表达式，用于填充 SMA 之前的行 (保留别名以防 Polars 优化器合并)
-    let unique_null_expr = lit(NULL)
-        .cast(DataType::Float64)
-        .alias(&format!("null_init_{}", dm1_col_name));
-
     // 2. 创建 'Processed Input' 序列：在 P-1 处注入 SMA，然后 EWM 将在此基础上开始递推
-    let dm1_processed_expr = when(index_col.lt(initial_idx_lit_i64))
-        .then(unique_null_expr) // 使用独特的 NULL 表达式
+    let dm1_processed_expr = when(index_col.clone().lt(initial_idx_lit_i64.clone()))
+        .then(lit(NULL).cast(DataType::Float64)) // 直接使用 NULL 表达式
         .when(initial_idx_mask)
         .then(dm1_initial_avg) // P-1 处是 SMA
         .otherwise(col(dm1_col_name).cast(DataType::Float64)) // > P-1 处是原始 DM1
@@ -279,10 +275,8 @@ fn adx_expr(config: &ADXConfig) -> Result<Vec<Vec<Expr>>, QuantError> {
 
     let initial_adx_idx_lit = lit(adx_initial_idx);
     let initial_adx_mask = index_col.clone().eq(initial_adx_idx_lit.clone());
-    let unique_null_adx_init = lit_null_f64.clone().alias("null_init_adx_for_process");
-
-    let dx_processed_expr = when(index_col.lt(initial_adx_idx_lit))
-        .then(unique_null_adx_init)
+    let dx_processed_expr = when(index_col.clone().lt(initial_adx_idx_lit.clone()))
+        .then(lit_null_f64.clone())
         .when(initial_adx_mask)
         .then(dx_initial_avg)
         .otherwise(col(adx_input_col_name).cast(DataType::Float64))
@@ -353,12 +347,12 @@ pub fn adx_lazy(mut lazy_df: LazyFrame, config: &ADXConfig) -> Result<LazyFrame,
         lazy_df = lazy_df.with_columns(group);
     }
 
-    // 最后只选择最终的指标列
+    // 最后只选择最终的指标列，并将 NULL 转换为 NaN
     Ok(lazy_df.select(vec![
-        col(&config.adx_alias),
-        col(&config.adxr_alias),
-        col(&config.plus_dm_alias),
-        col(&config.minus_dm_alias),
+        null_to_nan_expr(&config.adx_alias),
+        null_to_nan_expr(&config.adxr_alias),
+        null_to_nan_expr(&config.plus_dm_alias),
+        null_to_nan_expr(&config.minus_dm_alias),
     ]))
 }
 

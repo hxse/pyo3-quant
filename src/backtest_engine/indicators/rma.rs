@@ -1,5 +1,6 @@
 // src/backtest_engine/indicators/rma.rs
 use super::registry::Indicator;
+use super::utils::null_to_nan_expr;
 use crate::data_conversion::input::param::Param;
 use crate::error::{IndicatorError, QuantError};
 use polars::lazy::dsl::col;
@@ -46,7 +47,10 @@ pub fn rma_expr(config: &RMAConfig) -> Result<Expr, QuantError> {
 // 蓝图层: 简化,不需要row_index
 pub fn rma_lazy(lazy_df: LazyFrame, config: &RMAConfig) -> Result<LazyFrame, QuantError> {
     let rma_expr = rma_expr(config)?;
-    let result_lazy_df = lazy_df.with_column(rma_expr);
+    let result_lazy_df = lazy_df
+        .with_column(rma_expr)
+        // 在蓝图层将 RMA 结果的 NULL 转换为 NaN
+        .with_column(null_to_nan_expr(&config.alias_name));
 
     Ok(result_lazy_df)
 }

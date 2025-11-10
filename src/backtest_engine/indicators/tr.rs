@@ -1,7 +1,8 @@
 use super::registry::Indicator;
+use super::utils::{null_to_nan_expr, null_when_expr};
 use crate::data_conversion::input::param::Param;
 use crate::error::QuantError;
-use polars::lazy::dsl::{col, lit, max_horizontal, when};
+use polars::lazy::dsl::{col, lit, max_horizontal};
 use polars::prelude::*;
 use std::collections::HashMap;
 
@@ -50,10 +51,7 @@ pub fn tr_expr(config: &TRConfig) -> Result<Expr, QuantError> {
     let tr_expr = max_horizontal(vec![hl_abs, hpc_abs, lpc_abs])?;
 
     // 4. 处理第一个数据点的缺失值 (前一个收盘价为 NULL 的情况)
-    let final_tr = when(prev_close.is_null())
-        .then(lit(NULL))
-        .otherwise(tr_expr)
-        .alias(alias_name); // 使用抽象的别名
+    let final_tr = null_when_expr(prev_close.is_null(), tr_expr).alias(alias_name); // 使用抽象的别名
 
     Ok(final_tr)
 }
@@ -76,7 +74,9 @@ pub fn tr_lazy(lazy_df: LazyFrame, config: &TRConfig) -> Result<LazyFrame, Quant
     let tr_expr = tr_expr(config)?;
 
     // 3. 构建 LazyFrame 管道：添加 TR 列，并保留原始列
-    let result_lazy_df = lazy_df.with_column(tr_expr);
+    let result_lazy_df = lazy_df
+        .with_column(tr_expr)
+        .with_column(null_to_nan_expr(config.alias_name.as_str()));
 
     Ok(result_lazy_df)
 }

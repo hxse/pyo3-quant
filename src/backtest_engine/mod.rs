@@ -24,6 +24,9 @@ pub fn run_backtest_engine(
     template: TemplateContainer,
     engine_settings: SettingContainer,
 ) -> PyResult<PyObject> {
+    let start_time = std::time::Instant::now();
+    eprintln!("rust回测引擎开始运行，任务数: {}", param_set.len());
+
     // 1. 处理所有参数
     let (processed_data, processed_params, processed_template, processed_settings) =
         process_all_params(py, data_dict, param_set, template, engine_settings)?;
@@ -67,6 +70,10 @@ pub fn run_backtest_engine(
         let py_dict = summary.into_pyobject(py)?;
         py_list.append(py_dict)?;
     }
+
+    let duration = start_time.elapsed();
+    eprintln!("rust回测引擎运行完成，总耗时: {:?}", duration);
+
     Ok(py_list.into())
 }
 

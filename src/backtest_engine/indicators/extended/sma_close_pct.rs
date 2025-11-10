@@ -1,5 +1,6 @@
 use crate::backtest_engine::indicators::registry::Indicator;
 use crate::backtest_engine::indicators::sma::{sma_eager, SMAConfig};
+use crate::backtest_engine::indicators::utils::null_to_nan_expr;
 use crate::data_conversion::input::param::Param;
 use crate::error::{IndicatorError, QuantError};
 use polars::lazy::dsl::{col, lit};
@@ -35,6 +36,7 @@ impl Indicator for SmaClosePctIndicator {
 
         let result_df = lazy_df
             .select(&[pct_expr.alias(indicator_key)])
+            .with_columns(&[null_to_nan_expr(indicator_key)])
             .collect()
             .map_err(QuantError::from)?;
 

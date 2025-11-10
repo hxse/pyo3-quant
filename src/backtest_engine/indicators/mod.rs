@@ -9,6 +9,7 @@ pub mod rma;
 pub mod rsi;
 pub mod sma;
 pub mod tr;
+pub mod utils;
 
 pub mod extended;
 

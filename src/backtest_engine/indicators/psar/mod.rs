@@ -1,4 +1,5 @@
 use crate::backtest_engine::indicators::registry::Indicator;
+use crate::backtest_engine::indicators::utils::{null_to_nan_expr, null_when_expr};
 use crate::data_conversion::input::param::Param;
 use crate::error::{IndicatorError, QuantError};
 use polars::prelude::*;
@@ -205,6 +206,12 @@ pub fn psar_lazy(lazy_df: LazyFrame, config: &PSARConfig) -> Result<LazyFrame, Q
                 .struct_()
                 .field_by_name(config.psar_reversal_alias.as_str())
                 .alias(&config.psar_reversal_alias),
+        ])
+        .with_columns(vec![
+            null_to_nan_expr(&config.psar_long_alias),
+            null_to_nan_expr(&config.psar_short_alias),
+            null_to_nan_expr(&config.psar_af_alias),
+            null_to_nan_expr(&config.psar_reversal_alias),
         ])
         .drop(Selector::ByName {
             names: Arc::new([struct_col_name.into()]),

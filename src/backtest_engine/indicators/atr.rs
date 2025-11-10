@@ -1,9 +1,10 @@
 // src/backtest_engine/indicators/atr.rs
 use super::registry::Indicator;
+use super::utils::{null_to_nan_expr, null_when_expr};
 use crate::backtest_engine::indicators::tr::{tr_expr, TRConfig};
 use crate::data_conversion::input::param::Param;
 use crate::error::{IndicatorError, QuantError};
-use polars::lazy::dsl::{col, lit, when};
+use polars::lazy::dsl::{col, lit};
 use polars::prelude::*;
 use std::collections::HashMap;
 
@@ -56,18 +57,17 @@ pub fn atr_expr(config: &ATRConfig) -> Result<(Expr, Expr), QuantError> {
         .alias(initial_value_temp_name); // 赋予临时别名
 
     // 3. 构建处理后的 TR 序列 (presma 逻辑)
-    //    前 period 个值设为 NaN (与 TA-Lib 保持一致)
+    //    前 period 个值设为 NULL (避免 NaN 传播)
     //    第 period 个位置 (0-indexed) 放入 SMA 初始值
     //    其余位置为原始 TR 值
-    let processed_tr_expr = when(
+    let processed_tr_expr = null_when_expr(
         col(index_col_name).cast(DataType::Int64).lt(lit(period)), // 修改: 从 period - 1 改为 period
+        when(
+            col(index_col_name).cast(DataType::Int64).eq(lit(period)), // 修改: 从 period - 1 改为 period
+        )
+        .then(sma_initial_value_expr) // 注入高效的 SMA 标量表达式
+        .otherwise(col(tr_temp_name)), // 使用原始 TR 表达式
     )
-    .then(lit(NULL))
-    .when(
-        col(index_col_name).cast(DataType::Int64).eq(lit(period)), // 修改: 从 period - 1 改为 period
-    )
-    .then(sma_initial_value_expr) // 注入高效的 SMA 标量表达式
-    .otherwise(col(tr_temp_name)) // 使用原始 TR 表达式
     .alias(processed_tr_temp_name); // 赋予临时别名
 
     // 4. 对处理后的 TR 序列应用 RMA
@@ -113,7 +113,7 @@ pub fn atr_lazy(lazy_df: LazyFrame, config: &ATRConfig) -> Result<LazyFrame, Qua
             col(&config.high_col),
             col(&config.low_col),
             col(&config.close_col),
-            col(&config.alias_name),
+            null_to_nan_expr(&config.alias_name), // 使用工具函数转换 NULL 为 NaN
         ]);
 
     Ok(result_lazy_df)

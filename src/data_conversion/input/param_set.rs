@@ -73,10 +73,6 @@ pub struct BacktestParams {
     pub atr_period: Option<Param>,
 
     // === 跟踪止损选项 ===
-    /// 跟踪止损锚点选择。
-    /// `true` 表示使用K线的最高价 (high) 作为跟踪止损的锚点。
-    /// `false` 表示使用K线的收盘价 (close) 作为跟踪止损的锚点。
-    pub tsl_use_high: bool,
     /// 跟踪止损更新方式。
     /// `true` 表示每根K线都更新跟踪止损价格。
     /// `false` 表示只在突破高点或低点时才更新跟踪止损价格。
@@ -87,6 +83,9 @@ pub struct BacktestParams {
     /// `true` 表示在当前K线内部触发条件时立即离场。
     /// `false` 表示延迟到下一根K线的开盘价离场。
     pub exit_in_bar: bool,
+
+    /// exit_in_bar只覆盖sl,tp, exit_in_bar_fallback定义exit_in_bar不覆盖时的行为
+    pub exit_in_bar_fallback: bool,
 
     // === 资金管理 ===
     /// 初始本金。回测开始时的账户资金量 (USD)。

@@ -1,7 +1,6 @@
-// src/backtest_engine/backtester/main_loop.rs
 use super::data_preparer::PreparedData;
 use super::output::OutputBuffers;
-use super::state::BacktestState;
+use super::state::{current_bar_data::CurrentBarData, BacktestState};
 use crate::data_conversion::BacktestParams;
 use crate::error::backtest_error::BacktestError;
 
@@ -30,23 +29,13 @@ pub fn run_main_loop(
     // 索引 0 已经在外部（或在 buffers 初始化时）填好默认值
     if data_length > 1 {
         for i in 1..data_length {
-            // 所有切片访问都已在宏中证明长度相等 → 边界检查被消除
-            let _time = prepared_data.time[i];
-            let _open = prepared_data.open[i];
-            let _high = prepared_data.high[i];
-            let _low = prepared_data.low[i];
-            let _close = prepared_data.close[i];
-            let _volume = prepared_data.volume[i];
+            let current_bar = CurrentBarData::new(prepared_data, i);
 
-            let _enter_long = prepared_data.enter_long[i];
-            let _exit_long = prepared_data.exit_long[i];
-            let _enter_short = prepared_data.enter_short[i];
-            let _exit_short = prepared_data.exit_short[i];
-            let _atr = prepared_data.atr.as_ref().map(|atr_vec| atr_vec[i]);
+            // 使用状态机方法计算新的仓位状态（内部已更新状态）
+            state.calculate_position(backtest_params, current_bar);
 
-            // 示例：直接索引写入（边界检查已消除）
-            buffers.balance[i] = i as f64;
-            // …… 您的完整回测逻辑写在这里 …
+            // 直接索引写入（边界检查已消除）
+            buffers.position[i] = state.position.as_i8();
         }
     }
 

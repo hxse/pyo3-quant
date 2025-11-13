@@ -1,6 +1,4 @@
-use super::exit_mode::ExitMode;
 use super::position::Position;
-use crate::backtest_engine::backtester::state::position;
 use crate::data_conversion::BacktestParams;
 
 /// 回测状态管理结构体
@@ -16,8 +14,6 @@ pub struct BacktestState {
     pub position: Position,
     /// 前一个仓位状态（使用枚举提供类型安全）
     pub last_position: Position,
-    /// 当前离场模式（使用枚举提供类型安全）
-    pub exit_mode: ExitMode,
     /// 当前持仓的进场价格
     pub entry_price: Option<f64>,
     /// 当前持仓的实际离场价格
@@ -57,7 +53,6 @@ impl BacktestState {
             equity: params.initial_capital,
             position: Position::None,      // 初始无仓位
             last_position: Position::None, // 初始无仓位
-            exit_mode: ExitMode::None,     // 初始无离场
             entry_price: None,
             exit_price: None,
             exit_price_in_bar: None,

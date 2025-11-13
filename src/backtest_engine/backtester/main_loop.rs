@@ -36,6 +36,8 @@ pub fn run_main_loop(
 
             // 直接索引写入（边界检查已消除）
             buffers.position[i] = state.position.as_i8();
+            buffers.entry_price[i] = state.entry_price.unwrap_or(f64::NAN);
+            buffers.exit_price[i] = state.exit_price.unwrap_or(f64::NAN);
         }
     }
 

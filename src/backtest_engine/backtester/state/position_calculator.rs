@@ -1,6 +1,5 @@
 use super::backtest_state::BacktestState;
 use super::current_bar_data::CurrentBarData;
-use super::exit_mode::ExitMode;
 use super::position::Position;
 use crate::data_conversion::BacktestParams;
 
@@ -31,12 +30,6 @@ impl BacktestState {
             return;
         }
 
-        // 检查是否允许开仓（根据止损后暂停/恢复逻辑）
-        if !self.trading_allowed && self.position == Position::None {
-            // 不允许开仓且当前无仓位，保持无仓位
-            return;
-        }
-
         // * 举例, 复杂的反手可以是在同一个bar触发三次操作
         // * 先触发一次exit_price设置成开盘价, 平仓前一个仓位
         // * 再触发一次entry_price设置成开盘价, 进场新仓位
@@ -52,19 +45,6 @@ impl BacktestState {
         if self.position.is_entry() {
             self.entry_price = Some(current_bar.open);
         }
-
-        // 在循环中前值依赖： 持仓状态转换（优先处理）
-        // 必须放在设置开仓价之后, 设置离场价之前, 因为设置开仓价不需要检查hold, 离场价需要
-        self.position = match self.position {
-            Position::EnterLong | Position::ExitShortEnterLong | Position::HoldLong => {
-                Position::HoldLong
-            } // 进多或平空进多 -> 持多
-            Position::EnterShort | Position::ExitLongEnterShort | Position::HoldShort => {
-                Position::HoldShort
-            } // 进空或平多进空 -> 持空
-            Position::ExitLong | Position::ExitShort => Position::None, // 平多或平空 -> 无仓位
-            _ => self.position,                                         // 其他状态保持不变
-        };
 
         // 第一个bool是是否触发了止损, 第二个会返回最悲观的离场价格
         // 只有在in_bar模式, 并且成功触发止损, 第二个价格才会返回非none值
@@ -86,6 +66,19 @@ impl BacktestState {
             }
         }
 
+        // 在循环中前值依赖： 持仓状态转换
+        // 放在设置进场离场价格之后, 进场离场信号之前
+        self.position = match self.position {
+            Position::EnterLong | Position::ExitShortEnterLong | Position::HoldLong => {
+                Position::HoldLong
+            } // 进多或平空进多 -> 持多
+            Position::EnterShort | Position::ExitLongEnterShort | Position::HoldShort => {
+                Position::HoldShort
+            } // 进空或平多进空 -> 持空
+            Position::ExitLong | Position::ExitShort => Position::None, // 平多或平空 -> 无仓位
+            _ => self.position,                                         // 其他状态保持不变
+        };
+
         // 根据信号优先级处理
         // 1. 反手信号（平空进多）
         if self.position.is_short()
@@ -93,6 +86,7 @@ impl BacktestState {
             && !current_bar.exit_long
             && !current_bar.enter_short
             && (current_bar.exit_short || should_exit_short)
+            && !self.trading_allowed
         {
             // 持空 + 进多信号 + (离场信号或止损触发) = 平空进多
             self.position = Position::ExitShortEnterLong;
@@ -105,6 +99,7 @@ impl BacktestState {
             && !current_bar.exit_short
             && !current_bar.enter_long
             && (current_bar.exit_long || should_exit_long)
+            && !self.trading_allowed
         {
             // 持多 + 进空信号 + (离场信号或止损触发) = 平多进空
             self.position = Position::ExitLongEnterShort;
@@ -129,6 +124,7 @@ impl BacktestState {
             && !current_bar.exit_long
             && !current_bar.enter_short
             && !current_bar.exit_short
+            && !self.trading_allowed
         {
             self.position = Position::EnterLong;
             return;
@@ -140,6 +136,7 @@ impl BacktestState {
             && !current_bar.exit_short
             && !current_bar.enter_long
             && !current_bar.exit_long
+            && !self.trading_allowed
         {
             self.position = Position::EnterShort;
             return;

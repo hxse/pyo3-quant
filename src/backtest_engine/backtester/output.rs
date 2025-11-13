@@ -23,6 +23,8 @@ pub struct OutputBuffers {
     pub entry_price: Vec<f64>,
     /// 实际离场价格
     pub exit_price: Vec<f64>,
+    /// 实际离场价格, in_bar模式触发
+    pub exit_price_in_bar: Vec<f64>,
     /// 本笔交易盈亏百分比
     pub pct_return: Vec<f64>,
     /// 单笔离场结算手续费
@@ -68,6 +70,7 @@ impl OutputBuffers {
             exit_mode: vec![0; capacity],
             entry_price: vec![0.0; capacity],
             exit_price: vec![0.0; capacity],
+            exit_price_in_bar: vec![0.0; capacity],
             pct_return: vec![0.0; capacity],
             fee: vec![0.0; capacity],
             fee_cum: vec![0.0; capacity],

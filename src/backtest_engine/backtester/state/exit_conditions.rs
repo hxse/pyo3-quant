@@ -100,13 +100,10 @@ impl BacktestState {
             return (false, None);
         }
 
-        let current_high = current_bar.high;
-        let current_low = current_bar.low;
         let entry_price = self.entry_price.unwrap();
 
         // 统一检查 ATR 是否有效, (其实前面已经检查过了, 这里是保守检查)
         let is_atr_valid = current_atr.is_some() && !current_atr.unwrap().is_nan();
-        let current_atr_value = current_atr.unwrap();
 
         // 收集所有可能的止损/止盈价格（分为6个变量）
         let mut sl_pct_price: Option<f64> = None;
@@ -133,14 +130,14 @@ impl BacktestState {
         // 检查 ATR 止损
         if params.is_sl_atr_param_valid() && is_atr_valid {
             let sl_atr = params.sl_atr.as_ref().unwrap().value;
-            let calculated_sl_price = entry_price - current_atr_value * sl_atr;
+            let calculated_sl_price = entry_price - current_atr.unwrap() * sl_atr;
             sl_atr_price = Some(calculated_sl_price);
         }
 
         // 检查 ATR 止盈
         if params.is_tp_atr_param_valid() && is_atr_valid {
             let tp_atr = params.tp_atr.as_ref().unwrap().value;
-            let calculated_tp_price = entry_price + current_atr_value * tp_atr;
+            let calculated_tp_price = entry_price + current_atr.unwrap() * tp_atr;
             tp_atr_price = Some(calculated_tp_price);
         }
 
@@ -201,13 +198,10 @@ impl BacktestState {
             return (false, None);
         }
 
-        let current_high = current_bar.high;
-        let current_low = current_bar.low;
         let entry_price = self.entry_price.unwrap();
 
         // 统一检查 ATR 是否有效
         let is_atr_valid = current_atr.is_some() && !current_atr.unwrap().is_nan();
-        let current_atr_value = current_atr.unwrap();
 
         // 收集所有可能的止损/止盈价格（分为6个变量）
         let mut sl_pct_price: Option<f64> = None;
@@ -234,14 +228,14 @@ impl BacktestState {
         // 检查 ATR 止损
         if params.is_sl_atr_param_valid() && is_atr_valid {
             let sl_atr = params.sl_atr.as_ref().unwrap().value;
-            let calculated_sl_price = entry_price + current_atr_value * sl_atr;
+            let calculated_sl_price = entry_price + current_atr.unwrap() * sl_atr;
             sl_atr_price = Some(calculated_sl_price);
         }
 
         // 检查 ATR 止盈
         if params.is_tp_atr_param_valid() && is_atr_valid {
             let tp_atr = params.tp_atr.as_ref().unwrap().value;
-            let calculated_tp_price = entry_price - current_atr_value * tp_atr;
+            let calculated_tp_price = entry_price - current_atr.unwrap() * tp_atr;
             tp_atr_price = Some(calculated_tp_price);
         }
 

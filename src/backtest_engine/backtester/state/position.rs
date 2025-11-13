@@ -23,11 +23,6 @@ pub enum Position {
 }
 
 impl Position {
-    /// 判断是否为无仓位
-    pub fn is_none(&self) -> bool {
-        matches!(self, Position::None)
-    }
-
     /// 判断是否为多头仓位（进多或持多）
     pub fn is_long(&self) -> bool {
         matches!(
@@ -63,14 +58,6 @@ impl Position {
                 | Position::ExitShort
                 | Position::ExitLongEnterShort
                 | Position::ExitShortEnterLong
-        )
-    }
-
-    /// 判断是否为反手仓位
-    pub fn is_reversal(&self) -> bool {
-        matches!(
-            self,
-            Position::ExitShortEnterLong | Position::ExitLongEnterShort
         )
     }
 

@@ -19,4 +19,6 @@ pub enum SignalError {
     MappingApplyError(String),
     #[error("Parameter '{0}' not found in signal_params")]
     ParameterNotFound(String),
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
 }

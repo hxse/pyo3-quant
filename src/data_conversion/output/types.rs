@@ -10,10 +10,10 @@ pub type IndicatorResults = HashMap<String, Vec<DataFrame>>;
 
 #[derive(Debug)]
 pub struct BacktestSummary {
-    pub performance: Option<PerformanceMetrics>,
     pub indicators: Option<IndicatorResults>,
     pub signals: Option<DataFrame>,
     pub backtest: Option<DataFrame>,
+    pub performance: Option<PerformanceMetrics>,
 }
 
 impl<'py> IntoPyObject<'py> for BacktestSummary {

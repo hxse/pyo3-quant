@@ -34,7 +34,25 @@ impl CurrentBarData {
     /// # 参数
     /// * `prepared_data` - 准备好的数据
     /// * `index` - 当前索引
-    pub fn from_prepared_data(prepared_data: &PreparedData, index: usize) -> Self {
+    ///
+    pub fn default() -> Self {
+        Self {
+            time: 0,
+            open: 0.0,
+            high: 0.0,
+            low: 0.0,
+            close: 0.0,
+            volume: 0.0,
+            enter_long: false,
+            exit_long: false,
+            enter_short: false,
+            exit_short: false,
+            atr: None,
+        }
+    }
+
+    /// 创建新的当前 bar 数据
+    pub fn new(prepared_data: &PreparedData, index: usize) -> Self {
         Self {
             time: prepared_data.time[index],
             open: prepared_data.open[index],
@@ -48,10 +66,5 @@ impl CurrentBarData {
             exit_short: prepared_data.exit_short[index] != 0,
             atr: prepared_data.atr.as_ref().map(|atr_vec| atr_vec[index]),
         }
-    }
-
-    /// 创建新的当前 bar 数据（别名方法）
-    pub fn new(prepared_data: &PreparedData, index: usize) -> Self {
-        Self::from_prepared_data(prepared_data, index)
     }
 }

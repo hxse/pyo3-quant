@@ -10,27 +10,35 @@ pub struct OutputBuffers {
     pub balance: Vec<f64>,
     /// 账户净值（含未实现盈亏），带复利
     pub equity: Vec<f64>,
+    /// 单笔回报率
+    pub trade_pnl_pct: Vec<f64>,
     /// 累计回报率，带复利
-    pub cumulative_return: Vec<f64>,
-    /// 仓位状态（i8）
-    /// 0=无仓位, 1=进多, 2=持多, 3=平多, 4=平短进多
-    /// -1=进空, -2=持空, -3=平空, -4=平多进空
-    pub position: Vec<i8>,
-    /// 离场模式（u8）
-    /// 0=无离场, 1=in_bar离场, 2=next_bar离场
-    pub exit_mode: Vec<u8>,
-    /// 进场价格
-    pub entry_price: Vec<f64>,
-    /// 实际离场价格
-    pub exit_price: Vec<f64>,
-    /// 实际离场价格, in_bar模式触发
-    pub exit_price_in_bar: Vec<f64>,
-    /// 本笔交易盈亏百分比
-    pub pct_return: Vec<f64>,
+    pub total_return_pct: Vec<f64>,
     /// 单笔离场结算手续费
     pub fee: Vec<f64>,
     /// 当前历史累计手续费
     pub fee_cum: Vec<f64>,
+    /// 历史最高净值（用于止损后暂停开仓判断）
+    pub peak_equity: Vec<f64>,
+    /// 历史最大回撤百分比
+    pub max_drawdown_pct: Vec<f64>,
+    /// 是否允许开仓（根据止损后暂停/恢复逻辑）
+    pub trading_allowed: Vec<bool>,
+
+    /// 当前仓位状态
+    /// 0=无仓位, 1=进多, 2=持多, 3=平多, 4=平短进多
+    /// -1=进空, -2=持空, -3=平空, -4=平多进空
+    pub current_position: Vec<i8>,
+    /// 执行仓位状态
+    pub previous_position: Vec<i8>,
+    /// 多头进场价格
+    pub entry_long_price: Vec<f64>,
+    /// 空头进场价格
+    pub entry_short_price: Vec<f64>,
+    /// 多头离场价格
+    pub exit_long_price: Vec<f64>,
+    /// 空头离场价格
+    pub exit_short_price: Vec<f64>,
 
     // === 可选列 ===
     /// 百分比止损价格（可选）
@@ -65,15 +73,19 @@ impl OutputBuffers {
             // 固定列总是初始化
             balance: vec![0.0; capacity],
             equity: vec![0.0; capacity],
-            cumulative_return: vec![0.0; capacity],
-            position: vec![0; capacity],
-            exit_mode: vec![0; capacity],
-            entry_price: vec![0.0; capacity],
-            exit_price: vec![0.0; capacity],
-            exit_price_in_bar: vec![0.0; capacity],
-            pct_return: vec![0.0; capacity],
+            trade_pnl_pct: vec![0.0; capacity],
+            total_return_pct: vec![0.0; capacity],
             fee: vec![0.0; capacity],
             fee_cum: vec![0.0; capacity],
+            peak_equity: vec![0.0; capacity],
+            max_drawdown_pct: vec![0.0; capacity],
+            trading_allowed: vec![true; capacity],
+            current_position: vec![0; capacity],
+            previous_position: vec![0; capacity],
+            entry_long_price: vec![0.0; capacity],
+            entry_short_price: vec![0.0; capacity],
+            exit_long_price: vec![0.0; capacity],
+            exit_short_price: vec![0.0; capacity],
 
             // 可选列根据参数决定是否初始化
             sl_pct_price: if params.is_sl_pct_param_valid() {
@@ -121,15 +133,21 @@ impl OutputBuffers {
 
         // 固定列数组名称和长度
         let fixed_arrays = [
+            ("balance", self.balance.len()),
             ("equity", self.equity.len()),
-            ("cumulative_return", self.cumulative_return.len()),
-            ("position", self.position.len()),
-            ("exit_mode", self.exit_mode.len()),
-            ("entry_price", self.entry_price.len()),
-            ("exit_price", self.exit_price.len()),
-            ("pct_return", self.pct_return.len()),
+            ("trade_pnl_pct", self.trade_pnl_pct.len()),
+            ("total_return_pct", self.total_return_pct.len()),
+            ("current_position", self.current_position.len()),
+            ("previous_position", self.previous_position.len()),
+            ("entry_long_price", self.entry_long_price.len()),
+            ("entry_short_price", self.entry_short_price.len()),
+            ("exit_long_price", self.exit_long_price.len()),
+            ("exit_short_price", self.exit_short_price.len()),
             ("fee", self.fee.len()),
             ("fee_cum", self.fee_cum.len()),
+            ("peak_equity", self.peak_equity.len()),
+            ("max_drawdown_pct", self.max_drawdown_pct.len()),
+            ("trading_allowed", self.trading_allowed.len()),
         ];
 
         // 检查所有固定列的长度
@@ -183,24 +201,36 @@ impl OutputBuffers {
         let mut columns: Vec<Column> = Vec::new();
 
         // 添加需要类型转换的固定列
-        let position_data: Vec<i32> = self.position.iter().map(|&x| x as i32).collect();
-        let position_series = Series::new("position".into(), position_data);
-        columns.push(position_series.into());
+        let current_position_data: Vec<i32> =
+            self.current_position.iter().map(|&x| x as i32).collect();
+        let current_position_series = Series::new("current_position".into(), current_position_data);
+        columns.push(current_position_series.into());
 
-        let exit_mode_data: Vec<u32> = self.exit_mode.iter().map(|&x| x as u32).collect();
-        let exit_mode_series = Series::new("exit_mode".into(), exit_mode_data);
-        columns.push(exit_mode_series.into());
+        let previous_position_data: Vec<i32> =
+            self.previous_position.iter().map(|&x| x as i32).collect();
+        let previous_position_series =
+            Series::new("previous_position".into(), previous_position_data);
+        columns.push(previous_position_series.into());
+
+        // 添加需要类型转换的固定列
+        let trading_allowed_data: Vec<bool> = self.trading_allowed.iter().map(|&x| x).collect();
+        let trading_allowed_series = Series::new("trading_allowed".into(), trading_allowed_data);
+        columns.push(trading_allowed_series.into());
 
         // 定义固定列的名称和数据
         let fixed_columns = [
             ("balance", &self.balance as &[f64]),
             ("equity", &self.equity as &[f64]),
-            ("cumulative_return", &self.cumulative_return as &[f64]),
-            ("entry_price", &self.entry_price as &[f64]),
-            ("exit_price", &self.exit_price as &[f64]),
-            ("pct_return", &self.pct_return as &[f64]),
+            ("trade_pnl_pct", &self.trade_pnl_pct as &[f64]),
+            ("total_return_pct", &self.total_return_pct as &[f64]),
+            ("entry_long_price", &self.entry_long_price as &[f64]),
+            ("entry_short_price", &self.entry_short_price as &[f64]),
+            ("exit_long_price", &self.exit_long_price as &[f64]),
+            ("exit_short_price", &self.exit_short_price as &[f64]),
             ("fee", &self.fee as &[f64]),
             ("fee_cum", &self.fee_cum as &[f64]),
+            ("peak_equity", &self.peak_equity as &[f64]),
+            ("max_drawdown_pct", &self.max_drawdown_pct as &[f64]),
         ];
 
         // 添加固定列
@@ -230,6 +260,19 @@ impl OutputBuffers {
 
         DataFrame::new(columns).map_err(|e| {
             BacktestError::ValidationError(format!("Failed to create DataFrame: {}", e))
+        })
+    }
+
+    /// 将 OutputBuffers 转换为只包含 equity 和 peak_equity 两列的 DataFrame
+    ///
+    /// # 返回
+    /// 只包含 equity 和 peak_equity 列的 DataFrame
+    pub fn to_equity_dataframe(&self) -> Result<DataFrame, BacktestError> {
+        let equity_series = Series::new("equity".into(), &self.equity);
+        let peak_equity_series = Series::new("peak_equity".into(), &self.peak_equity);
+
+        DataFrame::new(vec![equity_series.into(), peak_equity_series.into()]).map_err(|e| {
+            BacktestError::ValidationError(format!("Failed to create equity DataFrame: {}", e))
         })
     }
 }

@@ -18,6 +18,7 @@ create_exception!(pyo3_quant.errors, PyMappingColumnNotFound, PySignalError);
 create_exception!(pyo3_quant.errors, PyMappingCastError, PySignalError);
 create_exception!(pyo3_quant.errors, PyMappingApplyError, PySignalError);
 create_exception!(pyo3_quant.errors, PyParameterNotFoundError, PySignalError);
+create_exception!(pyo3_quant.errors, PyInvalidInputError, PySignalError);
 
 pub fn convert_signal_error(e: SignalError) -> PyErr {
     match e {
@@ -29,6 +30,7 @@ pub fn convert_signal_error(e: SignalError) -> PyErr {
         SignalError::MappingCastError(s) => PyMappingCastError::new_err(s),
         SignalError::MappingApplyError(s) => PyMappingApplyError::new_err(s),
         SignalError::ParameterNotFound(s) => PyParameterNotFoundError::new_err(s),
+        SignalError::InvalidInput(s) => PyInvalidInputError::new_err(s),
     }
 }
 
@@ -65,6 +67,10 @@ pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add(
         "PyParameterNotFoundError",
         PyParameterNotFoundError::type_object(m.py()),
+    )?;
+    m.add(
+        "PyInvalidInputError",
+        PyInvalidInputError::type_object(m.py()),
     )?;
     Ok(())
 }

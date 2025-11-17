@@ -6,6 +6,7 @@
 
 pub mod input;
 pub mod output;
+pub mod utils;
 
 // 重新导出常用类型
 use pyo3::prelude::*;

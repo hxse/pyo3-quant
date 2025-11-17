@@ -11,27 +11,22 @@ mod utils;
 pub use crate::data_conversion::output::BacktestSummary;
 
 use crate::data_conversion::{
-    process_all_params, DataContainer, ParamContainer, SettingContainer, TemplateContainer,
+    process_all_params, DataContainer, ParamContainer, SettingContainer, SingleParam,
+    TemplateContainer,
 };
 use crate::error::QuantError;
 
-/// 主入口函数:运行回测引擎
-#[pyfunction]
+/// 纯Rust回测引擎函数
 pub fn run_backtest_engine(
-    py: Python<'_>,
-    data_dict: DataContainer,
-    param_set: ParamContainer,
-    template: TemplateContainer,
-    engine_settings: SettingContainer,
-) -> PyResult<PyObject> {
+    processed_data: &DataContainer,
+    processed_params: &Vec<SingleParam>,
+    processed_template: &TemplateContainer,
+    processed_settings: &SettingContainer,
+) -> Result<Vec<BacktestSummary>, QuantError> {
     let start_time = std::time::Instant::now();
-    eprintln!("rust回测引擎开始运行，任务数: {}", param_set.len());
+    eprintln!("rust回测引擎开始运行，任务数: {}", processed_params.len());
 
-    // 1. 处理所有参数
-    let (processed_data, processed_params, processed_template, processed_settings) =
-        process_all_params(py, data_dict, param_set, template, engine_settings)?;
-
-    // 2. 根据任务数选择执行策略
+    // 根据任务数选择执行策略
     let total_tasks = processed_params.len();
 
     let results: Vec<BacktestSummary> = if total_tasks == 1 {
@@ -40,10 +35,10 @@ pub fn run_backtest_engine(
             .into_iter()
             .map(|single_param| {
                 execute_single_backtest(
-                    &processed_data,
-                    &single_param,
-                    &processed_template,
-                    &processed_settings,
+                    processed_data,
+                    single_param,
+                    processed_template,
+                    processed_settings,
                 )
             })
             .collect::<Result<Vec<_>, QuantError>>()?
@@ -54,15 +49,42 @@ pub fn run_backtest_engine(
             .map(|single_param| {
                 utils::process_param_in_single_thread(|| {
                     execute_single_backtest(
-                        &processed_data,
+                        processed_data,
                         single_param,
-                        &processed_template,
-                        &processed_settings,
+                        processed_template,
+                        processed_settings,
                     )
                 })
             })
             .collect::<Result<Vec<_>, QuantError>>()?
     };
+
+    let duration = start_time.elapsed();
+    eprintln!("rust回测引擎运行完成，总耗时: {:?}", duration);
+
+    Ok(results)
+}
+
+/// PyO3接口函数:运行回测引擎
+#[pyfunction(name = "run_backtest_engine")]
+pub fn py_run_backtest_engine(
+    py: Python<'_>,
+    data_dict: DataContainer,
+    param_set: ParamContainer,
+    template: TemplateContainer,
+    engine_settings: SettingContainer,
+) -> PyResult<Py<PyAny>> {
+    // 1. 处理所有参数
+    let (processed_data, processed_params, processed_template, processed_settings) =
+        process_all_params(py, data_dict, param_set, template, engine_settings)?;
+
+    // 2. 调用纯Rust函数执行回测
+    let results = run_backtest_engine(
+        &processed_data,
+        &processed_params,
+        &processed_template,
+        &processed_settings,
+    )?;
 
     // 3. 将results转换为Python字典列表
     let py_list = pyo3::types::PyList::empty(py);
@@ -71,18 +93,15 @@ pub fn run_backtest_engine(
         py_list.append(py_dict)?;
     }
 
-    let duration = start_time.elapsed();
-    eprintln!("rust回测引擎运行完成，总耗时: {:?}", duration);
-
     Ok(py_list.into())
 }
 
 /// 执行单个回测任务
 fn execute_single_backtest(
-    processed_data: &crate::data_conversion::DataContainer,
-    single_param: &crate::data_conversion::SingleParam,
+    processed_data: &DataContainer,
+    single_param: &SingleParam,
     processed_template: &TemplateContainer,
-    processed_settings: &crate::data_conversion::SettingContainer,
+    processed_settings: &SettingContainer,
 ) -> Result<BacktestSummary, QuantError> {
     let mut signals_df = None;
     let mut backtest_df = None;
@@ -135,18 +154,19 @@ fn execute_single_backtest(
     );
 
     Ok(BacktestSummary {
-        performance: final_perf,
         indicators: opt_indicators,
         signals: opt_signals,
         backtest: opt_backtest,
+        performance: final_perf,
     })
 }
 
 pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(run_backtest_engine, m)?)?;
+    m.add_function(wrap_pyfunction!(py_run_backtest_engine, m)?)?;
     m.add_function(wrap_pyfunction!(indicators::py_calculate_indicators, m)?)?;
     m.add_function(wrap_pyfunction!(signal_generator::py_generate_signals, m)?)?;
     m.add_function(wrap_pyfunction!(backtester::py_run_backtest, m)?)?;
+    m.add_function(wrap_pyfunction!(backtester::py_run_backtest_with_input, m)?)?;
     m.add_function(wrap_pyfunction!(
         performance_analyzer::py_analyze_performance,
         m

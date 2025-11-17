@@ -91,14 +91,13 @@ pub struct BacktestParams {
     /// 初始本金。回测开始时的账户资金量 (USD)。
     /// 必须大于 0.0。
     pub initial_capital: f64,
-    /// 暂停开仓阈值。当账户净值从历史最高点回撤达到此百分比时，暂停所有新开仓。
-    /// 如果值 <= 0.0，则不使用暂停开仓功能。
-    /// 依赖 `resume_pct`，两者必须同时启用或禁用。
-    pub stop_pct: Param,
-    /// 恢复开仓阈值。当账户净值从最低点恢复达到此百分比时，恢复开仓。
-    /// 如果值 <= 0.0，则不使用恢复开仓功能。
-    /// 依赖 `stop_pct`，两者必须同时启用或禁用。
-    pub resume_pct: Param,
+
+    ///暂停开仓阈值。当账户净值从历史最高点回撤达到此百分比时，暂停所有新开仓。
+    pub pause_drawdown: Param,
+    ///暂停开仓阈值。当账户净值小于账户净值的sma时,暂停所有新开仓
+    pub pause_sma: Param,
+    ///暂停开仓阈值。当账户净值小于账户净值的ema时,暂停所有新开仓
+    pub pause_ema: Param,
 
     // === 手续费 ===
     /// 固定手续费。每笔交易的固定手续费金额 (USD)。
@@ -208,6 +207,36 @@ impl BacktestParams {
     /// 返回 `Ok(())` 如果所有参数有效，否则返回详细的错误信息 `BacktestError::InvalidParameter`。
     /// 注意：基本参数验证已在 FromPyObject 实现中进行，此方法主要用于运行时验证。
     pub fn validate(&self) -> Result<(), BacktestError> {
+        use crate::data_conversion::utils::{check_valid_f64, check_valid_param};
+
+        // 0. 检查所有参数是否为 NaN 或无穷大
+        // 检查 f64 类型参数
+        let f64_params = [
+            ("initial_capital", self.initial_capital),
+            ("fee_fixed", self.fee_fixed),
+            ("fee_pct", self.fee_pct),
+            ("pause_drawdown", self.pause_drawdown.value),
+            ("pause_sma", self.pause_sma.value),
+            ("pause_ema", self.pause_ema.value),
+        ];
+        for (name, value) in &f64_params {
+            check_valid_f64(*value, name)?;
+        }
+
+        // 检查 Option<Param> 类型参数
+        let param_params = [
+            ("sl_pct", &self.sl_pct),
+            ("tp_pct", &self.tp_pct),
+            ("tsl_pct", &self.tsl_pct),
+            ("sl_atr", &self.sl_atr),
+            ("tp_atr", &self.tp_atr),
+            ("tsl_atr", &self.tsl_atr),
+            ("atr_period", &self.atr_period),
+        ];
+        for (name, param) in &param_params {
+            check_valid_param(param, name)?;
+        }
+
         // 1. 验证initial_capital > 0
         if self.initial_capital <= 0.0 {
             return Err(BacktestError::InvalidParameter {
@@ -234,19 +263,32 @@ impl BacktestParams {
             });
         }
 
-        // 3. 验证仓位管理参数的一致性
-        // 如果启用仓位管理,stop_pct和resume_pct都必须>0
-        let stop_enabled = self.stop_pct.value > 0.0;
-        let resume_enabled = self.resume_pct.value > 0.0;
+        // 3. 验证暂停参数：最多只能有一个 > 0
+        let pause_params = [
+            ("pause_drawdown", self.pause_drawdown.value),
+            ("pause_sma", self.pause_sma.value),
+            ("pause_ema", self.pause_ema.value),
+        ];
 
-        if stop_enabled != resume_enabled {
+        let active_pause_params: Vec<(&str, f64)> = pause_params
+            .iter()
+            .filter(|(_, value)| *value > 0.0)
+            .map(|(name, value)| (*name, *value))
+            .collect();
+
+        if active_pause_params.len() > 1 {
+            let param_names: Vec<String> = active_pause_params
+                .iter()
+                .map(|(name, _)| (*name).to_string())
+                .collect();
             return Err(BacktestError::InvalidParameter {
-                param_name: "stop_pct/resume_pct".to_string(),
-                value: format!(
-                    "stop_pct={}, resume_pct={}",
-                    self.stop_pct.value, self.resume_pct.value
+                param_name: "pause_params".to_string(),
+                value: format!("{:?}", active_pause_params),
+                reason: format!(
+                    "暂停参数中只能有一个大于0，当前有{}个大于0: {}",
+                    active_pause_params.len(),
+                    param_names.join(", ")
                 ),
-                reason: "stop_pct和resume_pct必须同时启用或禁用".to_string(),
             });
         }
 

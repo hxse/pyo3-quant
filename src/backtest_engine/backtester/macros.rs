@@ -55,29 +55,62 @@ macro_rules! validate_output_buffers {
         ::core::assert_eq!($buf.balance.len(), $len_var, "balance length mismatch");
         ::core::assert_eq!($buf.equity.len(), $len_var, "equity length mismatch");
         ::core::assert_eq!(
-            $buf.cumulative_return.len(),
+            $buf.trade_pnl_pct.len(),
             $len_var,
-            "cumulative_return length mismatch"
-        );
-        ::core::assert_eq!($buf.position.len(), $len_var, "position length mismatch");
-        ::core::assert_eq!($buf.exit_mode.len(), $len_var, "exit_mode length mismatch");
-        ::core::assert_eq!(
-            $buf.entry_price.len(),
-            $len_var,
-            "entry_price length mismatch"
+            "trade_pnl_pct length mismatch"
         );
         ::core::assert_eq!(
-            $buf.exit_price.len(),
+            $buf.total_return_pct.len(),
             $len_var,
-            "exit_price length mismatch"
+            "total_return_pct length mismatch"
         );
         ::core::assert_eq!(
-            $buf.pct_return.len(),
+            $buf.current_position.len(),
             $len_var,
-            "pct_return length mismatch"
+            "current_position length mismatch"
+        );
+        ::core::assert_eq!(
+            $buf.previous_position.len(),
+            $len_var,
+            "previous_position length mismatch"
+        );
+        ::core::assert_eq!(
+            $buf.entry_long_price.len(),
+            $len_var,
+            "entry_long_price length mismatch"
+        );
+        ::core::assert_eq!(
+            $buf.entry_short_price.len(),
+            $len_var,
+            "entry_short_price length mismatch"
+        );
+        ::core::assert_eq!(
+            $buf.exit_long_price.len(),
+            $len_var,
+            "exit_long_price length mismatch"
+        );
+        ::core::assert_eq!(
+            $buf.exit_short_price.len(),
+            $len_var,
+            "exit_short_price length mismatch"
         );
         ::core::assert_eq!($buf.fee.len(), $len_var, "fee length mismatch");
         ::core::assert_eq!($buf.fee_cum.len(), $len_var, "fee_cum length mismatch");
+        ::core::assert_eq!(
+            $buf.peak_equity.len(),
+            $len_var,
+            "peak_equity length mismatch"
+        );
+        ::core::assert_eq!(
+            $buf.max_drawdown_pct.len(),
+            $len_var,
+            "max_drawdown_pct length mismatch"
+        );
+        ::core::assert_eq!(
+            $buf.trading_allowed.len(),
+            $len_var,
+            "trading_allowed length mismatch"
+        );
 
         // 可选列
         if let Some(v) = &$buf.sl_pct_price {

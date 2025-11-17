@@ -29,15 +29,57 @@ pub fn run_main_loop(
     // 索引 0 已经在外部（或在 buffers 初始化时）填好默认值
     if data_length > 1 {
         for i in 1..data_length {
-            let current_bar = CurrentBarData::new(prepared_data, i);
+            state.current_bar = CurrentBarData::new(prepared_data, i);
+
+            if state.should_skip_current_bar() {
+                continue;
+            }
 
             // 使用状态机方法计算新的仓位状态（内部已更新状态）
-            state.calculate_position(backtest_params, current_bar);
+            state.calculate_position(backtest_params);
+
+            state.calculate_capital(backtest_params);
 
             // 直接索引写入（边界检查已消除）
-            buffers.position[i] = state.position.as_i8();
-            buffers.entry_price[i] = state.entry_price.unwrap_or(f64::NAN);
-            buffers.exit_price[i] = state.exit_price.unwrap_or(f64::NAN);
+            buffers.current_position[i] = state.action.current_position.as_i8();
+            buffers.previous_position[i] = state.action.previous_position.as_i8();
+            buffers.entry_long_price[i] = state.action.entry_long_price.unwrap_or(f64::NAN);
+            buffers.entry_short_price[i] = state.action.entry_short_price.unwrap_or(f64::NAN);
+            buffers.exit_long_price[i] = state.action.exit_long_price.unwrap_or(f64::NAN);
+            buffers.exit_short_price[i] = state.action.exit_short_price.unwrap_or(f64::NAN);
+            if let Some(ref mut sl_pct_price) = buffers.sl_pct_price {
+                sl_pct_price[i] = state.risk_state.sl_pct_price.unwrap_or(f64::NAN);
+            }
+            if let Some(ref mut tp_pct_price) = buffers.tp_pct_price {
+                tp_pct_price[i] = state.risk_state.tp_pct_price.unwrap_or(f64::NAN);
+            }
+            if let Some(ref mut tsl_pct_price) = buffers.tsl_pct_price {
+                tsl_pct_price[i] = state.risk_state.tsl_pct_price.unwrap_or(f64::NAN);
+            }
+            if let Some(ref mut sl_atr_price) = buffers.sl_atr_price {
+                sl_atr_price[i] = state.risk_state.sl_atr_price.unwrap_or(f64::NAN);
+            }
+            if let Some(ref mut tp_atr_price) = buffers.tp_atr_price {
+                tp_atr_price[i] = state.risk_state.tp_atr_price.unwrap_or(f64::NAN);
+            }
+            if let Some(ref mut tsl_atr_price) = buffers.tsl_atr_price {
+                tsl_atr_price[i] = state.risk_state.tsl_atr_price.unwrap_or(f64::NAN);
+            }
+
+            buffers.balance[i] = state.capital_state.balance;
+            buffers.equity[i] = state.capital_state.equity;
+            buffers.trade_pnl_pct[i] = state.capital_state.trade_pnl_pct;
+            buffers.total_return_pct[i] = state.capital_state.total_return_pct;
+            buffers.fee[i] = state.capital_state.fee;
+            buffers.fee_cum[i] = state.capital_state.fee_cum;
+            buffers.peak_equity[i] = state.capital_state.peak_equity;
+
+            // 处理 ATR 数据，如果存在则赋值，否则保持 None
+            if let Some(atr_value) = state.current_bar.atr {
+                if let Some(ref mut atr_buffer) = buffers.atr {
+                    atr_buffer[i] = atr_value;
+                }
+            }
         }
     }
 

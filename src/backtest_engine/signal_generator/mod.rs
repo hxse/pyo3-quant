@@ -45,7 +45,9 @@ pub fn generate_signals(
     let data_len = processed_data.mapping.height();
 
     if data_len == 0 {
-        return Ok(DataFrame::empty());
+        return Err(QuantError::Signal(
+            crate::error::SignalError::InvalidInput("数据长度为0，无法生成信号".to_string()),
+        ));
     }
 
     let mut enter_long_series =

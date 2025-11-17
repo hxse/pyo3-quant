@@ -14,18 +14,3 @@ pub use data_dict::{DataContainer, DataSource};
 pub use param_set::{BacktestParams, ParamContainer, SingleParam};
 pub use settings::SettingContainer;
 pub use template::TemplateContainer;
-
-pub fn process_all_params(
-    _py: Python<'_>,
-    data_dict: DataContainer,
-    param_set: ParamContainer,
-    template: TemplateContainer,
-    settings: SettingContainer,
-) -> PyResult<(
-    DataContainer,
-    ParamContainer,
-    TemplateContainer,
-    SettingContainer,
-)> {
-    Ok((data_dict, param_set, template, settings))
-}

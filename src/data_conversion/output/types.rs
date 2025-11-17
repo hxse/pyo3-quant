@@ -8,7 +8,7 @@ use std::collections::HashMap;
 pub type PerformanceMetrics = HashMap<String, f64>;
 pub type IndicatorResults = HashMap<String, Vec<DataFrame>>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BacktestSummary {
     pub indicators: Option<IndicatorResults>,
     pub signals: Option<DataFrame>,
@@ -59,5 +59,78 @@ impl<'py> IntoPyObject<'py> for BacktestSummary {
         }
 
         Ok(dict)
+    }
+}
+
+impl<'source> FromPyObject<'source> for BacktestSummary {
+    fn extract_bound(ob: &Bound<'source, PyAny>) -> PyResult<Self> {
+        // 从Python对象中提取数据
+        let dict = ob.downcast::<PyDict>()?;
+
+        // 提取 performance 字段
+        let performance = match dict.get_item("performance")? {
+            Some(value) => {
+                if value.is_none() {
+                    None
+                } else {
+                    Some(value.extract::<HashMap<String, f64>>()?)
+                }
+            }
+            None => None,
+        };
+
+        // 提取 indicators 字段
+        let indicators = match dict.get_item("indicators")? {
+            Some(value) => {
+                if value.is_none() {
+                    None
+                } else {
+                    let ind_dict = value.downcast::<PyDict>()?;
+                    let mut indicators_map = HashMap::new();
+                    for (key, val) in ind_dict.iter() {
+                        let key_str = key.extract::<String>()?;
+                        let py_list: Vec<PyDataFrame> = val.extract()?;
+                        let dfs: Vec<DataFrame> =
+                            py_list.into_iter().map(|py_df| py_df.into()).collect();
+                        indicators_map.insert(key_str, dfs);
+                    }
+                    Some(indicators_map)
+                }
+            }
+            None => None,
+        };
+
+        // 提取 signals 字段
+        let signals = match dict.get_item("signals")? {
+            Some(value) => {
+                if value.is_none() {
+                    None
+                } else {
+                    let py_df: PyDataFrame = value.extract()?;
+                    Some(py_df.into())
+                }
+            }
+            None => None,
+        };
+
+        // 提取 backtest_result 字段
+        let backtest = match dict.get_item("backtest_result")? {
+            Some(value) => {
+                if value.is_none() {
+                    None
+                } else {
+                    let py_df: PyDataFrame = value.extract()?;
+                    Some(py_df.into())
+                }
+            }
+            None => None,
+        };
+
+        Ok(BacktestSummary {
+            indicators,
+            signals,
+            backtest,
+            performance,
+        })
     }
 }

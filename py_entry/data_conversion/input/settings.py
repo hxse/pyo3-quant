@@ -7,6 +7,7 @@ from enum import Enum
 class ExecutionStage(str, Enum):
     """执行阶段枚举 - 对应 Rust ExecutionStage"""
 
+    NONE = "none"
     INDICATOR = "indicator"
     SIGNALS = "signals"
     BACKTEST = "backtest"

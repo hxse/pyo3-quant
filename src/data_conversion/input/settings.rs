@@ -4,6 +4,7 @@ use pyo3::{Bound, FromPyObject};
 // 定义执行阶段枚举，派生 PartialOrd、Ord 以支持阶段比较
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ExecutionStage {
+    None,
     Indicator,
     Signals,
     Backtest,
@@ -15,6 +16,7 @@ impl<'py> FromPyObject<'py> for ExecutionStage {
     fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
         let py_str: String = ob.extract()?;
         match py_str.as_str() {
+            "none" => Ok(ExecutionStage::None),
             "indicator" => Ok(ExecutionStage::Indicator),
             "signals" => Ok(ExecutionStage::Signals),
             "backtest" => Ok(ExecutionStage::Backtest),

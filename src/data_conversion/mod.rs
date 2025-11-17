@@ -12,8 +12,7 @@ pub mod utils;
 use pyo3::prelude::*;
 
 pub use input::{
-    process_all_params, BacktestParams, DataContainer, ParamContainer, SettingContainer,
-    SingleParam, TemplateContainer,
+    BacktestParams, DataContainer, ParamContainer, SettingContainer, SingleParam, TemplateContainer,
 };
 pub use output::IndicatorResults;
 

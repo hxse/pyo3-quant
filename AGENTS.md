@@ -84,3 +84,57 @@ This file provides guidance to agents when working with code in this repository.
   * 我已经定义好了None和NaN处理工具函数, 在计算指标的过程中直接使用`src/backtest_engine/indicators/utils.rs`
   * 优先在lazy计算函数结尾处把None转换为NaN, 然后eager计算函数直接调用lazy计算函数就行了, 不用再转换了
   * 内部计算优先用None, 最后输出时转换成NaN
+
+# 搜索源代码
+  * 可以尝试利用搜索工具搜索 `source_ref/polars/crates/polars-core/src/`
+  * 或者 `source_ref/ta-lib`
+  * 或者 `source_ref/pandas-ta`
+
+# 关于polars clone成本的调查
+源代码路径 `source_ref/polars/crates/polars-core/src/frame/column/mod.rs`
+## Polars DataFrame 和 Series 的内部实现分析
+
+### 1. DataFrame 结构（第172-176行）
+```rust
+#[derive(Clone)]
+pub struct DataFrame {
+    height: usize,
+    pub(crate) columns: Vec<Column>,
+    cached_schema: OnceLock<SchemaRef>,
+}
+```
+
+### 2. Series 结构（第153行）
+```rust
+#[derive(Clone)]
+pub struct Series(pub Arc<dyn SeriesTrait>);
+```
+
+### 3. Column 结构（第43-47行）
+```rust
+#[derive(Debug, Clone)]
+pub enum Column {
+    Series(SeriesColumn),
+    Partitioned(PartitionedColumn),
+    Scalar(ScalarColumn),
+}
+```
+
+### 4. 关键发现：Arc 的使用
+
+从这些源码可以确认：
+
+1. **DataFrame 使用 `Vec<Column>`** - 这是普通向量，不是 Arc
+2. **Series 使用 `Arc<dyn SeriesTrait>`** - 这是智能指针，支持浅拷贝
+3. **Column 使用 `#[derive(Clone)]`** - 但主要是枚举的 clone
+
+## 性能影响分析
+
+### DataFrame 的 Clone 成本
+- `Vec<Column>` 的 clone：需要复制整个向量
+- 每个 `Column` 的 clone：根据枚举变体决定
+  - `Series(SeriesColumn)`：会调用 `Series::clone()`（Arc clone，浅拷贝）
+  - `Partitioned` 和 `Scalar`：通常是简单的值拷贝
+
+### Series 的 Clone 成本
+- `Arc<dyn SeriesTrait>` 的 clone：**只是增加引用计数**，O(1) 操作

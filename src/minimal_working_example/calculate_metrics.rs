@@ -1,7 +1,5 @@
 use crate::data_conversion::input::SingleParam;
-use crate::data_conversion::{
-    process_all_params, DataContainer, ParamContainer, SettingContainer, TemplateContainer,
-};
+use crate::data_conversion::{DataContainer, ParamContainer, SettingContainer, TemplateContainer};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
@@ -14,19 +12,10 @@ pub fn calculate_metrics(
     template: TemplateContainer,
     config: SettingContainer,
 ) -> PyResult<PyObject> {
-    // 调用统一的参数处理入口函数
-    let (processed_data, processed_params, processed_template, processed_config) =
-        process_all_params(py, data_dict, param_set, template, config)?;
-
     // 计算
     let mut summaries = Vec::new();
-    for single_param in &processed_params {
-        let summary = calculate_metrics_internal(
-            &processed_data,
-            single_param,
-            &processed_template,
-            &processed_config,
-        )?;
+    for single_param in &param_set {
+        let summary = calculate_metrics_internal(&data_dict, single_param, &template, &config)?;
         summaries.push(summary);
     }
 
@@ -69,8 +58,18 @@ fn calculate_metrics_internal(
 
     summary.push_str(&format!(
         ", backtest sl={}, tp={}",
-        params.backtest.sl_pct.as_ref().map(|p| p.value).unwrap_or(0.0),
-        params.backtest.tp_pct.as_ref().map(|p| p.value).unwrap_or(0.0)
+        params
+            .backtest
+            .sl_pct
+            .as_ref()
+            .map(|p| p.value)
+            .unwrap_or(0.0),
+        params
+            .backtest
+            .tp_pct
+            .as_ref()
+            .map(|p| p.value)
+            .unwrap_or(0.0)
     ));
 
     // 添加数据信息

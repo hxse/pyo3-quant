@@ -52,6 +52,18 @@ class DefaultParamBuilder(BaseParamBuilder):
 
     def build_backtest_params(self) -> BacktestParams:
         return BacktestParams(
+            initial_capital=10000.0,
+            fee_fixed=1,
+            fee_pct=0.001,
+            # pause_drawdown=Param.create(0.4, 0.1, 0.9, 0.1),
+            pause_drawdown=Param.create(0.4, 0.1, 0.9, 0.1),
+            pause_sma=Param.create(0, 0, 0, 0),
+            # pause_sma=Param.create(14, 1, 60, 2),
+            pause_ema=Param.create(0, 0, 0, 0),
+            # pause_ema=Param.create(14, 1, 60, 2),
+            exit_in_bar=False,
+            exit_in_bar_fallback=False,
+            tsl_per_bar_update=False,
             sl_pct=Param.create(2, 0.5, 5, 0.1),
             tp_pct=Param.create(2, 0.5, 5, 0.1),
             tsl_pct=Param.create(1, 0.5, 3, 0.1),
@@ -59,14 +71,6 @@ class DefaultParamBuilder(BaseParamBuilder):
             tp_atr=Param.create(3, 1, 5, 0.5),
             tsl_atr=Param.create(2, 1, 4, 0.5),
             atr_period=Param.create(14, 7, 21, 1),
-            tsl_per_bar_update=False,
-            exit_in_bar=False,
-            exit_in_bar_fallback=False,
-            initial_capital=10000.0,
-            stop_pct=Param.create(0.05, 0.01, 0.1, 0.01),
-            resume_pct=Param.create(0.02, 0.01, 0.05, 0.01),
-            fee_fixed=0.0,
-            fee_pct=0.001,
         )
 
     def build_performance_params(self) -> PerformanceParams:

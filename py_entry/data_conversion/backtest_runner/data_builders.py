@@ -3,6 +3,7 @@ from typing import List
 
 from py_entry.data_conversion.input import DataContainer
 from py_entry.data_conversion.helpers import generate_data_dict
+import polars as pl
 
 
 class BaseDataBuilder(ABC):
@@ -39,6 +40,8 @@ class DefaultDataBuilder(BaseDataBuilder):
         start_time: int = 1735689600000,
         num_bars: int = 1000,
         brick_size: float = 2.0,
+        predefined_ohlcv_dfs: list[pl.DataFrame] | None = None,
+        fixed_seed: bool = False,
     ) -> DataContainer:
         """构建数据字典
 
@@ -58,4 +61,6 @@ class DefaultDataBuilder(BaseDataBuilder):
             start_time=start_time,
             num_bars=num_bars,
             brick_size=brick_size,
+            predefined_ohlcv_dfs=predefined_ohlcv_dfs,
+            fixed_seed=fixed_seed,
         )

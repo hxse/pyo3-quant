@@ -70,11 +70,6 @@ macro_rules! validate_output_buffers {
             "current_position length mismatch"
         );
         ::core::assert_eq!(
-            $buf.previous_position.len(),
-            $len_var,
-            "previous_position length mismatch"
-        );
-        ::core::assert_eq!(
             $buf.entry_long_price.len(),
             $len_var,
             "entry_long_price length mismatch"
@@ -100,16 +95,6 @@ macro_rules! validate_output_buffers {
             $buf.peak_equity.len(),
             $len_var,
             "peak_equity length mismatch"
-        );
-        ::core::assert_eq!(
-            $buf.max_drawdown_pct.len(),
-            $len_var,
-            "max_drawdown_pct length mismatch"
-        );
-        ::core::assert_eq!(
-            $buf.trading_allowed.len(),
-            $len_var,
-            "trading_allowed length mismatch"
         );
 
         // 可选列

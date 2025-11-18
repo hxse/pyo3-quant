@@ -42,11 +42,11 @@ pub fn run_main_loop(
 
             // 直接索引写入（边界检查已消除）
             buffers.current_position[i] = state.action.current_position.as_i8();
-            buffers.previous_position[i] = state.action.previous_position.as_i8();
             buffers.entry_long_price[i] = state.action.entry_long_price.unwrap_or(f64::NAN);
             buffers.entry_short_price[i] = state.action.entry_short_price.unwrap_or(f64::NAN);
             buffers.exit_long_price[i] = state.action.exit_long_price.unwrap_or(f64::NAN);
             buffers.exit_short_price[i] = state.action.exit_short_price.unwrap_or(f64::NAN);
+
             if let Some(ref mut sl_pct_price) = buffers.sl_pct_price {
                 sl_pct_price[i] = state.risk_state.sl_pct_price.unwrap_or(f64::NAN);
             }
@@ -73,14 +73,13 @@ pub fn run_main_loop(
             buffers.fee[i] = state.capital_state.fee;
             buffers.fee_cum[i] = state.capital_state.fee_cum;
             buffers.peak_equity[i] = state.capital_state.peak_equity;
-
-            // 处理 ATR 数据，如果存在则赋值，否则保持 None
-            if let Some(atr_value) = state.current_bar.atr {
-                if let Some(ref mut atr_buffer) = buffers.atr {
-                    atr_buffer[i] = atr_value;
-                }
-            }
         }
+    }
+
+    // 统一处理 ATR 数据赋值（移到主循环外）
+    // 直接克隆整个 Vec，避免循环中的逐个赋值
+    if let Some(ref atr_data) = prepared_data.atr {
+        buffers.atr = Some(atr_data.clone());
     }
 
     Ok(buffers)

@@ -150,5 +150,6 @@ class BacktestRunner:
             self._param_set,
             self._template_config,
             self._engine_settings,
+            None,
         )
         return [BacktestSummary.from_dict(result) for result in raw_results]

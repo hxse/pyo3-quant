@@ -23,6 +23,20 @@ class Param:
 
     def __post_init__(self):
         """执行验证和运行时属性的初始化。"""
+        # 特例检查：(0, 0, 0, 0) 视为特例，跳过验证逻辑
+        if (self.initial_value == 0.0 and
+            self.initial_min == 0.0 and
+            self.initial_max == 0.0 and
+            self.initial_step == 0.0):
+            # 直接初始化运行时属性，不执行验证
+            self.value = 0.0
+            self.min = 0.0
+            self.max = 0.0
+            self.step = 0.0
+            # 特例情况下强制设置 optimize 为 false
+            self.optimize = False
+            return
+
         # 验证逻辑
         if self.initial_max <= self.initial_min:
             raise ValueError(
@@ -68,6 +82,22 @@ class Param:
         """
         工厂方法：应用默认逻辑创建 Param 实例。
         """
+        # 检查特例：(0, 0, 0, 0) 视为特例，所有参数设为0，optimize为false
+        if (
+            float(initial_value) == 0.0
+            and (initial_min is None or float(initial_min) == 0.0)
+            and (initial_max is None or float(initial_max) == 0.0)
+            and (initial_step is None or float(initial_step) == 0.0)
+        ):
+            return cls(
+                initial_value=0.0,
+                initial_min=0.0,
+                initial_max=0.0,
+                initial_step=0.0,
+                optimize=False,  # 特例情况下optimize为false
+                log_scale=log_scale,
+            )
+
         # 统一转换为 float
         initial_value_f = float(initial_value)
 

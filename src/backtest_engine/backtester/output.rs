@@ -1,3 +1,4 @@
+use crate::backtest_engine::utils::column_names::ColumnName;
 use crate::data_conversion::BacktestParams;
 use crate::error::backtest_error::BacktestError;
 use polars::prelude::*;
@@ -10,6 +11,8 @@ pub struct OutputBuffers {
     pub balance: Vec<f64>,
     /// 账户净值（含未实现盈亏），带复利
     pub equity: Vec<f64>,
+    /// 历史最高净值（用于止损后暂停开仓判断）
+    pub peak_equity: Vec<f64>,
     /// 单笔回报率
     pub trade_pnl_pct: Vec<f64>,
     /// 累计回报率，带复利
@@ -18,19 +21,11 @@ pub struct OutputBuffers {
     pub fee: Vec<f64>,
     /// 当前历史累计手续费
     pub fee_cum: Vec<f64>,
-    /// 历史最高净值（用于止损后暂停开仓判断）
-    pub peak_equity: Vec<f64>,
-    /// 历史最大回撤百分比
-    pub max_drawdown_pct: Vec<f64>,
-    /// 是否允许开仓（根据止损后暂停/恢复逻辑）
-    pub trading_allowed: Vec<bool>,
 
     /// 当前仓位状态
     /// 0=无仓位, 1=进多, 2=持多, 3=平多, 4=平短进多
     /// -1=进空, -2=持空, -3=平空, -4=平多进空
     pub current_position: Vec<i8>,
-    /// 执行仓位状态
-    pub previous_position: Vec<i8>,
     /// 多头进场价格
     pub entry_long_price: Vec<f64>,
     /// 空头进场价格
@@ -78,10 +73,7 @@ impl OutputBuffers {
             fee: vec![0.0; capacity],
             fee_cum: vec![0.0; capacity],
             peak_equity: vec![0.0; capacity],
-            max_drawdown_pct: vec![0.0; capacity],
-            trading_allowed: vec![true; capacity],
             current_position: vec![0; capacity],
-            previous_position: vec![0; capacity],
             entry_long_price: vec![0.0; capacity],
             entry_short_price: vec![0.0; capacity],
             exit_long_price: vec![0.0; capacity],
@@ -103,7 +95,7 @@ impl OutputBuffers {
             } else {
                 None
             },
-            // ATR相关列
+            // ATR相关列 - 不再需要预先分配，将在主循环后直接克隆
             atr: None,
             sl_atr_price: if params.is_sl_atr_param_valid() {
                 Some(vec![0.0; capacity])
@@ -133,21 +125,36 @@ impl OutputBuffers {
 
         // 固定列数组名称和长度
         let fixed_arrays = [
-            ("balance", self.balance.len()),
-            ("equity", self.equity.len()),
-            ("trade_pnl_pct", self.trade_pnl_pct.len()),
-            ("total_return_pct", self.total_return_pct.len()),
-            ("current_position", self.current_position.len()),
-            ("previous_position", self.previous_position.len()),
-            ("entry_long_price", self.entry_long_price.len()),
-            ("entry_short_price", self.entry_short_price.len()),
-            ("exit_long_price", self.exit_long_price.len()),
-            ("exit_short_price", self.exit_short_price.len()),
-            ("fee", self.fee.len()),
-            ("fee_cum", self.fee_cum.len()),
-            ("peak_equity", self.peak_equity.len()),
-            ("max_drawdown_pct", self.max_drawdown_pct.len()),
-            ("trading_allowed", self.trading_allowed.len()),
+            (ColumnName::Balance.as_str(), self.balance.len()),
+            (ColumnName::Equity.as_str(), self.equity.len()),
+            (ColumnName::TradePnlPct.as_str(), self.trade_pnl_pct.len()),
+            (
+                ColumnName::TotalReturnPct.as_str(),
+                self.total_return_pct.len(),
+            ),
+            (
+                ColumnName::CurrentPosition.as_str(),
+                self.current_position.len(),
+            ),
+            (
+                ColumnName::EntryLongPrice.as_str(),
+                self.entry_long_price.len(),
+            ),
+            (
+                ColumnName::EntryShortPrice.as_str(),
+                self.entry_short_price.len(),
+            ),
+            (
+                ColumnName::ExitLongPrice.as_str(),
+                self.exit_long_price.len(),
+            ),
+            (
+                ColumnName::ExitShortPrice.as_str(),
+                self.exit_short_price.len(),
+            ),
+            (ColumnName::Fee.as_str(), self.fee.len()),
+            (ColumnName::FeeCum.as_str(), self.fee_cum.len()),
+            (ColumnName::PeakEquity.as_str(), self.peak_equity.len()),
         ];
 
         // 检查所有固定列的长度
@@ -163,16 +170,29 @@ impl OutputBuffers {
 
         // 可选列数组名称和长度
         let optional_arrays = [
-            ("sl_pct_price", self.sl_pct_price.as_ref().map(|v| v.len())),
-            ("sl_atr_price", self.sl_atr_price.as_ref().map(|v| v.len())),
-            ("tp_pct_price", self.tp_pct_price.as_ref().map(|v| v.len())),
-            ("tp_atr_price", self.tp_atr_price.as_ref().map(|v| v.len())),
+            (ColumnName::Atr.as_str(), self.atr.as_ref().map(|v| v.len())),
             (
-                "tsl_pct_price",
+                ColumnName::SlPctPrice.as_str(),
+                self.sl_pct_price.as_ref().map(|v| v.len()),
+            ),
+            (
+                ColumnName::SlAtrPrice.as_str(),
+                self.sl_atr_price.as_ref().map(|v| v.len()),
+            ),
+            (
+                ColumnName::TpPctPrice.as_str(),
+                self.tp_pct_price.as_ref().map(|v| v.len()),
+            ),
+            (
+                ColumnName::TpAtrPrice.as_str(),
+                self.tp_atr_price.as_ref().map(|v| v.len()),
+            ),
+            (
+                ColumnName::TslPctPrice.as_str(),
                 self.tsl_pct_price.as_ref().map(|v| v.len()),
             ),
             (
-                "tsl_atr_price",
+                ColumnName::TslAtrPrice.as_str(),
                 self.tsl_atr_price.as_ref().map(|v| v.len()),
             ),
         ];
@@ -203,34 +223,43 @@ impl OutputBuffers {
         // 添加需要类型转换的固定列
         let current_position_data: Vec<i32> =
             self.current_position.iter().map(|&x| x as i32).collect();
-        let current_position_series = Series::new("current_position".into(), current_position_data);
+        let current_position_series = Series::new(
+            ColumnName::CurrentPosition.as_str().into(),
+            current_position_data,
+        );
         columns.push(current_position_series.into());
-
-        let previous_position_data: Vec<i32> =
-            self.previous_position.iter().map(|&x| x as i32).collect();
-        let previous_position_series =
-            Series::new("previous_position".into(), previous_position_data);
-        columns.push(previous_position_series.into());
-
-        // 添加需要类型转换的固定列
-        let trading_allowed_data: Vec<bool> = self.trading_allowed.iter().map(|&x| x).collect();
-        let trading_allowed_series = Series::new("trading_allowed".into(), trading_allowed_data);
-        columns.push(trading_allowed_series.into());
 
         // 定义固定列的名称和数据
         let fixed_columns = [
-            ("balance", &self.balance as &[f64]),
-            ("equity", &self.equity as &[f64]),
-            ("trade_pnl_pct", &self.trade_pnl_pct as &[f64]),
-            ("total_return_pct", &self.total_return_pct as &[f64]),
-            ("entry_long_price", &self.entry_long_price as &[f64]),
-            ("entry_short_price", &self.entry_short_price as &[f64]),
-            ("exit_long_price", &self.exit_long_price as &[f64]),
-            ("exit_short_price", &self.exit_short_price as &[f64]),
-            ("fee", &self.fee as &[f64]),
-            ("fee_cum", &self.fee_cum as &[f64]),
-            ("peak_equity", &self.peak_equity as &[f64]),
-            ("max_drawdown_pct", &self.max_drawdown_pct as &[f64]),
+            (ColumnName::Balance.as_str(), &self.balance as &[f64]),
+            (ColumnName::Equity.as_str(), &self.equity as &[f64]),
+            (
+                ColumnName::TradePnlPct.as_str(),
+                &self.trade_pnl_pct as &[f64],
+            ),
+            (
+                ColumnName::TotalReturnPct.as_str(),
+                &self.total_return_pct as &[f64],
+            ),
+            (
+                ColumnName::EntryLongPrice.as_str(),
+                &self.entry_long_price as &[f64],
+            ),
+            (
+                ColumnName::EntryShortPrice.as_str(),
+                &self.entry_short_price as &[f64],
+            ),
+            (
+                ColumnName::ExitLongPrice.as_str(),
+                &self.exit_long_price as &[f64],
+            ),
+            (
+                ColumnName::ExitShortPrice.as_str(),
+                &self.exit_short_price as &[f64],
+            ),
+            (ColumnName::Fee.as_str(), &self.fee as &[f64]),
+            (ColumnName::FeeCum.as_str(), &self.fee_cum as &[f64]),
+            (ColumnName::PeakEquity.as_str(), &self.peak_equity as &[f64]),
         ];
 
         // 添加固定列
@@ -241,13 +270,13 @@ impl OutputBuffers {
 
         // 定义可选列的名称和数据
         let optional_columns = [
-            ("sl_pct_price", &self.sl_pct_price),
-            ("tp_pct_price", &self.tp_pct_price),
-            ("tsl_pct_price", &self.tsl_pct_price),
-            ("atr", &self.atr),
-            ("sl_atr_price", &self.sl_atr_price),
-            ("tp_atr_price", &self.tp_atr_price),
-            ("tsl_atr_price", &self.tsl_atr_price),
+            (ColumnName::SlPctPrice.as_str(), &self.sl_pct_price),
+            (ColumnName::TpPctPrice.as_str(), &self.tp_pct_price),
+            (ColumnName::TslPctPrice.as_str(), &self.tsl_pct_price),
+            (ColumnName::Atr.as_str(), &self.atr),
+            (ColumnName::SlAtrPrice.as_str(), &self.sl_atr_price),
+            (ColumnName::TpAtrPrice.as_str(), &self.tp_atr_price),
+            (ColumnName::TslAtrPrice.as_str(), &self.tsl_atr_price),
         ];
 
         // 添加可选列（仅当它们不为 None 时）
@@ -268,8 +297,9 @@ impl OutputBuffers {
     /// # 返回
     /// 只包含 equity 和 peak_equity 列的 DataFrame
     pub fn to_equity_dataframe(&self) -> Result<DataFrame, BacktestError> {
-        let equity_series = Series::new("equity".into(), &self.equity);
-        let peak_equity_series = Series::new("peak_equity".into(), &self.peak_equity);
+        let equity_series = Series::new(ColumnName::Equity.as_str().into(), &self.equity);
+        let peak_equity_series =
+            Series::new(ColumnName::PeakEquity.as_str().into(), &self.peak_equity);
 
         DataFrame::new(vec![equity_series.into(), peak_equity_series.into()]).map_err(|e| {
             BacktestError::ValidationError(format!("Failed to create equity DataFrame: {}", e))

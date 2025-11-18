@@ -1,5 +1,8 @@
-use crate::backtest_engine::backtester::pause_control::utils::check_required_columns;
+use crate::backtest_engine::backtester::pause_control::utils::{
+    check_equity_columns, check_signal_only_columns,
+};
 use crate::backtest_engine::indicators::sma;
+use crate::backtest_engine::utils::column_names::ColumnName;
 use crate::data_conversion::BacktestParams;
 use crate::error::{backtest_error::BacktestError, QuantError};
 use polars::prelude::*;
@@ -19,8 +22,11 @@ pub fn pause_sma_signals(
     signals_df: &DataFrame,
     backtest_params: &BacktestParams,
 ) -> Result<(DataFrame, Series), QuantError> {
-    // 检查必需的列
-    check_required_columns(signals_df, "pause_sma_signals")?;
+    // 检查信号DataFrame是否包含必要的信号列
+    check_signal_only_columns(signals_df, "pause_sma_signals")?;
+
+    // 检查权益DataFrame是否包含必要的权益列
+    check_equity_columns(equity_df, "pause_sma_signals")?;
 
     // 克隆signals_df并转换为lazy模式
     let mut lazy_df = signals_df.clone().lazy();
@@ -47,18 +53,18 @@ pub fn pause_sma_signals(
     // 应用SMA暂停逻辑修改信号
     lazy_df = lazy_df
         .with_column(
-            // 当暂停时，将entry_long设为false
+            // 当暂停时，将enter_long设为false
             when(col("pause"))
                 .then(lit(false))
-                .otherwise(col("entry_long"))
-                .alias("entry_long"),
+                .otherwise(col(ColumnName::EnterLong.as_str()))
+                .alias(ColumnName::EnterLong.as_str()),
         )
         .with_column(
-            // 当暂停时，将entry_short设为false
+            // 当暂停时，将enter_short设为false
             when(col("pause"))
                 .then(lit(false))
-                .otherwise(col("entry_short"))
-                .alias("entry_short"),
+                .otherwise(col(ColumnName::EnterShort.as_str()))
+                .alias(ColumnName::EnterShort.as_str()),
         );
 
     // 获取所有原始列名，除了临时添加的列

@@ -1,3 +1,4 @@
+use crate::backtest_engine::utils::column_names::ColumnName;
 use crate::data_conversion::input::param_set::SignalParams;
 use crate::data_conversion::input::template::{SignalGroup, SignalTemplate};
 use crate::data_conversion::input::DataContainer;
@@ -45,19 +46,22 @@ pub fn generate_signals(
     let data_len = processed_data.mapping.height();
 
     if data_len == 0 {
-        return Err(QuantError::Signal(
-            crate::error::SignalError::InvalidInput("数据长度为0，无法生成信号".to_string()),
-        ));
+        return Err(QuantError::Signal(crate::error::SignalError::InvalidInput(
+            "数据长度为0, 无法生成信号".to_string(),
+        )));
     }
 
     let mut enter_long_series =
-        BooleanChunked::full(PlSmallStr::from_static("enter_long"), false, data_len).into_series();
+        BooleanChunked::full(ColumnName::EnterLong.as_pl_small_str(), false, data_len)
+            .into_series();
     let mut exit_long_series =
-        BooleanChunked::full(PlSmallStr::from_static("exit_long"), false, data_len).into_series();
+        BooleanChunked::full(ColumnName::ExitLong.as_pl_small_str(), false, data_len).into_series();
     let mut enter_short_series =
-        BooleanChunked::full(PlSmallStr::from_static("enter_short"), false, data_len).into_series();
+        BooleanChunked::full(ColumnName::EnterShort.as_pl_small_str(), false, data_len)
+            .into_series();
     let mut exit_short_series =
-        BooleanChunked::full(PlSmallStr::from_static("exit_short"), false, data_len).into_series();
+        BooleanChunked::full(ColumnName::ExitShort.as_pl_small_str(), false, data_len)
+            .into_series();
 
     process_signal_field_helper(
         signal_template.enter_long.as_ref(),

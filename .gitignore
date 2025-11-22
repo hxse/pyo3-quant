@@ -1,3 +1,4 @@
+data/
 target/
 # source_ref 目录包含第三方库源代码,仅用于开发时分析
 # 项目 push 时应保持此项启用

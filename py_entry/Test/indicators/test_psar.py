@@ -45,7 +45,7 @@ def psar_pandas_ta_extractor(
         af0=af0,
         af=af_step,
         max_af=max_af,
-        talib=enable_talib,
+        # talib=enable_talib, # psar没有talib选项
     )
 
     _props = f"_{af0}_{max_af}"

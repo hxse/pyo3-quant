@@ -1,8 +1,9 @@
 import json
-import os
+
 import pytest
 import polars as pl
 from pathlib import Path
+from typing import Any
 
 # 基准JSON文件路径
 BASELINE_JSON = "baseline_result.json"
@@ -45,8 +46,12 @@ def _save_baseline(result: dict, baseline_path: Path):
     print(f"📄 基准文件已保存到: {baseline_path}")
 
 
-def _compare_results(current: dict, baseline: dict):
+def _compare_results(current: dict, baseline: dict | None):
     """比较当前结果与基准结果 - 直接遍历字典比较"""
+    # 确保baseline不为None
+    if baseline is None:
+        raise AssertionError("基准结果为None，无法进行比较")
+
     # 检查字段缺失
     missing_in_current = set(baseline.keys()) - set(current.keys())
     missing_in_baseline = set(current.keys()) - set(baseline.keys())
@@ -80,7 +85,7 @@ def _compare_results(current: dict, baseline: dict):
         raise AssertionError("发现不一致的字段:\n" + "\n".join(error_lines))
 
 
-def _create_diff_dict(field: str, current_val: any, baseline_val: any) -> dict:
+def _create_diff_dict(field: str, current_val: Any, baseline_val: Any) -> dict:
     """矢量化创建差异字典"""
     return {
         "field": field,
@@ -177,6 +182,10 @@ class TestBacktestConsistency:
 
         # 调用工具函数获取基准结果
         baseline_result = get_or_create_baseline(backtest_df)
+
+        # 确保baseline_result不为None
+        if baseline_result is None:
+            raise AssertionError("基准结果为None，无法进行比较")
 
         # 比较结果
         _compare_results(current_result, baseline_result)

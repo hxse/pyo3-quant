@@ -8,61 +8,72 @@ root_path = next(
 if root_path:
     sys.path.insert(0, str(root_path))
 
+# 所有导入必须在 sys.path 修改之后立即进行
 import json
+from dataclasses import dataclass
+from typing import Any
+
+import httpx
 import polars as pl
+
 from py_entry.data_conversion.file_utils.common import make_authenticated_request
 from py_entry.data_conversion.file_utils.types import RequestConfig
 
 
+@dataclass
+class OhlcvDataConfig:
+    """OHLCV数据获取配置类"""
+
+    config: RequestConfig
+    exchange_name: str
+    symbol: str
+    period: str
+    start_time: int
+    count: int = 10
+    enable_cache: bool = True
+
+
 def get_ohlcv_data(
-    config: RequestConfig,
-    exchange_name: str,
-    symbol: str,
-    period: str,
-    start_time: int,
-    count: int,
-    enable_cache: bool = True,
-) -> dict | None:
+    ohlcv_config: OhlcvDataConfig,
+) -> dict[str, Any] | None:
     """
     从服务器获取 OHLCV 数据。
 
     参数:
-    exchange_name (str): 交易所名称，如 'binance'。
-    symbol (str): 交易对符号，如 'BTC/USDT'。
-    period (str): 时间周期，如 '15m'。
-    start_time (int): 开始时间戳（毫秒）。
-    config: 请求配置，包含认证和重试参数。
-    count (int): 获取数据条数，默认为 10。
-    enable_cache (bool): 是否启用缓存，默认为 True。
+    ohlcv_config: OHLCV数据获取配置对象
 
     返回:
     dict | None: 获取到的数据，如果获取失败则返回 None。
     """
 
-    def get_data_request(client, headers):
-        params = {
-            "exchange_name": exchange_name,
-            "symbol": symbol,
-            "period": period,
-            "start_time": start_time,
-            "count": count,
-            "enable_cache": enable_cache,
+    def get_data_request(
+        client: httpx.Client, headers: dict[str, str]
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "exchange_name": ohlcv_config.exchange_name,
+            "symbol": ohlcv_config.symbol,
+            "period": ohlcv_config.period,
+            "start_time": ohlcv_config.start_time,
+            "count": ohlcv_config.count,
+            "enable_cache": ohlcv_config.enable_cache,
         }
 
         response = client.get(
-            f"{config.auth.server_url}/ccxt/ohlcv", params=params, headers=headers
+            f"{ohlcv_config.config.auth.server_url}/ccxt/ohlcv",
+            params=params,
+            headers=headers,
         )
         response.raise_for_status()
         return response.json()
 
     return make_authenticated_request(
-        config=config,
+        config=ohlcv_config.config,
         request_func=get_data_request,
         error_context="获取数据",
     )
 
 
-def convert_to_ohlcv_dataframe(result) -> pl.DataFrame | None:
+def convert_to_ohlcv_dataframe(result: Any) -> pl.DataFrame | None:
     """
     将 get_ohlcv_data 函数返回的结果转换为 Polars DataFrame。
 
@@ -121,7 +132,7 @@ if __name__ == "__main__":
     )
 
     # 调用 get_ohlcv_data 函数
-    result = get_ohlcv_data(
+    ohlcv_config = OhlcvDataConfig(
         config=config,
         exchange_name="binance",
         symbol="BTC/USDT",
@@ -130,6 +141,7 @@ if __name__ == "__main__":
         count=10,
         enable_cache=True,
     )
+    result = get_ohlcv_data(ohlcv_config)
 
     ohlcv_df = convert_to_ohlcv_dataframe(result)
     print(ohlcv_df)

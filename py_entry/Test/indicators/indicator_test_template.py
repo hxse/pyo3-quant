@@ -11,6 +11,15 @@ from py_entry.data_conversion.backtest_runner import (
     SettingContainer,
     ExecutionStage,
 )
+from py_entry.data_conversion.helpers.data_generator import (
+    DataGenerationParams,
+    OtherParams,
+    OhlcvDataFetchConfig,
+)
+from py_entry.data_conversion.input import DataContainer
+
+import polars as pl
+
 from py_entry.Test.utils.comparison_tool import assert_indicator_same
 
 
@@ -21,20 +30,23 @@ class IndicatorTestConfig:
     indicator_name: str  # 指标名称,如"bbands"
 
     # 参数配置(每个timeframe一套),使用标准命名: bbands_0, bbands_1, ...
-    params_config: List[Dict[str, Dict[str, Any]]]
+    # 格式: {"ohlcv": [timeframe0_params, timeframe1_params, ...]}
+    params_config: Dict[str, List[Dict[str, Dict[str, Any]]]]
 
     suffixes: List[str]
 
     # 回测引擎结果提取器
-    # 输入: (indicators polars DataFrame, indicator_key, params_dict)
+    # 输入: (indicators polars DataFrame, indicator_key, suffixes, params_dict)
     # 输出: Dict[列名, np.ndarray]
-    engine_result_extractor: Callable[[Any, str, Dict], Dict[str, np.ndarray]]
+    engine_result_extractor: Callable[
+        [Any, str, List[str], Dict], Dict[str, np.ndarray]
+    ]
 
     # pandas-ta结果提取器
-    # 输入: (ohlcv pandas DataFrame, indicator_key, params_dict, use_talib)
+    # 输入: (ohlcv pandas DataFrame, indicator_key, suffixes, params_dict, enable_talib)
     # 输出: Dict[列名, np.ndarray]
     pandas_ta_result_extractor: Callable[
-        [pd.DataFrame, str, Dict, bool], Dict[str, np.ndarray]
+        [pd.DataFrame, str, List[str], Dict[str, Any], bool], Dict[str, np.ndarray]
     ]
 
     # 阈值自定义回调(可选)
@@ -66,10 +78,8 @@ def print_array_details(name, arr):
     if first_valid_idx.size == 0:
         # 数组全为 NaN 或 Inf
         leading_nan_count = total_count
-        first_valid_start = "无有效数据"
     else:
         leading_nan_count = first_valid_idx[0]
-        first_valid_start = leading_nan_count
 
     print(f"2. 前导 NaN 数量 (Leading NaNs): {leading_nan_count}")
 
@@ -79,10 +89,10 @@ def print_array_details(name, arr):
 
     # 4. 后 10 个值 (从尾部开始)
     if total_count > 10:
-        print(f"4. 数组尾部后 10 个值 (Tail):")
+        print("4. 数组尾部后 10 个值 (Tail):")
         print(arr[-10:])
     elif total_count > 0:
-        print(f"4. 数组元素不足 10 个，尾部值同头部:")
+        print("4. 数组元素不足 10 个，尾部值同头部:")
         print(arr)
     else:
         print("4. 数组为空，无尾部值。")
@@ -122,7 +132,13 @@ def _test_indicator_accuracy(
         def __init__(self, data):
             self.data = data
 
-        def build_data_dict(self):
+        def build_data_dict(
+            self,
+            simulated_data_config: DataGenerationParams | None = None,
+            ohlcv_data_config: OhlcvDataFetchConfig | None = None,
+            predefined_ohlcv_dfs: list[pl.DataFrame] | None = None,
+            other_params: OtherParams | None = None,
+        ) -> DataContainer:
             return self.data
 
     class CustomParamBuilder(DefaultParamBuilder):
@@ -154,6 +170,9 @@ def _test_indicator_accuracy(
     )
 
     for timeframe_idx, timeframe_params in enumerate(config.params_config["ohlcv"]):
+        # backtest_results[0].indicators 是 dict[str, list[pl.DataFrame]] | None
+        if backtest_results[0].indicators is None:
+            raise ValueError("回测结果中没有indicators数据")
         indicators_df_current_timeframe = backtest_results[0].indicators["ohlcv"][
             timeframe_idx
         ]
@@ -174,7 +193,7 @@ def _test_indicator_accuracy(
                 indicator_key,
                 config.suffixes,
                 params_dict,
-                enable_talib=False,
+                False,
             )
 
             names = (
@@ -228,7 +247,7 @@ def _test_indicator_accuracy(
                         indicator_key,
                         config.suffixes,
                         params_dict,
-                        enable_talib=True,
+                        True,  # enable_talib
                     )
                     talib_array = talib_results[name]
 

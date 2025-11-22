@@ -1,6 +1,3 @@
-import pytest
-
-
 class TestExampleSimple:
     """测试简单example的执行和基础验证"""
 
@@ -15,16 +12,22 @@ class TestExampleSimple:
         print(f"✅ example运行成功: {len(backtest_df)} 行数据")
         print(f"📋 实际输出列: {backtest_df.columns}")
 
-    def test_enhanced_data_validation(self, backtest_df, required_fixed_cols, optional_cols):
+    def test_enhanced_data_validation(
+        self, backtest_df, required_fixed_cols, optional_cols
+    ):
         """增强的数据验证测试（基于output.rs的完整验证）"""
         # 更详细的数据验证，包括额外的数据质量检查
 
         # 1. 验证所有必需列存在
-        missing_cols = [col for col in required_fixed_cols if col not in backtest_df.columns]
+        missing_cols = [
+            col for col in required_fixed_cols if col not in backtest_df.columns
+        ]
         assert len(missing_cols) == 0, f"缺少固定列: {missing_cols}"
 
         # 2. 验证可选列存在性
-        existing_optional = [col for col in optional_cols.keys() if col in backtest_df.columns]
+        existing_optional = [
+            col for col in optional_cols.keys() if col in backtest_df.columns
+        ]
         print(f"✅ 发现的Optional列: {len(existing_optional)} 个")
 
         # 3. 基本数据长度检查
@@ -58,9 +61,8 @@ class TestExampleSimple:
         assert len(backtest_df) > 0, "回测数据为空"
 
         # 检查是否有有效的交易数据
-        has_trades = (
-            (backtest_df["current_position"] != 0).any() or
-            (backtest_df["fee"].sum() > 0)
+        has_trades = (backtest_df["current_position"] != 0).any() or (
+            backtest_df["fee"].sum() > 0
         )
 
         print(f"📊 包含交易数据: {has_trades}")

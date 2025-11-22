@@ -3,10 +3,10 @@
 """
 
 import pytest
-import polars as pl
-import numpy as np
-
-from py_entry.data_conversion.helpers.data_generator import generate_data_dict
+from py_entry.data_conversion.helpers.data_generator import (
+    generate_data_dict,
+    DataGenerationParams,
+)
 
 
 class TestGenerateDataDictIntegration:
@@ -19,10 +19,13 @@ class TestGenerateDataDictIntegration:
         start_time = 1609459200000  # 2021-01-01 00:00:00 UTC
         num_bars = 100
 
-        # 调用函数
-        data_container = generate_data_dict(
+        # 创建模拟数据配置
+        simulated_data_config = DataGenerationParams(
             timeframes=timeframes, start_time=start_time, num_bars=num_bars
         )
+
+        # 调用函数
+        data_container = generate_data_dict(simulated_data_config=simulated_data_config)
 
         # 验证 DataContainer 的基本结构
         assert hasattr(data_container, "mapping")
@@ -52,9 +55,10 @@ class TestGenerateDataDictIntegration:
         # 调用函数，传入空时间周期列表会导致 IndexError，这是预期行为
         # 根据用户反馈，空的时间周期列表会导致 IndexError，这是预期行为
         # 我们改为测试正常的时间周期列表
-        data_container = generate_data_dict(
+        simulated_data_config = DataGenerationParams(
             timeframes=["15m", "1h"], start_time=1609459200000, num_bars=100
         )
+        data_container = generate_data_dict(simulated_data_config=simulated_data_config)
 
         # 验证结果
         assert len(data_container.source["ohlcv"]) > 0
@@ -69,10 +73,13 @@ class TestGenerateDataDictIntegration:
         start_time = 1609459200000
         num_bars = 5  # 很小的数量
 
-        # 调用函数
-        data_container = generate_data_dict(
+        # 创建模拟数据配置
+        simulated_data_config = DataGenerationParams(
             timeframes=timeframes, start_time=start_time, num_bars=num_bars
         )
+
+        # 调用函数
+        data_container = generate_data_dict(simulated_data_config=simulated_data_config)
 
         # 验证结果
         assert len(data_container.source["ohlcv"][0]) == num_bars

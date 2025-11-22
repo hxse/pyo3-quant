@@ -22,10 +22,8 @@ from polars.testing import assert_frame_equal
 from py_entry.data_conversion.backtest_runner import (
     BacktestRunner,
     DefaultDataBuilder,
-    DefaultEngineSettingsBuilder,
 )
-from py_entry.data_conversion.output.backtest_summary import BacktestSummary
-import pyo3_quant
+from py_entry.data_conversion.helpers.data_generator import DataGenerationParams
 
 # 导入自定义构建器和辅助函数
 from .custom_builders import (
@@ -34,7 +32,6 @@ from .custom_builders import (
     CustomEngineSettingsBuilder,
 )
 from .signal_utils import (
-    extract_indicator_data,
     print_signal_statistics,
     calculate_signals_manually,
 )
@@ -48,17 +45,20 @@ def test_signal_verification():
     runner = BacktestRunner()
 
     # 配置数据但先不运行，获取DataContainer用于手动计算
+    simulated_data_config = DataGenerationParams(
+        timeframes=["15m", "1h", "4h"],
+        start_time=1735689600000,
+        num_bars=5000,
+    )
+
     runner.with_data(
-        {
-            "timeframes": ["15m", "1h", "4h"],
-            "start_time": 1735689600000,
-            "num_bars": 5000,
-        },
+        simulated_data_config=simulated_data_config,
         data_builder=DefaultDataBuilder(),
     )
 
     # 获取DataContainer用于手动计算
     data_container = runner._data_dict
+    assert data_container is not None, "DataContainer不应为None"
 
     # 继续配置其他参数并运行回测
     backtest_results = (
@@ -91,7 +91,9 @@ def test_signal_verification():
     ohlcv_2 = data_container.source["ohlcv"][2]
 
     # 6. 获取信号参数
-    signal_params = runner._param_set[0].signal
+    param_set = runner._param_set
+    assert param_set is not None, "参数集不应为None"
+    signal_params = param_set[0].signal
 
     # 8. 手动计算信号
     # 暂时简化测试，只验证前两个条件，忽略第三个条件

@@ -1,8 +1,19 @@
-import path_tool
+import sys
+from pathlib import Path
+
+root_path = next(
+    (p for p in Path(__file__).resolve().parents if (p / "pyproject.toml").is_file()),
+    None,
+)
+if root_path:
+    sys.path.insert(0, str(root_path))
+
+# 所有导入必须在 sys.path 修改之后立即进行
 import time
-from py_entry.data_conversion.backtest_runner import BacktestRunner
 import pyo3_quant
 from loguru import logger
+from py_entry.data_conversion.backtest_runner import BacktestRunner
+from py_entry.data_conversion.helpers.data_generator import DataGenerationParams
 
 if __name__ == "__main__":
     print("-" * 30)
@@ -14,14 +25,16 @@ if __name__ == "__main__":
     print("-" * 30)
     start_time = time.perf_counter()
     br = BacktestRunner()
+
+    # 创建 DataGenerationParams 对象
+    simulated_data_config = DataGenerationParams(
+        timeframes=["15m", "1h"],
+        start_time=1735689600000,
+        num_bars=200,
+    )
+
     backtest_result = (
-        br.with_data(
-            {
-                "timeframes": ["15m", "1h"],
-                "start_time": 1735689600000,
-                "num_bars": 200,
-            },
-        )
+        br.with_data(simulated_data_config=simulated_data_config)
         .with_param_set()
         .with_templates()
         .with_engine_settings()

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Any
 import polars as pl
 
 
@@ -16,13 +16,13 @@ class BacktestSummary:
         backtest_result: 回测结果DataFrame
     """
 
-    performance: Optional[dict[str, float]] = None
-    indicators: Optional[Dict[str, list[pl.DataFrame]]] = None
-    signals: Optional[pl.DataFrame] = None
-    backtest_result: Optional[pl.DataFrame] = None
+    performance: dict[str, float] | None = None
+    indicators: dict[str, list[pl.DataFrame]] | None = None
+    signals: pl.DataFrame | None = None
+    backtest_result: pl.DataFrame | None = None
 
     @classmethod
-    def from_dict(cls, data: dict) -> "BacktestSummary":
+    def from_dict(cls, data: dict[str, Any]) -> "BacktestSummary":
         """从Rust返回的字典创建BacktestSummary实例
 
         Args:

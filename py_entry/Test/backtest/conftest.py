@@ -1,5 +1,4 @@
 import pytest
-import polars as pl
 
 # 从 example.py 导入自定义 Builder 类
 from .example import (
@@ -7,7 +6,10 @@ from .example import (
     CustomParamBuilder,
     CustomSignalTemplateBuilder,
     CustomEngineSettingsBuilder,
+    DefaultDataBuilder,
 )
+
+from py_entry.data_conversion.helpers.data_generator import DataGenerationParams
 
 
 @pytest.fixture(scope="class")
@@ -15,14 +17,18 @@ def backtest_result():
     """缓存回测结果，避免重复运行"""
     br = BacktestRunner()
 
+    # 创建 DataGenerationParams 对象
+    simulated_data_config = DataGenerationParams(
+        timeframes=["15m", "1h", "4h"],
+        start_time=1735689600000,
+        num_bars=10000,
+        fixed_seed=True,
+    )
+
     result = (
         br.with_data(
-            {
-                "timeframes": ["15m", "1h", "4h"],
-                "start_time": 1735689600000,
-                "num_bars": 10000,
-                "fixed_seed": True,
-            }
+            simulated_data_config=simulated_data_config,
+            data_builder=DefaultDataBuilder(),
         )
         .with_param_set(param_builder=CustomParamBuilder())
         .with_templates(signal_template_builder=CustomSignalTemplateBuilder())

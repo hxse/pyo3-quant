@@ -1,43 +1,44 @@
-import path_tool
-import time
+import sys
+from pathlib import Path
 
+root_path = next(
+    (p for p in Path(__file__).resolve().parents if (p / "pyproject.toml").is_file()),
+    None,
+)
+if root_path:
+    sys.path.insert(0, str(root_path))
+
+# 所有导入必须在 sys.path 修改之后立即进行
+import time
+import pdb
+import pyo3_quant
+from loguru import logger
 
 from py_entry.data_conversion.backtest_runner import (
     BacktestRunner,
     DefaultDataBuilder,
-    DefaultParamBuilder,
     DefaultEngineSettingsBuilder,
-    SettingContainer,
-    ExecutionStage,
+    DefaultParamBuilder,
     DefaultSignalTemplateBuilder,
+    ExecutionStage,
+    SettingContainer,
 )
-from py_entry.data_conversion.input import (
-    IndicatorsParams,
-    SignalParams,
-    BacktestParams,
-    PerformanceParams,
-    SignalTemplate,
-    Param,
-)
-
+from py_entry.data_conversion.helpers.data_generator import DataGenerationParams
 from py_entry.data_conversion.helpers import (
     signal_data_vs_data,
     signal_data_vs_param,
 )
-
 from py_entry.data_conversion.input import (
-    SignalTemplate,
+    BacktestParams,
     CompareOp,
+    IndicatorsParams,
     LogicOp,
+    Param,
+    PerformanceParams,
     SignalGroup,
+    SignalParams,
+    SignalTemplate,
 )
-
-import pyo3_quant
-
-
-from loguru import logger
-
-# 导入数据导出工具函数
 from py_entry.Test.utils.backtest_data_exporter import export_backtest_data_to_csv
 
 # ==============================================================================
@@ -88,7 +89,7 @@ class CustomParamBuilder(DefaultParamBuilder):
                 indicators_0,
                 indicators_1,
                 indicators_2,
-                *[{} for i in range(period_count)],
+                *[{} for _ in range(period_count)],
             ][:period_count]
         }
 
@@ -224,14 +225,17 @@ if __name__ == "__main__":
 
     br = BacktestRunner()
 
+    # 创建 DataGenerationParams 对象
+    simulated_data_config = DataGenerationParams(
+        timeframes=["15m", "1h", "4h"],
+        start_time=1735689600000,
+        num_bars=10000,
+        fixed_seed=True,
+    )
+
     backtest_result = (
         br.with_data(
-            {
-                "timeframes": ["15m", "1h", "4h"],
-                "start_time": 1735689600000,
-                "num_bars": 10000,
-                "fixed_seed": True,
-            },
+            simulated_data_config=simulated_data_config,
             data_builder=DefaultDataBuilder(),
         )
         .with_param_set(param_builder=CustomParamBuilder())
@@ -250,11 +254,12 @@ if __name__ == "__main__":
     # 导出回测数据到CSV文件
     print("\n" + "=" * 50)
     print("开始导出回测数据...")
-    export_backtest_data_to_csv(
-        backtest_summary=backtest_result[0], data_container=br._data_dict
-    )
+    # 获取数据容器，确保不为None
+    data_container = br._data_dict  # type: ignore[attr-defined]
+    if data_container is not None:
+        export_backtest_data_to_csv(
+            backtest_summary=backtest_result[0], data_container=data_container
+        )
     print("=" * 50)
-
-    import pdb
 
     pdb.set_trace()

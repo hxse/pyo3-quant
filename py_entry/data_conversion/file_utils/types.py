@@ -17,7 +17,7 @@ class RetryConfig:
 
     max_retries: int = 3  # 重试次数，设为0表示不重试
     wait: int = 1
-    return_on_error: Any = None
+    return_on_error: Any = None  # 错误时返回的值
 
 
 @dataclass

@@ -1,9 +1,3 @@
-import pytest
-
-# 从 example.py 导入自定义 Builder 类
-from .example import BacktestRunner
-
-
 class TestExampleExecution:
     """测试example.py基本执行功能"""
 

@@ -15,7 +15,10 @@ import polars as pl
 import numpy as np
 import pandas_ta as ta
 
-from py_entry.data_conversion.helpers.data_generator import generate_data_dict
+from py_entry.data_conversion.helpers.data_generator import (
+    generate_data_dict,
+    DataGenerationParams,
+)
 from py_entry.Test.utils.comparison_tool import assert_indicator_same
 
 
@@ -23,11 +26,12 @@ def main():
     """
     比较 pandas-ta 在开启和不开启 talib 选项时 RMA 指标的计算结果。
     """
-    data_dict = generate_data_dict(
+    simulated_data_config = DataGenerationParams(
         timeframes=["15m"], start_time=1609459200000, num_bars=3000
     )
+    data_dict = generate_data_dict(simulated_data_config=simulated_data_config)
 
-    ohlcv_data_pl = data_dict.ohlcv[0]
+    ohlcv_data_pl = data_dict.source["ohlcv"][0]
 
     ohlcv_data_pd = ohlcv_data_pl.to_pandas()
 

@@ -1,6 +1,6 @@
 import httpx
 import time
-from typing import Any
+from typing import Any, Callable
 from py_entry.data_conversion.file_utils.auth import (
     request_token,
     get_cached_token,
@@ -9,7 +9,7 @@ from py_entry.data_conversion.file_utils.auth import (
 from py_entry.data_conversion.file_utils.types import RequestConfig
 
 # 全局HTTP客户端
-_global_client = None
+_global_client: httpx.Client | None = None
 
 
 def get_global_client() -> httpx.Client:
@@ -30,7 +30,7 @@ def close_global_client():
 
 def make_authenticated_request(
     config: RequestConfig,
-    request_func,
+    request_func: Callable[[httpx.Client, dict[str, str]], Any],
     error_context: str,
 ) -> Any:
     """
@@ -49,7 +49,12 @@ def make_authenticated_request(
     while retries >= 0:
         # 从缓存获取 token 或请求新 token 的逻辑
         access_token = get_cached_token(config.auth.username, config.auth.password)
-        if not access_token and config.auth.username and config.auth.password:
+        if (
+            not access_token
+            and config.auth.username
+            and config.auth.password
+            and config.auth.server_url
+        ):
             access_token = request_token(
                 client,
                 config.auth.server_url,
@@ -61,7 +66,7 @@ def make_authenticated_request(
                 return config.retry.return_on_error
 
         try:
-            headers = {}
+            headers: dict[str, str] = {}
             if access_token:
                 headers["Authorization"] = f"Bearer {access_token}"
 

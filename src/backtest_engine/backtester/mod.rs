@@ -8,7 +8,7 @@ mod macros;
 mod main_loop;
 mod output;
 mod pause_control;
-mod state;
+pub mod state;
 
 use atr_calculator::calculate_atr_if_needed;
 use data_preparer::{get_ohlcv_dataframe, PreparedData};

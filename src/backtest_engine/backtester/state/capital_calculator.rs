@@ -1,4 +1,5 @@
 use super::backtest_state::BacktestState;
+use super::position_state::Position;
 use crate::data_conversion::BacktestParams;
 
 impl BacktestState {
@@ -15,11 +16,23 @@ impl BacktestState {
         // 计算已实现盈亏（通过处理离场交易）
         self.calculate_realized_pnl(params);
 
-        // 计算未实现盈亏（当前持仓的浮动盈亏）
+        // 计算未实现盈亏（当前持仓的浮动盈亏百分比）
         let unrealized_pnl = self.calculate_unrealized_pnl();
 
-        // 更新净值 = 余额 + 未实现盈亏
-        self.capital_state.equity = self.capital_state.balance + unrealized_pnl;
+        // 更新净值 = 余额 * (1 + 未实现盈亏百分比)
+        // 假设全仓模式：当前余额全部用于持仓
+        self.capital_state.equity = self.capital_state.balance * (1.0 + unrealized_pnl);
+
+        // === 余额和净值归零保护 ===
+        // 确保余额不会变为负数
+        if self.capital_state.balance < 0.0 {
+            self.capital_state.balance = 0.0;
+        }
+
+        // 确保净值不会变为负数
+        if self.capital_state.equity < 0.0 {
+            self.capital_state.equity = 0.0;
+        }
 
         // 更新历史最高净值
         if self.capital_state.equity > self.capital_state.peak_equity {
@@ -35,6 +48,18 @@ impl BacktestState {
     ///
     /// 处理离场交易，计算已实现盈亏和手续费，并更新账户余额。
     ///
+    /// # 核心机制说明
+    /// ## 双层状态系统
+    /// - **previous_position**: **信号状态**，表示基于信号判断应该执行的操作
+    /// - **current_position**: **执行状态**，表示实际发生的操作
+    /// - **risk_in_bar**: 风险离场标志，表示风险机制触发的离场在当前bar内实际执行
+    ///
+    /// ## 处理逻辑
+    /// 1. **信号离场**: `previous_position.is_exit_long/short()` - 处理信号触发的离场
+    /// 2. **风险离场**: `current_position.is_exit_long/short() && risk_in_bar` - 处理风险触发的离场
+    ///    - 必须同时满足：仓位状态是离场 + 风险离场在当前bar执行
+    ///    - `risk_in_bar` 确保只有实际发生的离场才计算盈亏
+    ///
     /// # 核心假设 (Core Assumptions)
     /// 1. **全仓交易:** 每次开仓都假定使用当前的**全部余额** (`initial_balance`) 进行购买或做空。
     /// 2. **单仓位模型:** 始终只持有一个仓位（多头或空头）。不需要考虑多仓位, 不需要考虑杠杆。
@@ -45,15 +70,23 @@ impl BacktestState {
     /// 包括但不限于：传统手续费、滑点、价差、网络波动影响等, 应该由用户根据实际情况决定。
     /// 百分比费用 (`fee_pct`) 被拆分为基于开仓名义价值和基于平仓名义价值的往返成本。
     fn calculate_realized_pnl(&mut self, params: &BacktestParams) {
-        if self.action.previous_position.is_exit_long() {
+        // ===== 信号离场处理 =====
+        // previous_position 是信号状态，表示基于信号判断应该离场
+        // 这种离场通常是策略信号驱动的，如技术指标信号等
+        if self.action.previous_position.is_exit_long() && !self.action.previous_risk_in_bar {
             self.calculate_long_exit_pnl(params);
-        } else if self.action.previous_position.is_exit_short() {
+        } else if self.action.previous_position.is_exit_short() && !self.action.previous_risk_in_bar
+        {
             self.calculate_short_exit_pnl(params);
         }
 
-        if self.action.risk_long_trigger {
+        // ===== 风险离场处理 =====
+        // current_position 是执行状态，risk_in_bar 确保风险离场实际发生
+        // 这种离场是风控系统触发的，如止损、止盈等
+        // 注意：必须同时满足仓位状态和风险执行标志
+        if self.action.current_position.is_exit_long() && self.action.risk_in_bar {
             self.calculate_long_exit_pnl(params);
-        } else if self.action.risk_short_trigger {
+        } else if self.action.current_position.is_exit_short() && self.action.risk_in_bar {
             self.calculate_short_exit_pnl(params);
         }
     }
@@ -142,14 +175,14 @@ impl BacktestState {
         let mut unrealized_pnl = 0.0;
 
         // 计算多头未实现盈亏
-        if self.action.current_position.is_long() {
+        if self.action.current_position == Position::HoldLong {
             if let Some(entry_price) = self.action.entry_long_price {
                 unrealized_pnl += (current_price - entry_price) / entry_price;
             }
         }
 
         // 计算空头未实现盈亏
-        if self.action.current_position.is_short() {
+        if self.action.current_position == Position::HoldShort {
             if let Some(entry_price) = self.action.entry_short_price {
                 unrealized_pnl += (entry_price - current_price) / entry_price;
             }

@@ -34,6 +34,8 @@ pub struct OutputBuffers {
     pub exit_long_price: Vec<f64>,
     /// 空头离场价格
     pub exit_short_price: Vec<f64>,
+    /// 当下bar离场
+    pub risk_in_bar: Vec<bool>,
 
     // === 可选列 ===
     /// 百分比止损价格（可选）
@@ -78,6 +80,7 @@ impl OutputBuffers {
             entry_short_price: vec![0.0; capacity],
             exit_long_price: vec![0.0; capacity],
             exit_short_price: vec![0.0; capacity],
+            risk_in_bar: vec![false; capacity],
 
             // 可选列根据参数决定是否初始化
             sl_pct_price: if params.is_sl_pct_param_valid() {
@@ -152,6 +155,7 @@ impl OutputBuffers {
                 ColumnName::ExitShortPrice.as_str(),
                 self.exit_short_price.len(),
             ),
+            (ColumnName::RiskInBar.as_str(), self.risk_in_bar.len()),
             (ColumnName::Fee.as_str(), self.fee.len()),
             (ColumnName::FeeCum.as_str(), self.fee_cum.len()),
             (ColumnName::PeakEquity.as_str(), self.peak_equity.len()),
@@ -267,6 +271,10 @@ impl OutputBuffers {
             let series = Series::new((*name).into(), data);
             columns.push(series.into());
         }
+
+        // 添加 risk_in_bar 列（布尔类型）
+        let risk_in_bar_series = Series::new(ColumnName::RiskInBar.as_str().into(), &self.risk_in_bar);
+        columns.push(risk_in_bar_series.into());
 
         // 定义可选列的名称和数据
         let optional_columns = [

@@ -89,6 +89,11 @@ macro_rules! validate_output_buffers {
             $len_var,
             "exit_short_price length mismatch"
         );
+        ::core::assert_eq!(
+            $buf.risk_in_bar.len(),
+            $len_var,
+            "risk_in_bar length mismatch"
+        );
         ::core::assert_eq!($buf.fee.len(), $len_var, "fee length mismatch");
         ::core::assert_eq!($buf.fee_cum.len(), $len_var, "fee_cum length mismatch");
         ::core::assert_eq!(

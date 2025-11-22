@@ -66,6 +66,11 @@ impl Position {
         )
     }
 
+    /// 判断是否为持仓状态
+    pub fn is_hold(&self) -> bool {
+        matches!(self, Position::HoldLong | Position::HoldShort)
+    }
+
     /// 转换为 i8（为了兼容现有代码）
     pub fn as_i8(&self) -> i8 {
         *self as i8

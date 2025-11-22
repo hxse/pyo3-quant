@@ -34,6 +34,7 @@ pub enum ColumnName {
     EntryShortPrice,
     ExitLongPrice,
     ExitShortPrice,
+    RiskInBar,
 
     // OutputBuffers可选列名
     SlPctPrice,
@@ -76,6 +77,7 @@ impl ColumnName {
             ColumnName::EntryShortPrice => "entry_short_price",
             ColumnName::ExitLongPrice => "exit_long_price",
             ColumnName::ExitShortPrice => "exit_short_price",
+            ColumnName::RiskInBar => "risk_in_bar",
 
             // OutputBuffers可选列名
             ColumnName::SlPctPrice => "sl_pct_price",

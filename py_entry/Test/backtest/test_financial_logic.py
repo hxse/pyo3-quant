@@ -68,8 +68,8 @@ class TestFinancialLogic:
         print(f"   总手续费: {final_fee_cum:.2f}")
 
         # 基本合理性检查
-        assert final_balance > 0, "最终余额应该为正"
-        assert final_equity > 0, "最终净值应该为正"
+        assert final_balance >= 0, "最终余额不能为负"
+        assert final_equity >= 0, "最终净值不能为负"
 
         print("✅ 财务关系合理")
 
@@ -88,7 +88,9 @@ class TestFinancialLogic:
         )
 
         # 识别非hold状态的行（HoldLong=2, HoldShort=-2）
-        non_hold_mask = df_with_prev.filter(~pl.col("previous_position").is_in(hold_positions))
+        non_hold_mask = df_with_prev.filter(
+            ~pl.col("previous_position").is_in(hold_positions)
+        )
 
         # 计算余额和净值的差值
         violations_df = (

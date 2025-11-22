@@ -6,24 +6,8 @@
   },
   "result": {
     "current_position": 0,
-    "balance": 0.0,
-    "equity": 0.0,
-    "trade_pnl_pct": 0.0,
-    "total_return_pct": 0.0,
-    "entry_long_price": 0.0,
-    "entry_short_price": 0.0,
-    "exit_long_price": 0.0,
-    "exit_short_price": 0.0,
-    "fee": 0.0,
-    "fee_cum": 0.0,
-    "peak_equity": 0.0,
-    "sl_pct_price": 0.0,
-    "tp_pct_price": 0.0,
-    "tsl_pct_price": 0.0,
-    "atr": 9.959882142601902,
-    "sl_atr_price": 0.0,
-    "tp_atr_price": 0.0,
-    "tsl_atr_price": 0.0,
-    "pause": true
-  }
-}
+    "balance": 6524.442051126132,
+    "equity": 6524.442051126132,
+    "trade_pnl_pct": -0.04043696136809727,
+    "total_return_pct": -0.34755579488738675,
+    "entry_long_price": 

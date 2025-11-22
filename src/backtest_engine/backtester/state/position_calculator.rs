@@ -16,6 +16,7 @@ impl BacktestState {
                 self.action.current_position = Position::None;
                 self.action.previous_position = Position::None;
                 self.action.risk_in_bar = false;
+                self.action.previous_risk_in_bar = false;
                 self.action.risk_long_trigger = false;
                 self.action.risk_short_trigger = false;
                 self.risk_state = RiskState::default();
@@ -29,6 +30,7 @@ impl BacktestState {
             self.action.current_position = Position::None;
             self.action.previous_position = Position::None;
             self.action.risk_in_bar = false;
+            self.action.previous_risk_in_bar = false;
             self.action.risk_long_trigger = false;
             self.action.risk_short_trigger = false;
             self.risk_state = RiskState::default();
@@ -50,6 +52,8 @@ impl BacktestState {
     pub fn calculate_position(&mut self, params: &BacktestParams) {
         // 保存前一个仓位状态
         self.action.previous_position = self.action.current_position;
+
+        self.action.previous_risk_in_bar = self.action.risk_in_bar;
 
         // 在循环中前值依赖： 持仓状态转换
         // 按照上一个仓位的信号执行, 而不是当前仓位信号
@@ -75,30 +79,31 @@ impl BacktestState {
                 self.action.exit_long_price = None;
                 self.action.exit_short_price = None;
                 self.action.risk_in_bar = false;
+                self.action.previous_risk_in_bar = false;
             }
             // 反手, 平空进多, 设置空头离场价, 设置多头进场价
             Position::ExitShortEnterLong => {
-                if !self.action.risk_in_bar {
+                if !self.action.previous_risk_in_bar {
                     self.action.exit_short_price = Some(self.current_bar.open);
                 }
                 self.action.entry_long_price = Some(self.current_bar.open);
             }
             // 反手, 平多进空, 设置多头离场价, 设置空头进场价
             Position::ExitLongEnterShort => {
-                if !self.action.risk_in_bar {
+                if !self.action.previous_risk_in_bar {
                     self.action.exit_long_price = Some(self.current_bar.open);
                 }
                 self.action.entry_short_price = Some(self.current_bar.open);
             }
             // 如果上一个仓位是多头离场信号, 那么设置离场价格
             Position::ExitLong => {
-                if !self.action.risk_in_bar {
+                if !self.action.previous_risk_in_bar {
                     self.action.exit_long_price = Some(self.current_bar.open);
                 }
             }
             // 如果上一个仓位是空头离场信号, 那么设置离场价格
             Position::ExitShort => {
-                if !self.action.risk_in_bar {
+                if !self.action.previous_risk_in_bar {
                     self.action.exit_short_price = Some(self.current_bar.open);
                 }
             }
@@ -133,21 +138,25 @@ impl BacktestState {
             (true, false, true, _) => {
                 let (should_exit_long, exit_price_long) =
                     self.risk_exit_long(params, self.current_bar.atr);
-                if should_exit_long && exit_price_long.is_some() {
-                    self.action.exit_long_price = exit_price_long;
-                    self.action.risk_in_bar = true;
+                if should_exit_long {
+                    self.action.risk_long_trigger = should_exit_long;
+                    if exit_price_long.is_some() {
+                        self.action.exit_long_price = exit_price_long;
+                        self.action.risk_in_bar = true;
+                    }
                 }
-                self.action.risk_long_trigger = should_exit_long;
             }
             // 空头仓位且有进场价
             (false, true, _, true) => {
                 let (should_exit_short, exit_price_short) =
                     self.risk_exit_short(params, self.current_bar.atr);
-                if should_exit_short && exit_price_short.is_some() {
-                    self.action.exit_short_price = exit_price_short;
-                    self.action.risk_in_bar = true;
+                if should_exit_short {
+                    self.action.risk_short_trigger = should_exit_short;
+                    if exit_price_short.is_some() {
+                        self.action.exit_short_price = exit_price_short;
+                        self.action.risk_in_bar = true;
+                    }
                 }
-                self.action.risk_short_trigger = should_exit_short;
             }
             // 其他情况：没有仓位或没有进场价
             _ => {
@@ -171,7 +180,8 @@ impl BacktestState {
             pos if pos.is_short() && self.should_exit_short() => Position::ExitShort,
             pos if pos.is_none() && self.should_enter_long() => Position::EnterLong,
             pos if pos.is_none() && self.should_enter_short() => Position::EnterShort,
-            pos => pos,
+            // 其他情况保持当前状态不变（因为第60-65行已经处理了持仓转换）
+            _ => self.action.current_position,
         };
     }
 }

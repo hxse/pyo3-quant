@@ -37,6 +37,9 @@ import pyo3_quant
 
 from loguru import logger
 
+# 导入数据导出工具函数
+from py_entry.Test.utils.backtest_data_exporter import export_backtest_data_to_csv
+
 # ==============================================================================
 # 自定义 Builder 类
 # ==============================================================================
@@ -104,7 +107,28 @@ class CustomParamBuilder(DefaultParamBuilder):
         用户可以通过取消注释并实现此方法来自定义回测参数。
         如果不覆盖此方法，将使用父类的默认实现。
         """
-        return super().build_backtest_params()
+        # return super().build_backtest_params()
+        return BacktestParams(
+            initial_capital=10000.0,
+            fee_fixed=1,
+            fee_pct=0.001,
+            pause_drawdown=Param.create(0, 0, 0, 0),
+            # pause_drawdown=Param.create(0.4, 0.1, 0.9, 0.1),
+            pause_sma=Param.create(0, 0, 0, 0),
+            # pause_sma=Param.create(14, 1, 60, 2),
+            pause_ema=Param.create(0, 0, 0, 0),
+            # pause_ema=Param.create(14, 1, 60, 2),
+            exit_in_bar=False,
+            exit_in_bar_fallback=False,
+            tsl_per_bar_update=False,
+            sl_pct=Param.create(2, 0.5, 5, 0.1),
+            tp_pct=Param.create(2, 0.5, 5, 0.1),
+            tsl_pct=Param.create(1, 0.5, 3, 0.1),
+            sl_atr=Param.create(2, 1, 5, 0.5),
+            tp_atr=Param.create(3, 1, 5, 0.5),
+            tsl_atr=Param.create(2, 1, 4, 0.5),
+            atr_period=Param.create(14, 7, 21, 1),
+        )
 
     def build_performance_params(self) -> PerformanceParams:
         """
@@ -205,7 +229,8 @@ if __name__ == "__main__":
             {
                 "timeframes": ["15m", "1h", "4h"],
                 "start_time": 1735689600000,
-                "num_bars": 200,
+                "num_bars": 10000,
+                "fixed_seed": True,
             },
             data_builder=DefaultDataBuilder(),
         )
@@ -221,3 +246,15 @@ if __name__ == "__main__":
     logger.info(f"performance: {backtest_result[0].performance}")
 
     logger.info(f"耗时 {time.perf_counter() - start_time}")
+
+    # 导出回测数据到CSV文件
+    print("\n" + "=" * 50)
+    print("开始导出回测数据...")
+    export_backtest_data_to_csv(
+        backtest_summary=backtest_result[0], data_container=br._data_dict
+    )
+    print("=" * 50)
+
+    import pdb
+
+    pdb.set_trace()

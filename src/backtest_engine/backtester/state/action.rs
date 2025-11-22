@@ -21,8 +21,10 @@ pub struct Action {
     pub risk_long_trigger: bool,
     /// 是否触发空头止盈止损
     pub risk_short_trigger: bool,
-    /// 是否跳过下一根K线
+    /// 是否当下触发离场
     pub risk_in_bar: bool,
+    /// 是否当下触发离场的前值
+    pub previous_risk_in_bar: bool,
 }
 
 impl Default for Action {
@@ -38,6 +40,7 @@ impl Default for Action {
             risk_long_trigger: false,
             risk_short_trigger: false,
             risk_in_bar: false,
+            previous_risk_in_bar: false,
         }
     }
 }

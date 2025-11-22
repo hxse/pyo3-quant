@@ -9,6 +9,8 @@ source_ref/polars/
 source_ref/ta-lib/
 source_ref/example_source/
 
+py_entry/example/data
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 .pytest_cache/

@@ -1,6 +1,7 @@
 use super::data_preparer::PreparedData;
 use super::output::OutputBuffers;
 use super::state::{current_bar_data::CurrentBarData, BacktestState};
+use crate::backtest_engine::utils::print_position_debug;
 use crate::data_conversion::BacktestParams;
 use crate::error::backtest_error::BacktestError;
 
@@ -25,54 +26,35 @@ pub fn run_main_loop(
     // 这里的校验同样在 Release 模式下帮助编译器推断所有 buffers[i] 安全
     validate_output_buffers!(buffers, data_length);
 
-    // ---------- 3. 主循环 ----------
-    // 索引 0 已经在外部（或在 buffers 初始化时）填好默认值
+    // ---------- 3. 初始化第0行数据 ----------
+    // 将 backtest_state 的初始值写入到 buffers 的第0行
+    initialize_buffer_row_zero(&mut buffers, &state);
+
+    // ---------- 4. 主循环 ----------
+    // 索引 0 已经正确初始化
     if data_length > 1 {
         for i in 1..data_length {
             state.current_bar = CurrentBarData::new(prepared_data, i);
 
             if state.should_skip_current_bar() {
+                // 即使跳过当前bar，也要更新单调性相关字段以保持单调性
+                buffers.peak_equity[i] = buffers.peak_equity[i - 1];
+                buffers.fee_cum[i] = buffers.fee_cum[i - 1];
                 continue;
             }
 
             // 使用状态机方法计算新的仓位状态（内部已更新状态）
             state.calculate_position(backtest_params);
 
+            // // 在index范围内打印调试信息
+            // if (251..=253).contains(&i) {
+            //     print_position_debug(state, i);
+            // }
+
             state.calculate_capital(backtest_params);
 
-            // 直接索引写入（边界检查已消除）
-            buffers.current_position[i] = state.action.current_position.as_i8();
-            buffers.entry_long_price[i] = state.action.entry_long_price.unwrap_or(f64::NAN);
-            buffers.entry_short_price[i] = state.action.entry_short_price.unwrap_or(f64::NAN);
-            buffers.exit_long_price[i] = state.action.exit_long_price.unwrap_or(f64::NAN);
-            buffers.exit_short_price[i] = state.action.exit_short_price.unwrap_or(f64::NAN);
-
-            if let Some(ref mut sl_pct_price) = buffers.sl_pct_price {
-                sl_pct_price[i] = state.risk_state.sl_pct_price.unwrap_or(f64::NAN);
-            }
-            if let Some(ref mut tp_pct_price) = buffers.tp_pct_price {
-                tp_pct_price[i] = state.risk_state.tp_pct_price.unwrap_or(f64::NAN);
-            }
-            if let Some(ref mut tsl_pct_price) = buffers.tsl_pct_price {
-                tsl_pct_price[i] = state.risk_state.tsl_pct_price.unwrap_or(f64::NAN);
-            }
-            if let Some(ref mut sl_atr_price) = buffers.sl_atr_price {
-                sl_atr_price[i] = state.risk_state.sl_atr_price.unwrap_or(f64::NAN);
-            }
-            if let Some(ref mut tp_atr_price) = buffers.tp_atr_price {
-                tp_atr_price[i] = state.risk_state.tp_atr_price.unwrap_or(f64::NAN);
-            }
-            if let Some(ref mut tsl_atr_price) = buffers.tsl_atr_price {
-                tsl_atr_price[i] = state.risk_state.tsl_atr_price.unwrap_or(f64::NAN);
-            }
-
-            buffers.balance[i] = state.capital_state.balance;
-            buffers.equity[i] = state.capital_state.equity;
-            buffers.trade_pnl_pct[i] = state.capital_state.trade_pnl_pct;
-            buffers.total_return_pct[i] = state.capital_state.total_return_pct;
-            buffers.fee[i] = state.capital_state.fee;
-            buffers.fee_cum[i] = state.capital_state.fee_cum;
-            buffers.peak_equity[i] = state.capital_state.peak_equity;
+            // 使用工具函数更新当前行数据
+            update_buffer_row(&mut buffers, &state, i);
         }
     }
 
@@ -83,4 +65,50 @@ pub fn run_main_loop(
     }
 
     Ok(buffers)
+}
+
+/// 更新输出缓冲区指定行的数据
+///
+/// 将 backtest_state 的当前值写入到 buffers 的指定行
+fn update_buffer_row(buffers: &mut OutputBuffers, state: &BacktestState, row_index: usize) {
+    buffers.current_position[row_index] = state.action.current_position.as_i8();
+    buffers.entry_long_price[row_index] = state.action.entry_long_price.unwrap_or(f64::NAN);
+    buffers.entry_short_price[row_index] = state.action.entry_short_price.unwrap_or(f64::NAN);
+    buffers.exit_long_price[row_index] = state.action.exit_long_price.unwrap_or(f64::NAN);
+    buffers.exit_short_price[row_index] = state.action.exit_short_price.unwrap_or(f64::NAN);
+    buffers.risk_in_bar[row_index] = state.action.risk_in_bar;
+
+    if let Some(ref mut sl_pct_price) = buffers.sl_pct_price {
+        sl_pct_price[row_index] = state.risk_state.sl_pct_price.unwrap_or(f64::NAN);
+    }
+    if let Some(ref mut tp_pct_price) = buffers.tp_pct_price {
+        tp_pct_price[row_index] = state.risk_state.tp_pct_price.unwrap_or(f64::NAN);
+    }
+    if let Some(ref mut tsl_pct_price) = buffers.tsl_pct_price {
+        tsl_pct_price[row_index] = state.risk_state.tsl_pct_price.unwrap_or(f64::NAN);
+    }
+    if let Some(ref mut sl_atr_price) = buffers.sl_atr_price {
+        sl_atr_price[row_index] = state.risk_state.sl_atr_price.unwrap_or(f64::NAN);
+    }
+    if let Some(ref mut tp_atr_price) = buffers.tp_atr_price {
+        tp_atr_price[row_index] = state.risk_state.tp_atr_price.unwrap_or(f64::NAN);
+    }
+    if let Some(ref mut tsl_atr_price) = buffers.tsl_atr_price {
+        tsl_atr_price[row_index] = state.risk_state.tsl_atr_price.unwrap_or(f64::NAN);
+    }
+
+    buffers.balance[row_index] = state.capital_state.balance;
+    buffers.equity[row_index] = state.capital_state.equity;
+    buffers.trade_pnl_pct[row_index] = state.capital_state.trade_pnl_pct;
+    buffers.total_return_pct[row_index] = state.capital_state.total_return_pct;
+    buffers.fee[row_index] = state.capital_state.fee;
+    buffers.fee_cum[row_index] = state.capital_state.fee_cum;
+    buffers.peak_equity[row_index] = state.capital_state.peak_equity;
+}
+
+/// 初始化输出缓冲区的第0行数据
+///
+/// 将 backtest_state 的初始值写入到 buffers 的第0行，确保初始状态正确
+fn initialize_buffer_row_zero(buffers: &mut OutputBuffers, state: &BacktestState) {
+    update_buffer_row(buffers, state, 0);
 }

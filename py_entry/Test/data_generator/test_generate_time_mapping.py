@@ -3,7 +3,6 @@
 """
 
 import pytest
-import polars as pl
 import numpy as np
 
 from py_entry.data_conversion.helpers.data_generator import generate_time_mapping
@@ -12,47 +11,12 @@ from py_entry.data_conversion.helpers.data_generator import generate_time_mappin
 class TestGenerateTimeMapping:
     """generate_time_mapping 函数测试类"""
 
-    def test_generate_time_mapping_perfect_match(self):
+    def test_generate_time_mapping_perfect_match(self, sample_time_series, mock_dfs_factory):
         """测试 generate_time_mapping 函数 - 完全匹配情况"""
         # 创建完全匹配的测试数据
-        ohlcv_dfs = [
-            pl.DataFrame(
-                {
-                    "time": np.arange(10) * 1000,
-                    "open": np.random.rand(10) * 100,
-                    "high": np.random.rand(10) * 100 + 10,
-                    "low": np.random.rand(10) * 100 - 10,
-                    "close": np.random.rand(10) * 100,
-                    "volume": np.random.rand(10) * 1000000,
-                }
-            )
-        ]
-
-        ha_dfs = [
-            pl.DataFrame(
-                {
-                    "time": np.arange(10) * 1000,  # 完全匹配
-                    "open": np.random.rand(10) * 100,
-                    "high": np.random.rand(10) * 100 + 10,
-                    "low": np.random.rand(10) * 100 - 10,
-                    "close": np.random.rand(10) * 100,
-                    "volume": np.random.rand(10) * 1000000,
-                }
-            )
-        ]
-
-        renko_dfs = [
-            pl.DataFrame(
-                {
-                    "time": np.arange(10) * 1000,  # 完全匹配
-                    "open": np.random.rand(10) * 100,
-                    "high": np.random.rand(10) * 100 + 10,
-                    "low": np.random.rand(10) * 100 - 10,
-                    "close": np.random.rand(10) * 100,
-                    "volume": np.random.rand(10) * 1000000,
-                }
-            )
-        ]
+        ohlcv_dfs = mock_dfs_factory([sample_time_series])
+        ha_dfs = mock_dfs_factory([sample_time_series])
+        renko_dfs = mock_dfs_factory([sample_time_series])
 
         # 调用函数
         result, skip_mapping = generate_time_mapping(ohlcv_dfs, ha_dfs, renko_dfs)
@@ -67,49 +31,22 @@ class TestGenerateTimeMapping:
         # 验证结果为空（所有列都被跳过）
         assert len(result.columns) == 0
 
-    def test_generate_time_mapping_partial_match(self):
+    def test_generate_time_mapping_partial_match(
+        self,
+        sample_time_series,
+        partial_match_time_series,
+        no_match_time_series,
+        mock_dfs_factory,
+    ):
         """测试 generate_time_mapping 函数 - 部分匹配情况"""
         # 创建部分匹配的测试数据
-        ohlcv_dfs = [
-            pl.DataFrame(
-                {
-                    "time": np.arange(10) * 1000,
-                    "open": np.random.rand(10) * 100,
-                    "high": np.random.rand(10) * 100 + 10,
-                    "low": np.random.rand(10) * 100 - 10,
-                    "close": np.random.rand(10) * 100,
-                    "volume": np.random.rand(10) * 1000000,
-                }
-            )
-        ]
+        ohlcv_dfs = mock_dfs_factory([sample_time_series])
 
         # HA 数据使用不同的时间戳（部分匹配）
-        ha_dfs = [
-            pl.DataFrame(
-                {
-                    "time": np.arange(5) * 2000 + 500,  # 500, 2500, 4500, 6500, 8500
-                    "open": np.random.rand(5) * 100,
-                    "high": np.random.rand(5) * 100 + 10,
-                    "low": np.random.rand(5) * 100 - 10,
-                    "close": np.random.rand(5) * 100,
-                    "volume": np.random.rand(5) * 1000000,
-                }
-            )
-        ]
+        ha_dfs = mock_dfs_factory([partial_match_time_series])
 
         # Renko 数据使用完全不同的时间戳（不匹配）
-        renko_dfs = [
-            pl.DataFrame(
-                {
-                    "time": np.arange(3) * 3000 + 1000,  # 1000, 4000, 7000
-                    "open": np.random.rand(3) * 100,
-                    "high": np.random.rand(3) * 100 + 10,
-                    "low": np.random.rand(3) * 100 - 10,
-                    "close": np.random.rand(3) * 100,
-                    "volume": np.random.rand(3) * 1000000,
-                }
-            )
-        ]
+        renko_dfs = mock_dfs_factory([no_match_time_series])
 
         # 调用函数
         result, skip_mapping = generate_time_mapping(ohlcv_dfs, ha_dfs, renko_dfs)
@@ -135,21 +72,10 @@ class TestGenerateTimeMapping:
         assert len(result.columns) == 0
         assert len(skip_mapping) == 0
 
-    def test_generate_time_mapping_single_ohlcv(self):
+    def test_generate_time_mapping_single_ohlcv(self, sample_time_series, mock_dfs_factory):
         """测试 generate_time_mapping 函数 - 只有一个 ohlcv 的情况（边界情况）"""
         # 只有一个 ohlcv DataFrame
-        ohlcv_dfs = [
-            pl.DataFrame(
-                {
-                    "time": np.arange(5) * 1000,
-                    "open": np.random.rand(5) * 100,
-                    "high": np.random.rand(5) * 100 + 10,
-                    "low": np.random.rand(5) * 100 - 10,
-                    "close": np.random.rand(5) * 100,
-                    "volume": np.random.rand(5) * 1000000,
-                }
-            )
-        ]
+        ohlcv_dfs = mock_dfs_factory([sample_time_series[:5]])
 
         # 空 HA 和 Renko 列表
         ha_dfs = []
@@ -165,67 +91,25 @@ class TestGenerateTimeMapping:
         assert len(skip_mapping) == 1
         assert len(result.columns) == 0
 
-    def test_generate_time_mapping_multiple_ohlcv(self):
+    def test_generate_time_mapping_multiple_ohlcv(
+        self,
+        sample_time_series,
+        partial_match_time_series,
+        no_match_time_series,
+        mock_dfs_factory,
+    ):
         """测试 generate_time_mapping 函数 - 多个 ohlcv 的情况"""
         # 创建多个 ohlcv DataFrame
-        ohlcv_dfs = [
-            pl.DataFrame(
-                {
-                    "time": np.arange(10) * 1000,  # 基准
-                    "open": np.random.rand(10) * 100,
-                    "high": np.random.rand(10) * 100 + 10,
-                    "low": np.random.rand(10) * 100 - 10,
-                    "close": np.random.rand(10) * 100,
-                    "volume": np.random.rand(10) * 1000000,
-                }
-            ),
-            pl.DataFrame(
-                {
-                    "time": np.arange(5) * 2000 + 500,  # ohlcv_1，部分匹配
-                    "open": np.random.rand(5) * 100,
-                    "high": np.random.rand(5) * 100 + 10,
-                    "low": np.random.rand(5) * 100 - 10,
-                    "close": np.random.rand(5) * 100,
-                    "volume": np.random.rand(5) * 1000000,
-                }
-            ),
-            pl.DataFrame(
-                {
-                    "time": np.arange(3) * 3000 + 1000,  # ohlcv_2，不匹配
-                    "open": np.random.rand(3) * 100,
-                    "high": np.random.rand(3) * 100 + 10,
-                    "low": np.random.rand(3) * 100 - 10,
-                    "close": np.random.rand(3) * 100,
-                    "volume": np.random.rand(3) * 1000000,
-                }
-            ),
-        ]
+        ohlcv_dfs = mock_dfs_factory(
+            [
+                sample_time_series,  # 基准
+                partial_match_time_series,  # ohlcv_1，部分匹配
+                no_match_time_series,  # ohlcv_2，不匹配
+            ]
+        )
 
-        ha_dfs = [
-            pl.DataFrame(
-                {
-                    "time": np.arange(5) * 2000 + 500,  # ha_0，部分匹配
-                    "open": np.random.rand(5) * 100,
-                    "high": np.random.rand(5) * 100 + 10,
-                    "low": np.random.rand(5) * 100 - 10,
-                    "close": np.random.rand(5) * 100,
-                    "volume": np.random.rand(5) * 1000000,
-                }
-            )
-        ]
-
-        renko_dfs = [
-            pl.DataFrame(
-                {
-                    "time": np.arange(3) * 3000 + 1000,  # renko_0，不匹配
-                    "open": np.random.rand(3) * 100,
-                    "high": np.random.rand(3) * 100 + 10,
-                    "low": np.random.rand(3) * 100 - 10,
-                    "close": np.random.rand(3) * 100,
-                    "volume": np.random.rand(3) * 1000000,
-                }
-            )
-        ]
+        ha_dfs = mock_dfs_factory([partial_match_time_series])  # ha_0，部分匹配
+        renko_dfs = mock_dfs_factory([no_match_time_series])  # renko_0，不匹配
 
         # 调用函数
         result, skip_mapping = generate_time_mapping(ohlcv_dfs, ha_dfs, renko_dfs)
@@ -251,3 +135,4 @@ class TestGenerateTimeMapping:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+

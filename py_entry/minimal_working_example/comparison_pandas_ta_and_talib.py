@@ -29,7 +29,7 @@ def main():
     simulated_data_config = DataGenerationParams(
         timeframes=["15m"], start_time=1609459200000, num_bars=3000
     )
-    data_dict = generate_data_dict(simulated_data_config=simulated_data_config)
+    data_dict = generate_data_dict(data_source=simulated_data_config)
 
     ohlcv_data_pl = data_dict.source["ohlcv"][0]
 

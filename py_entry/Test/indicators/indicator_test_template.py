@@ -3,20 +3,23 @@ from typing import List, Dict, Any, Callable, Optional
 import numpy as np
 import pandas as pd
 
-from py_entry.data_conversion.backtest_runner import (
-    BacktestRunner,
-    DefaultDataBuilder,
-    DefaultParamBuilder,
-    DefaultEngineSettingsBuilder,
-    SettingContainer,
-    ExecutionStage,
-)
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Callable, Optional
+import numpy as np
+import pandas as pd
+
+from py_entry.data_conversion.backtest_runner import BacktestRunner
 from py_entry.data_conversion.helpers.data_generator import (
     DataGenerationParams,
     OtherParams,
     OhlcvDataFetchConfig,
 )
-from py_entry.data_conversion.input import DataContainer
+from py_entry.data_conversion.input import (
+    DataContainer,
+    SettingContainer,
+    ExecutionStage,
+    IndicatorsParams,
+)
 
 import polars as pl
 
@@ -111,7 +114,7 @@ def print_array_details(name, arr):
 
 def _test_indicator_accuracy(
     config: IndicatorTestConfig,
-    data_dict,
+    data_container: DataContainer,
     enable_talib: bool = False,
     assert_mode_talib: bool = True,  # True=预期与talib相同, False=预期不同
     assert_mode_pandas_ta: bool = True,  # True=预期与pandas_ta相同, False=预期不同
@@ -120,54 +123,25 @@ def _test_indicator_accuracy(
     通用指标测试模板
 
     逻辑:
-    1. 根据config.params_config自动生成CustomParamBuilder
-    2. 运行回测引擎(使用CustomEngineSettingsBuilder,设置execution_stage=INDICATOR)
-    3. 对每个timeframe的每个indicator_key:
+    1. 运行回测引擎(设置execution_stage=INDICATOR)
+    2. 对每个timeframe的每个indicator_key:
        a. 使用engine_result_extractor提取回测引擎结果
        b. 使用pandas_ta_result_extractor提取pandas_ta结果
        c. 根据assert_mode参数决定使用assert_indicator_same还是assert_indicator_different
     """
 
-    class CustomDataBuilder(DefaultDataBuilder):
-        def __init__(self, data):
-            self.data = data
-
-        def build_data_dict(
-            self,
-            simulated_data_config: DataGenerationParams | None = None,
-            ohlcv_data_config: OhlcvDataFetchConfig | None = None,
-            predefined_ohlcv_dfs: list[pl.DataFrame] | None = None,
-            other_params: OtherParams | None = None,
-        ) -> DataContainer:
-            return self.data
-
-    class CustomParamBuilder(DefaultParamBuilder):
-        def __init__(self, params_config):
-            self.params_config = params_config
-
-        def build_indicators_params(
-            self, period_count: int
-        ) -> Dict[str, List[Dict[str, Any]]]:
-            return self.params_config
-
-    class CustomSettingsBuilder(DefaultEngineSettingsBuilder):
-        def build_engine_settings(self) -> SettingContainer:
-            return SettingContainer(
-                execution_stage=ExecutionStage.INDICATOR,
-                return_only_final=True,
-            )
-
-    timeframes, data = data_dict
-    ohlcv_dfs = data.source["ohlcv"]
+    ohlcv_dfs = data_container.source["ohlcv"]
 
     runner = BacktestRunner()
-    backtest_results = (
-        runner.with_data(data_builder=CustomDataBuilder(data))
-        .with_param_set(param_builder=CustomParamBuilder(config.params_config))
-        .with_templates()
-        .with_engine_settings(engine_settings_builder=CustomSettingsBuilder())
-        .run()
+    runner.setup(
+        data_source=ohlcv_dfs,  # 直接传入ohlcv_dfs
+        indicators_params=config.params_config,
+        engine_settings=SettingContainer(
+            execution_stage=ExecutionStage.INDICATOR,
+            return_only_final=True,
+        ),
     )
+    backtest_results = runner.run()
 
     for timeframe_idx, timeframe_params in enumerate(config.params_config["ohlcv"]):
         if backtest_results[0].indicators is None:

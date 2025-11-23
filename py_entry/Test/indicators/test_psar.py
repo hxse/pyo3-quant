@@ -8,7 +8,6 @@ from py_entry.Test.indicators.indicator_test_template import (
     IndicatorTestConfig,
     _test_indicator_accuracy,
 )
-from py_entry.Test.utils.conftest import data_dict
 
 
 # PSAR引擎提取器

@@ -7,25 +7,28 @@ from py_entry.data_conversion.input import (
     ParamContainer,
     TemplateContainer,
     SettingContainer,
+    IndicatorsParams,
+    SignalParams,
+    BacktestParams,
+    PerformanceParams,
+    SignalTemplate,
     SingleParamSet,
 )
-from .data_builders import BaseDataBuilder, DefaultDataBuilder
 from py_entry.data_conversion.helpers import validate_no_none_fields
 from py_entry.data_conversion.helpers.data_generator import (
     DataGenerationParams,
     OtherParams,
     OhlcvDataFetchConfig,
+    DataSourceConfig,
 )
-
-
-from .param_builders import BaseParamBuilder, DefaultParamBuilder
-from .template_builders import (
-    BaseSignalTemplateBuilder,
-    DefaultSignalTemplateBuilder,
-)
-from .engine_settings_builder import (
-    BaseEngineSettingsBuilder,
-    DefaultEngineSettingsBuilder,
+from .setup_utils import (
+    build_data,
+    build_indicators_params,
+    build_signal_params,
+    build_backtest_params,
+    build_performance_params,
+    build_signal_template,
+    build_engine_settings,
 )
 
 import pyo3_quant
@@ -34,8 +37,10 @@ import pyo3_quant
 class BacktestRunner:
     """回测配置和执行的主类。
 
-    该类提供了一个链式调用的接口来配置回测的各个方面，
-    包括数据、参数集、模板和引擎设置，并最终执行回测。
+    该类提供了简洁的配置方式：
+    使用 setup() 方法一次性配置所有组件
+
+    配置完成后，调用 run() 方法执行回测。
     """
 
     def __init__(self):
@@ -48,102 +53,65 @@ class BacktestRunner:
         self._template_config: Optional[TemplateContainer] = None
         self._engine_settings: Optional[SettingContainer] = None
 
-    def with_data(
+    def setup(
         self,
-        simulated_data_config: DataGenerationParams | None = None,
-        ohlcv_data_config: OhlcvDataFetchConfig | None = None,
-        predefined_ohlcv_dfs: list[pl.DataFrame] | None = None,
+        data_source: DataSourceConfig | None = None,
         other_params: OtherParams | None = None,
-        data_builder: BaseDataBuilder | None = None,
-    ) -> "BacktestRunner":
-        """配置回测所需的数据
+        indicators_params: IndicatorsParams | None = None,
+        signal_params: SignalParams | None = None,
+        backtest_params: BacktestParams | None = None,
+        performance_params: PerformanceParams | None = None,
+        signal_template: SignalTemplate | None = None,
+        engine_settings: SettingContainer | None = None,
+    ) -> None:
+        """一次性配置回测所需的所有组件
 
         Args:
-            simulated_data_config: 模拟数据生成参数配置对象
-            ohlcv_data_config: OHLCV数据获取配置对象
-            predefined_ohlcv_dfs: 预定义的OHLCV DataFrame列表
+            data_source: 数据源配置，可以是四种类型之一：
+                - DataGenerationParams: 模拟数据生成参数
+                - OhlcvDataFetchConfig: OHLCV数据获取配置
+                - list[pl.DataFrame]: 预定义的OHLCV DataFrame列表
+                - None: 使用默认模拟数据配置
             other_params: 其他参数配置对象
-            data_builder: 数据构建器(可选,默认使用 DefaultDataBuilder)
-
-        Returns:
-            当前的 BacktestRunner 实例,支持链式调用
+            indicators_params: 可选的指标参数，如果提供则直接返回，为None时返回默认值
+            signal_params: 可选的信号参数，如果提供则直接返回，为None时返回默认值
+            backtest_params: 可选的回测参数，如果提供则直接返回，为None时返回默认值
+            performance_params: 可选的性能参数，如果提供则直接返回，为None时返回默认值
+            signal_template: 可选的信号模板，如果提供则直接返回，为None时返回默认值
+            engine_settings: 可选的引擎设置，如果提供则直接返回，为None时返回默认值
         """
-        if data_builder is None:
-            data_builder = DefaultDataBuilder()
-
-        self._data_dict = data_builder.build_data_dict(
-            simulated_data_config=simulated_data_config,
-            ohlcv_data_config=ohlcv_data_config,
-            predefined_ohlcv_dfs=predefined_ohlcv_dfs,
+        # 配置数据
+        self._data_dict = build_data(
+            data_source=data_source,
             other_params=other_params,
         )
-        return self
 
-    def with_param_set(
-        self,
-        param_builder: BaseParamBuilder | None = None,
-    ) -> "BacktestRunner":
-        """构建回测的参数集"""
-        if param_builder is None:
-            param_builder = DefaultParamBuilder()
-
-        # period_count 可以从 len(data_dict.source["ohlcv"]) 实时计算
-        if self._data_dict is None:
-            raise ValueError("必须先调用 with_data() 配置数据")
+        # 配置参数集
+        # 使用提供的参数或默认值构建单个参数集
 
         period_count = len(self._data_dict.source["ohlcv"])
+        indicators = build_indicators_params(indicators_params)
+        for k, v in indicators.items():
+            if len(v) < period_count:
+                indicators[k] = v + [{} for _ in range(period_count - len(v))]
 
-        single_param_sets: list[SingleParamSet] = []
-        # param_count 可以从 len(param_set) 实时计算，这里假设只构建一个 SingleParamSet
-        # 如果需要多个，则需要外部传入一个数量，或者 param_builder 内部决定
-        # 暂时按照 REFACTOR_PLAN.md 的描述，删除 param_count 的计算和传递
-        single_set = SingleParamSet(
-            indicators=param_builder.build_indicators_params(period_count),
-            signal=param_builder.build_signal_params(),
-            backtest=param_builder.build_backtest_params(),
-            performance=param_builder.build_performance_params(),
-        )
-        single_param_sets.append(single_set)
+        self._param_set = [
+            SingleParamSet(
+                indicators=indicators,
+                signal=build_signal_params(signal_params),
+                backtest=build_backtest_params(backtest_params),
+                performance=build_performance_params(performance_params),
+            )
+            for _ in range(period_count)
+        ]
 
-        self._param_set = single_param_sets  # ParamSet 现在是 List[SingleParamSet]
-        return self
-
-    def with_templates(
-        self,
-        signal_template_builder: BaseSignalTemplateBuilder | None = None,
-    ) -> "BacktestRunner":
-        """构建回测所需的模板配置。
-
-        不接受参数，通过覆盖 `_build_signal_template_instance()`
-
-        Returns:
-            当前的 BacktestRunner 实例，支持链式调用。
-        """
-        if signal_template_builder is None:
-            signal_template_builder = DefaultSignalTemplateBuilder()
-
+        # 配置模板
         self._template_config = TemplateContainer(
-            signal=signal_template_builder.build_signal_template_instance(),
+            signal=build_signal_template(signal_template),
         )
 
-        return self
-
-    def with_engine_settings(
-        self, engine_settings_builder: BaseEngineSettingsBuilder | None = None
-    ) -> "BacktestRunner":
-        """构建回测引擎的设置。
-
-        不接受参数，通过覆盖 `_build_engine_settings()` 方法来自定义引擎设置。
-
-        Returns:
-            当前的 BacktestRunner 实例，支持链式调用。
-        """
-
-        if engine_settings_builder is None:
-            engine_settings_builder = DefaultEngineSettingsBuilder()
-
-        self._engine_settings = engine_settings_builder.build_engine_settings()
-        return self
+        # 配置引擎设置
+        self._engine_settings = build_engine_settings(engine_settings)
 
     def run(self) -> list[BacktestSummary]:
         """执行回测。
@@ -157,21 +125,26 @@ class BacktestRunner:
             ValueError: 如果任何必要的配置缺失。
         """
         if self._data_dict is None:
-            raise ValueError("必须先调用 with_data() 配置数据")
+            raise ValueError("必须先调用 setup() 配置回测参数")
         if self._template_config is None:
-            raise ValueError("必须先调用 with_templates() 配置模板")
+            raise ValueError("必须先调用 setup() 配置回测参数")
         if self._engine_settings is None:
-            raise ValueError("必须先调用 with_engine_settings() 配置引擎设置")
+            raise ValueError("必须先调用 setup() 配置回测参数")
         if self._param_set is None:
-            raise ValueError("必须先调用 with_param_set() 配置参数集")
+            raise ValueError("必须先调用 setup() 配置回测参数")
 
         validate_no_none_fields(self._data_dict)
         validate_no_none_fields(self._template_config)
         validate_no_none_fields(self._engine_settings)
+
+        # 验证 _param_set 是列表类型
+        if not isinstance(self._param_set, list):
+            raise ValueError(
+                f"_param_set 应该是列表类型，但得到的是 {type(self._param_set).__name__}"
+            )
+
         for i in self._param_set:
             validate_no_none_fields(i)
-
-        # period_count 可以从 len(data_dict.source["ohlcv"]) 实时计算，无需断言
 
         raw_results = pyo3_quant.backtest_engine.run_backtest_engine(
             self._data_dict,

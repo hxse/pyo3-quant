@@ -8,27 +8,19 @@ import numpy as np
 
 from py_entry.data_conversion.helpers.data_generator import (
     _process_dataframe_mapping,
-    is_natural_sequence,
 )
 
 
 class TestProcessDataframeMapping:
     """_process_dataframe_mapping 函数测试类"""
 
-    def test_process_dataframe_mapping_perfect_match(self):
+    def test_process_dataframe_mapping_perfect_match(
+        self, sample_time_series, ohlcv_df_factory
+    ):
         """测试 _process_dataframe_mapping 函数 - 完全匹配情况"""
         # 创建完全匹配的基准和目标 DataFrame
-        base_df = pl.DataFrame(
-            {
-                "time": np.arange(10) * 1000,  # 0, 1000, 2000, ..., 9000
-            }
-        )
-
-        df = pl.DataFrame(
-            {
-                "time": np.arange(10) * 1000,  # 完全相同的时间戳
-            }
-        )
+        base_df = ohlcv_df_factory(sample_time_series)
+        df = ohlcv_df_factory(sample_time_series)
 
         result = pl.DataFrame()
         skip_mapping = {}
@@ -43,20 +35,16 @@ class TestProcessDataframeMapping:
         assert skip_mapping["test_col"] is True  # 应该被跳过，因为是自然序列
         assert len(result.columns) == 0  # 结果应该为空，因为被跳过了
 
-    def test_process_dataframe_mapping_partial_match(self):
+    def test_process_dataframe_mapping_partial_match(
+        self, sample_time_series, ohlcv_df_factory
+    ):
         """测试 _process_dataframe_mapping 函数 - 部分匹配情况"""
         # 创建部分匹配的基准和目标 DataFrame
-        base_df = pl.DataFrame(
-            {
-                "time": np.arange(10) * 1000,  # 0, 1000, 2000, ..., 9000
-            }
-        )
-
-        df = pl.DataFrame(
-            {
-                "time": np.arange(5) * 2000 + 500,  # 500, 2500, 4500, 6500, 8500
-            }
-        )
+        base_df = ohlcv_df_factory(sample_time_series)
+        
+        # 目标 DataFrame 使用部分匹配的时间戳
+        partial_times = np.arange(5) * 2000 + 500  # 500, 2500, 4500, 6500, 8500
+        df = ohlcv_df_factory(partial_times)
 
         result = pl.DataFrame()
         skip_mapping = {}
@@ -72,20 +60,11 @@ class TestProcessDataframeMapping:
         assert len(result.columns) == 1  # 结果应该包含一列
         assert "test_col" in result.columns
 
-    def test_process_dataframe_mapping_empty_dataframe(self):
+    def test_process_dataframe_mapping_empty_dataframe(self, empty_dataframe):
         """测试 _process_dataframe_mapping 函数 - 空 DataFrame 情况"""
         # 创建空的基准和目标 DataFrame
-        base_df = pl.DataFrame(
-            {
-                "time": np.array([]),
-            }
-        )
-
-        df = pl.DataFrame(
-            {
-                "time": np.array([]),
-            }
-        )
+        base_df = empty_dataframe
+        df = empty_dataframe
 
         result = pl.DataFrame()
         skip_mapping = {}

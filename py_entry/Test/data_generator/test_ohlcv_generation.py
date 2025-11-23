@@ -16,11 +16,11 @@ from py_entry.data_conversion.helpers.data_generator import (
 class TestOhlcvGeneration:
     """OHLCV 数据生成测试类"""
 
-    def test_generate_ohlcv_basic(self):
+    def test_generate_ohlcv_basic(self, basic_start_time, basic_num_bars):
         """测试 generate_ohlcv 函数的基本功能"""
         timeframe = "1h"
-        start_time = 1609459200000  # 2021-01-01 00:00:00 UTC
-        num_bars = 100
+        start_time = basic_start_time
+        num_bars = basic_num_bars
 
         df = generate_ohlcv(timeframe, start_time, num_bars)
 
@@ -44,10 +44,10 @@ class TestOhlcvGeneration:
         assert df["close"].dtype == pl.Float64
         assert df["volume"].dtype == pl.Float64
 
-    def test_generate_ohlcv_empty_num_bars(self):
+    def test_generate_ohlcv_empty_num_bars(self, basic_start_time):
         """测试 generate_ohlcv 函数 num_bars 为 0 的情况"""
         timeframe = "1h"
-        start_time = 1609459200000
+        start_time = basic_start_time
         num_bars = 0
 
         df = generate_ohlcv(timeframe, start_time, num_bars)
@@ -60,13 +60,19 @@ class TestOhlcvGeneration:
         for col in expected_columns:
             assert col in df.columns
 
-    def test_generate_multi_timeframe_ohlcv_basic(self):
+    def test_generate_multi_timeframe_ohlcv_basic(
+        self,
+        basic_timeframes,
+        basic_start_time,
+        basic_num_bars,
+        multi_timeframe_ohlcv_data,
+    ):
         """测试 generate_multi_timeframe_ohlcv 函数的基本功能"""
-        timeframes = ["15m", "1h", "4h"]
-        start_time = 1609459200000
-        num_bars = 100  # 最小时间周期 (15m) 的 K 线数量
+        timeframes = basic_timeframes
+        start_time = basic_start_time
+        num_bars = basic_num_bars  # 最小时间周期 (15m) 的 K 线数量
 
-        dfs = generate_multi_timeframe_ohlcv(timeframes, start_time, num_bars)
+        dfs = multi_timeframe_ohlcv_data
 
         # 验证返回的 DataFrame 列表数量是否正确
         assert len(dfs) == len(timeframes)
@@ -96,21 +102,23 @@ class TestOhlcvGeneration:
             expected_times = start_time + np.arange(expected_num_bars) * interval_ms
             assert np.array_equal(df["time"].to_numpy(), expected_times)
 
-    def test_generate_multi_timeframe_ohlcv_empty_timeframes(self):
+    def test_generate_multi_timeframe_ohlcv_empty_timeframes(
+        self, basic_start_time, basic_num_bars
+    ):
         """测试 generate_multi_timeframe_ohlcv 函数 timeframes 为空的情况"""
         timeframes = []
-        start_time = 1609459200000
-        num_bars = 100
+        start_time = basic_start_time
+        num_bars = basic_num_bars
 
         dfs = generate_multi_timeframe_ohlcv(timeframes, start_time, num_bars)
 
         # 验证返回空列表
         assert len(dfs) == 0
 
-    def test_generate_multi_timeframe_ohlcv_single_timeframe(self):
+    def test_generate_multi_timeframe_ohlcv_single_timeframe(self, basic_start_time):
         """测试 generate_multi_timeframe_ohlcv 函数单个时间周期的情况"""
         timeframes = ["1h"]
-        start_time = 1609459200000
+        start_time = basic_start_time
         num_bars = 50
 
         dfs = generate_multi_timeframe_ohlcv(timeframes, start_time, num_bars)

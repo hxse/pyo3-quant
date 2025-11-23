@@ -1,15 +1,24 @@
 import pytest
 
-# 从 example.py 导入自定义 Builder 类
-from .example import (
-    BacktestRunner,
-    CustomParamBuilder,
-    CustomSignalTemplateBuilder,
-    CustomEngineSettingsBuilder,
-    DefaultDataBuilder,
-)
-
+from py_entry.data_conversion.backtest_runner import BacktestRunner
 from py_entry.data_conversion.helpers.data_generator import DataGenerationParams
+from py_entry.data_conversion.input import (
+    BacktestParams,
+    CompareOp,
+    IndicatorsParams,
+    LogicOp,
+    Param,
+    PerformanceParams,
+    SignalGroup,
+    SignalParams,
+    SignalTemplate,
+    SettingContainer,
+    ExecutionStage,
+)
+from py_entry.data_conversion.helpers import (
+    signal_data_vs_data,
+    signal_data_vs_param,
+)
 
 
 @pytest.fixture(scope="class")
@@ -25,16 +34,108 @@ def backtest_result():
         fixed_seed=True,
     )
 
-    result = (
-        br.with_data(
-            simulated_data_config=simulated_data_config,
-            data_builder=DefaultDataBuilder(),
-        )
-        .with_param_set(param_builder=CustomParamBuilder())
-        .with_templates(signal_template_builder=CustomSignalTemplateBuilder())
-        .with_engine_settings(engine_settings_builder=CustomEngineSettingsBuilder())
-        .run()
+    # 构建指标参数
+    indicators_params = {
+        "ohlcv": [
+            {
+                "bbands_0": {
+                    "period": Param.create(14),
+                    "std": Param.create(2),
+                }
+            },
+            {
+                "rsi_0": {
+                    "period": Param.create(14),
+                }
+            },
+            {
+                "sma_0": {
+                    "period": Param.create(8),
+                },
+                "sma_1": {
+                    "period": Param.create(16),
+                },
+            },
+        ]
+    }
+
+    # 自定义信号参数
+    signal_params = {"rsi_midline": Param.create(20, 10, 90, 5)}
+
+    # 自定义回测参数
+    backtest_params = BacktestParams(
+        initial_capital=10000.0,
+        fee_fixed=1,
+        fee_pct=0.001,
+        pause_drawdown=Param.create(0, 0, 0, 0),
+        pause_sma=Param.create(0, 0, 0, 0),
+        pause_ema=Param.create(0, 0, 0, 0),
+        exit_in_bar=False,
+        exit_in_bar_fallback=False,
+        tsl_per_bar_update=False,
+        sl_pct=Param.create(2, 0.5, 5, 0.1),
+        tp_pct=Param.create(2, 0.5, 5, 0.1),
+        tsl_pct=Param.create(1, 0.5, 3, 0.1),
+        sl_atr=Param.create(2, 1, 5, 0.5),
+        tp_atr=Param.create(3, 1, 5, 0.5),
+        tsl_atr=Param.create(2, 1, 4, 0.5),
+        atr_period=Param.create(14, 7, 21, 1),
     )
+
+    # 自定义信号模板
+    enter_long_group = SignalGroup(
+        logic=LogicOp.AND,
+        conditions=[
+            signal_data_vs_data(
+                compare=CompareOp.GT,
+                a_name="sma_0",
+                a_source="ohlcv_2",
+                a_offset=0,
+                b_name="sma_1",
+                b_source="ohlcv_2",
+                b_offset=0,
+            ),
+            signal_data_vs_param(
+                compare=CompareOp.GT,
+                a_name="rsi_0",
+                a_source="ohlcv_1",
+                a_offset=0,
+                b_param="rsi_midline",
+            ),
+            signal_data_vs_data(
+                compare=CompareOp.CGT,
+                a_name="close",
+                a_source="ohlcv_0",
+                a_offset=0,
+                b_name="bbands_0_upper",
+                b_source="ohlcv_0",
+                b_offset=0,
+            ),
+        ],
+    )
+
+    signal_template = SignalTemplate(
+        name="multi_timeframe_dynamic_strategy", enter_long=[enter_long_group]
+    )
+
+    # 自定义引擎设置
+    engine_settings = SettingContainer(
+        execution_stage=ExecutionStage.PERFORMANCE,
+        return_only_final=False,
+    )
+
+    # 使用 setup 方法一次性配置所有参数
+    br.setup(
+        data_source=simulated_data_config,
+        indicators_params=indicators_params,
+        signal_params=signal_params,
+        backtest_params=backtest_params,
+        signal_template=signal_template,
+        engine_settings=engine_settings,
+    )
+
+    # 执行回测
+    result = br.run()
 
     return result
 

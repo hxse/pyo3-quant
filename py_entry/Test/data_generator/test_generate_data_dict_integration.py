@@ -12,20 +12,8 @@ from py_entry.data_conversion.helpers.data_generator import (
 class TestGenerateDataDictIntegration:
     """generate_data_dict 函数集成测试类"""
 
-    def test_generate_data_dict_mapping_integration(self):
+    def test_generate_data_dict_mapping_integration(self, data_container):
         """测试 generate_data_dict 函数的映射集成功能"""
-        # 生成测试数据
-        timeframes = ["15m", "1h"]
-        start_time = 1609459200000  # 2021-01-01 00:00:00 UTC
-        num_bars = 100
-
-        # 创建模拟数据配置
-        simulated_data_config = DataGenerationParams(
-            timeframes=timeframes, start_time=start_time, num_bars=num_bars
-        )
-
-        # 调用函数
-        data_container = generate_data_dict(simulated_data_config=simulated_data_config)
 
         # 验证 DataContainer 的基本结构
         assert hasattr(data_container, "mapping")
@@ -50,15 +38,11 @@ class TestGenerateDataDictIntegration:
                     f"列 {col_name} 未被标记为跳过但不存在于映射 DataFrame 中"
                 )
 
-    def test_generate_data_dict_empty_timeframes(self):
+    def test_generate_data_dict_empty_timeframes(self, data_container):
         """测试 generate_data_dict 函数 - 空时间周期列表"""
         # 调用函数，传入空时间周期列表会导致 IndexError，这是预期行为
         # 根据用户反馈，空的时间周期列表会导致 IndexError，这是预期行为
         # 我们改为测试正常的时间周期列表
-        simulated_data_config = DataGenerationParams(
-            timeframes=["15m", "1h"], start_time=1609459200000, num_bars=100
-        )
-        data_container = generate_data_dict(simulated_data_config=simulated_data_config)
 
         # 验证结果
         assert len(data_container.source["ohlcv"]) > 0
@@ -66,20 +50,19 @@ class TestGenerateDataDictIntegration:
         assert data_container.skip_mapping["ohlcv_0"] is True
         assert "ohlcv_0" not in data_container.mapping.columns
 
-    def test_generate_data_dict_small_num_bars(self):
+    def test_generate_data_dict_small_num_bars(self, basic_start_time):
         """测试 generate_data_dict 函数 - 小数量 K 线"""
         # 生成少量 K 线数据
         timeframes = ["15m"]
-        start_time = 1609459200000
         num_bars = 5  # 很小的数量
 
         # 创建模拟数据配置
         simulated_data_config = DataGenerationParams(
-            timeframes=timeframes, start_time=start_time, num_bars=num_bars
+            timeframes=timeframes, start_time=basic_start_time, num_bars=num_bars
         )
 
         # 调用函数
-        data_container = generate_data_dict(simulated_data_config=simulated_data_config)
+        data_container = generate_data_dict(data_source=simulated_data_config)
 
         # 验证结果
         assert len(data_container.source["ohlcv"][0]) == num_bars

@@ -26,20 +26,11 @@ if __name__ == "__main__":
     start_time = time.perf_counter()
     br = BacktestRunner()
 
-    # 创建 DataGenerationParams 对象
-    simulated_data_config = DataGenerationParams(
-        timeframes=["15m", "1h"],
-        start_time=1735689600000,
-        num_bars=200,
-    )
+    # 使用新的 setup 方法一次性配置所有参数
+    br.setup()
 
-    backtest_result = (
-        br.with_data(simulated_data_config=simulated_data_config)
-        .with_param_set()
-        .with_templates()
-        .with_engine_settings()
-        .run()
-    )
+    # 执行回测
+    backtest_result = br.run()
 
     print(backtest_result)
 

@@ -4,7 +4,6 @@
 提供导出 BacktestSummary 和 DataContainer 数据为 CSV 文件的功能。
 """
 
-import os
 from pathlib import Path
 import polars as pl
 from typing import Optional
@@ -39,6 +38,7 @@ def export_backtest_data_to_csv(
     """
 
     # 确定输出目录
+    output_path: Path
     if output_dir is None:
         # 获取调用者的文件路径
         frame = None
@@ -46,21 +46,25 @@ def export_backtest_data_to_csv(
             # 尝试获取调用这个函数的文件路径
             import inspect
 
-            frame = inspect.currentframe().f_back
-            caller_file_path = frame.f_code.co_filename
-            caller_dir = Path(caller_file_path).parent
-        except:
+            frame = inspect.currentframe()
+            if frame is not None and frame.f_back is not None:
+                caller_file_path = frame.f_back.f_code.co_filename
+                caller_dir = Path(caller_file_path).parent
+            else:
+                # 如果获取失败，使用当前目录
+                caller_dir = Path.cwd()
+        except Exception:
             # 如果获取失败，使用当前目录
             caller_dir = Path.cwd()
         finally:
             del frame
 
-        output_dir = caller_dir / "data"
+        output_path = caller_dir / "data"
     else:
-        output_dir = Path(output_dir)
+        output_path = Path(output_dir)
 
     # 创建输出目录
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path.mkdir(parents=True, exist_ok=True)
 
     print(f"开始导出数据到目录: {output_dir}")
 
@@ -70,7 +74,7 @@ def export_backtest_data_to_csv(
         performance_df = pl.DataFrame(
             [{"metric": k, "value": v} for k, v in backtest_summary.performance.items()]
         )
-        performance_path = output_dir / "performance.csv"
+        performance_path = output_path / "performance.csv"
         _add_index_and_export(performance_df, performance_path, "性能指标")
 
     if backtest_summary.indicators:
@@ -78,31 +82,31 @@ def export_backtest_data_to_csv(
         for timeframe_name, indicator_dfs in backtest_summary.indicators.items():
             for i, indicator_df in enumerate(indicator_dfs):
                 if indicator_df is not None and not indicator_df.is_empty():
-                    indicator_path = output_dir / f"indicators_{timeframe_name}_{i}.csv"
+                    indicator_path = output_path / f"indicators_{timeframe_name}_{i}.csv"
                     _add_index_and_export(
                         indicator_df, indicator_path, f"指标数据({timeframe_name}_{i})"
                     )
 
     if backtest_summary.signals is not None:
         # 导出交易信号
-        signals_path = output_dir / "signals.csv"
+        signals_path = output_path / "signals.csv"
         _add_index_and_export(backtest_summary.signals, signals_path, "交易信号")
 
     if backtest_summary.backtest_result is not None:
         # 导出回测结果
-        backtest_path = output_dir / "backtest_result.csv"
+        backtest_path = output_path / "backtest_result.csv"
         _add_index_and_export(
             backtest_summary.backtest_result, backtest_path, "回测结果"
         )
 
     # 导出 DataContainer 的各个组件
     # 导出mapping
-    mapping_path = output_dir / "data_mapping.csv"
+    mapping_path = output_path / "data_mapping.csv"
     _add_index_and_export(data_container.mapping, mapping_path, "数据映射")
 
     # 导出skip_mask
     if data_container.skip_mask is not None:
-        skip_mask_path = output_dir / "skip_mask.csv"
+        skip_mask_path = output_path / "skip_mask.csv"
         skip_mask_df = pl.DataFrame({"skip_mask": data_container.skip_mask})
         _add_index_and_export(skip_mask_df, skip_mask_path, "跳过掩码")
 
@@ -111,7 +115,7 @@ def export_backtest_data_to_csv(
         skip_mapping_df = pl.DataFrame(
             [{"key": k, "value": v} for k, v in data_container.skip_mapping.items()]
         )
-        skip_mapping_path = output_dir / "skip_mapping.csv"
+        skip_mapping_path = output_path / "skip_mapping.csv"
         _add_index_and_export(skip_mapping_df, skip_mapping_path, "跳过映射")
 
     # 导出source数据
@@ -119,9 +123,9 @@ def export_backtest_data_to_csv(
         for source_name, source_dfs in data_container.source.items():
             for i, source_df in enumerate(source_dfs):
                 if source_df is not None and not source_df.is_empty():
-                    source_path = output_dir / f"source_{source_name}_{i}.csv"
+                    source_path = output_path / f"source_{source_name}_{i}.csv"
                     _add_index_and_export(
                         source_df, source_path, f"源数据({source_name}_{i})"
                     )
 
-    print(f"🎉 数据导出完成！所有文件保存在: {output_dir}")
+    print(f"🎉 数据导出完成！所有文件保存在: {output_path}")

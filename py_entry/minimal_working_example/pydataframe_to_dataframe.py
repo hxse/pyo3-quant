@@ -10,7 +10,7 @@
 3. 性能更好：一次性转换
 """
 
-import path_tool
+# import path_tool  # 已注释，因为未使用
 import polars as pl
 import pyo3_quant
 
@@ -56,7 +56,7 @@ def test_basic_conversion():
     )
 
     # 调用Rust函数进行转换
-    result = pyo3_quant.test_custom_from_py_object(data_dict)
+    result = pyo3_quant.minimal_working_example.test_custom_from_py_object(data_dict)
     print(result)
 
 
@@ -109,7 +109,7 @@ def test_multiple_timeframes():
         mapping=mapping_df, skip_mask=skip_mask_df, ohlcv=ohlcv_dfs
     )
 
-    result = pyo3_quant.test_custom_from_py_object(data_dict)
+    result = pyo3_quant.minimal_working_example.test_custom_from_py_object(data_dict)
     print(result)
 
 
@@ -148,7 +148,7 @@ def test_with_extra_data():
         extra_data=extra_data,
     )
 
-    result = pyo3_quant.test_custom_from_py_object(data_dict)
+    result = pyo3_quant.minimal_working_example.test_custom_from_py_object(data_dict)
     print(result)
 
 

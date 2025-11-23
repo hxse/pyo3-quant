@@ -12,7 +12,7 @@ from .time_utils import parse_timeframe, time_format, fixed_cols
 from .ohlcv_generator import generate_multi_timeframe_ohlcv, generate_ohlcv
 from .heikin_ashi_generator import generate_ha, calculate_heikin_ashi
 from .renko_generator import generate_renko, calculate_renko
-from .time_mapping import generate_time_mapping, is_natural_sequence
+from .time_mapping import generate_time_mapping, is_natural_sequence, _process_dataframe_mapping
 from py_entry.data_conversion.input import DataContainer
 from py_entry.data_conversion.file_utils.data_client import (
     get_ohlcv_data,
@@ -160,6 +160,7 @@ __all__ = [
     "generate_renko",
     "calculate_renko",
     "generate_time_mapping",
+    "_process_dataframe_mapping",
     "is_natural_sequence",
     "time_format",
     "fixed_cols",

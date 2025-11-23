@@ -1,13 +1,11 @@
 from dataclasses import asdict, is_dataclass
 from typing import Any, TypeVar, Union
 
-# 使用 TypeVar 来表示任意的 dataclass 类型
-# TypeVar('T') 约束了 T 必须是类型，但没有限制它必须是 dataclass，
-# 因此我们依靠运行时 is_dataclass 检查来保证安全。
-T = TypeVar("T")
+# 定义一个类型变量，限制为 dataclass 实例类型
+T = TypeVar("T", bound=object)
 
 
-def validate_no_none_fields(instance: T) -> None:
+def validate_no_none_fields(instance: Union[T, type[T]]) -> None:
     """
     检查任意 dataclass 实例的所有顶层字段是否为 None。
     如果发现任何 None 值，则抛出 ValueError。
@@ -26,7 +24,14 @@ def validate_no_none_fields(instance: T) -> None:
             f"配置错误：期望传入一个 dataclass 实例，但收到 {type(instance)}。"
         )
 
-    # 2. 将 dataclass 转换为字典，以便遍历字段及其值
+    # 2. 如果传入的是类而不是实例，抛出错误
+    if isinstance(instance, type):
+        raise TypeError(
+            f"配置错误：期望传入一个 dataclass 实例，但收到 dataclass 类 {instance.__name__}。"
+        )
+
+    # 3. 将 dataclass 转换为字典，以便遍历字段及其值
+    # 现在类型检查器知道 instance 是一个实例，不是类
     data = asdict(instance)
 
     # 3. 遍历字典，检查值是否为 None

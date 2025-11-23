@@ -79,7 +79,7 @@ def print_array_details(name, arr):
         # 数组全为 NaN 或 Inf
         leading_nan_count = total_count
     else:
-        leading_nan_count = first_valid_idx[0]
+        leading_nan_count = int(first_valid_idx[0])
 
     print(f"2. 前导 NaN 数量 (Leading NaNs): {leading_nan_count}")
 
@@ -170,7 +170,6 @@ def _test_indicator_accuracy(
     )
 
     for timeframe_idx, timeframe_params in enumerate(config.params_config["ohlcv"]):
-        # backtest_results[0].indicators 是 dict[str, list[pl.DataFrame]] | None
         if backtest_results[0].indicators is None:
             raise ValueError("回测结果中没有indicators数据")
         indicators_df_current_timeframe = backtest_results[0].indicators["ohlcv"][

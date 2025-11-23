@@ -8,14 +8,13 @@
 """
 
 import polars as pl
-from polars.testing import assert_frame_equal
 
 
 def extract_indicator_data(indicators_df, indicator_name):
     """从指标DataFrame中提取特定指标数据"""
     try:
         return indicators_df.select(indicator_name).to_series()
-    except pl.ColumnNotFoundError:
+    except pl.exceptions.ColumnNotFoundError:
         raise ValueError(f"指标 {indicator_name} 未在DataFrame中找到")
 
 

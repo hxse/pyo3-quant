@@ -1,23 +1,13 @@
 """Type stubs for pyo3_quant module."""
 
-from typing import Any, Optional, Dict, List, Union
-import polars as pl
+from typing import Any, Dict, List, Optional, Union
 
 # 导入项目中已有的类型定义
 from py_entry.data_conversion.input import (
     Param,
-    CompareOp,
-    LogicOp,
-    PerformanceMetric,
-    ExecutionStage,
     ParamOperand,
     SignalDataOperand,
-    SignalCondition,
-    SignalGroup,
-    SignalTemplate,
-    BacktestParams,
-    PerformanceParams,
-    SingleParamSet,
+    # SingleParamSet,  # 已注释，因为未使用
     ParamContainer,
     SettingContainer,
     TemplateContainer,
@@ -38,6 +28,16 @@ class minimal_working_example:
         """将两个整数相加并返回结果的字符串表示"""
         ...
 
+    @staticmethod
+    def test_custom_from_py_object(data_dict: Any) -> str:
+        """测试自定义FromPyObject转换
+        Args:
+            data_dict: 测试数据字典
+        Returns:
+            转换结果字符串
+        """
+        ...
+
 class backtest_engine:
     @staticmethod
     def run_backtest_engine(
@@ -46,7 +46,7 @@ class backtest_engine:
         template_config: TemplateContainer,
         engine_settings: SettingContainer,
         debug_config: Optional[BacktestSummary] = None,
-    ) -> List[BacktestSummary]:
+    ) -> List[Dict[str, Any]]:
         """运行回测引擎
 
         Args:
@@ -57,6 +57,6 @@ class backtest_engine:
             debug_config: 可选的已有回测结果，用于增量计算
 
         Returns:
-            回测结果摘要列表
+            回测结果摘要字典列表
         """
         ...

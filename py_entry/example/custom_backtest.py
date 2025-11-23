@@ -10,9 +10,10 @@ if root_path:
 
 # 所有导入必须在 sys.path 修改之后立即进行
 import time
-import pdb
-import pyo3_quant
 from loguru import logger
+
+# 项目导入
+import pyo3_quant
 
 from py_entry.data_conversion.backtest_runner import (
     BacktestRunner,
@@ -261,5 +262,3 @@ if __name__ == "__main__":
             backtest_summary=backtest_result[0], data_container=data_container
         )
     print("=" * 50)
-
-    pdb.set_trace()

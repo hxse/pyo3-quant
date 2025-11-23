@@ -1,4 +1,4 @@
-from typing import Optional, Any
+from typing import Optional
 import polars as pl
 
 from py_entry.data_conversion.output import BacktestSummary
@@ -173,13 +173,11 @@ class BacktestRunner:
 
         # period_count 可以从 len(data_dict.source["ohlcv"]) 实时计算，无需断言
 
-        raw_results: list[dict[str, Any]] = (
-            pyo3_quant.backtest_engine.run_backtest_engine(
-                self._data_dict,
-                self._param_set,
-                self._template_config,
-                self._engine_settings,
-                None,
-            )
+        raw_results = pyo3_quant.backtest_engine.run_backtest_engine(
+            self._data_dict,
+            self._param_set,
+            self._template_config,
+            self._engine_settings,
+            None,
         )
         return [BacktestSummary.from_dict(result) for result in raw_results]

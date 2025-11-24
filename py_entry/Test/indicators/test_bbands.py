@@ -3,10 +3,10 @@ import numpy as np
 import pandas as pd
 import pandas_ta as ta
 
-from py_entry.data_conversion.input import Param
+from py_entry.data_conversion.types import Param
 from py_entry.Test.indicators.indicator_test_template import (
     IndicatorTestConfig,
-    _test_indicator_accuracy,
+    validate_indicator_accuracy,
 )
 
 
@@ -87,7 +87,7 @@ bbands_config = IndicatorTestConfig(
 # 测试函数
 def test_accuracy(data_dict):
     """测试BBands指标计算结果与pandas-ta的一致性"""
-    _test_indicator_accuracy(
+    validate_indicator_accuracy(
         bbands_config,
         data_dict,
         enable_talib=True,

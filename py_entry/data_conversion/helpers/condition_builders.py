@@ -1,6 +1,6 @@
 """条件快速构建辅助函数"""
 
-from ..input import (
+from py_entry.data_conversion.types import (
     CompareOp,
     SignalCondition,
     ParamOperand,

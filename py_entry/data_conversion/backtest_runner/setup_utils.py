@@ -2,7 +2,7 @@
 回测设置工具函数，用于替换 builder 类
 """
 
-from py_entry.data_conversion.input import (
+from py_entry.data_conversion.types import (
     DataContainer,
     IndicatorsParams,
     SignalParams,
@@ -16,14 +16,14 @@ from py_entry.data_conversion.input import (
     SignalGroup,
     SettingContainer,
     ExecutionStage,
-    SingleParamSet,
 )
+
 from py_entry.data_conversion.helpers import (
-    generate_data_dict,
     signal_data_vs_data,
     signal_data_vs_param,
 )
-from py_entry.data_conversion.helpers.data_generator import (
+from py_entry.data_conversion.data_generator import (
+    generate_data_dict,
     DataGenerationParams,
     OtherParams,
     OhlcvDataFetchConfig,

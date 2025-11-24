@@ -3,10 +3,10 @@ import numpy as np
 import pandas as pd
 import pandas_ta as ta
 
-from py_entry.data_conversion.input import Param
+from py_entry.data_conversion.types import Param
 from py_entry.Test.indicators.indicator_test_template import (
     IndicatorTestConfig,
-    _test_indicator_accuracy,
+    validate_indicator_accuracy,
 )
 
 
@@ -62,7 +62,7 @@ sma_config = IndicatorTestConfig(
 # 重构后的测试函数(保持原有签名以兼容现有测试)
 def test_accuracy(data_dict):
     """测试SMA指标计算结果与pandas-ta的一致性"""
-    _test_indicator_accuracy(
+    validate_indicator_accuracy(
         sma_config,
         data_dict,
         enable_talib=True,

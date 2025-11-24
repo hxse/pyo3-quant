@@ -9,12 +9,12 @@ import numpy as np
 import pandas as pd
 
 from py_entry.data_conversion.backtest_runner import BacktestRunner
-from py_entry.data_conversion.helpers.data_generator import (
+from py_entry.data_conversion.data_generator import (
     DataGenerationParams,
     OtherParams,
     OhlcvDataFetchConfig,
 )
-from py_entry.data_conversion.input import (
+from py_entry.data_conversion.types import (
     DataContainer,
     SettingContainer,
     ExecutionStage,
@@ -112,7 +112,7 @@ def print_array_details(name, arr):
         print("数组中无有效非 NaN/Inf 数据可打印。")
 
 
-def _test_indicator_accuracy(
+def validate_indicator_accuracy(
     config: IndicatorTestConfig,
     data_container: DataContainer,
     enable_talib: bool = False,

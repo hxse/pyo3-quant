@@ -1,11 +1,10 @@
 import pytest
 import numpy as np
 import polars as pl
-from py_entry.data_conversion.helpers.data_generator import (
+from py_entry.data_conversion.data_generator import (
     generate_data_dict,
     DataGenerationParams,
-    generate_ohlcv,
-    parse_timeframe,
+    generate_multi_timeframe_ohlcv,
 )
 
 
@@ -52,9 +51,6 @@ def data_container(data_generation_params):
 @pytest.fixture(scope="module")
 def multi_timeframe_ohlcv_data(basic_timeframes, basic_start_time, basic_num_bars):
     """多时间周期 OHLCV 数据，用于测试"""
-    from py_entry.data_conversion.helpers.data_generator import (
-        generate_multi_timeframe_ohlcv,
-    )
 
     return generate_multi_timeframe_ohlcv(
         basic_timeframes, basic_start_time, basic_num_bars
@@ -170,7 +166,7 @@ def ohlcv_df_factory():
     def _create_ohlcv_df(time_series, num_bars=None):
         if num_bars is None:
             num_bars = len(time_series)
-        
+
         # 如果 time_series 是 numpy array，直接使用
         if isinstance(time_series, np.ndarray):
             times = time_series

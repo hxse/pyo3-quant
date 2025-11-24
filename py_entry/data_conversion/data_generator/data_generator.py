@@ -19,8 +19,8 @@ from .ohlcv_generator import generate_multi_timeframe_ohlcv
 from .heikin_ashi_generator import generate_ha
 from .renko_generator import generate_renko
 from .time_mapping import generate_time_mapping
-from py_entry.data_conversion.input import DataContainer
-from py_entry.data_conversion.file_utils.data_client import (
+from py_entry.data_conversion.types import DataContainer
+from py_entry.data_conversion.file_utils import (
     get_ohlcv_data,
     convert_to_ohlcv_dataframe,
     OhlcvDataConfig,

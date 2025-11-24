@@ -16,12 +16,11 @@ from loguru import logger
 import pyo3_quant
 
 from py_entry.data_conversion.backtest_runner import BacktestRunner
-from py_entry.data_conversion.helpers.data_generator import DataGenerationParams
 from py_entry.data_conversion.helpers import (
     signal_data_vs_data,
     signal_data_vs_param,
 )
-from py_entry.data_conversion.input import (
+from py_entry.data_conversion.types import (
     BacktestParams,
     CompareOp,
     IndicatorsParams,
@@ -36,6 +35,7 @@ from py_entry.data_conversion.input import (
 )
 from py_entry.Test.utils.backtest_data_exporter import export_backtest_data_to_csv
 
+from py_entry.data_conversion.data_generator import DataGenerationParams
 
 # 创建 DataGenerationParams 对象
 simulated_data_config = DataGenerationParams(
@@ -169,7 +169,7 @@ if __name__ == "__main__":
     print("\n" + "=" * 50)
     print("开始导出回测数据...")
     # 获取数据容器，确保不为None
-    data_container = br._data_dict  # type: ignore[attr-defined]
+    data_container = br.data_dict  # type: ignore[attr-defined]
     if data_container is not None:
         export_backtest_data_to_csv(
             backtest_summary=backtest_result[0], data_container=data_container

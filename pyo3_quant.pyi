@@ -3,7 +3,7 @@
 from typing import Any, Dict, List, Optional, Union
 
 # 导入项目中已有的类型定义
-from py_entry.data_conversion.input import (
+from py_entry.data_conversion.types import (
     Param,
     ParamOperand,
     SignalDataOperand,
@@ -12,8 +12,8 @@ from py_entry.data_conversion.input import (
     SettingContainer,
     TemplateContainer,
     DataContainer,
+    BacktestSummary,
 )
-from py_entry.data_conversion.output import BacktestSummary
 
 # 类型别名
 IndicatorsParams = Dict[str, List[Dict[str, Dict[str, Param]]]]

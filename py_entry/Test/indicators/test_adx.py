@@ -4,10 +4,10 @@ import pandas as pd
 import pandas_ta as ta
 import polars as pl
 
-from py_entry.data_conversion.input import Param
+from py_entry.data_conversion.types import Param
 from py_entry.Test.indicators.indicator_test_template import (
     IndicatorTestConfig,
-    _test_indicator_accuracy,
+    validate_indicator_accuracy,
 )
 
 
@@ -91,7 +91,7 @@ adx_config = IndicatorTestConfig(
 # 测试函数
 def test_accuracy(data_dict):
     """测试ADX指标计算结果与pandas-ta talib模式的一致性"""
-    _test_indicator_accuracy(
+    validate_indicator_accuracy(
         adx_config,
         data_dict,
         enable_talib=True,

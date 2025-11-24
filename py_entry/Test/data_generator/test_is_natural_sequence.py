@@ -5,7 +5,8 @@
 import pytest
 import polars as pl
 
-from py_entry.data_conversion.helpers.data_generator import is_natural_sequence
+
+from py_entry.data_conversion.data_generator import is_natural_sequence
 
 
 class TestIsNaturalSequence:

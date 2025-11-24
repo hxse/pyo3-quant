@@ -16,10 +16,7 @@ from .upload import (
     upload_data,
     upload_to_server,
 )
-from .data_client import (
-    get_ohlcv_data,
-    convert_to_ohlcv_dataframe,
-)
+from .data_client import get_ohlcv_data, convert_to_ohlcv_dataframe, OhlcvDataConfig
 from .types import (
     AuthConfig,
     RetryConfig,
@@ -41,6 +38,7 @@ __all__ = [
     "upload_to_server",
     "get_ohlcv_data",
     "convert_to_ohlcv_dataframe",
+    "OhlcvDataConfig",
     "AuthConfig",
     "RetryConfig",
     "RequestConfig",

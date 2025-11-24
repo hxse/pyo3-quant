@@ -6,9 +6,7 @@ import pytest
 import polars as pl
 import numpy as np
 
-from py_entry.data_conversion.helpers.data_generator import (
-    _process_dataframe_mapping,
-)
+from py_entry.data_conversion.data_generator import process_dataframe_mapping
 
 
 class TestProcessDataframeMapping:
@@ -26,7 +24,7 @@ class TestProcessDataframeMapping:
         skip_mapping = {}
 
         # 调用函数
-        result = _process_dataframe_mapping(
+        result = process_dataframe_mapping(
             base_df, df, "test_col", result, skip_mapping
         )
 
@@ -41,7 +39,7 @@ class TestProcessDataframeMapping:
         """测试 _process_dataframe_mapping 函数 - 部分匹配情况"""
         # 创建部分匹配的基准和目标 DataFrame
         base_df = ohlcv_df_factory(sample_time_series)
-        
+
         # 目标 DataFrame 使用部分匹配的时间戳
         partial_times = np.arange(5) * 2000 + 500  # 500, 2500, 4500, 6500, 8500
         df = ohlcv_df_factory(partial_times)
@@ -50,7 +48,7 @@ class TestProcessDataframeMapping:
         skip_mapping = {}
 
         # 调用函数
-        result = _process_dataframe_mapping(
+        result = process_dataframe_mapping(
             base_df, df, "test_col", result, skip_mapping
         )
 
@@ -70,7 +68,7 @@ class TestProcessDataframeMapping:
         skip_mapping = {}
 
         # 调用函数
-        result = _process_dataframe_mapping(
+        result = process_dataframe_mapping(
             base_df, df, "test_col", result, skip_mapping
         )
 

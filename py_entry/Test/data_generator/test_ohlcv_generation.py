@@ -6,7 +6,8 @@ import pytest
 import polars as pl
 import numpy as np
 
-from py_entry.data_conversion.helpers.data_generator import (
+
+from py_entry.data_conversion.data_generator import (
     generate_ohlcv,
     generate_multi_timeframe_ohlcv,
     parse_timeframe,

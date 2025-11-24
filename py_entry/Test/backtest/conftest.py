@@ -1,8 +1,10 @@
 import pytest
 
 from py_entry.data_conversion.backtest_runner import BacktestRunner
-from py_entry.data_conversion.helpers.data_generator import DataGenerationParams
-from py_entry.data_conversion.input import (
+from py_entry.data_conversion.data_generator import (
+    DataGenerationParams,
+)
+from py_entry.data_conversion.types import (
     BacktestParams,
     CompareOp,
     IndicatorsParams,

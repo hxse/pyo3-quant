@@ -3,7 +3,7 @@
 """
 
 import pytest
-from py_entry.data_conversion.helpers.data_generator import (
+from py_entry.data_conversion.data_generator import (
     generate_data_dict,
     DataGenerationParams,
 )

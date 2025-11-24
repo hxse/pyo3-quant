@@ -32,7 +32,7 @@ from .renko_generator import generate_renko, calculate_renko
 from .time_mapping import (
     generate_time_mapping,
     is_natural_sequence,
-    _process_dataframe_mapping,
+    process_dataframe_mapping,
 )
 
 # 导出所有主要函数，以便兼容原有导入方式
@@ -53,7 +53,7 @@ __all__ = [
     "generate_renko",
     "calculate_renko",
     "generate_time_mapping",
-    "_process_dataframe_mapping",
+    "process_dataframe_mapping",
     "is_natural_sequence",
     "time_format",
     "fixed_cols",

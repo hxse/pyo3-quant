@@ -1,10 +1,9 @@
 import pytest
-from py_entry.data_conversion.helpers.data_generator import (
-    generate_data_dict,
+from py_entry.data_conversion.data_generator import (
     DataGenerationParams,
 )
 from py_entry.data_conversion.backtest_runner import BacktestRunner
-from py_entry.data_conversion.input import (
+from py_entry.data_conversion.types import (
     IndicatorsParams,
     SignalParams,
     SignalTemplate,
@@ -176,4 +175,4 @@ def signal_backtest_results():
     results = runner.run()
 
     # 返回结果、数据字典和信号参数
-    return results[0], runner._data_dict, custom_signal_params
+    return results[0], runner.data_dict, custom_signal_params

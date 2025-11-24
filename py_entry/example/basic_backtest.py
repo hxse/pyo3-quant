@@ -13,7 +13,6 @@ import time
 import pyo3_quant
 from loguru import logger
 from py_entry.data_conversion.backtest_runner import BacktestRunner
-from py_entry.data_conversion.helpers.data_generator import DataGenerationParams
 
 if __name__ == "__main__":
     print("-" * 30)

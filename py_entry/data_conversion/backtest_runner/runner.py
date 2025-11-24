@@ -1,8 +1,7 @@
 from typing import Optional
 import polars as pl
 
-from py_entry.data_conversion.output import BacktestSummary
-from py_entry.data_conversion.input import (
+from py_entry.data_conversion.types import (
     DataContainer,
     ParamContainer,
     TemplateContainer,
@@ -13,9 +12,11 @@ from py_entry.data_conversion.input import (
     PerformanceParams,
     SignalTemplate,
     SingleParamSet,
+    BacktestSummary,
 )
 from py_entry.data_conversion.helpers import validate_no_none_fields
-from py_entry.data_conversion.helpers.data_generator import (
+from py_entry.data_conversion.data_generator import (
+    generate_data_dict,
     DataGenerationParams,
     OtherParams,
     OhlcvDataFetchConfig,
@@ -48,10 +49,10 @@ class BacktestRunner:
 
         设置所有内部状态变量为 None，表示尚未进行任何配置。
         """
-        self._data_dict: Optional[DataContainer] = None
-        self._param_set: Optional[ParamContainer] = None
-        self._template_config: Optional[TemplateContainer] = None
-        self._engine_settings: Optional[SettingContainer] = None
+        self.data_dict: DataContainer | None = None
+        self.param_set: ParamContainer | None = None
+        self.template_config: TemplateContainer | None = None
+        self.engine_settings: SettingContainer | None = None
 
     def setup(
         self,
@@ -81,21 +82,25 @@ class BacktestRunner:
             engine_settings: 可选的引擎设置，如果提供则直接返回，为None时返回默认值
         """
         # 配置数据
-        self._data_dict = build_data(
+        self.data_dict = build_data(
             data_source=data_source,
             other_params=other_params,
         )
 
+        if self.data_dict is None:
+            raise ValueError("data_dict 不能为空")
+
         # 配置参数集
         # 使用提供的参数或默认值构建单个参数集
 
-        period_count = len(self._data_dict.source["ohlcv"])
+        period_count = len(self.data_dict.source["ohlcv"])
+
         indicators = build_indicators_params(indicators_params)
         for k, v in indicators.items():
             if len(v) < period_count:
                 indicators[k] = v + [{} for _ in range(period_count - len(v))]
 
-        self._param_set = [
+        self.param_set = [
             SingleParamSet(
                 indicators=indicators,
                 signal=build_signal_params(signal_params),
@@ -106,12 +111,12 @@ class BacktestRunner:
         ]
 
         # 配置模板
-        self._template_config = TemplateContainer(
+        self.template_config = TemplateContainer(
             signal=build_signal_template(signal_template),
         )
 
         # 配置引擎设置
-        self._engine_settings = build_engine_settings(engine_settings)
+        self.engine_settings = build_engine_settings(engine_settings)
 
     def run(self) -> list[BacktestSummary]:
         """执行回测。
@@ -124,33 +129,33 @@ class BacktestRunner:
         Raises:
             ValueError: 如果任何必要的配置缺失。
         """
-        if self._data_dict is None:
+        if self.data_dict is None:
             raise ValueError("必须先调用 setup() 配置回测参数")
-        if self._template_config is None:
+        if self.template_config is None:
             raise ValueError("必须先调用 setup() 配置回测参数")
-        if self._engine_settings is None:
+        if self.engine_settings is None:
             raise ValueError("必须先调用 setup() 配置回测参数")
-        if self._param_set is None:
+        if self.param_set is None:
             raise ValueError("必须先调用 setup() 配置回测参数")
 
-        validate_no_none_fields(self._data_dict)
-        validate_no_none_fields(self._template_config)
-        validate_no_none_fields(self._engine_settings)
+        validate_no_none_fields(self.data_dict)
+        validate_no_none_fields(self.template_config)
+        validate_no_none_fields(self.engine_settings)
 
-        # 验证 _param_set 是列表类型
-        if not isinstance(self._param_set, list):
+        # 验证 param_set 是列表类型
+        if not isinstance(self.param_set, list):
             raise ValueError(
-                f"_param_set 应该是列表类型，但得到的是 {type(self._param_set).__name__}"
+                f"param_set 应该是列表类型，但得到的是 {type(self.param_set).__name__}"
             )
 
-        for i in self._param_set:
+        for i in self.param_set:
             validate_no_none_fields(i)
 
         raw_results = pyo3_quant.backtest_engine.run_backtest_engine(
-            self._data_dict,
-            self._param_set,
-            self._template_config,
-            self._engine_settings,
+            self.data_dict,
+            self.param_set,
+            self.template_config,
+            self.engine_settings,
             None,
         )
         return [BacktestSummary.from_dict(result) for result in raw_results]

@@ -5,13 +5,15 @@
 import pytest
 import numpy as np
 
-from py_entry.data_conversion.helpers.data_generator import generate_time_mapping
+from py_entry.data_conversion.data_generator import generate_time_mapping
 
 
 class TestGenerateTimeMapping:
     """generate_time_mapping 函数测试类"""
 
-    def test_generate_time_mapping_perfect_match(self, sample_time_series, mock_dfs_factory):
+    def test_generate_time_mapping_perfect_match(
+        self, sample_time_series, mock_dfs_factory
+    ):
         """测试 generate_time_mapping 函数 - 完全匹配情况"""
         # 创建完全匹配的测试数据
         ohlcv_dfs = mock_dfs_factory([sample_time_series])
@@ -72,7 +74,9 @@ class TestGenerateTimeMapping:
         assert len(result.columns) == 0
         assert len(skip_mapping) == 0
 
-    def test_generate_time_mapping_single_ohlcv(self, sample_time_series, mock_dfs_factory):
+    def test_generate_time_mapping_single_ohlcv(
+        self, sample_time_series, mock_dfs_factory
+    ):
         """测试 generate_time_mapping 函数 - 只有一个 ohlcv 的情况（边界情况）"""
         # 只有一个 ohlcv DataFrame
         ohlcv_dfs = mock_dfs_factory([sample_time_series[:5]])
@@ -135,4 +139,3 @@ class TestGenerateTimeMapping:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

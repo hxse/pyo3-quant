@@ -18,7 +18,7 @@ def is_natural_sequence(series: pl.Series) -> bool:
     return np.array_equal(arr, expected)
 
 
-def _process_dataframe_mapping(
+def process_dataframe_mapping(
     base_df: pl.DataFrame,
     df: pl.DataFrame,
     col_name: str,
@@ -103,7 +103,7 @@ def generate_time_mapping(
 
     for dfs, prefix, start_idx in dataframe_groups:
         for i, df in enumerate(dfs, start_idx):
-            result = _process_dataframe_mapping(
+            result = process_dataframe_mapping(
                 base_df, df, f"{prefix}_{i}", result, skip_mapping
             )
 

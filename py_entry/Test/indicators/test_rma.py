@@ -34,18 +34,14 @@ def rma_pandas_ta_extractor(
 rma_config = IndicatorTestConfig(
     indicator_name="rma",
     params_config={
-        "ohlcv": [
-            # timeframe 0
-            {
-                "rma_0": {"period": Param.create(14)},
-                "rma_1": {"period": Param.create(100)},
-            },
-            # timeframe 1
-            {
-                "rma_0": {"period": Param.create(20)},
-                "rma_1": {"period": Param.create(200)},
-            },
-        ]
+        "ohlcv_15m": {
+            "rma_0": {"period": Param.create(14)},
+            "rma_1": {"period": Param.create(100)},
+        },
+        "ohlcv_1h": {
+            "rma_0": {"period": Param.create(20)},
+            "rma_1": {"period": Param.create(200)},
+        },
     },
     suffixes=[],
     engine_result_extractor=rma_engine_extractor,

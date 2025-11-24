@@ -45,16 +45,12 @@ def tr_pandas_ta_extractor(
 tr_config = IndicatorTestConfig(
     indicator_name="tr",
     params_config={
-        "ohlcv": [
-            # timeframe 0
-            {
-                "tr_0": {"": Param.create(1)},
-            },
-            # timeframe 1
-            {
-                "tr_0": {"": Param.create(1)},
-            },
-        ]
+        "ohlcv_15m": {
+            "tr_0": {},
+        },
+        "ohlcv_1h": {
+            "tr_0": {},
+        },
     },
     suffixes=[],
     engine_result_extractor=tr_engine_extractor,

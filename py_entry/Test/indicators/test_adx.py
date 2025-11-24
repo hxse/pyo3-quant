@@ -65,21 +65,26 @@ def adx_pandas_ta_extractor(
 adx_config = IndicatorTestConfig(
     indicator_name="adx",
     params_config={
-        "ohlcv": [
-            # timeframe 0
-            {
-                "adx_0": {
-                    "period": Param.create(14),
-                    "adxr_length": Param.create(2),
-                },
+        "ohlcv_15m": {
+            "adx_0": {
+                "period": Param.create(14),
+                "adxr_length": Param.create(2),
             },
-            {
-                "adx_0": {
-                    "period": Param.create(20),
-                    "adxr_length": Param.create(4),
-                },
+            "adx_1": {
+                "period": Param.create(20),
+                "adxr_length": Param.create(4),
             },
-        ]
+        },
+        "ohlcv_1h": {
+            "adx_0": {
+                "period": Param.create(20),
+                "adxr_length": Param.create(10),
+            },
+            "adx_1": {
+                "period": Param.create(50),
+                "adxr_length": Param.create(20),
+            },
+        },
     },
     suffixes=["adx", "adxr", "plus_dm", "minus_dm"],
     engine_result_extractor=adx_engine_extractor,

@@ -3,7 +3,12 @@
 """
 
 # 导入配置类
-from .config import DataGenerationParams, OtherParams, OhlcvDataFetchConfig
+from .config import (
+    DataGenerationParams,
+    OtherParams,
+    OhlcvDataFetchConfig,
+    DirectDataConfig,
+)
 
 # 导入类型守卫函数和类型别名
 from .type_guards import (
@@ -40,6 +45,7 @@ __all__ = [
     "DataGenerationParams",
     "OtherParams",
     "OhlcvDataFetchConfig",
+    "DirectDataConfig",
     "DataSourceConfig",
     "is_simulated_data",
     "is_fetched_data",

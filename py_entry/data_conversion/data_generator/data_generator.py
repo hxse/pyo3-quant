@@ -13,11 +13,12 @@ from .type_guards import (
     is_simulated_data,
     is_fetched_data,
     is_predefined_data,
+    DirectDataConfig,
 )
 from .time_utils import parse_timeframe
 from .ohlcv_generator import generate_multi_timeframe_ohlcv
-from .heikin_ashi_generator import generate_ha
-from .renko_generator import generate_renko
+from .heikin_ashi_generator import calculate_heikin_ashi
+from .renko_generator import calculate_renko
 from .time_mapping import generate_time_mapping
 from py_entry.data_conversion.types import DataContainer
 from py_entry.data_conversion.file_utils import (
@@ -38,12 +39,15 @@ def generate_data_dict(
         data_source: 数据源配置，可以是三种类型之一：
             - DataGenerationParams: 模拟数据生成参数
             - OhlcvDataFetchConfig: OHLCV数据获取配置
-            - list[pl.DataFrame]: 预定义的OHLCV DataFrame列表
+            - DirectDataConfig: 直接数据配置
         other_params: 其他参数配置对象,如果为None则使用默认值
 
     Returns:
         包含以下键的字典:
     """
+    source_dict: dict[str, pl.DataFrame] = {}
+    base_data_key: str = ""
+
     if is_simulated_data(data_source):
         # 使用模拟数据配置生成数据
         simulated_data_config = cast(DataGenerationParams, data_source)  # 类型断言
@@ -56,16 +60,24 @@ def generate_data_dict(
             )
         else:
             start_time = simulated_data_config.start_time
+
         ohlcv_dfs = generate_multi_timeframe_ohlcv(
             simulated_data_config.timeframes,
             start_time,
             simulated_data_config.num_bars,
             simulated_data_config.fixed_seed,
         )
+
+        # 将列表转换为字典
+        for tf, df in zip(simulated_data_config.timeframes, ohlcv_dfs):
+            source_dict[f"ohlcv_{tf}"] = df
+
+        base_data_key = simulated_data_config.BaseDataKey
+
     elif is_fetched_data(data_source):
         # 从服务器获取OHLCV数据
         ohlcv_data_config = cast(OhlcvDataFetchConfig, data_source)  # 类型断言
-        ohlcv_dfs: list[pl.DataFrame] = []
+
         for timeframe in ohlcv_data_config.timeframes:
             # 为每个时间周期创建单独的配置对象
             single_ohlcv_config = OhlcvDataConfig(
@@ -80,39 +92,59 @@ def generate_data_dict(
             result = get_ohlcv_data(single_ohlcv_config)
             ohlcv_df = convert_to_ohlcv_dataframe(result)
             if ohlcv_df is not None:
-                ohlcv_dfs.append(ohlcv_df)
+                source_dict[f"ohlcv_{timeframe}"] = ohlcv_df
             else:
                 raise ValueError(f"无法从服务器获取时间周期 {timeframe} 的OHLCV数据")
+
+        base_data_key = ohlcv_data_config.BaseDataKey
+
     elif is_predefined_data(data_source):
         # 使用预定义的OHLCV数据
-        ohlcv_dfs = cast(list[pl.DataFrame], data_source)  # 类型断言
+        config = cast(DirectDataConfig, data_source)  # 类型断言
+        source_dict = config.data
+        base_data_key = config.BaseDataKey
     else:
         raise ValueError("不支持的数据源类型")
 
-    # 初始化变量
-    ha_dfs = None
-    renko_dfs = None
-
-    # 根据参数决定是否生成 HA 和 Renko 数据，并构建源数据字典
-    source_dict = {"ohlcv": ohlcv_dfs}
-
     # 只有启用的数据类型才会生成并添加到源数据字典
-    if other_params and other_params.ha_enable:
-        ha_dfs = generate_ha(ohlcv_dfs)
-        source_dict["ha"] = ha_dfs
+    # 注意：这里我们假设 source_dict 中以 "ohlcv_" 开头的都是 OHLCV 数据
+    # 并且我们为每个 OHLCV 数据生成对应的 HA 和 Renko 数据
 
-    if other_params and other_params.renko_enable:
-        renko_dfs = generate_renko(ohlcv_dfs, other_params.brick_size)
-        source_dict["renko"] = renko_dfs
+    if other_params and other_params.ha_timeframes:
+        for timeframe in other_params.ha_timeframes:
+            ohlcv_key = f"ohlcv_{timeframe}"
+            if ohlcv_key not in source_dict:
+                raise ValueError(
+                    f"无法生成 HA 数据：找不到对应的 OHLCV 数据 {ohlcv_key}"
+                )
 
-    mapping_df, skip_mapping = generate_time_mapping(ohlcv_dfs, ha_dfs, renko_dfs)
+            source_dict[f"ha_{timeframe}"] = calculate_heikin_ashi(
+                source_dict[ohlcv_key]
+            )
+
+    if other_params and other_params.renko_timeframes:
+        for timeframe in other_params.renko_timeframes:
+            ohlcv_key = f"ohlcv_{timeframe}"
+            if ohlcv_key not in source_dict:
+                raise ValueError(
+                    f"无法生成 Renko 数据：找不到对应的 OHLCV 数据 {ohlcv_key}"
+                )
+
+            source_dict[f"renko_{timeframe}"] = calculate_renko(
+                source_dict[ohlcv_key], other_params.brick_size
+            )
+
+    mapping_df, skip_mapping = generate_time_mapping(source_dict, base_data_key)
 
     # skip_mask 占位,暂时全为 False
-    skip_mask_series = pl.Series("skip", np.zeros(len(ohlcv_dfs[0])), dtype=pl.Boolean)
+    # 使用基准数据的长度
+    base_len = len(source_dict[base_data_key])
+    skip_mask_series = pl.Series("skip", np.zeros(base_len), dtype=pl.Boolean)
 
     return DataContainer(
         mapping=mapping_df,
         skip_mask=skip_mask_series,
         skip_mapping=skip_mapping,
         source=source_dict,
+        BaseDataKey=base_data_key,
     )

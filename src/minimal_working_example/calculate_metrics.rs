@@ -74,7 +74,7 @@ fn calculate_metrics_internal(
     // 添加数据信息
     summary.push_str(&format!(
         ", data keys count={}, mapping rows={}",
-        data.source.get("ohlcv").map_or(0, |df| df.len()),
+        data.source.get("ohlcv").map_or(0, |df| df.height()),
         data.mapping.height()
     ));
 

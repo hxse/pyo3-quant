@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 from .param import Param
 
 # Type Aliases - 对应 Rust 的 type alias
-IndicatorsParams = Dict[str, List[Dict[str, Dict[str, Param]]]]
+IndicatorsParams = Dict[str, Dict[str, Dict[str, Param]]]
 SignalParams = Dict[str, Param]
 
 
@@ -95,7 +95,7 @@ class PerformanceParams:
 class SingleParamSet:
     """单个参数集 - 对应 Rust ProcessedSingleParam"""
 
-    indicators: IndicatorsParams  # 注意：复数
+    indicators: IndicatorsParams
     signal: SignalParams
     backtest: BacktestParams
     performance: PerformanceParams

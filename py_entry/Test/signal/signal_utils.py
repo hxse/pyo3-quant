@@ -59,24 +59,24 @@ def apply_mapping_if_needed(series, source_key, processed_data):
 def calculate_signals_manually(
     processed_data,
     signal_params,
-    indicators_0,
-    indicators_1,
-    indicators_2,
-    source_data_0,
-    source_data_1,
-    source_data_2,
+    indicators_15m,
+    indicators_1h,
+    indicators_4h,
+    source_data_15m,
+    source_data_1h,
+    source_data_4h,
 ):
     """
     手动计算信号，模拟Rust端的信号生成逻辑
 
     Args:
-        indicators_0: ohlcv_0时间框架的指标DataFrame
-        indicators_1: ohlcv_1时间框架的指标DataFrame
-        indicators_2: ohlcv_2时间框架的指标DataFrame
+        indicators_15m: ohlcv_15m时间框架的指标DataFrame
+        indicators_1h: ohlcv_1h时间框架的指标DataFrame
+        indicators_4h: ohlcv_4h时间框架的指标DataFrame
         signal_params: 信号参数字典
-        source_data_0: ohlcv_0时间框架的原始数据DataFrame（可选）
-        source_data_1: ohlcv_1时间框架的原始数据DataFrame（可选）
-        source_data_2: ohlcv_2时间框架的原始数据DataFrame（可选）
+        source_data_15m: ohlcv_15m时间框架的原始数据DataFrame（可选）
+        source_data_1h: ohlcv_1h时间框架的原始数据DataFrame（可选）
+        source_data_4h: ohlcv_4h时间框架的原始数据DataFrame（可选）
         processed_data: DataContainer对象，包含映射信息（可选）
 
     Returns:
@@ -85,25 +85,25 @@ def calculate_signals_manually(
     # 获取信号参数
 
     # 计算多时间框架信号组：多时间框架确认策略
-    # 从indicators_0获取sma_0，从indicators_2获取rsi_1并应用映射
-    sma_0_series = extract_indicator_data(indicators_2, "sma_0")
-    sma_1_series = extract_indicator_data(indicators_2, "sma_1")
-    rsi_0_series = extract_indicator_data(indicators_1, "rsi_0")
-    bbands_0_upper_series = extract_indicator_data(indicators_0, "bbands_0_upper")
-    bbands_0_lower_series = extract_indicator_data(indicators_0, "bbands_0_lower")
+    # 从indicators_4h获取sma_0，从indicators_1h获取rsi_0并应用映射
+    sma_0_series = extract_indicator_data(indicators_4h, "sma_0")
+    sma_1_series = extract_indicator_data(indicators_4h, "sma_1")
+    rsi_0_series = extract_indicator_data(indicators_1h, "rsi_0")
+    bbands_0_upper_series = extract_indicator_data(indicators_15m, "bbands_0_upper")
+    bbands_0_lower_series = extract_indicator_data(indicators_15m, "bbands_0_lower")
 
     # 统一通过映射函数处理，函数内部会判断是否需要映射
-    sma_0_mapped = apply_mapping_if_needed(sma_0_series, "ohlcv_2", processed_data)
-    sma_1_mapped = apply_mapping_if_needed(sma_1_series, "ohlcv_2", processed_data)
-    rsi_0_mapped = apply_mapping_if_needed(rsi_0_series, "ohlcv_1", processed_data)
+    sma_0_mapped = apply_mapping_if_needed(sma_0_series, "ohlcv_4h", processed_data)
+    sma_1_mapped = apply_mapping_if_needed(sma_1_series, "ohlcv_4h", processed_data)
+    rsi_0_mapped = apply_mapping_if_needed(rsi_0_series, "ohlcv_1h", processed_data)
     bbands_0_upper_mapped = apply_mapping_if_needed(
-        bbands_0_upper_series, "ohlcv_0", processed_data
+        bbands_0_upper_series, "ohlcv_15m", processed_data
     )
     bbands_0_lower_mapped = apply_mapping_if_needed(
-        bbands_0_lower_series, "ohlcv_0", processed_data
+        bbands_0_lower_series, "ohlcv_15m", processed_data
     )
 
-    close = source_data_0["close"]
+    close = source_data_15m["close"]
 
     # long
     enter_long_1 = sma_0_mapped > sma_1_mapped

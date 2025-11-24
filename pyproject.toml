@@ -24,7 +24,6 @@ features = ["pyo3/extension-module"]
 [dependency-groups]
 dev = [
     "maturin-import-hook>=0.3.0",
-    "ruff>=0.14.0",
     "pytest>=8.4.2",
     "pandas>=2.3.3",
     "pandas-ta @ git+https://github.com/hxse/pandas-ta.git@development",

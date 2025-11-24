@@ -112,10 +112,10 @@ pub fn py_generate_signals(
     // 1. 将 Python 对象转换为 Rust 类型
     let processed_data: DataContainer = processed_data_py.extract()?;
 
-    let indicator_dfs_py_map: HashMap<String, Vec<PyDataFrame>> = indicator_dfs_py.extract()?;
+    let indicator_dfs_py_map: HashMap<String, PyDataFrame> = indicator_dfs_py.extract()?;
     let indicator_dfs = indicator_dfs_py_map
         .into_iter()
-        .map(|(k, v)| (k, v.into_iter().map(|df| df.into()).collect()))
+        .map(|(k, v)| (k, v.into()))
         .collect();
 
     let signal_params: SignalParams = signal_params_py.extract()?;

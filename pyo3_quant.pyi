@@ -16,7 +16,7 @@ from py_entry.data_conversion.types import (
 )
 
 # 类型别名
-IndicatorsParams = Dict[str, List[Dict[str, Dict[str, Param]]]]
+IndicatorsParams = Dict[str, Dict[str, Dict[str, Param]]]
 SignalParams = Dict[str, Param]
 SignalRightOperand = Union[SignalDataOperand, ParamOperand]
 

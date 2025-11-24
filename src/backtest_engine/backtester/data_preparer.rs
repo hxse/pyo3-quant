@@ -1,21 +1,11 @@
 use crate::backtest_engine::{
     indicators::atr::{atr_eager, ATRConfig},
-    utils::column_names::ColumnName,
+    utils::{column_names::ColumnName, get_ohlcv_dataframe},
 };
 use crate::data_conversion::{types::param_set::BacktestParams, DataContainer};
 use crate::error::{backtest_error::BacktestError, QuantError};
 use polars::prelude::*;
 use polars::series::Series;
-
-/// 从 DataContainer 中获取 OHLCV DataFrame 的工具函数
-pub fn get_ohlcv_dataframe(processed_data: &DataContainer) -> Result<&DataFrame, QuantError> {
-    processed_data
-        .source
-        .get("ohlcv")
-        .and_then(|vec| vec.first())
-        .ok_or(BacktestError::OHLCVNotFound)
-        .map_err(Into::into)
-}
 
 /// 预处理数据结构体，包含所有回测所需的连续内存数组切片
 pub struct PreparedData<'a> {

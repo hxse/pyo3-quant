@@ -34,31 +34,30 @@ def backtest_result():
         start_time=1735689600000,
         num_bars=10000,
         fixed_seed=True,
+        BaseDataKey="ohlcv_15m",
     )
 
     # 构建指标参数
     indicators_params = {
-        "ohlcv": [
-            {
-                "bbands_0": {
-                    "period": Param.create(14),
-                    "std": Param.create(2),
-                }
+        "ohlcv_15m": {
+            "bbands_0": {
+                "period": Param.create(14),
+                "std": Param.create(2),
+            }
+        },
+        "ohlcv_1h": {
+            "rsi_0": {
+                "period": Param.create(14),
+            }
+        },
+        "ohlcv_4h": {
+            "sma_0": {
+                "period": Param.create(8),
             },
-            {
-                "rsi_0": {
-                    "period": Param.create(14),
-                }
+            "sma_1": {
+                "period": Param.create(16),
             },
-            {
-                "sma_0": {
-                    "period": Param.create(8),
-                },
-                "sma_1": {
-                    "period": Param.create(16),
-                },
-            },
-        ]
+        },
     }
 
     # 自定义信号参数
@@ -89,28 +88,28 @@ def backtest_result():
         logic=LogicOp.AND,
         conditions=[
             signal_data_vs_data(
-                compare=CompareOp.GT,
-                a_name="sma_0",
-                a_source="ohlcv_2",
+                compare=CompareOp.CGT,
+                a_name="close",
+                a_source="ohlcv_15m",
                 a_offset=0,
-                b_name="sma_1",
-                b_source="ohlcv_2",
+                b_name="bbands_0_upper",
+                b_source="ohlcv_15m",
                 b_offset=0,
             ),
             signal_data_vs_param(
                 compare=CompareOp.GT,
                 a_name="rsi_0",
-                a_source="ohlcv_1",
+                a_source="ohlcv_1h",
                 a_offset=0,
                 b_param="rsi_midline",
             ),
             signal_data_vs_data(
-                compare=CompareOp.CGT,
-                a_name="close",
-                a_source="ohlcv_0",
+                compare=CompareOp.GT,
+                a_name="sma_0",
+                a_source="ohlcv_4h",
                 a_offset=0,
-                b_name="bbands_0_upper",
-                b_source="ohlcv_0",
+                b_name="sma_1",
+                b_source="ohlcv_4h",
                 b_offset=0,
             ),
         ],

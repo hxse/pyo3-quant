@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 // 替换原来的 struct 定义
 pub type PerformanceMetrics = HashMap<String, f64>;
-pub type IndicatorResults = HashMap<String, Vec<DataFrame>>;
+pub type IndicatorResults = HashMap<String, DataFrame>;
 
 #[derive(Debug, Clone)]
 pub struct BacktestSummary {
@@ -32,16 +32,12 @@ impl<'py> IntoPyObject<'py> for BacktestSummary {
             None => dict.set_item("performance", py.None())?,
         }
 
-        // 设置 indicators 字段，处理 Option<Vec<DataFrame>>
+        // 设置 indicators 字段，处理 Option<HashMap<String, DataFrame>>
         match self.indicators {
             Some(indicators_map) => {
                 let py_dict = PyDict::new(py);
-                for (key, dfs) in indicators_map {
-                    let py_list = pyo3::types::PyList::empty(py);
-                    for df in dfs {
-                        py_list.append(PyDataFrame(df))?;
-                    }
-                    py_dict.set_item(key, py_list)?;
+                for (key, df) in indicators_map {
+                    py_dict.set_item(key, PyDataFrame(df))?;
                 }
                 dict.set_item("indicators", py_dict)?;
             }
@@ -91,10 +87,8 @@ impl<'source> FromPyObject<'source> for BacktestSummary {
                     let mut indicators_map = HashMap::new();
                     for (key, val) in ind_dict.iter() {
                         let key_str = key.extract::<String>()?;
-                        let py_list: Vec<PyDataFrame> = val.extract()?;
-                        let dfs: Vec<DataFrame> =
-                            py_list.into_iter().map(|py_df| py_df.into()).collect();
-                        indicators_map.insert(key_str, dfs);
+                        let py_df: PyDataFrame = val.extract()?;
+                        indicators_map.insert(key_str, py_df.into());
                     }
                     Some(indicators_map)
                 }

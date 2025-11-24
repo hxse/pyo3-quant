@@ -24,6 +24,7 @@ from py_entry.data_conversion.types import (
 import polars as pl
 
 from py_entry.Test.utils.comparison_tool import assert_indicator_same
+from py_entry.Test.indicators.conftest import run_indicator_backtest
 
 
 @dataclass
@@ -34,7 +35,7 @@ class IndicatorTestConfig:
 
     # 参数配置(每个timeframe一套),使用标准命名: bbands_0, bbands_1, ...
     # 格式: {"ohlcv": [timeframe0_params, timeframe1_params, ...]}
-    params_config: Dict[str, List[Dict[str, Dict[str, Any]]]]
+    params_config: Dict[str, Dict[str, Dict[str, Any]]]
 
     suffixes: List[str]
 
@@ -114,7 +115,7 @@ def print_array_details(name, arr):
 
 def validate_indicator_accuracy(
     config: IndicatorTestConfig,
-    data_container: DataContainer,
+    data_params: DataGenerationParams,
     enable_talib: bool = False,
     assert_mode_talib: bool = True,  # True=预期与talib相同, False=预期不同
     assert_mode_pandas_ta: bool = True,  # True=预期与pandas_ta相同, False=预期不同
@@ -130,25 +131,20 @@ def validate_indicator_accuracy(
        c. 根据assert_mode参数决定使用assert_indicator_same还是assert_indicator_different
     """
 
-    ohlcv_dfs = data_container.source["ohlcv"]
-
-    runner = BacktestRunner()
-    runner.setup(
-        data_source=ohlcv_dfs,  # 直接传入ohlcv_dfs
-        indicators_params=config.params_config,
-        engine_settings=SettingContainer(
-            execution_stage=ExecutionStage.INDICATOR,
-            return_only_final=True,
-        ),
+    backtest_results, data_container = run_indicator_backtest(
+        data_params, config.params_config
     )
-    backtest_results = runner.run()
 
-    for timeframe_idx, timeframe_params in enumerate(config.params_config["ohlcv"]):
+    for source_name, timeframe_params in config.params_config.items():
         if backtest_results[0].indicators is None:
             raise ValueError("回测结果中没有indicators数据")
-        indicators_df_current_timeframe = backtest_results[0].indicators["ohlcv"][
-            timeframe_idx
-        ]
+
+        # 获取当前 timeframe 的指标结果 DataFrame
+        indicators_df_current_timeframe = backtest_results[0].indicators[source_name]
+
+        # 获取对应的 OHLCV DataFrame
+        ohlcv_df = data_container.source[source_name]
+
         for indicator_key, params_dict in timeframe_params.items():
             # 提取回测引擎结果
             engine_results = config.engine_result_extractor(
@@ -159,7 +155,7 @@ def validate_indicator_accuracy(
             )
 
             # 将Polars DataFrame转换为Pandas DataFrame以兼容pandas_ta
-            pandas_df = ohlcv_dfs[timeframe_idx].to_pandas()
+            pandas_df = ohlcv_df.to_pandas()
             # 提取pandas_ta结果
             pandas_ta_results = config.pandas_ta_result_extractor(
                 pandas_df,

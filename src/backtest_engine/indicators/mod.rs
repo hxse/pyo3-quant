@@ -66,23 +66,8 @@ pub fn calculate_indicators(
             QuantError::Indicator(IndicatorError::DataSourceNotFound(source_name.to_string()))
         })?;
 
-        if source_data.len() != mtf_indicator_params.len() {
-            return Err(QuantError::Indicator(
-                IndicatorError::DataSourceLengthMismatch(
-                    source_name.to_string(),
-                    source_data.len(),
-                    mtf_indicator_params.len(),
-                ),
-            ));
-        }
-
-        let indicators_for_source = source_data
-            .iter()
-            .zip(mtf_indicator_params.iter())
-            .map(|(data_df, mtf_params)| calculate_single_period_indicators(data_df, mtf_params))
-            .collect::<Result<Vec<_>, QuantError>>()?;
-
-        all_indicators.insert(source_name.clone(), indicators_for_source);
+        let indicators_df = calculate_single_period_indicators(source_data, mtf_indicator_params)?;
+        all_indicators.insert(source_name.clone(), indicators_df);
     }
 
     Ok(all_indicators)
@@ -92,7 +77,7 @@ pub fn calculate_indicators(
 pub fn py_calculate_indicators(
     processed_data_py: &Bound<'_, PyAny>,
     indicators_params_py: &Bound<'_, PyAny>,
-) -> PyResult<HashMap<String, Vec<PyDataFrame>>> {
+) -> PyResult<HashMap<String, PyDataFrame>> {
     let processed_data: DataContainer = processed_data_py.extract()?;
     let indicators_params: IndicatorsParams = indicators_params_py.extract()?;
 
@@ -100,7 +85,7 @@ pub fn py_calculate_indicators(
 
     let py_result_map = result_map
         .into_iter()
-        .map(|(k, v)| (k, v.into_iter().map(PyDataFrame).collect()))
+        .map(|(k, v)| (k, PyDataFrame(v)))
         .collect();
 
     Ok(py_result_map)

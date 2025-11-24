@@ -10,13 +10,10 @@ mod output;
 mod pause_control;
 pub mod state;
 
+use crate::backtest_engine::utils::get_ohlcv_dataframe;
 use {
-    atr_calculator::calculate_atr_if_needed,
-    data_preparer::{get_ohlcv_dataframe, PreparedData},
-    main_loop::run_main_loop,
-    output::OutputBuffers,
-    pause_control::apply_pause_control,
-    pyo3_polars::PyDataFrame,
+    atr_calculator::calculate_atr_if_needed, data_preparer::PreparedData, main_loop::run_main_loop,
+    output::OutputBuffers, pause_control::apply_pause_control, pyo3_polars::PyDataFrame,
     state::BacktestState,
 };
 

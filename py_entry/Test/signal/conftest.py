@@ -22,18 +22,16 @@ from py_entry.data_conversion.helpers import (
 
 # 自定义指标参数
 custom_indicators_params: IndicatorsParams = {
-    "ohlcv": [
-        {
-            "bbands_0": {"period": Param.create(20), "std": Param.create(2)},
-        },
-        {
-            "rsi_0": {"period": Param.create(14)},
-        },
-        {
-            "sma_0": {"period": Param.create(8)},
-            "sma_1": {"period": Param.create(20)},
-        },
-    ]
+    "ohlcv_15m": {
+        "bbands_0": {"period": Param.create(20), "std": Param.create(2)},
+    },
+    "ohlcv_1h": {
+        "rsi_0": {"period": Param.create(14)},
+    },
+    "ohlcv_4h": {
+        "sma_0": {"period": Param.create(8)},
+        "sma_1": {"period": Param.create(20)},
+    },
 }
 
 # 自定义信号参数
@@ -47,28 +45,28 @@ enter_long_group_custom = SignalGroup(
     logic=LogicOp.AND,
     conditions=[
         signal_data_vs_data(
-            compare=CompareOp.GT,
-            a_name="sma_0",
-            a_source="ohlcv_2",
+            compare=CompareOp.CGT,
+            a_name="close",
+            a_source="ohlcv_15m",
             a_offset=0,
-            b_name="sma_1",
-            b_source="ohlcv_2",
+            b_name="bbands_0_upper",
+            b_source="ohlcv_15m",
             b_offset=0,
         ),
         signal_data_vs_param(
             compare=CompareOp.LT,
             a_name="rsi_0",
-            a_source="ohlcv_1",
+            a_source="ohlcv_1h",
             a_offset=0,
             b_param="rsi_lower",
         ),
         signal_data_vs_data(
-            compare=CompareOp.CGT,
-            a_name="close",
-            a_source="ohlcv_0",
+            compare=CompareOp.GT,
+            a_name="sma_0",
+            a_source="ohlcv_4h",
             a_offset=0,
-            b_name="bbands_0_upper",
-            b_source="ohlcv_0",
+            b_name="sma_1",
+            b_source="ohlcv_4h",
             b_offset=0,
         ),
     ],
@@ -80,10 +78,10 @@ exit_long_group_custom = SignalGroup(
         signal_data_vs_data(
             compare=CompareOp.LT,
             a_name="close",
-            a_source="ohlcv_0",
+            a_source="ohlcv_15m",
             a_offset=0,
             b_name="bbands_0_upper",
-            b_source="ohlcv_0",
+            b_source="ohlcv_15m",
             b_offset=0,
         ),
     ],
@@ -93,28 +91,28 @@ enter_short_group_custom = SignalGroup(
     logic=LogicOp.AND,
     conditions=[
         signal_data_vs_data(
-            compare=CompareOp.LT,
-            a_name="sma_0",
-            a_source="ohlcv_2",
+            compare=CompareOp.CLT,
+            a_name="close",
+            a_source="ohlcv_15m",
             a_offset=0,
-            b_name="sma_1",
-            b_source="ohlcv_2",
+            b_name="bbands_0_lower",
+            b_source="ohlcv_15m",
             b_offset=0,
         ),
         signal_data_vs_param(
             compare=CompareOp.GT,
             a_name="rsi_0",
-            a_source="ohlcv_1",
+            a_source="ohlcv_1h",
             a_offset=0,
             b_param="rsi_upper",
         ),
         signal_data_vs_data(
-            compare=CompareOp.CLT,
-            a_name="close",
-            a_source="ohlcv_0",
+            compare=CompareOp.LT,
+            a_name="sma_0",
+            a_source="ohlcv_4h",
             a_offset=0,
-            b_name="bbands_0_lower",
-            b_source="ohlcv_0",
+            b_name="sma_1",
+            b_source="ohlcv_4h",
             b_offset=0,
         ),
     ],
@@ -126,10 +124,10 @@ exit_short_group_custom = SignalGroup(
         signal_data_vs_data(
             compare=CompareOp.GT,
             a_name="close",
-            a_source="ohlcv_0",
+            a_source="ohlcv_15m",
             a_offset=0,
             b_name="bbands_0_lower",
-            b_source="ohlcv_0",
+            b_source="ohlcv_15m",
             b_offset=0,
         ),
     ],
@@ -160,6 +158,8 @@ def signal_backtest_results():
         timeframes=["15m", "1h", "4h"],
         start_time=1735689600000,
         num_bars=5000,
+        fixed_seed=True,
+        BaseDataKey="ohlcv_15m",
     )
 
     # 使用 setup 方法一次性配置所有参数

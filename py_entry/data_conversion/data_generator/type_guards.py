@@ -2,13 +2,25 @@
 数据生成器类型守卫函数
 """
 
-from typing import Union, cast
+from typing import Union, cast, TypeGuard
 import polars as pl
 
-from .config import DataGenerationParams, OhlcvDataFetchConfig
+from .config import DataGenerationParams, OhlcvDataFetchConfig, DirectDataConfig
+
+from dataclasses import dataclass
+from typing import Dict
+
+
+@dataclass
+class DirectDataConfig:
+    """直接数据配置类"""
+
+    data: Dict[str, pl.DataFrame]
+    BaseDataKey: str
+
 
 # 类型别名：数据源配置的联合类型
-DataSourceConfig = Union[DataGenerationParams, OhlcvDataFetchConfig, list[pl.DataFrame]]
+DataSourceConfig = Union[DataGenerationParams, OhlcvDataFetchConfig, DirectDataConfig]
 
 
 def is_simulated_data(config: DataSourceConfig) -> bool:
@@ -21,9 +33,6 @@ def is_fetched_data(config: DataSourceConfig) -> bool:
     return isinstance(config, OhlcvDataFetchConfig)
 
 
-def is_predefined_data(config: DataSourceConfig) -> bool:
+def is_predefined_data(data_source: DataSourceConfig) -> TypeGuard[DirectDataConfig]:
     """判断是否为预定义数据配置"""
-    if not isinstance(config, list):
-        return False
-    # 检查列表中的所有元素是否都是 pl.DataFrame 类型
-    return all(isinstance(item, pl.DataFrame) for item in config)
+    return isinstance(data_source, DirectDataConfig)

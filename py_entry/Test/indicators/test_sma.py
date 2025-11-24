@@ -40,18 +40,14 @@ def sma_pandas_ta_extractor(
 sma_config = IndicatorTestConfig(
     indicator_name="sma",
     params_config={
-        "ohlcv": [
-            # timeframe 0
-            {
-                "sma_0": {"period": Param.create(14)},
-                "sma_1": {"period": Param.create(100)},
-            },
-            # timeframe 1
-            {
-                "sma_0": {"period": Param.create(20)},
-                "sma_1": {"period": Param.create(200)},
-            },
-        ]
+        "ohlcv_15m": {
+            "sma_0": {"period": Param.create(14)},
+            "sma_1": {"period": Param.create(100)},
+        },
+        "ohlcv_1h": {
+            "sma_0": {"period": Param.create(20)},
+            "sma_1": {"period": Param.create(200)},
+        },
     },
     suffixes=[],
     engine_result_extractor=sma_engine_extractor,

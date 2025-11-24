@@ -7,7 +7,7 @@
 3. 比较两种方法的结果是否一致
 
 测试覆盖：
-- 多时间框架指标（ohlcv_0, ohlcv_1, ohlcv_2）
+- 多时间框架指标（ohlcv_15m, ohlcv_1h, ohlcv_4h）
 - 多种指标类型（SMA, RSI, BBands）
 - 复杂信号逻辑（AND组合，OR组合）
 - 多种比较操作符（GT, LT, CGT）
@@ -42,26 +42,25 @@ def test_signal_verification(signal_backtest_results):
 
     # 4. 提取indicators和signals
     engine_signals = backtest_summary.signals
-    indicators = backtest_summary.indicators["ohlcv"]
 
     # 5. 获取各时间框架的指标数据
-    indicators_0 = indicators[0]  # ohlcv_0
-    indicators_1 = indicators[1]  # ohlcv_1
-    indicators_2 = indicators[2]  # ohlcv_2
+    indicators_15m = backtest_summary.indicators["ohlcv_15m"]
+    indicators_1h = backtest_summary.indicators["ohlcv_1h"]
+    indicators_4h = backtest_summary.indicators["ohlcv_4h"]
 
-    ohlcv_0 = data_container.source["ohlcv"][0]
-    ohlcv_1 = data_container.source["ohlcv"][1]
-    ohlcv_2 = data_container.source["ohlcv"][2]
+    ohlcv_15m = data_container.source["ohlcv_15m"]
+    ohlcv_1h = data_container.source["ohlcv_1h"]
+    ohlcv_4h = data_container.source["ohlcv_4h"]
 
     manual_signals = calculate_signals_manually(
         data_container,
         signal_params,
-        indicators_0,
-        indicators_1,
-        indicators_2,
-        ohlcv_0,
-        ohlcv_1,
-        ohlcv_2,
+        indicators_15m,
+        indicators_1h,
+        indicators_4h,
+        ohlcv_15m,
+        ohlcv_1h,
+        ohlcv_4h,
     )
 
     # 7. 打印统计信息

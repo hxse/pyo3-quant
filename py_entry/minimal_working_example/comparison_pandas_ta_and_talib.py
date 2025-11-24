@@ -27,7 +27,11 @@ def main():
     比较 pandas-ta 在开启和不开启 talib 选项时 RMA 指标的计算结果。
     """
     simulated_data_config = DataGenerationParams(
-        timeframes=["15m"], start_time=1609459200000, num_bars=3000
+        timeframes=["15m"],
+        start_time=1609459200000,
+        num_bars=3000,
+        fixed_seed=True,
+        BaseDataKey="ohlcv_15m",
     )
     data_dict = generate_data_dict(data_source=simulated_data_config)
 

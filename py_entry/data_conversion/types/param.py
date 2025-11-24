@@ -24,10 +24,12 @@ class Param:
     def __post_init__(self):
         """执行验证和运行时属性的初始化。"""
         # 特例检查：(0, 0, 0, 0) 视为特例，跳过验证逻辑
-        if (self.initial_value == 0.0 and
-            self.initial_min == 0.0 and
-            self.initial_max == 0.0 and
-            self.initial_step == 0.0):
+        if (
+            self.initial_value == 0.0
+            and self.initial_min == 0.0
+            and self.initial_max == 0.0
+            and self.initial_step == 0.0
+        ):
             # 直接初始化运行时属性，不执行验证
             self.value = 0.0
             self.min = 0.0

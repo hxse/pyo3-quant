@@ -6,10 +6,8 @@
   },
   "result": {
     "current_position": 0,
-    "balance": 6524.442051126132,
-    "equity": 6524.442051126132,
-    "trade_pnl_pct": -0.04043696136809727,
-    "total_return_pct": -0.34755579488738675,
-    "entry_long_price": ""
-  }
-}
+    "balance": 6094.789678112485,
+    "equity": 6094.789678112485,
+    "trade_pnl_pct": -0.049355078934661734,
+    "total_return_pct": -0.39052103218875156,
+    "entry_long_price": 

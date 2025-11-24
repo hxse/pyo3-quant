@@ -43,6 +43,12 @@
   * 方法4
     * `uv pip install whl_path`
     * `/usr/bin/time -f "\n%e" python -m py_entry.main`
+  * check
+    * `uvx ty check`
+    * `uv run --no-sync cargo check`
+  * format
+    * `uvx ruff format`
+    * `uv run --no-sync cargo fmt`
 
 # 关于polars的异混淆点
   * Python API (PyPolars)

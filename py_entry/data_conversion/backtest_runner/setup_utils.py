@@ -56,6 +56,7 @@ def build_data(
             start_time=1735689600000,
             num_bars=3000,
             fixed_seed=True,
+            BaseDataKey="ohlcv_15m",
         )
 
     return generate_data_dict(data_source=data_source, other_params=other_params)
@@ -78,14 +79,15 @@ def build_indicators_params(
 
     # 否则返回默认值
     return {
-        "ohlcv": [
-            {
-                "sma_0": {"period": Param.create(14, 5, 50, 1)},
-                "sma_1": {
-                    "period": Param.create(200, 100, 300, 10),
-                },
+        "ohlcv_15m": {
+            "sma_0": {"period": Param.create(14, 5, 50, 1)},
+            "sma_1": {
+                "period": Param.create(200, 100, 300, 10),
             },
-        ]
+        },
+        "ohlcv_1h": {
+            "sma_0": {"period": Param.create(14, 5, 50, 1)},
+        },
     }
 
 
@@ -185,10 +187,10 @@ def build_signal_template(
             signal_data_vs_data(
                 compare=CompareOp.GT,
                 a_name="sma_0",
-                a_source="ohlcv_0",
+                a_source="ohlcv_15m",
                 a_offset=0,
                 b_name="sma_1",
-                b_source="ohlcv_0",
+                b_source="ohlcv_15m",
                 b_offset=0,
             )
         ],

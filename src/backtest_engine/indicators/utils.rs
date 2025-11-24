@@ -29,7 +29,5 @@ pub fn null_to_nan_expr(column_name: &str) -> Expr {
 /// # 返回值
 /// 返回一个条件表达式，条件满足时为 NULL，否则为 otherwise_expr
 pub fn null_when_expr(condition: Expr, otherwise_expr: Expr) -> Expr {
-    when(condition)
-        .then(lit(NULL))
-        .otherwise(otherwise_expr)
+    when(condition).then(lit(NULL)).otherwise(otherwise_expr)
 }

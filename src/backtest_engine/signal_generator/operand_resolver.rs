@@ -14,31 +14,17 @@ fn try_resolve_series<'a>(
     operand: &SignalDataOperand,
     data_source: &'a DataSource,
 ) -> Result<&'a Series, SignalError> {
-    // 从 operand.source (例如 "ohlcv_0") 中拆分出 source_name ("ohlcv") 和 source_idx (0)
-    let parts: Vec<&str> = operand.source.splitn(2, '_').collect();
-    if parts.len() < 2 {
-        return Err(SignalError::InvalidSourceFormat(operand.source.clone()));
-    }
-    let source_name = parts[0];
-    let source_idx_str = parts[1];
-    let source_idx = source_idx_str
-        .parse::<usize>()
-        .map_err(|_| SignalError::InvalidSourceFormat(operand.source.clone()))?;
+    let source_key = &operand.source;
+    let column_name = &operand.name;
 
-    let dfs_vec = data_source
-        .get(source_name)
-        .ok_or_else(|| SignalError::SourceNotFound(source_name.to_string()))?;
-
-    let df = dfs_vec.get(source_idx).ok_or_else(|| {
-        SignalError::SourceIndexOutOfBounds(format!(
-            "source: {}, index: {}",
-            source_name, source_idx
-        ))
-    })?;
+    // 直接使用 operand.source 作为键查找 DataFrame
+    let df = data_source
+        .get(source_key)
+        .ok_or_else(|| SignalError::SourceNotFound(source_key.to_string()))?;
 
     let series = df
-        .column(&operand.name)
-        .map_err(|_| SignalError::ColumnNotFound(operand.name.clone()))?;
+        .column(column_name)
+        .map_err(|_| SignalError::ColumnNotFound(column_name.to_string()))?;
 
     Ok(series.as_materialized_series())
 }
@@ -49,24 +35,13 @@ fn apply_mapping_if_needed(
     operand: &SignalDataOperand,
     processed_data: &DataContainer,
 ) -> Result<Series, SignalError> {
-    // 从 operand.source (例如 "ohlcv_0") 中拆分出 source_name ("ohlcv") 和 source_idx (0)
-    let parts: Vec<&str> = operand.source.splitn(2, '_').collect();
-    if parts.len() < 2 {
-        return Err(SignalError::InvalidSourceFormat(operand.source.clone()).into());
-    }
-    let source_name = parts[0];
-    let source_idx_str = parts[1];
-    let source_idx = source_idx_str
-        .parse::<usize>()
-        .map_err(|_| SignalError::InvalidSourceFormat(operand.source.clone()))?;
+    let key = &operand.source;
 
-    let key = format!("{}_{}", source_name, source_idx);
-
-    if let Some(false) = processed_data.skip_mapping.get(&key) {
+    if let Some(false) = processed_data.skip_mapping.get(key) {
         // 执行映射逻辑
         let mapping_df = &processed_data.mapping;
         let index_series = mapping_df
-            .column(&key)
+            .column(key)
             .map_err(|_| SignalError::MappingColumnNotFound(key.to_string()))?;
 
         let index_series_u32 = index_series.cast(&DataType::UInt32).map_err(|e| {
@@ -95,6 +70,8 @@ pub fn resolve_data_operand(
     processed_data: &DataContainer,
     indicator_dfs: &IndicatorResults,
 ) -> Result<Series, SignalError> {
+    let offset = operand.offset as i64;
+
     let mut res = try_resolve_series(operand, &processed_data.source);
 
     if let Err(SignalError::ColumnNotFound(_)) = &res {
@@ -102,8 +79,8 @@ pub fn resolve_data_operand(
     }
 
     let series = res?;
+    let shifted_series = series.shift(offset);
 
-    let shifted_series = series.shift(operand.offset as i64);
     apply_mapping_if_needed(&shifted_series, operand, processed_data)
 }
 
@@ -112,9 +89,11 @@ pub fn resolve_param_operand(
     operand: &ParamOperand,
     signal_params: &SignalParams,
 ) -> Result<f64, SignalError> {
+    let param_name = &operand.name;
+
     let param = signal_params
-        .get(&operand.name)
-        .ok_or_else(|| SignalError::ParameterNotFound(operand.name.clone()))?;
+        .get(param_name)
+        .ok_or_else(|| SignalError::ParameterNotFound(param_name.to_string()))?;
 
     Ok(param.value)
 }

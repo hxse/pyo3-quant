@@ -93,13 +93,12 @@ class BacktestRunner:
         # 配置参数集
         # 使用提供的参数或默认值构建单个参数集
 
-        period_count = len(self.data_dict.source["ohlcv"])
+        # 配置参数集
+        # 使用提供的参数或默认值构建单个参数集
 
         indicators = build_indicators_params(indicators_params)
-        for k, v in indicators.items():
-            if len(v) < period_count:
-                indicators[k] = v + [{} for _ in range(period_count - len(v))]
 
+        # 直接创建单个 SingleParamSet
         self.param_set = [
             SingleParamSet(
                 indicators=indicators,
@@ -107,7 +106,6 @@ class BacktestRunner:
                 backtest=build_backtest_params(backtest_params),
                 performance=build_performance_params(performance_params),
             )
-            for _ in range(period_count)
         ]
 
         # 配置模板

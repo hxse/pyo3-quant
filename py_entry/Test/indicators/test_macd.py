@@ -59,34 +59,30 @@ def macd_pandas_ta_extractor(
 macd_config = IndicatorTestConfig(
     indicator_name="macd",
     params_config={
-        "ohlcv": [
-            # timeframe 0
-            {
-                "macd_0": {
-                    "fast_period": Param.create(12),
-                    "slow_period": Param.create(26),
-                    "signal_period": Param.create(9),
-                },
-                "macd_1": {
-                    "fast_period": Param.create(5),
-                    "slow_period": Param.create(40),
-                    "signal_period": Param.create(5),
-                },
+        "ohlcv_15m": {
+            "macd_0": {
+                "fast_period": Param.create(12),
+                "slow_period": Param.create(26),
+                "signal_period": Param.create(9),
             },
-            # timeframe 1
-            {
-                "macd_0": {
-                    "fast_period": Param.create(8),
-                    "slow_period": Param.create(21),
-                    "signal_period": Param.create(7),
-                },
-                "macd_1": {
-                    "fast_period": Param.create(10),
-                    "slow_period": Param.create(30),
-                    "signal_period": Param.create(10),
-                },
+            "macd_1": {
+                "fast_period": Param.create(20),
+                "slow_period": Param.create(50),
+                "signal_period": Param.create(15),
             },
-        ]
+        },
+        "ohlcv_1h": {
+            "macd_0": {
+                "fast_period": Param.create(15),
+                "slow_period": Param.create(30),
+                "signal_period": Param.create(10),
+            },
+            "macd_1": {
+                "fast_period": Param.create(20),
+                "slow_period": Param.create(35),
+                "signal_period": Param.create(14),
+            },
+        },
     },
     suffixes=["macd", "hist", "signal"],
     engine_result_extractor=macd_engine_extractor,

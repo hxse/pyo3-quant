@@ -17,7 +17,7 @@ class BacktestSummary:
     """
 
     performance: dict[str, float] | None = None
-    indicators: dict[str, list[pl.DataFrame]] | None = None
+    indicators: dict[str, pl.DataFrame] | None = None
     signals: pl.DataFrame | None = None
     backtest_result: pl.DataFrame | None = None
 
@@ -44,7 +44,7 @@ class BacktestSummary:
         perf_summary = f"{len(self.performance)} keys" if self.performance else "None"
 
         ind_summary = (
-            f"{{{', '.join(f'{k}: [{", ".join(str(i.shape) for i in v)}]' for k, v in self.indicators.items())}}}"
+            f"{{{', '.join(f'{k}: {v.shape}' for k, v in self.indicators.items())}}}"
             if self.indicators
             else "None"
         )

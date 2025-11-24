@@ -20,8 +20,14 @@ class TestGenerateTimeMapping:
         ha_dfs = mock_dfs_factory([sample_time_series])
         renko_dfs = mock_dfs_factory([sample_time_series])
 
+        source = {
+            "ohlcv_0": ohlcv_dfs[0],
+            "ha_0": ha_dfs[0],
+            "renko_0": renko_dfs[0],
+        }
+
         # 调用函数
-        result, skip_mapping = generate_time_mapping(ohlcv_dfs, ha_dfs, renko_dfs)
+        result, skip_mapping = generate_time_mapping(source, "ohlcv_0")
 
         # 验证基准列 ohlcv_0 被正确跳过
         assert skip_mapping.get("ohlcv_0") is True
@@ -50,8 +56,14 @@ class TestGenerateTimeMapping:
         # Renko 数据使用完全不同的时间戳（不匹配）
         renko_dfs = mock_dfs_factory([no_match_time_series])
 
+        source = {
+            "ohlcv_0": ohlcv_dfs[0],
+            "ha_0": ha_dfs[0],
+            "renko_0": renko_dfs[0],
+        }
+
         # 调用函数
-        result, skip_mapping = generate_time_mapping(ohlcv_dfs, ha_dfs, renko_dfs)
+        result, skip_mapping = generate_time_mapping(source, "ohlcv_0")
 
         # 验证基准列 ohlcv_0 被正确跳过
         assert skip_mapping.get("ohlcv_0") is True
@@ -67,8 +79,8 @@ class TestGenerateTimeMapping:
 
     def test_generate_time_mapping_empty_input(self):
         """测试 generate_time_mapping 函数 - 空输入情况"""
-        # 调用函数，传入空列表
-        result, skip_mapping = generate_time_mapping([], [], [])
+        # 调用函数，传入空字典
+        result, skip_mapping = generate_time_mapping({}, "")
 
         # 验证结果
         assert len(result.columns) == 0
@@ -81,12 +93,12 @@ class TestGenerateTimeMapping:
         # 只有一个 ohlcv DataFrame
         ohlcv_dfs = mock_dfs_factory([sample_time_series[:5]])
 
-        # 空 HA 和 Renko 列表
-        ha_dfs = []
-        renko_dfs = []
+        source = {
+            "ohlcv_0": ohlcv_dfs[0],
+        }
 
         # 调用函数
-        result, skip_mapping = generate_time_mapping(ohlcv_dfs, ha_dfs, renko_dfs)
+        result, skip_mapping = generate_time_mapping(source, "ohlcv_0")
 
         # 验证基准列 ohlcv_0 被正确跳过
         assert skip_mapping.get("ohlcv_0") is True
@@ -115,8 +127,16 @@ class TestGenerateTimeMapping:
         ha_dfs = mock_dfs_factory([partial_match_time_series])  # ha_0，部分匹配
         renko_dfs = mock_dfs_factory([no_match_time_series])  # renko_0，不匹配
 
+        source = {
+            "ohlcv_0": ohlcv_dfs[0],
+            "ohlcv_1": ohlcv_dfs[1],
+            "ohlcv_2": ohlcv_dfs[2],
+            "ha_0": ha_dfs[0],
+            "renko_0": renko_dfs[0],
+        }
+
         # 调用函数
-        result, skip_mapping = generate_time_mapping(ohlcv_dfs, ha_dfs, renko_dfs)
+        result, skip_mapping = generate_time_mapping(source, "ohlcv_0")
 
         # 验证基准列 ohlcv_0 被正确跳过
         assert skip_mapping.get("ohlcv_0") is True

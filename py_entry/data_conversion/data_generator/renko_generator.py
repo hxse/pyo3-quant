@@ -1,6 +1,7 @@
 """
 Renko 数据生成模块
 """
+
 import polars as pl
 import numpy as np
 

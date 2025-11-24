@@ -1,8 +1,8 @@
 use super::operand_resolver::{resolve_data_operand, resolve_right_operand, ResolvedOperand};
-use crate::data_conversion::input::param_set::SignalParams;
-use crate::data_conversion::input::template::{CompareOp, SignalCondition};
-use crate::data_conversion::input::DataContainer;
-use crate::data_conversion::output::IndicatorResults;
+use crate::data_conversion::types::backtest_summary::IndicatorResults;
+use crate::data_conversion::types::param_set::SignalParams;
+use crate::data_conversion::types::templates::{CompareOp, SignalCondition};
+use crate::data_conversion::types::DataContainer;
 use crate::error::QuantError;
 use polars::prelude::*;
 use std::ops::{BitAnd, Not};

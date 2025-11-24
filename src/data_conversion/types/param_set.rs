@@ -1,7 +1,6 @@
 use super::param::Param;
 use crate::error::BacktestError;
-use pyo3::prelude::*;
-use pyo3::Bound;
+use pyo3::{prelude::*, Bound};
 use std::collections::HashMap;
 
 pub type IndicatorsParams = HashMap<String, Vec<HashMap<String, HashMap<String, Param>>>>;

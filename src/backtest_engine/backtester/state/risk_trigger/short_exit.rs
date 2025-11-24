@@ -1,5 +1,4 @@
-use super::super::backtest_state::BacktestState;
-use super::super::position_state::Position;
+use super::super::{backtest_state::BacktestState, position_state::Position};
 use super::price_utils::{calculate_risk_price, switch_prices_in_bar, switch_prices_next_bar};
 use crate::data_conversion::BacktestParams;
 

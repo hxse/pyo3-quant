@@ -1,8 +1,9 @@
-use crate::backtest_engine::indicators::atr::{atr_eager, ATRConfig};
-use crate::backtest_engine::utils::column_names::ColumnName;
-use crate::data_conversion::{input::param_set::BacktestParams, DataContainer};
-use crate::error::backtest_error::BacktestError;
-use crate::error::QuantError;
+use crate::backtest_engine::{
+    indicators::atr::{atr_eager, ATRConfig},
+    utils::column_names::ColumnName,
+};
+use crate::data_conversion::{types::param_set::BacktestParams, DataContainer};
+use crate::error::{backtest_error::BacktestError, QuantError};
 use polars::prelude::*;
 use polars::series::Series;
 

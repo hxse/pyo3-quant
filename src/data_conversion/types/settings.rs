@@ -1,5 +1,4 @@
-use pyo3::prelude::*;
-use pyo3::{Bound, FromPyObject};
+use pyo3::{prelude::*, Bound, FromPyObject};
 
 // 定义执行阶段枚举，派生 PartialOrd、Ord 以支持阶段比较
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

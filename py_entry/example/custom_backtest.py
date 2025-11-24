@@ -33,7 +33,6 @@ from py_entry.data_conversion.types import (
     SettingContainer,
     ExecutionStage,
 )
-from py_entry.Test.utils.backtest_data_exporter import export_backtest_data_to_csv
 
 from py_entry.data_conversion.data_generator import DataGenerationParams
 
@@ -164,14 +163,3 @@ if __name__ == "__main__":
     logger.info(f"performance: {backtest_result[0].performance}")
 
     logger.info(f"耗时 {time.perf_counter() - start_time}")
-
-    # 导出回测数据到CSV文件
-    print("\n" + "=" * 50)
-    print("开始导出回测数据...")
-    # 获取数据容器，确保不为None
-    data_container = br.data_dict  # type: ignore[attr-defined]
-    if data_container is not None:
-        export_backtest_data_to_csv(
-            backtest_summary=backtest_result[0], data_container=data_container
-        )
-    print("=" * 50)

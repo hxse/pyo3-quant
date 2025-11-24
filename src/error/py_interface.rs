@@ -1,7 +1,4 @@
-use pyo3::create_exception;
-use pyo3::exceptions::PyException;
-use pyo3::prelude::*;
-use pyo3::PyTypeInfo;
+use pyo3::{create_exception, exceptions::PyException, prelude::*, PyTypeInfo};
 
 use super::backtest_error::py_interface::{
     convert_backtest_error, register_py_module as register_backtest_errors,

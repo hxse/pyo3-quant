@@ -1,6 +1,6 @@
-use super::super::backtest_state::BacktestState;
-use super::super::current_bar_data::CurrentBarData;
-use super::super::position_state::Position;
+use super::super::{
+    backtest_state::BacktestState, current_bar_data::CurrentBarData, position_state::Position,
+};
 use super::price_utils::{calculate_risk_price, switch_prices_in_bar, switch_prices_next_bar};
 use crate::data_conversion::BacktestParams;
 

@@ -1,4 +1,4 @@
-use super::input::param::Param;
+use super::types::param::Param;
 use crate::error::BacktestError;
 
 /// 检查 f64 是否为 NaN 或无穷大

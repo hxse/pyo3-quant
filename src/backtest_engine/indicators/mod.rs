@@ -16,15 +16,15 @@ pub mod extended;
 pub mod registry;
 use self::registry::get_indicator_registry;
 use crate::data_conversion::{
-    input::param::Param, input::param_set::IndicatorsParams, DataContainer,
+    types::{backtest_summary::IndicatorResults, param::Param, param_set::IndicatorsParams},
+    DataContainer,
 };
+
 use crate::error::{IndicatorError, QuantError};
 use polars::prelude::*;
 use pyo3::{prelude::*, types::PyAny};
 use pyo3_polars::PyDataFrame;
 use std::collections::HashMap;
-
-use crate::data_conversion::IndicatorResults;
 
 /// 计算单个周期的指标 (已重构)
 pub fn calculate_single_period_indicators(

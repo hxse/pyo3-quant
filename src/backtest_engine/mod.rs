@@ -43,7 +43,7 @@
 //!
 //! 这种策略显著降低了大规模回测的内存占用。
 
-use crate::data_conversion::input::settings::ExecutionStage;
+use crate::data_conversion::types::settings::ExecutionStage;
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
@@ -55,7 +55,7 @@ pub mod signal_generator;
 mod utils;
 
 // 重新导出常用类型
-pub use crate::data_conversion::output::BacktestSummary;
+pub use crate::data_conversion::types::backtest_summary::BacktestSummary;
 
 use crate::data_conversion::{
     DataContainer, ParamContainer, SettingContainer, SingleParam, TemplateContainer,

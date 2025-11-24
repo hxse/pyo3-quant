@@ -5,10 +5,11 @@ pub mod utils;
 
 use crate::data_conversion::BacktestParams;
 use crate::error::QuantError;
-use drawdown_pause::drawdown_pause_signals;
-use ema_pause::pause_ema_signals;
 use polars::prelude::*;
-use sma_pause::pause_sma_signals;
+use {
+    drawdown_pause::drawdown_pause_signals, ema_pause::pause_ema_signals,
+    sma_pause::pause_sma_signals,
+};
 
 /// 根据暂停参数选择相应的暂停控制函数
 ///

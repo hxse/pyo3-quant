@@ -10,7 +10,7 @@ use super::rma::RmaIndicator;
 use super::rsi::RsiIndicator;
 use super::sma::SmaIndicator;
 use super::tr::TrIndicator;
-use crate::data_conversion::input::param::Param;
+use crate::data_conversion::types::param::Param;
 use crate::error::QuantError;
 use polars::prelude::*;
 use std::collections::HashMap;

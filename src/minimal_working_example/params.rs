@@ -3,10 +3,7 @@
 // 该文件实现了单入口的配置处理管道：
 // Python数据 (Py<PyDict>) -> 转换 (Rust 枚举) -> 计算/总结 -> 结果 (String) 返回给 Python。
 
-use pyo3::exceptions::PyKeyError;
-use pyo3::prelude::*;
-use pyo3::types::PyDict;
-use pyo3::Bound;
+use pyo3::{exceptions::PyKeyError, prelude::*, types::PyDict, Bound};
 use std::collections::HashMap;
 
 /// ----------------------------------------------------------------------

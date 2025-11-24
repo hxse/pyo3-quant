@@ -1,7 +1,9 @@
-use crate::backtest_engine::indicators::registry::Indicator;
-use crate::backtest_engine::indicators::sma::{sma_eager, SMAConfig};
-use crate::backtest_engine::indicators::utils::null_to_nan_expr;
-use crate::data_conversion::input::param::Param;
+use crate::backtest_engine::indicators::{
+    registry::Indicator,
+    sma::{sma_eager, SMAConfig},
+    utils::null_to_nan_expr,
+};
+use crate::data_conversion::types::param::Param;
 use crate::error::{IndicatorError, QuantError};
 use polars::lazy::dsl::{col, lit};
 use polars::prelude::*;

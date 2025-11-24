@@ -1,10 +1,11 @@
-use crate::data_conversion::input::param_set::{PerformanceMetric, PerformanceParams};
-use crate::data_conversion::output::PerformanceMetrics;
+use crate::data_conversion::types::{
+    backtest_summary::PerformanceMetrics,
+    param_set::{PerformanceMetric, PerformanceParams},
+};
 use crate::error::QuantError;
+use polars::prelude::*;
 use pyo3::{prelude::*, types::PyAny};
 use pyo3_polars::PyDataFrame;
-
-use polars::prelude::*;
 use std::collections::HashMap;
 
 pub fn analyze_performance(

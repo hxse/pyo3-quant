@@ -10,13 +10,15 @@ mod output;
 mod pause_control;
 pub mod state;
 
-use atr_calculator::calculate_atr_if_needed;
-use data_preparer::{get_ohlcv_dataframe, PreparedData};
-use main_loop::run_main_loop;
-use output::OutputBuffers;
-use pause_control::apply_pause_control;
-use pyo3_polars::PyDataFrame;
-use state::BacktestState;
+use {
+    atr_calculator::calculate_atr_if_needed,
+    data_preparer::{get_ohlcv_dataframe, PreparedData},
+    main_loop::run_main_loop,
+    output::OutputBuffers,
+    pause_control::apply_pause_control,
+    pyo3_polars::PyDataFrame,
+    state::BacktestState,
+};
 
 /// 执行回测计算的核心工具函数
 ///

@@ -2,10 +2,12 @@
 //!
 // ... (omitted comments for brevity)
 //!
-use super::registry::Indicator;
-use super::utils::{null_to_nan_expr, null_when_expr};
+use super::{
+    registry::Indicator,
+    utils::{null_to_nan_expr, null_when_expr},
+};
 use crate::backtest_engine::indicators::tr::{tr_expr, TRConfig};
-use crate::data_conversion::input::param::Param;
+use crate::data_conversion::types::param::Param;
 use crate::error::{IndicatorError, QuantError};
 use polars::lazy::dsl::{col, lit, when};
 use polars::prelude::*;

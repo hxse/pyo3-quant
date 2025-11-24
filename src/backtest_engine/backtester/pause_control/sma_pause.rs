@@ -1,8 +1,7 @@
 use crate::backtest_engine::backtester::pause_control::utils::{
     check_equity_columns, check_signal_only_columns,
 };
-use crate::backtest_engine::indicators::sma;
-use crate::backtest_engine::utils::column_names::ColumnName;
+use crate::backtest_engine::{indicators::sma, utils::column_names::ColumnName};
 use crate::data_conversion::BacktestParams;
 use crate::error::{backtest_error::BacktestError, QuantError};
 use polars::prelude::*;

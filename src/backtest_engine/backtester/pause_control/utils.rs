@@ -1,6 +1,8 @@
 use crate::backtest_engine::utils::column_names::ColumnName;
-use crate::data_conversion::BacktestParams;
-use crate::error::{backtest_error::BacktestError, QuantError};
+use crate::{
+    data_conversion::BacktestParams,
+    error::{backtest_error::BacktestError, QuantError},
+};
 use polars::prelude::*;
 
 /// 检查信号DataFrame是否只包含信号列

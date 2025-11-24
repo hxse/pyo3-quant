@@ -1,7 +1,4 @@
-use pyo3::create_exception;
-use pyo3::exceptions::PyException;
-use pyo3::prelude::*;
-use pyo3::PyTypeInfo;
+use pyo3::{create_exception, exceptions::PyException, prelude::*, PyTypeInfo};
 
 use super::error::IndicatorError;
 

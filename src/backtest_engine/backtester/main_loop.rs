@@ -1,6 +1,5 @@
-use super::data_preparer::PreparedData;
-use super::output::OutputBuffers;
 use super::state::{current_bar_data::CurrentBarData, BacktestState};
+use super::{data_preparer::PreparedData, output::OutputBuffers};
 use crate::backtest_engine::utils::print_position_debug;
 use crate::data_conversion::BacktestParams;
 use crate::error::backtest_error::BacktestError;

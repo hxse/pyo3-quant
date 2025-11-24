@@ -6,7 +6,7 @@ GLOBAL_RTOL = 1e-5
 GLOBAL_ATOL = 1e-8
 
 
-def _count_leading_nans(arr: np.ndarray) -> int:
+def count_leading_nans(arr: np.ndarray) -> int:
     """
     计算 NumPy 数组开头连续 NaN 值的数量。
 
@@ -43,8 +43,8 @@ def get_leading_nan_counts_for_two_arrays(
     Returns:
         Tuple[int, int]: 一个元组，包含 arr1 和 arr2 开头 NaN 值的数量。
     """
-    nan_count_arr1 = _count_leading_nans(arr1)
-    nan_count_arr2 = _count_leading_nans(arr2)
+    nan_count_arr1 = count_leading_nans(arr1)
+    nan_count_arr2 = count_leading_nans(arr2)
     return nan_count_arr1, nan_count_arr2
 
 

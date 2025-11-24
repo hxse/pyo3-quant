@@ -1,5 +1,4 @@
-use super::backtest_state::BacktestState;
-use super::position_state::Position;
+use super::{backtest_state::BacktestState, position_state::Position};
 use crate::data_conversion::BacktestParams;
 
 impl BacktestState {

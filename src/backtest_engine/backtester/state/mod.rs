@@ -9,9 +9,8 @@ pub mod position_state;
 pub mod risk_trigger;
 
 // 重新导出主要类型，方便外部使用
-pub use action::Action;
-pub use backtest_state::BacktestState;
-pub use capital_state::CapitalState;
-pub use current_bar_data::CurrentBarData;
-pub use position_state::Position;
-pub use risk_trigger::risk_state::RiskState;
+pub use {
+    action::Action, backtest_state::BacktestState, capital_state::CapitalState,
+    current_bar_data::CurrentBarData, position_state::Position,
+    risk_trigger::risk_state::RiskState,
+};

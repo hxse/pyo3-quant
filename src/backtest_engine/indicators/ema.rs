@@ -1,9 +1,11 @@
 use polars::lazy::dsl::{col, lit, when};
 use polars::prelude::*;
 
-use super::registry::Indicator;
-use super::utils::{null_to_nan_expr, null_when_expr};
-use crate::data_conversion::input::param::Param;
+use super::{
+    registry::Indicator,
+    utils::{null_to_nan_expr, null_when_expr},
+};
+use crate::data_conversion::types::param::Param;
 use crate::error::{IndicatorError, QuantError};
 use std::collections::HashMap;
 

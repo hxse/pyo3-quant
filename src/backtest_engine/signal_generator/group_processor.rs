@@ -1,8 +1,8 @@
 use super::condition_evaluator::evaluate_condition;
-use crate::data_conversion::input::param_set::SignalParams;
-use crate::data_conversion::input::template::{LogicOp, SignalGroup};
-use crate::data_conversion::input::DataContainer;
-use crate::data_conversion::output::IndicatorResults;
+use crate::data_conversion::types::backtest_summary::IndicatorResults;
+use crate::data_conversion::types::param_set::SignalParams;
+use crate::data_conversion::types::templates::{LogicOp, SignalGroup};
+use crate::data_conversion::types::DataContainer;
 use crate::error::QuantError;
 use polars::prelude::*;
 

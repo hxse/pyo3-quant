@@ -1,6 +1,5 @@
 use crate::backtest_engine::utils::column_names::ColumnName;
-use crate::data_conversion::BacktestParams;
-use crate::error::backtest_error::BacktestError;
+use crate::{data_conversion::BacktestParams, error::backtest_error::BacktestError};
 use polars::prelude::*;
 
 /// 回测输出缓冲区结构体
@@ -273,7 +272,8 @@ impl OutputBuffers {
         }
 
         // 添加 risk_in_bar 列（布尔类型）
-        let risk_in_bar_series = Series::new(ColumnName::RiskInBar.as_str().into(), &self.risk_in_bar);
+        let risk_in_bar_series =
+            Series::new(ColumnName::RiskInBar.as_str().into(), &self.risk_in_bar);
         columns.push(risk_in_bar_series.into());
 
         // 定义可选列的名称和数据

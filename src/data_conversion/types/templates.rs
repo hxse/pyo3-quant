@@ -1,5 +1,4 @@
-use pyo3::exceptions::PyKeyError;
-use pyo3::prelude::*;
+use pyo3::{exceptions::PyKeyError, prelude::*};
 
 #[derive(Debug, Clone)] // 移除 FromPyObject
 pub enum CompareOp {

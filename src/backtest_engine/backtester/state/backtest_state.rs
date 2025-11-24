@@ -1,7 +1,5 @@
-use super::action::Action;
-use super::capital_state::CapitalState;
-use super::current_bar_data::CurrentBarData;
 use super::risk_trigger::risk_state::RiskState;
+use super::{action::Action, capital_state::CapitalState, current_bar_data::CurrentBarData};
 use crate::data_conversion::BacktestParams;
 
 /// 回测状态管理结构体

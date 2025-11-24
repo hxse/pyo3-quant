@@ -2,10 +2,9 @@ use polars::lazy::dsl::{col, lit, when};
 use polars::prelude::*;
 
 // 從 ema.rs 導入封裝的 EMA 邏輯
-use super::registry::Indicator;
-use super::utils::null_to_nan_expr;
+use super::{registry::Indicator, utils::null_to_nan_expr};
 use crate::backtest_engine::indicators::ema::{ema_expr, EMAConfig};
-use crate::data_conversion::input::param::Param;
+use crate::data_conversion::types::param::Param;
 use crate::error::{IndicatorError, QuantError};
 use std::collections::HashMap;
 

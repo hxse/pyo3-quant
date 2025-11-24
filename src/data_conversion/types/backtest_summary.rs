@@ -1,6 +1,8 @@
 use polars::prelude::*;
-use pyo3::prelude::*;
-use pyo3::types::PyDict;
+use pyo3::{
+    prelude::*,
+    types::{PyDict, PyList},
+};
 use pyo3_polars::PyDataFrame;
 use std::collections::HashMap;
 

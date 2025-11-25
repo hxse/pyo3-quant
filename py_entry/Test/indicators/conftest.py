@@ -35,11 +35,14 @@ def run_indicator_backtest(
             return_only_final=True,
         ),
     )
-    backtest_results = runner.run()
+    runner.run()
+    backtest_results = runner.results
     data_container = runner.data_dict
 
     if data_container is None:
         raise ValueError("data_container 不能为 None")
+    if backtest_results is None:
+        raise ValueError("backtest_results 不能为 None")
 
     return backtest_results, data_container
 

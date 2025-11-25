@@ -15,24 +15,23 @@ from loguru import logger
 from py_entry.data_conversion.backtest_runner import BacktestRunner
 
 if __name__ == "__main__":
-    print("-" * 30)
     start_time = time.perf_counter()
     res = pyo3_quant.minimal_working_example.sum_as_string(5, 25)
     print("sum_as_string:", res)
     print("耗时", time.perf_counter() - start_time)
 
-    print("-" * 30)
     start_time = time.perf_counter()
-    br = BacktestRunner()
 
-    # 使用新的 setup 方法一次性配置所有参数
-    br.setup()
+    # 创建启用时间测量的 BacktestRunner
+    br = BacktestRunner(enable_timing=True)
 
-    # 执行回测
-    backtest_result = br.run()
+    # 使用链式调用配置和执行回测
+    logger.info("开始执行基础回测")
+    br.setup().run()
 
-    print(backtest_result)
+    print(br.results)
 
-    logger.info(f"performance: {backtest_result[0].performance}")
+    if br.results:
+        logger.info(f"performance: {br.results[0].performance}")
 
-    logger.info(f"耗时 {time.perf_counter() - start_time}")
+    logger.info(f"总耗时 {time.perf_counter() - start_time:.4f}秒")

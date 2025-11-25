@@ -1,4 +1,5 @@
 import json
+import math
 
 import pytest
 import polars as pl
@@ -9,17 +10,27 @@ from typing import Any
 BASELINE_JSON = "baseline_result.json"
 
 
+def _sanitize_value(value: Any) -> Any:
+    """清理不合法的JSON值，将NaN/Infinity转换为None"""
+    if value is None:
+        return None
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return None
+    return value
+
+
 def _row_to_dict(row_df: pl.DataFrame) -> dict:
-    """将Polars DataFrame的一行转换为字典"""
+    """将Polars DataFrame的一行转换为字典，并清理NaN/Infinity值"""
     if row_df.is_empty():
         return {}
 
     # 直接使用Polars的to_dict方法，返回第一行的数据
     row_dict = row_df.to_dict(as_series=False)
 
-    # 提取第一行的值
+    # 提取第一行的值，并清理NaN/Infinity
     return {
-        col_name: values[0]
+        col_name: _sanitize_value(values[0])
         for col_name, values in row_dict.items()
         if values  # 确保values不为空
     }
@@ -146,7 +157,8 @@ def get_or_create_baseline(backtest_df):
         # 如果已有JSON文件，直接加载并返回result部分，不覆盖
         with open(baseline_path, "r", encoding="utf-8") as f:
             baseline_result = json.load(f)
-        return baseline_result["result"]
+        # 清理读取的数据，确保与保存时的处理一致
+        return {k: _sanitize_value(v) for k, v in baseline_result["result"].items()}
 
     # 如果没有JSON文件，创建一个新的
     # 获取最后一行的数据
@@ -155,7 +167,7 @@ def get_or_create_baseline(backtest_df):
     if last_row.is_empty():
         return None
 
-    # 将最后一行转换为字典格式
+    # 将最后一行转换为字典格式（已包含清理逻辑）
     current_result = _row_to_dict(last_row)
 
     # 创建基准文件

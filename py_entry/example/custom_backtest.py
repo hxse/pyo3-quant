@@ -11,6 +11,7 @@ if root_path:
 # 所有导入必须在 sys.path 修改之后立即进行
 import time
 from loguru import logger
+import json
 
 # 项目导入
 import pyo3_quant
@@ -35,6 +36,13 @@ from py_entry.data_conversion.types import (
 )
 
 from py_entry.data_conversion.data_generator import DataGenerationParams
+
+from py_entry.data_conversion.file_utils import (
+    SaveConfig,
+    UploadConfig,
+    RequestConfig,
+)
+
 
 # 创建 DataGenerationParams 对象
 simulated_data_config = DataGenerationParams(
@@ -134,18 +142,32 @@ engine_settings = SettingContainer(
 )
 
 if __name__ == "__main__":
-    print("-" * 30)
+    # 配置logger
+
     start_time = time.perf_counter()
     res = pyo3_quant.minimal_working_example.sum_as_string(5, 25)
     print("sum_as_string:", res)
     print("耗时", time.perf_counter() - start_time)
 
-    print("-" * 30)
     start_time = time.perf_counter()
 
-    br = BacktestRunner()
+    # 创建启用时间测量的 BacktestRunner
+    br = BacktestRunner(enable_timing=True)
 
-    # 使用新的 setup 方法一次性配置所有参数
+    # 使用链式调用执行完整的回测流程
+    logger.info("开始执行回测流程")
+
+    # 读取配置文件
+    with open("data/config.json", "r") as f:
+        json_config = json.load(f)
+
+    request_cfg = RequestConfig.create(
+        username=json_config["username"],
+        password=json_config["password"],
+        server_url=json_config["server_url"],
+    )
+
+    # 完整的链式调用：配置 -> 运行 -> 保存 -> 上传
     br.setup(
         data_source=simulated_data_config,
         indicators_params=indicators_params,
@@ -153,12 +175,25 @@ if __name__ == "__main__":
         backtest_params=backtest_params,
         signal_template=signal_template,
         engine_settings=engine_settings,
+    ).run().save_results(
+        SaveConfig(
+            output_dir="my_strategy",
+            dataframe_format="csv",
+        )
+    ).upload_results(
+        UploadConfig(
+            request_config=request_cfg,
+            server_dir="my_strategy",
+            zip_name="results.zip",
+            dataframe_format="parquet",
+        )
     )
 
-    # 执行回测
-    backtest_result = br.run()
+    # 获取结果用于打印
+    backtest_result = br.results
 
     print(backtest_result)
-    logger.info(f"performance: {backtest_result[0].performance}")
+    if backtest_result:
+        logger.info(f"performance: {backtest_result[0].performance}")
 
-    logger.info(f"耗时 {time.perf_counter() - start_time}")
+    logger.info(f"总耗时 {time.perf_counter() - start_time:.4f}秒")

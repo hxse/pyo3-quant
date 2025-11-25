@@ -172,7 +172,9 @@ def signal_backtest_results():
     )
 
     # 运行回测并获取结果
-    results = runner.run()
+    runner.run()
 
     # 返回结果、数据字典和信号参数
-    return results[0], runner.data_dict, custom_signal_params
+    if runner.results is None:
+        raise ValueError("results 不能为 None")
+    return runner.results[0], runner.data_dict, custom_signal_params

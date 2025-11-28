@@ -1,13 +1,3 @@
-import sys
-from pathlib import Path
-
-root_path = next(
-    (p for p in Path(__file__).resolve().parents if (p / "pyproject.toml").is_file()),
-    None,
-)
-if root_path:
-    sys.path.insert(0, str(root_path))
-
 # 所有导入必须在 sys.path 修改之后立即进行
 import json
 from dataclasses import dataclass

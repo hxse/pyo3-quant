@@ -12,18 +12,15 @@
 - 复杂信号逻辑（AND组合，OR组合）
 - 多种比较操作符（GT, LT, CGT）
 - 信号参数使用
-
-运行方式：
-pytest py_entry/Test/signal/test_signal_generation.py
 """
 
 from polars.testing import assert_frame_equal
 
 # 导入自定义构建器和辅助函数
-from .conftest import (
+from py_entry.Test.signal.conftest import (
     custom_signal_params,
 )
-from .signal_utils import (
+from py_entry.Test.signal.signal_utils import (
     print_signal_statistics,
     calculate_signals_manually,
 )

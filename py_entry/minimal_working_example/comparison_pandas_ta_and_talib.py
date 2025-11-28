@@ -1,18 +1,3 @@
-import sys
-from pathlib import Path
-
-root_path = next(
-    (p for p in Path(__file__).resolve().parents if (p / "pyproject.toml").is_file()),
-    None,
-)
-if root_path:
-    sys.path.insert(0, str(root_path))
-
-import os
-import sys
-import pandas as pd
-import polars as pl
-import numpy as np
 import pandas_ta as ta
 
 from py_entry.data_conversion.data_generator import (

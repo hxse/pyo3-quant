@@ -78,7 +78,7 @@ class Param:
         initial_min: Optional[int | float] = None,  # 展开 T
         initial_max: Optional[int | float] = None,  # 展开 T
         initial_step: Optional[int | float] = None,  # 展开 T
-        optimize: bool = False,  # 是否开启参数优化
+        optimize: bool = True,  # 是否开启参数优化
         log_scale: bool = False,  # 是否开启对数分布
     ) -> "Param":  # 返回类型使用 'Param'
         """

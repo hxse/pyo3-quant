@@ -16,6 +16,8 @@ create_exception!(pyo3_quant.errors, PyMappingCastError, PySignalError);
 create_exception!(pyo3_quant.errors, PyMappingApplyError, PySignalError);
 create_exception!(pyo3_quant.errors, PyParameterNotFoundError, PySignalError);
 create_exception!(pyo3_quant.errors, PyInvalidInputError, PySignalError);
+create_exception!(pyo3_quant.errors, PyParseError, PySignalError);
+create_exception!(pyo3_quant.errors, PyInvalidOffsetError, PySignalError);
 
 pub fn convert_signal_error(e: SignalError) -> PyErr {
     match e {
@@ -28,6 +30,10 @@ pub fn convert_signal_error(e: SignalError) -> PyErr {
         SignalError::MappingApplyError(s) => PyMappingApplyError::new_err(s),
         SignalError::ParameterNotFound(s) => PyParameterNotFoundError::new_err(s),
         SignalError::InvalidInput(s) => PyInvalidInputError::new_err(s),
+        SignalError::ParseError(s) => PyParseError::new_err(format!("Parse error: {}", s)),
+        SignalError::InvalidOffset(s) => {
+            PyInvalidOffsetError::new_err(format!("Invalid offset: {}", s))
+        }
     }
 }
 
@@ -68,6 +74,11 @@ pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add(
         "PyInvalidInputError",
         PyInvalidInputError::type_object(m.py()),
+    )?;
+    m.add("PyParseError", PyParseError::type_object(m.py()))?;
+    m.add(
+        "PyInvalidOffsetError",
+        PyInvalidOffsetError::type_object(m.py()),
     )?;
     Ok(())
 }

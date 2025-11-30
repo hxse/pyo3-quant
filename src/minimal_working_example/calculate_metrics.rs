@@ -38,14 +38,11 @@ fn calculate_metrics_internal(
 
     let enter_long_count = template
         .signal
-        .enter_long // 从 template.signal.enter_long 改为 template.enter_long
-        .as_ref() // Option<Vec<SignalGroup>> -> Option<&Vec<SignalGroup>>
-        .map(|groups| {
-            // groups 的类型是 &Vec<SignalGroup>
-            groups
-                .iter() // 迭代 Vec<SignalGroup> 中的每个 SignalGroup
-                .map(|group| group.conditions.len()) // 对每个 group，获取其 conditions 的长度
-                .sum::<usize>() // 将所有长度求和
+        .enter_long
+        .as_ref() // Option<SignalGroup> -> Option<&SignalGroup>
+        .map(|group| {
+            // group 的类型是 &SignalGroup
+            group.comparisons.len() + group.sub_groups.len()
         })
         .unwrap_or(0); // 如果 Option 是 None，则返回 0
 

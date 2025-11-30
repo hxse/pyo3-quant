@@ -86,37 +86,16 @@ def backtest_result():
     # 自定义信号模板
     enter_long_group = SignalGroup(
         logic=LogicOp.AND,
-        conditions=[
-            signal_data_vs_data(
-                compare=CompareOp.CGT,
-                a_name="close",
-                a_source="ohlcv_15m",
-                a_offset=0,
-                b_name="bbands_0_upper",
-                b_source="ohlcv_15m",
-                b_offset=0,
-            ),
-            signal_data_vs_param(
-                compare=CompareOp.GT,
-                a_name="rsi_0",
-                a_source="ohlcv_1h",
-                a_offset=0,
-                b_param="rsi_midline",
-            ),
-            signal_data_vs_data(
-                compare=CompareOp.GT,
-                a_name="sma_0",
-                a_source="ohlcv_4h",
-                a_offset=0,
-                b_name="sma_1",
-                b_source="ohlcv_4h",
-                b_offset=0,
-            ),
+        comparisons=[
+            "close, ohlcv_15m, 0 x> bbands_0_upper, ohlcv_15m, 0",
+            "rsi_0, ohlcv_1h, 0 > $rsi_midline",
+            "sma_0, ohlcv_4h, 0 > sma_1, ohlcv_4h, 0",
         ],
+        sub_groups=[],
     )
 
     signal_template = SignalTemplate(
-        name="multi_timeframe_dynamic_strategy", enter_long=[enter_long_group]
+        name="multi_timeframe_dynamic_strategy", enter_long=enter_long_group
     )
 
     # 自定义引擎设置

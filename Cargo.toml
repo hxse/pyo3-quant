@@ -10,6 +10,7 @@ name = "pyo3_quant"
 crate-type = ["cdylib"]
 
 [dependencies]
+nom = "8.0.0"
 polars = { version = "0.52", default-features = false, features = [
     "lazy",
     "rolling_window",

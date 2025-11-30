@@ -36,7 +36,7 @@ class OhlcvDataFetchConfig:
 class OtherParams:
     """其他参数配置类，用于存放不太重要的参数"""
 
-    brick_size: float
+    brick_size: float = 2.0
     ha_timeframes: list[str] | None = None
     renko_timeframes: list[str] | None = None
 

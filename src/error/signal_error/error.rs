@@ -21,4 +21,8 @@ pub enum SignalError {
     ParameterNotFound(String),
     #[error("Invalid input: {0}")]
     InvalidInput(String),
+    #[error("Parse error: {0}")]
+    ParseError(String),
+    #[error("Invalid offset: {0}")]
+    InvalidOffset(String),
 }

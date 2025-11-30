@@ -1,4 +1,5 @@
 use crate::backtest_engine::utils::column_names::ColumnName;
+use crate::backtest_engine::utils::get_data_length;
 use crate::data_conversion::types::backtest_summary::IndicatorResults;
 use crate::data_conversion::types::param_set::SignalParams;
 use crate::data_conversion::types::templates::{SignalGroup, SignalTemplate};
@@ -14,24 +15,25 @@ use std::collections::HashMap;
 pub mod condition_evaluator;
 pub mod group_processor;
 pub mod operand_resolver;
+pub mod parser;
+pub mod types; // 新增：解析器内部类型定义
 
-pub use group_processor::*;
+use group_processor::process_signal_group;
 
 // 辅助函数：处理单个信号字段的逻辑
 fn process_signal_field_helper(
-    groups: Option<&Vec<SignalGroup>>,
+    group: Option<&SignalGroup>,
     processed_data: &DataContainer,
     indicator_dfs: &IndicatorResults,
     signal_params: &SignalParams,
     target_series: &mut Series,
 ) -> Result<(), QuantError> {
-    if let Some(groups) = groups {
-        for group in groups {
-            let group_result =
-                process_signal_group(&group, processed_data, indicator_dfs, signal_params)?;
-            // 克隆 target_series，然后进行bitor操作
-            *target_series = (&*target_series | &group_result)?;
-        }
+    if let Some(group) = group {
+        let group_result =
+            process_signal_group(group, processed_data, indicator_dfs, signal_params)?;
+        // 使用 bitor 操作合并结果，避免不必要的 clone
+        let result_chunked = target_series.bool()? | &group_result;
+        *target_series = result_chunked.into_series();
     }
     Ok(())
 }
@@ -42,8 +44,8 @@ pub fn generate_signals(
     signal_params: &SignalParams,
     signal_template: &SignalTemplate,
 ) -> Result<DataFrame, QuantError> {
-    // 从 processed_data.mapping 获取数据长度
-    let data_len = processed_data.mapping.height();
+    // 从 processed_data.source 获取基础数据的长度
+    let data_len = get_data_length(processed_data, "generate_signals")?;
 
     if data_len == 0 {
         return Err(QuantError::Signal(crate::error::SignalError::InvalidInput(

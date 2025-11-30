@@ -10,7 +10,8 @@ class SignalGroup:
     """信号组 - 对应 Rust SignalGroup"""
 
     logic: LogicOp
-    conditions: List[SignalCondition]
+    comparisons: List[str]
+    sub_groups: List["SignalGroup"]
 
 
 @dataclass
@@ -18,10 +19,10 @@ class SignalTemplate:
     """信号模板 - 对应 Rust SignalTemplate"""
 
     name: str
-    enter_long: Optional[List[SignalGroup]] = None
-    exit_long: Optional[List[SignalGroup]] = None
-    enter_short: Optional[List[SignalGroup]] = None
-    exit_short: Optional[List[SignalGroup]] = None
+    enter_long: Optional[SignalGroup] = None
+    exit_long: Optional[SignalGroup] = None
+    enter_short: Optional[SignalGroup] = None
+    exit_short: Optional[SignalGroup] = None
 
 
 @dataclass

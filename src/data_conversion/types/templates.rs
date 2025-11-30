@@ -1,45 +1,5 @@
 use pyo3::{exceptions::PyKeyError, prelude::*};
 
-#[derive(Debug, Clone)] // 移除 FromPyObject
-pub enum CompareOp {
-    GT,  // >
-    LT,  // <
-    GE,  // >=
-    LE,  // <=
-    EQ,  // ==
-    NE,  // !=
-    CGT, // > 交叉
-    CLT, // < 交叉
-    CGE, // >= 交叉
-    CLE, // <= 交叉
-    CEQ, // == 交叉
-    CNE, // != 交叉
-}
-
-impl<'py> FromPyObject<'py> for CompareOp {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let s: String = ob.extract()?;
-        match s.as_str() {
-            "GT" => Ok(CompareOp::GT),
-            "LT" => Ok(CompareOp::LT),
-            "GE" => Ok(CompareOp::GE),
-            "LE" => Ok(CompareOp::LE),
-            "EQ" => Ok(CompareOp::EQ),
-            "NE" => Ok(CompareOp::NE),
-            "CGT" => Ok(CompareOp::CGT),
-            "CLT" => Ok(CompareOp::CLT),
-            "CGE" => Ok(CompareOp::CGE),
-            "CLE" => Ok(CompareOp::CLE),
-            "CEQ" => Ok(CompareOp::CEQ),
-            "CNE" => Ok(CompareOp::CNE),
-            _ => Err(PyErr::new::<PyKeyError, _>(format!(
-                "Invalid CompareOp: {}",
-                s
-            ))),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum LogicOp {
     AND,
@@ -61,58 +21,22 @@ impl<'py> FromPyObject<'py> for LogicOp {
 }
 
 #[derive(Debug, Clone, FromPyObject)]
-pub struct ParamOperand {
-    pub name: String,
-}
-
-// Signal 专用：带时间框架
-#[derive(Debug, Clone, FromPyObject)]
-pub struct SignalDataOperand {
-    pub name: String,
-    pub source: String,
-    pub offset: u32,
-}
-
-#[derive(Debug, Clone)]
-pub enum SignalRightOperand {
-    Data(SignalDataOperand),
-    Param(ParamOperand),
-}
-
-impl<'py> FromPyObject<'py> for SignalRightOperand {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let tag: String = ob.getattr("_tag")?.extract()?;
-        match tag.as_str() {
-            "Data" => Ok(SignalRightOperand::Data(ob.extract()?)),
-            "Param" => Ok(SignalRightOperand::Param(ob.extract()?)),
-            _ => Err(PyErr::new::<PyKeyError, _>(format!(
-                "Invalid _tag for SignalRightOperand: {}",
-                tag
-            ))),
-        }
-    }
-}
-
-#[derive(Debug, Clone, FromPyObject)]
-pub struct SignalCondition {
-    pub a: SignalDataOperand,
-    pub b: SignalRightOperand,
-    pub compare: CompareOp,
-}
-
-#[derive(Debug, Clone, FromPyObject)]
 pub struct SignalGroup {
     pub logic: LogicOp,
-    pub conditions: Vec<SignalCondition>,
+    /// 条件字符串列表，每个字符串会被 nom 解析器转换成 SignalCondition
+    /// 语法：`[!] LeftOperand Op RightOperand`
+    /// 示例：`"close, ohlcv_15m, 0 > sma_0, ohlcv_15m, 0"` 或 `"rsi_0, ohlcv_1h, 0 < $rsi_lower"`
+    pub comparisons: Vec<String>,
+    pub sub_groups: Vec<SignalGroup>,
 }
 
 #[derive(Debug, Clone, FromPyObject)]
 pub struct SignalTemplate {
     pub name: String,
-    pub enter_long: Option<Vec<SignalGroup>>,
-    pub exit_long: Option<Vec<SignalGroup>>,
-    pub enter_short: Option<Vec<SignalGroup>>,
-    pub exit_short: Option<Vec<SignalGroup>>,
+    pub enter_long: Option<SignalGroup>,
+    pub exit_long: Option<SignalGroup>,
+    pub enter_short: Option<SignalGroup>,
+    pub exit_short: Option<SignalGroup>,
 }
 
 #[derive(Debug, Clone, FromPyObject)] // 添加 FromPyObject

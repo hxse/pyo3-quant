@@ -1,3 +1,4 @@
+from pdb import Pdb
 from typing import Optional
 import time
 from loguru import logger
@@ -83,6 +84,7 @@ class BacktestRunner:
         performance_params: PerformanceParams | None = None,
         signal_template: SignalTemplate | None = None,
         engine_settings: SettingContainer | None = None,
+        param_set_size: int = 1,
     ) -> "BacktestRunner":
         """一次性配置回测所需的所有组件
 
@@ -114,22 +116,15 @@ class BacktestRunner:
         if self.data_dict is None:
             raise ValueError("data_dict 不能为空")
 
-        # 配置参数集
-        # 使用提供的参数或默认值构建单个参数集
-
-        # 配置参数集
-        # 使用提供的参数或默认值构建单个参数集
-
-        indicators = build_indicators_params(indicators_params)
-
         # 直接创建单个 SingleParamSet
         self.param_set = [
             SingleParamSet(
-                indicators=indicators,
+                indicators=build_indicators_params(indicators_params),
                 signal=build_signal_params(signal_params),
                 backtest=build_backtest_params(backtest_params),
                 performance=build_performance_params(performance_params),
             )
+            for _ in range(param_set_size)
         ]
 
         # 配置模板

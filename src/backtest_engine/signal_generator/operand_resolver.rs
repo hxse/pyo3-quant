@@ -1,9 +1,7 @@
 use crate::error::{QuantError, SignalError};
 
+use super::types::{OffsetType, ParamOperand, SignalDataOperand, SignalRightOperand};
 use crate::data_conversion::types::param_set::SignalParams;
-use crate::data_conversion::types::templates::{
-    ParamOperand, SignalDataOperand, SignalRightOperand,
-};
 
 use crate::data_conversion::types::backtest_summary::IndicatorResults;
 use crate::data_conversion::types::{DataContainer, DataSource};
@@ -64,14 +62,12 @@ fn apply_mapping_if_needed(
     }
 }
 
-/// 从 DataContainer 或 indicator_dfs 中解析 SignalDataOperand 为 Series
+/// 从 DataContainer 或 indicator_dfs 中解析 SignalDataOperand 为 Series List
 pub fn resolve_data_operand(
     operand: &SignalDataOperand,
     processed_data: &DataContainer,
     indicator_dfs: &IndicatorResults,
-) -> Result<Series, SignalError> {
-    let offset = operand.offset as i64;
-
+) -> Result<Vec<Series>, SignalError> {
     let mut res = try_resolve_series(operand, &processed_data.source);
 
     if let Err(SignalError::ColumnNotFound(_)) = &res {
@@ -79,9 +75,26 @@ pub fn resolve_data_operand(
     }
 
     let series = res?;
-    let shifted_series = series.shift(offset);
 
-    apply_mapping_if_needed(&shifted_series, operand, processed_data)
+    let offsets: Vec<i64> = match &operand.offset {
+        OffsetType::Single(val) => vec![*val as i64],
+        OffsetType::RangeAnd(start, end) | OffsetType::RangeOr(start, end) => {
+            (*start..=*end).map(|x| x as i64).collect()
+        }
+        OffsetType::ListAnd(list) | OffsetType::ListOr(list) => {
+            list.iter().map(|&x| x as i64).collect()
+        }
+    };
+
+    let mut result_series = Vec::with_capacity(offsets.len());
+
+    for offset in offsets {
+        let shifted_series = series.shift(offset);
+        let mapped_series = apply_mapping_if_needed(&shifted_series, operand, processed_data)?;
+        result_series.push(mapped_series);
+    }
+
+    Ok(result_series)
 }
 
 /// 从 signal_params 中解析 ParamOperand 为 f64
@@ -101,7 +114,7 @@ pub fn resolve_param_operand(
 /// 解析 SignalRightOperand 为 Series 或 f64
 #[derive(Debug)]
 pub enum ResolvedOperand {
-    Series(Series),
+    Series(Vec<Series>),
     Scalar(f64),
 }
 
@@ -120,5 +133,6 @@ pub fn resolve_right_operand(
             let scalar = resolve_param_operand(param_operand, signal_params)?;
             Ok(ResolvedOperand::Scalar(scalar))
         }
+        SignalRightOperand::Scalar(value) => Ok(ResolvedOperand::Scalar(*value)),
     }
 }

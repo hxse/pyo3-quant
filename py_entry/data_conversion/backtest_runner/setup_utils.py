@@ -183,21 +183,12 @@ def build_signal_template(
     # 否则返回默认值
     enter_long_group = SignalGroup(
         logic=LogicOp.AND,
-        conditions=[
-            signal_data_vs_data(
-                compare=CompareOp.GT,
-                a_name="sma_0",
-                a_source="ohlcv_15m",
-                a_offset=0,
-                b_name="sma_1",
-                b_source="ohlcv_15m",
-                b_offset=0,
-            )
-        ],
+        comparisons=["sma_0, ohlcv_15m, 0 > sma_1, ohlcv_15m, 0"],
+        sub_groups=[],
     )
 
     return SignalTemplate(
-        name="multi_timeframe_dynamic_strategy", enter_long=[enter_long_group]
+        name="multi_timeframe_dynamic_strategy", enter_long=enter_long_group
     )
 
 

@@ -45,13 +45,13 @@ simulated_data_config = DataGenerationParams(
 # 构建指标参数
 indicators_params = {
     "ohlcv_15m": {
-        "bbands_0": {
+        "bbands": {
             "period": Param.create(14),
             "std": Param.create(2),
         }
     },
     "ohlcv_1h": {
-        "rsi_0": {
+        "rsi": {
             "period": Param.create(14),
         }
     },
@@ -91,37 +91,16 @@ backtest_params = BacktestParams(
 # 自定义信号模板
 enter_long_group = SignalGroup(
     logic=LogicOp.AND,
-    conditions=[
-        signal_data_vs_data(
-            compare=CompareOp.CGT,
-            a_name="close",
-            a_source="ohlcv_15m",
-            a_offset=0,
-            b_name="bbands_0_upper",
-            b_source="ohlcv_15m",
-            b_offset=0,
-        ),
-        signal_data_vs_param(
-            compare=CompareOp.GT,
-            a_name="rsi_0",
-            a_source="ohlcv_1h",
-            a_offset=0,
-            b_param="rsi_midline",
-        ),
-        signal_data_vs_data(
-            compare=CompareOp.GT,
-            a_name="sma_0",
-            a_source="ohlcv_4h",
-            a_offset=0,
-            b_name="sma_1",
-            b_source="ohlcv_4h",
-            b_offset=0,
-        ),
+    comparisons=[
+        "close,ohlcv_15m > bbands_upper,ohlcv_15m",
+        "rsi,ohlcv_1h > $rsi_midline",
+        "sma_0,ohlcv_4h > sma_1,ohlcv_4h",
     ],
+    sub_groups=[],
 )
 
 signal_template = SignalTemplate(
-    name="multi_timeframe_dynamic_strategy", enter_long=[enter_long_group]
+    name="multi_timeframe_dynamic_strategy", enter_long=enter_long_group
 )
 
 # 自定义引擎设置
@@ -132,11 +111,6 @@ engine_settings = SettingContainer(
 
 if __name__ == "__main__":
     # 配置logger
-
-    start_time = time.perf_counter()
-    res = pyo3_quant.minimal_working_example.sum_as_string(5, 25)
-    print("sum_as_string:", res)
-    print("耗时", time.perf_counter() - start_time)
 
     start_time = time.perf_counter()
 
@@ -164,7 +138,9 @@ if __name__ == "__main__":
         backtest_params=backtest_params,
         signal_template=signal_template,
         engine_settings=engine_settings,
-    ).run().save_results(
+    ).run()
+
+    br.save_results(
         SaveConfig(
             output_dir="my_strategy",
             dataframe_format="csv",

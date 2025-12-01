@@ -53,7 +53,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
     # 逻辑：(ADX > 25 AND 趋势策略) OR (ADX < 25 AND 震荡策略)
     enter_long=SignalGroup(
         logic=LogicOp.OR,
-        comparisons=[],
         sub_groups=[
             # 1. 强趋势策略 (ADX > Threshold)
             SignalGroup(
@@ -71,7 +70,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
                             "close, ohlcv_15m, 0 > close, ohlcv_15m, &1/2",  # 收盘价 > 前两根收盘价
                             "close, ohlcv_15m, 0 > high, ohlcv_15m, 1",  # 收盘价 > 前一根最高价
                         ],
-                        sub_groups=[],
                     ),
                 ],
             ),
@@ -82,7 +80,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
                     "adx_0_adx, ohlcv_15m, 0 < $adx_threshold",  # 趋势疲弱
                     "rsi_0, ohlcv_15m, 0 < $rsi_oversold",  # RSI超卖
                 ],
-                sub_groups=[],
             ),
         ],
     ),
@@ -90,7 +87,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
     # 逻辑：(ADX > 25 AND 趋势策略) OR (ADX < 25 AND 震荡策略)
     enter_short=SignalGroup(
         logic=LogicOp.OR,
-        comparisons=[],
         sub_groups=[
             # 1. 强趋势策略 (ADX > Threshold)
             SignalGroup(
@@ -108,7 +104,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
                             "close, ohlcv_15m, 0 < close, ohlcv_15m, &1/2",  # 收盘价 < 前两根收盘价
                             "close, ohlcv_15m, 0 < low, ohlcv_15m, 1",  # 收盘价 < 前一根最低价
                         ],
-                        sub_groups=[],
                     ),
                 ],
             ),
@@ -119,7 +114,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
                     "adx_0_adx, ohlcv_15m, 0 < $adx_threshold",  # 趋势疲弱
                     "rsi_0, ohlcv_15m, 0 > $rsi_overbought",  # RSI超买
                 ],
-                sub_groups=[],
             ),
         ],
     ),
@@ -132,7 +126,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
             # 止损 (RSI超买)
             "rsi_0, ohlcv_15m, 0 > $rsi_overbought",
         ],
-        sub_groups=[],
     ),
     # 做空离场信号
     exit_short=SignalGroup(
@@ -143,6 +136,5 @@ SIGNAL_TEMPLATE = SignalTemplate(
             # 止损 (RSI超卖)
             "rsi_0, ohlcv_15m, 0 < $rsi_oversold",
         ],
-        sub_groups=[],
     ),
 )

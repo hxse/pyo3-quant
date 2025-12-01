@@ -63,27 +63,23 @@ SIGNAL_TEMPLATE = SignalTemplate(
             "close, ha_15m, 0 > ema_0, ohlcv_4h, 0",  # ha价格 vs ohlcv指标
             "sma_0, renko_15m, 0 > close, ha_1h, 0",  # renko指标 vs ha价格
         ],
-        sub_groups=[],
     ),
     exit_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             "sma_0, ohlcv_15m, 0 < close, renko_1h, 0",
         ],
-        sub_groups=[],
     ),
     enter_short=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             "close, ha_15m, 0 < ema_0, ohlcv_4h, 0",
         ],
-        sub_groups=[],
     ),
     exit_short=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             "sma_0, renko_15m, 0 < close, ha_1h, 0",
         ],
-        sub_groups=[],
     ),
 )

@@ -36,7 +36,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
             "close, ohlcv_15m, 0 > sma_20, ohlcv_15m, 0",
             "rsi_14, ohlcv_15m, 0 > $rsi_threshold",
         ],
-        sub_groups=[],
     ),
     exit_long=None,
     enter_short=None,

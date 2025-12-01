@@ -76,6 +76,10 @@ from py_entry.Test.signal.scenarios.scenario_cross_data_source import (
     config as cross_data_source_config,
     manual_calc as cross_data_source_calc,
 )
+from py_entry.Test.signal.scenarios.scenario_scalar_comparison import (
+    config as scalar_comparison_config,
+    manual_calc as scalar_comparison_calc,
+)
 
 
 @dataclass
@@ -209,6 +213,15 @@ _ALL_SCENARIOS = [
         signal_params=cross_data_source_config.SIGNAL_PARAMS,
         signal_template=cross_data_source_config.SIGNAL_TEMPLATE,
         manual_calculator=cross_data_source_calc.calculate_signals,
+        expected_exception=None,  # 预期成功
+    ),
+    TestScenario(
+        name="scenario_scalar_comparison",
+        description=scalar_comparison_config.DESCRIPTION,
+        indicators_params=scalar_comparison_config.INDICATORS_PARAMS,
+        signal_params=scalar_comparison_config.SIGNAL_PARAMS,
+        signal_template=scalar_comparison_config.SIGNAL_TEMPLATE,
+        manual_calculator=scalar_comparison_calc.calculate_signals,
         expected_exception=None,  # 预期成功
     ),
     # 预期报错的场景（边界行为测试）

@@ -3,6 +3,7 @@
 测试目标：验证AND范围偏移语法的正确性
 语法：&0-2 表示 offset 0, 1, 2 都必须满足条件
 """
+
 from py_entry.data_conversion.types import (
     IndicatorsParams,
     SignalParams,
@@ -34,7 +35,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
         comparisons=[
             "close, ohlcv_15m, &0-2 > sma_0, ohlcv_15m, 0",
         ],
-        sub_groups=[],
     ),
     exit_long=None,
     enter_short=None,

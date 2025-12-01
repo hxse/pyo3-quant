@@ -36,7 +36,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
         comparisons=[
             "close, ohlcv_15m, &0/1/5 > sma_0, ohlcv_15m, &1/3",
         ],
-        sub_groups=[],
     ),
     exit_long=None,
     enter_short=None,

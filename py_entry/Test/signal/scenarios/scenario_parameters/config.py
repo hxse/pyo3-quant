@@ -40,7 +40,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
             # RSI < 30 (使用参数引用)
             "rsi_14, ohlcv_15m, 0 < $rsi_buy_threshold",
         ],
-        sub_groups=[],
     ),
     exit_long=SignalGroup(
         logic=LogicOp.OR,
@@ -48,7 +47,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
             # RSI > 70 (使用参数引用)
             "rsi_14, ohlcv_15m, 0 > $rsi_sell_threshold",
         ],
-        sub_groups=[],
     ),
     enter_short=SignalGroup(
         logic=LogicOp.AND,
@@ -56,7 +54,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
             # RSI > 70 (使用参数引用)
             "rsi_14, ohlcv_15m, 0 > $rsi_sell_threshold",
         ],
-        sub_groups=[],
     ),
     exit_short=SignalGroup(
         logic=LogicOp.OR,
@@ -64,7 +61,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
             # RSI < 30 (使用参数引用)
             "rsi_14, ohlcv_15m, 0 < $rsi_buy_threshold",
         ],
-        sub_groups=[],
     ),
 )
 

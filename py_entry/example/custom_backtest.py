@@ -96,7 +96,6 @@ enter_long_group = SignalGroup(
         "rsi,ohlcv_1h > $rsi_midline",
         "sma_0,ohlcv_4h > sma_1,ohlcv_4h",
     ],
-    sub_groups=[],
 )
 
 signal_template = SignalTemplate(

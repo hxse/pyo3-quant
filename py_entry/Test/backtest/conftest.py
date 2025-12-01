@@ -91,7 +91,6 @@ def backtest_result():
             "rsi_0, ohlcv_1h, 0 > $rsi_midline",
             "sma_0, ohlcv_4h, 0 > sma_1, ohlcv_4h, 0",
         ],
-        sub_groups=[],
     )
 
     signal_template = SignalTemplate(

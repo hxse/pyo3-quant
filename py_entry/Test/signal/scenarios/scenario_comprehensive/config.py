@@ -53,7 +53,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
             "rsi_14, ohlcv_1h, 0 > $rsi_midline",
             "sma_10, ohlcv_4h, 0 > sma_30, ohlcv_4h, 0",
         ],
-        sub_groups=[],
     ),
     exit_long=SignalGroup(
         logic=LogicOp.OR,
@@ -61,7 +60,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
             "close, ohlcv_15m, 0 < bbands_20_lower, ohlcv_15m, 0",
             "rsi_14, ohlcv_1h, 0 < $rsi_oversold",
         ],
-        sub_groups=[],
     ),
     enter_short=None,
     exit_short=None,

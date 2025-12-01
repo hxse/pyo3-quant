@@ -1,6 +1,6 @@
 """模板定义"""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 from .conditions import SignalCondition, LogicOp
 
@@ -10,8 +10,8 @@ class SignalGroup:
     """信号组 - 对应 Rust SignalGroup"""
 
     logic: LogicOp
-    comparisons: List[str]
-    sub_groups: List["SignalGroup"]
+    comparisons: List[str] = field(default_factory=list)
+    sub_groups: List["SignalGroup"] = field(default_factory=list)
 
 
 @dataclass

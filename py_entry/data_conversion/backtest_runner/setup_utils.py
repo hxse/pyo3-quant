@@ -184,7 +184,6 @@ def build_signal_template(
     enter_long_group = SignalGroup(
         logic=LogicOp.AND,
         comparisons=["sma_0, ohlcv_15m, 0 > sma_1, ohlcv_15m, 0"],
-        sub_groups=[],
     )
 
     return SignalTemplate(

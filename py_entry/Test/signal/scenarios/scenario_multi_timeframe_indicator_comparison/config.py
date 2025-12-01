@@ -75,7 +75,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
             "close, ohlcv_15m, 0 > ema_0, ohlcv_1h, 0",  # 15分钟收盘价 > 1小时EMA
             "close, ohlcv_15m, 0 > bbands_0_middle, ohlcv_1h, 0",  # 15分钟收盘价 > 1小时布林带中轨
         ],
-        sub_groups=[],
     ),
     # 做空入场信号
     # 逻辑：不同时间周期的指标比较，确认多时间周期趋势向下
@@ -92,7 +91,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
             "close, ohlcv_15m, 0 < ema_0, ohlcv_1h, 0",  # 15分钟收盘价 < 1小时EMA
             "close, ohlcv_15m, 0 < bbands_0_middle, ohlcv_1h, 0",  # 15分钟收盘价 < 1小时布林带中轨
         ],
-        sub_groups=[],
     ),
     # 做多离场信号
     exit_long=SignalGroup(
@@ -103,7 +101,6 @@ SIGNAL_TEMPLATE = SignalTemplate(
             # 2. RSI多时间周期动量反转
             "rsi_0, ohlcv_15m, 0 < $rsi_midline",  # 15分钟RSI跌破中轴线
         ],
-        sub_groups=[],
     ),
     # 做空离场信号
     exit_short=SignalGroup(
@@ -114,6 +111,5 @@ SIGNAL_TEMPLATE = SignalTemplate(
             # 2. RSI多时间周期动量反转
             "rsi_0, ohlcv_15m, 0 > $rsi_midline",  # 15分钟RSI突破中轴线
         ],
-        sub_groups=[],
     ),
 )

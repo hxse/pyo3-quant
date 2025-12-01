@@ -226,21 +226,31 @@ fn parse_offset(input: &str) -> Res<OffsetType> {
 fn parse_data_operand(input: &str) -> Res<SignalDataOperand> {
     let (input, _) = multispace0(input)?;
     let (input, name) = parse_identifier(input)?;
-    let (input, _) = delimited(multispace0, tag(","), multispace0).parse(input)?;
-    let (input, source) = parse_identifier(input)?;
 
-    let (input, offset) = opt(preceded(
+    // 检查是否有扩展部分：", source, offset"
+    // 规则：要么没有逗号，要么有两个逗号
+    let (input, extension) = opt((
         delimited(multispace0, tag(","), multispace0),
-        parse_offset,
+        opt(parse_identifier),
+        delimited(multispace0, tag(","), multispace0),
+        opt(parse_offset),
     ))
     .parse(input)?;
+
+    let (source, offset) = match extension {
+        Some((_, source_opt, _, offset_opt)) => (
+            source_opt.unwrap_or("").to_string(),
+            offset_opt.unwrap_or(OffsetType::Single(0)),
+        ),
+        None => ("".to_string(), OffsetType::Single(0)),
+    };
 
     Ok((
         input,
         SignalDataOperand {
             name: name.to_string(),
-            source: source.to_string(),
-            offset: offset.unwrap_or(OffsetType::Single(0)),
+            source,
+            offset,
         },
     ))
 }

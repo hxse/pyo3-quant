@@ -9,13 +9,11 @@ use polars::prelude::*;
 
 /// 辅助函数：尝试从给定的数据源中解析 &Series
 fn try_resolve_series<'a>(
-    operand: &SignalDataOperand,
+    source_key: &str,
+    column_name: &str,
     data_source: &'a DataSource,
 ) -> Result<&'a Series, SignalError> {
-    let source_key = &operand.source;
-    let column_name = &operand.name;
-
-    // 直接使用 operand.source 作为键查找 DataFrame
+    // 直接使用 source_key 作为键查找 DataFrame
     let df = data_source
         .get(source_key)
         .ok_or_else(|| SignalError::SourceNotFound(source_key.to_string()))?;
@@ -30,10 +28,10 @@ fn try_resolve_series<'a>(
 /// 私有辅助函数：根据需要应用数据映射
 fn apply_mapping_if_needed(
     series_to_map: &Series,
-    operand: &SignalDataOperand,
+    source_key: &str,
     processed_data: &DataContainer,
 ) -> Result<Series, SignalError> {
-    let key = &operand.source;
+    let key = source_key;
 
     if let Some(false) = processed_data.skip_mapping.get(key) {
         // 执行映射逻辑
@@ -68,10 +66,18 @@ pub fn resolve_data_operand(
     processed_data: &DataContainer,
     indicator_dfs: &IndicatorResults,
 ) -> Result<Vec<Series>, SignalError> {
-    let mut res = try_resolve_series(operand, &processed_data.source);
+    // 解析数据源：如果 operand.source 为空，则使用 base_data_key
+    let source_key = if operand.source.is_empty() {
+        &processed_data.base_data_key
+    } else {
+        &operand.source
+    };
+    let column_name = &operand.name;
+
+    let mut res = try_resolve_series(source_key, column_name, &processed_data.source);
 
     if let Err(SignalError::ColumnNotFound(_)) = &res {
-        res = try_resolve_series(operand, indicator_dfs);
+        res = try_resolve_series(source_key, column_name, indicator_dfs);
     }
 
     let series = res?;
@@ -90,7 +96,7 @@ pub fn resolve_data_operand(
 
     for offset in offsets {
         let shifted_series = series.shift(offset);
-        let mapped_series = apply_mapping_if_needed(&shifted_series, operand, processed_data)?;
+        let mapped_series = apply_mapping_if_needed(&shifted_series, source_key, processed_data)?;
         result_series.push(mapped_series);
     }
 

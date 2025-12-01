@@ -80,6 +80,22 @@ from py_entry.Test.signal.scenarios.scenario_scalar_comparison import (
     config as scalar_comparison_config,
     manual_calc as scalar_comparison_calc,
 )
+from py_entry.Test.signal.scenarios.scenario_simplified_syntax import (
+    config as simplified_syntax_config,
+    manual_calc as simplified_syntax_calc,
+)
+from py_entry.Test.signal.scenarios.scenario_syntax_invalid_missing_name import (
+    config as syntax_invalid_missing_name_config,
+    manual_calc as syntax_invalid_missing_name_calc,
+)
+from py_entry.Test.signal.scenarios.scenario_syntax_invalid_partial_commas import (
+    config as syntax_invalid_partial_commas_config,
+    manual_calc as syntax_invalid_partial_commas_calc,
+)
+from py_entry.Test.signal.scenarios.scenario_syntax_invalid_wrong_order import (
+    config as syntax_invalid_wrong_order_config,
+    manual_calc as syntax_invalid_wrong_order_calc,
+)
 
 
 @dataclass
@@ -224,6 +240,15 @@ _ALL_SCENARIOS = [
         manual_calculator=scalar_comparison_calc.calculate_signals,
         expected_exception=None,  # 预期成功
     ),
+    TestScenario(
+        name="scenario_simplified_syntax",
+        description=simplified_syntax_config.DESCRIPTION,
+        indicators_params=simplified_syntax_config.INDICATORS_PARAMS,
+        signal_params=simplified_syntax_config.SIGNAL_PARAMS,
+        signal_template=simplified_syntax_config.SIGNAL_TEMPLATE,
+        manual_calculator=simplified_syntax_calc.calculate_signals,
+        expected_exception=None,  # 预期成功
+    ),
     # 预期报错的场景（边界行为测试）
     TestScenario(
         name="scenario_offset_invalid_mixed_logic",
@@ -260,6 +285,33 @@ _ALL_SCENARIOS = [
         signal_template=invalid_negative_config.SIGNAL_TEMPLATE,
         manual_calculator=invalid_negative_calc.calculate_signals,
         expected_exception=invalid_negative_config.EXPECTED_EXCEPTION,
+    ),
+    TestScenario(
+        name="scenario_syntax_invalid_missing_name",
+        description=syntax_invalid_missing_name_config.DESCRIPTION,
+        indicators_params=syntax_invalid_missing_name_config.INDICATORS_PARAMS,
+        signal_params=syntax_invalid_missing_name_config.SIGNAL_PARAMS,
+        signal_template=syntax_invalid_missing_name_config.SIGNAL_TEMPLATE,
+        manual_calculator=syntax_invalid_missing_name_calc.calculate_signals,
+        expected_exception=syntax_invalid_missing_name_config.EXPECTED_EXCEPTION,
+    ),
+    TestScenario(
+        name="scenario_syntax_invalid_partial_commas",
+        description=syntax_invalid_partial_commas_config.DESCRIPTION,
+        indicators_params=syntax_invalid_partial_commas_config.INDICATORS_PARAMS,
+        signal_params=syntax_invalid_partial_commas_config.SIGNAL_PARAMS,
+        signal_template=syntax_invalid_partial_commas_config.SIGNAL_TEMPLATE,
+        manual_calculator=syntax_invalid_partial_commas_calc.calculate_signals,
+        expected_exception=syntax_invalid_partial_commas_config.EXPECTED_EXCEPTION,
+    ),
+    TestScenario(
+        name="scenario_syntax_invalid_wrong_order",
+        description=syntax_invalid_wrong_order_config.DESCRIPTION,
+        indicators_params=syntax_invalid_wrong_order_config.INDICATORS_PARAMS,
+        signal_params=syntax_invalid_wrong_order_config.SIGNAL_PARAMS,
+        signal_template=syntax_invalid_wrong_order_config.SIGNAL_TEMPLATE,
+        manual_calculator=syntax_invalid_wrong_order_calc.calculate_signals,
+        expected_exception=syntax_invalid_wrong_order_config.EXPECTED_EXCEPTION,
     ),
 ]
 

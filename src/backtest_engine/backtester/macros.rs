@@ -65,11 +65,6 @@ macro_rules! validate_output_buffers {
             "total_return_pct length mismatch"
         );
         ::core::assert_eq!(
-            $buf.current_position.len(),
-            $len_var,
-            "current_position length mismatch"
-        );
-        ::core::assert_eq!(
             $buf.entry_long_price.len(),
             $len_var,
             "entry_long_price length mismatch"
@@ -89,17 +84,27 @@ macro_rules! validate_output_buffers {
             $len_var,
             "exit_short_price length mismatch"
         );
-        ::core::assert_eq!(
-            $buf.risk_in_bar.len(),
-            $len_var,
-            "risk_in_bar length mismatch"
-        );
         ::core::assert_eq!($buf.fee.len(), $len_var, "fee length mismatch");
         ::core::assert_eq!($buf.fee_cum.len(), $len_var, "fee_cum length mismatch");
         ::core::assert_eq!(
             $buf.peak_equity.len(),
             $len_var,
             "peak_equity length mismatch"
+        );
+        ::core::assert_eq!(
+            $buf.risk_exit_long_price.len(),
+            $len_var,
+            "risk_exit_long_price length mismatch"
+        );
+        ::core::assert_eq!(
+            $buf.risk_exit_short_price.len(),
+            $len_var,
+            "risk_exit_short_price length mismatch"
+        );
+        ::core::assert_eq!(
+            $buf.risk_exit_in_bar.len(),
+            $len_var,
+            "risk_exit_in_bar length mismatch"
         );
 
         // 可选列

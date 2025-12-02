@@ -29,12 +29,10 @@ pub enum ColumnName {
     TotalReturnPct,
     Fee,
     FeeCum,
-    CurrentPosition,
     EntryLongPrice,
     EntryShortPrice,
     ExitLongPrice,
     ExitShortPrice,
-    RiskInBar,
 
     // OutputBuffers可选列名
     SlPctPrice,
@@ -44,6 +42,11 @@ pub enum ColumnName {
     SlAtrPrice,
     TpAtrPrice,
     TslAtrPrice,
+
+    // Risk State Output
+    RiskExitLongPrice,
+    RiskExitShortPrice,
+    RiskExitInBar,
 }
 
 impl ColumnName {
@@ -72,12 +75,10 @@ impl ColumnName {
             ColumnName::TotalReturnPct => "total_return_pct",
             ColumnName::Fee => "fee",
             ColumnName::FeeCum => "fee_cum",
-            ColumnName::CurrentPosition => "current_position",
             ColumnName::EntryLongPrice => "entry_long_price",
             ColumnName::EntryShortPrice => "entry_short_price",
             ColumnName::ExitLongPrice => "exit_long_price",
             ColumnName::ExitShortPrice => "exit_short_price",
-            ColumnName::RiskInBar => "risk_in_bar",
 
             // OutputBuffers可选列名
             ColumnName::SlPctPrice => "sl_pct_price",
@@ -87,6 +88,11 @@ impl ColumnName {
             ColumnName::SlAtrPrice => "sl_atr_price",
             ColumnName::TpAtrPrice => "tp_atr_price",
             ColumnName::TslAtrPrice => "tsl_atr_price",
+
+            // Risk State Output
+            ColumnName::RiskExitLongPrice => "risk_exit_long_price",
+            ColumnName::RiskExitShortPrice => "risk_exit_short_price",
+            ColumnName::RiskExitInBar => "risk_exit_in_bar",
         }
     }
 

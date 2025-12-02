@@ -21,10 +21,7 @@ pub struct OutputBuffers {
     /// 当前历史累计手续费
     pub fee_cum: Vec<f64>,
 
-    /// 当前仓位状态
-    /// 0=无仓位, 1=进多, 2=持多, 3=平多, 4=平短进多
-    /// -1=进空, -2=持空, -3=平空, -4=平多进空
-    pub current_position: Vec<i8>,
+    // === 价格列（价格驱动状态核心） ===
     /// 多头进场价格
     pub entry_long_price: Vec<f64>,
     /// 空头进场价格
@@ -33,8 +30,6 @@ pub struct OutputBuffers {
     pub exit_long_price: Vec<f64>,
     /// 空头离场价格
     pub exit_short_price: Vec<f64>,
-    /// 当下bar离场
-    pub risk_in_bar: Vec<bool>,
 
     // === 可选列 ===
     /// 百分比止损价格（可选）
@@ -53,6 +48,14 @@ pub struct OutputBuffers {
     pub tp_atr_price: Option<Vec<f64>>,
     /// ATR跟踪止损价格（可选）
     pub tsl_atr_price: Option<Vec<f64>>,
+
+    // === Risk State Output ===
+    /// Risk多头离场价格
+    pub risk_exit_long_price: Vec<f64>,
+    /// Risk空头离场价格
+    pub risk_exit_short_price: Vec<f64>,
+    /// Risk是否In-Bar离场
+    pub risk_exit_in_bar: Vec<bool>,
 }
 
 impl OutputBuffers {
@@ -66,7 +69,7 @@ impl OutputBuffers {
     /// 初始化完成的 OutputBuffers 实例
     pub fn new(params: &BacktestParams, capacity: usize) -> Self {
         Self {
-            // 固定列总是初始化
+            // 资金状态
             balance: vec![0.0; capacity],
             equity: vec![0.0; capacity],
             trade_pnl_pct: vec![0.0; capacity],
@@ -74,12 +77,12 @@ impl OutputBuffers {
             fee: vec![0.0; capacity],
             fee_cum: vec![0.0; capacity],
             peak_equity: vec![0.0; capacity],
-            current_position: vec![0; capacity],
+
+            // 价格列
             entry_long_price: vec![0.0; capacity],
             entry_short_price: vec![0.0; capacity],
             exit_long_price: vec![0.0; capacity],
             exit_short_price: vec![0.0; capacity],
-            risk_in_bar: vec![false; capacity],
 
             // 可选列根据参数决定是否初始化
             sl_pct_price: if params.is_sl_pct_param_valid() {
@@ -114,6 +117,11 @@ impl OutputBuffers {
             } else {
                 None
             },
+
+            // Risk State Output
+            risk_exit_long_price: vec![0.0; capacity],
+            risk_exit_short_price: vec![0.0; capacity],
+            risk_exit_in_bar: vec![false; capacity],
         }
     }
 
@@ -135,10 +143,6 @@ impl OutputBuffers {
                 self.total_return_pct.len(),
             ),
             (
-                ColumnName::CurrentPosition.as_str(),
-                self.current_position.len(),
-            ),
-            (
                 ColumnName::EntryLongPrice.as_str(),
                 self.entry_long_price.len(),
             ),
@@ -154,10 +158,21 @@ impl OutputBuffers {
                 ColumnName::ExitShortPrice.as_str(),
                 self.exit_short_price.len(),
             ),
-            (ColumnName::RiskInBar.as_str(), self.risk_in_bar.len()),
             (ColumnName::Fee.as_str(), self.fee.len()),
             (ColumnName::FeeCum.as_str(), self.fee_cum.len()),
             (ColumnName::PeakEquity.as_str(), self.peak_equity.len()),
+            (
+                ColumnName::RiskExitLongPrice.as_str(),
+                self.risk_exit_long_price.len(),
+            ),
+            (
+                ColumnName::RiskExitShortPrice.as_str(),
+                self.risk_exit_short_price.len(),
+            ),
+            (
+                ColumnName::RiskExitInBar.as_str(),
+                self.risk_exit_in_bar.len(),
+            ),
         ];
 
         // 检查所有固定列的长度
@@ -223,14 +238,7 @@ impl OutputBuffers {
     pub fn to_dataframe(&self) -> Result<DataFrame, BacktestError> {
         let mut columns: Vec<Column> = Vec::new();
 
-        // 添加需要类型转换的固定列
-        let current_position_data: Vec<i32> =
-            self.current_position.iter().map(|&x| x as i32).collect();
-        let current_position_series = Series::new(
-            ColumnName::CurrentPosition.as_str().into(),
-            current_position_data,
-        );
-        columns.push(current_position_series.into());
+        // === 价格列和状态列直接添加 ===
 
         // 定义固定列的名称和数据
         let fixed_columns = [
@@ -263,6 +271,14 @@ impl OutputBuffers {
             (ColumnName::Fee.as_str(), &self.fee as &[f64]),
             (ColumnName::FeeCum.as_str(), &self.fee_cum as &[f64]),
             (ColumnName::PeakEquity.as_str(), &self.peak_equity as &[f64]),
+            (
+                ColumnName::RiskExitLongPrice.as_str(),
+                &self.risk_exit_long_price as &[f64],
+            ),
+            (
+                ColumnName::RiskExitShortPrice.as_str(),
+                &self.risk_exit_short_price as &[f64],
+            ),
         ];
 
         // 添加固定列
@@ -271,10 +287,17 @@ impl OutputBuffers {
             columns.push(series.into());
         }
 
-        // 添加 risk_in_bar 列（布尔类型）
-        let risk_in_bar_series =
-            Series::new(ColumnName::RiskInBar.as_str().into(), &self.risk_in_bar);
-        columns.push(risk_in_bar_series.into());
+        // RiskExitInBar is boolean, handle separately or cast? Polars handles bool.
+        // But fixed_columns array is typed as &[f64]. I need to handle boolean column separately or change the array structure.
+        // The current fixed_columns is inferred as array of tuples (&str, &[f64]).
+        // So I cannot put boolean vector there.
+        // I will add it separately.
+
+        let risk_exit_in_bar_series = Series::new(
+            ColumnName::RiskExitInBar.as_str().into(),
+            &self.risk_exit_in_bar,
+        );
+        columns.push(risk_exit_in_bar_series.into());
 
         // 定义可选列的名称和数据
         let optional_columns = [

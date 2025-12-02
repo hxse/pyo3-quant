@@ -34,23 +34,22 @@ pub fn run_main_loop(
     if data_length > 1 {
         for i in 1..data_length {
             state.current_bar = CurrentBarData::new(prepared_data, i);
+            state.prev_bar = CurrentBarData::new(prepared_data, i - 1);
 
             if state.should_skip_current_bar() {
-                // 即使跳过当前bar，也要更新单调性相关字段以保持单调性
-                buffers.peak_equity[i] = buffers.peak_equity[i - 1];
-                buffers.fee_cum[i] = buffers.fee_cum[i - 1];
-                continue;
+                state.reset_position_on_skip();
+                state.reset_capital_on_skip();
+            } else {
+                // 使用状态机方法计算新的仓位状态（内部已更新状态）
+                state.calculate_position(backtest_params);
+
+                // // 在index范围内打印调试信息
+                // if (251..=253).contains(&i) {
+                //     print_position_debug(state, i);
+                // }
+
+                state.calculate_capital(backtest_params);
             }
-
-            // 使用状态机方法计算新的仓位状态（内部已更新状态）
-            state.calculate_position(backtest_params);
-
-            // // 在index范围内打印调试信息
-            // if (251..=253).contains(&i) {
-            //     print_position_debug(state, i);
-            // }
-
-            state.calculate_capital(backtest_params);
 
             // 使用工具函数更新当前行数据
             update_buffer_row(&mut buffers, &state, i);
@@ -69,14 +68,26 @@ pub fn run_main_loop(
 /// 更新输出缓冲区指定行的数据
 ///
 /// 将 backtest_state 的当前值写入到 buffers 的指定行
+/// 更新输出缓冲区的单行数据
+///
+/// 将当前回测状态写入输出缓冲区的指定行
 fn update_buffer_row(buffers: &mut OutputBuffers, state: &BacktestState, row_index: usize) {
-    buffers.current_position[row_index] = state.action.current_position.as_i8();
+    // === 资金状态 ===
+    buffers.balance[row_index] = state.capital_state.balance;
+    buffers.equity[row_index] = state.capital_state.equity;
+    buffers.trade_pnl_pct[row_index] = state.capital_state.trade_pnl_pct;
+    buffers.total_return_pct[row_index] = state.capital_state.total_return_pct;
+    buffers.fee[row_index] = state.capital_state.fee;
+    buffers.fee_cum[row_index] = state.capital_state.fee_cum;
+    buffers.peak_equity[row_index] = state.capital_state.peak_equity;
+
+    // === 价格列（价格驱动状态的核心） ===
     buffers.entry_long_price[row_index] = state.action.entry_long_price.unwrap_or(f64::NAN);
     buffers.entry_short_price[row_index] = state.action.entry_short_price.unwrap_or(f64::NAN);
     buffers.exit_long_price[row_index] = state.action.exit_long_price.unwrap_or(f64::NAN);
     buffers.exit_short_price[row_index] = state.action.exit_short_price.unwrap_or(f64::NAN);
-    buffers.risk_in_bar[row_index] = state.action.risk_in_bar;
 
+    // === 风险价格（可选列） ===
     if let Some(ref mut sl_pct_price) = buffers.sl_pct_price {
         sl_pct_price[row_index] = state.risk_state.sl_pct_price.unwrap_or(f64::NAN);
     }
@@ -96,13 +107,11 @@ fn update_buffer_row(buffers: &mut OutputBuffers, state: &BacktestState, row_ind
         tsl_atr_price[row_index] = state.risk_state.tsl_atr_price.unwrap_or(f64::NAN);
     }
 
-    buffers.balance[row_index] = state.capital_state.balance;
-    buffers.equity[row_index] = state.capital_state.equity;
-    buffers.trade_pnl_pct[row_index] = state.capital_state.trade_pnl_pct;
-    buffers.total_return_pct[row_index] = state.capital_state.total_return_pct;
-    buffers.fee[row_index] = state.capital_state.fee;
-    buffers.fee_cum[row_index] = state.capital_state.fee_cum;
-    buffers.peak_equity[row_index] = state.capital_state.peak_equity;
+    // === Risk State Output ===
+    buffers.risk_exit_long_price[row_index] = state.risk_state.exit_long_price.unwrap_or(f64::NAN);
+    buffers.risk_exit_short_price[row_index] =
+        state.risk_state.exit_short_price.unwrap_or(f64::NAN);
+    buffers.risk_exit_in_bar[row_index] = state.risk_state.exit_in_bar;
 }
 
 /// 初始化输出缓冲区的第0行数据

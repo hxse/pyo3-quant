@@ -8,6 +8,7 @@ mod macros;
 mod main_loop;
 mod output;
 mod pause_control;
+mod signal_preprocessor;
 pub mod state;
 
 use crate::backtest_engine::utils::get_ohlcv_dataframe;

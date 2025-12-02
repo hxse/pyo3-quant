@@ -73,10 +73,17 @@ impl<'a> PreparedData<'a> {
     /// 准备回测数据，将 Polars DataFrame/Series 转换为连续的内存数组切片
     pub fn new(
         processed_data: &'a DataContainer,
-        signals_df: &'a DataFrame,
+        signals_df: &DataFrame,
         atr_series: &'a Option<Series>,
     ) -> Result<PreparedData<'a>, QuantError> {
-        // 1. 提取OHLCV数据
+        // 1. 预处理信号数据（处理冲突和屏蔽）
+        let preprocessed_signals_df = super::signal_preprocessor::preprocess_signals(
+            signals_df.clone(),
+            atr_series,
+            &processed_data.skip_mask,
+        )?;
+
+        // 2. 提取OHLCV数据
         let ohlcv_df = get_ohlcv_dataframe(processed_data)?;
         let time = ohlcv_df
             .column(ColumnName::Time.as_str())?
@@ -103,17 +110,17 @@ impl<'a> PreparedData<'a> {
             .f64()?
             .cont_slice()?;
 
-        // 2. 处理信号列：使用辅助函数提取所有信号
+        // 3. 处理信号列：从预处理后的 DataFrame 提取所有信号
         let (enter_long, exit_long, enter_short, exit_short) =
-            Self::extract_all_signals(signals_df)?;
+            Self::extract_all_signals(&preprocessed_signals_df)?;
 
-        // 3. 处理 ATR 数据
+        // 4. 处理 ATR 数据
         let atr = match atr_series {
             Some(series) => Some(series.f64()?.cont_slice()?.to_vec()),
             None => None,
         };
 
-        // 6. 构建并返回PreparedData结构体
+        // 5. 构建并返回PreparedData结构体
         Ok(PreparedData {
             time,
             open,

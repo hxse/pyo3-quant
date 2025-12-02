@@ -40,28 +40,17 @@ def backtest_result():
     # 构建指标参数
     indicators_params = {
         "ohlcv_15m": {
-            "bbands_0": {
-                "period": Param.create(14),
-                "std": Param.create(2),
-            }
-        },
-        "ohlcv_1h": {
-            "rsi_0": {
-                "period": Param.create(14),
-            }
-        },
-        "ohlcv_4h": {
-            "sma_0": {
-                "period": Param.create(8),
+            "sma_fast": {
+                "period": Param.create(5),
             },
-            "sma_1": {
-                "period": Param.create(16),
+            "sma_slow": {
+                "period": Param.create(10),
             },
         },
     }
 
     # 自定义信号参数
-    signal_params = {"rsi_midline": Param.create(20, 10, 90, 5)}
+    signal_params = {}
 
     # 自定义回测参数
     backtest_params = BacktestParams(
@@ -84,17 +73,42 @@ def backtest_result():
     )
 
     # 自定义信号模板
+    # 双均线策略：金叉进多，死叉进空
     enter_long_group = SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
-            "close, ohlcv_15m, 0 x> bbands_0_upper, ohlcv_15m, 0",
-            "rsi_0, ohlcv_1h, 0 > $rsi_midline",
-            "sma_0, ohlcv_4h, 0 > sma_1, ohlcv_4h, 0",
+            "sma_fast, ohlcv_15m, 0 > sma_slow, ohlcv_15m, 0",
+        ],
+    )
+
+    enter_short_group = SignalGroup(
+        logic=LogicOp.AND,
+        comparisons=[
+            "sma_fast, ohlcv_15m, 0 < sma_slow, ohlcv_15m, 0",
+        ],
+    )
+
+    # 离场条件：反向交叉
+    exit_long_group = SignalGroup(
+        logic=LogicOp.AND,
+        comparisons=[
+            "sma_fast, ohlcv_15m, 0 < sma_slow, ohlcv_15m, 0",
+        ],
+    )
+
+    exit_short_group = SignalGroup(
+        logic=LogicOp.AND,
+        comparisons=[
+            "sma_fast, ohlcv_15m, 0 > sma_slow, ohlcv_15m, 0",
         ],
     )
 
     signal_template = SignalTemplate(
-        name="multi_timeframe_dynamic_strategy", enter_long=enter_long_group
+        name="dual_sma_strategy",
+        enter_long=enter_long_group,
+        enter_short=enter_short_group,
+        exit_long=exit_long_group,
+        exit_short=exit_short_group,
     )
 
     # 自定义引擎设置
@@ -114,9 +128,9 @@ def backtest_result():
     )
 
     # 执行回测
-    result = br.run()
+    br.run()
 
-    return result
+    return br.results
 
 
 @pytest.fixture
@@ -129,9 +143,18 @@ def backtest_df(backtest_result):
 
 @pytest.fixture
 def required_fixed_cols():
-    """固定列定义（基于output.rs源代码）"""
+    """固定列定义（基于新的价格驱动架构）"""
     return [
-        "current_position",
+        # 价格状态列
+        "entry_long_price",
+        "entry_short_price",
+        "exit_long_price",
+        "exit_short_price",
+        # Risk 状态列 (新架构)
+        "risk_exit_long_price",
+        "risk_exit_short_price",
+        "risk_exit_in_bar",  # bool 类型
+        # 资金状态列
         "balance",
         "equity",
         "peak_equity",
@@ -139,10 +162,6 @@ def required_fixed_cols():
         "total_return_pct",
         "fee",
         "fee_cum",
-        "entry_long_price",
-        "entry_short_price",
-        "exit_long_price",
-        "exit_short_price",
     ]
 
 
@@ -158,12 +177,6 @@ def optional_cols():
         "tp_atr_price": "ATR止盈价格",
         "tsl_atr_price": "ATR跟踪止损价格",
     }
-
-
-@pytest.fixture
-def valid_positions():
-    """有效仓位值集合（基于output.rs注释）"""
-    return {0, 1, 2, 3, 4, -1, -2, -3, -4}
 
 
 @pytest.fixture
@@ -189,9 +202,3 @@ def price_cols():
         "exit_long_price",
         "exit_short_price",
     ]
-
-
-@pytest.fixture
-def hold_positions():
-    """持有仓位状态值（HoldLong=2, HoldShort=-2）"""
-    return [2, -2]

@@ -2,21 +2,9 @@
 数据生成器类型守卫函数
 """
 
-from typing import Union, cast, TypeGuard
-import polars as pl
+from typing import Union, TypeGuard
 
 from .config import DataGenerationParams, OhlcvDataFetchConfig, DirectDataConfig
-
-from dataclasses import dataclass
-from typing import Dict
-
-
-@dataclass
-class DirectDataConfig:
-    """直接数据配置类"""
-
-    data: Dict[str, pl.DataFrame]
-    BaseDataKey: str
 
 
 # 类型别名：数据源配置的联合类型

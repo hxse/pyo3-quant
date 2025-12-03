@@ -27,7 +27,10 @@ from .configs import (
     SaveConfig,
     UploadConfig,
 )
-from .converters import convert_backtest_results_to_buffers
+from .converters import (
+    convert_backtest_results_to_buffers,
+    convert_all_backtest_data_to_buffers,
+)
 from .path_utils import clear_directory
 from .savers import save_buffers_to_disk
 from .uploaders import upload_buffers_to_server
@@ -59,6 +62,7 @@ __all__ = [
     "SaveConfig",
     "UploadConfig",
     "convert_backtest_results_to_buffers",
+    "convert_all_backtest_data_to_buffers",
     "save_buffers_to_disk",
     "upload_buffers_to_server",
     "save_backtest_results",

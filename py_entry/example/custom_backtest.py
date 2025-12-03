@@ -38,7 +38,7 @@ simulated_data_config = DataGenerationParams(
     timeframes=["15m", "1h", "4h"],
     start_time=1735689600000,
     num_bars=10000,
-    fixed_seed=True,
+    fixed_seed=42,
     BaseDataKey="ohlcv_15m",
 )
 
@@ -92,9 +92,9 @@ backtest_params = BacktestParams(
 enter_long_group = SignalGroup(
     logic=LogicOp.AND,
     comparisons=[
-        "close,ohlcv_15m > bbands_upper,ohlcv_15m",
-        "rsi,ohlcv_1h > $rsi_midline",
-        "sma_0,ohlcv_4h > sma_1,ohlcv_4h",
+        "close > bbands_upper",
+        "rsi,ohlcv_1h, > $rsi_midline",
+        "sma_0,ohlcv_4h, > sma_1,ohlcv_4h,",
     ],
 )
 
@@ -149,7 +149,7 @@ if __name__ == "__main__":
             request_config=request_cfg,
             server_dir="my_strategy",
             zip_name="results.zip",
-            dataframe_format="parquet",
+            dataframe_format="csv",
         )
     )
 

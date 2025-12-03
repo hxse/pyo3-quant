@@ -33,7 +33,6 @@ def data_generation_params(basic_timeframes, basic_start_time, basic_num_bars):
         timeframes=basic_timeframes,
         start_time=basic_start_time,
         num_bars=basic_num_bars,
-        fixed_seed=False,
         BaseDataKey="ohlcv_15m",
     )
 

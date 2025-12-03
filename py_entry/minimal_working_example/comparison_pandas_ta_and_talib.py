@@ -15,7 +15,7 @@ def main():
         timeframes=["15m"],
         start_time=1609459200000,
         num_bars=3000,
-        fixed_seed=True,
+        fixed_seed=42,
         BaseDataKey="ohlcv_15m",
     )
     data_dict = generate_data_dict(data_source=simulated_data_config)

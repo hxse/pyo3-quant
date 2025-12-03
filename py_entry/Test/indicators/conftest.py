@@ -55,6 +55,6 @@ def data_dict():
         timeframes=timeframes,
         start_time=1735689600000,
         num_bars=5000,
-        fixed_seed=True,
+        fixed_seed=42,
         BaseDataKey="ohlcv_15m",
     )

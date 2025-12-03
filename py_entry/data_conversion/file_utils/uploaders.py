@@ -34,10 +34,9 @@ def upload_buffers_to_server(
     print("正在打包结果...")
     zip_data = create_zip_buffer(buffer_list, compress_level=compress_level)
 
-    # 上传
+    # 保存到本地用于调试
     timestamp = int(time.time())
     final_zip_name = zip_name or f"backtest_results_{timestamp}.zip"
-    print(f"正在上传 {final_zip_name} ...")
 
     upload_to_server(
         config=config,

@@ -38,7 +38,7 @@ from py_entry.data_conversion.file_utils import (
     ResultBuffersCache,
     SaveConfig,
     UploadConfig,
-    convert_backtest_results_to_buffers,
+    convert_all_backtest_data_to_buffers,
     save_backtest_results,
     upload_backtest_results,
 )
@@ -207,8 +207,13 @@ class BacktestRunner:
                 "_ensure_buffers_cache 方法要求 self.results 非空，"
                 "但当前为 None。请确保在调用此方法前已执行 run() 方法。"
             )
-            buffers = convert_backtest_results_to_buffers(
-                self.results, dataframe_format
+            buffers = convert_all_backtest_data_to_buffers(
+                self.data_dict,
+                self.param_set,
+                self.template_config,
+                self.engine_settings,
+                self.results,
+                dataframe_format,
             )
             self._buffers_cache.set(dataframe_format, buffers)
 
@@ -216,7 +221,14 @@ class BacktestRunner:
         self,
         config: SaveConfig,
     ) -> "BacktestRunner":
-        """保存回测结果到本地文件。
+        """保存所有回测数据（包括配置和结果）到本地文件。
+
+        保存的数据包括：
+        - data_dict: 数据容器（映射、掩码、源数据等）
+        - param_set: 参数容器（指标、信号、回测、性能参数）
+        - template_config: 模板配置（信号模板）
+        - engine_settings: 引擎设置（执行阶段等）
+        - results: 回测结果（性能指标、指标数据、信号、回测结果）
 
         Args:
             config: 保存配置对象
@@ -252,7 +264,14 @@ class BacktestRunner:
         self,
         config: UploadConfig,
     ) -> "BacktestRunner":
-        """将结果打包并上传到服务器。
+        """将所有回测数据（包括配置和结果）打包并上传到服务器。
+
+        上传的数据包括：
+        - data_dict: 数据容器（映射、掩码、源数据等）
+        - param_set: 参数容器（指标、信号、回测、性能参数）
+        - template_config: 模板配置（信号模板）
+        - engine_settings: 引擎设置（执行阶段等）
+        - results: 回测结果（性能指标、指标数据、信号、回测结果）
 
         Args:
             config: 上传配置对象

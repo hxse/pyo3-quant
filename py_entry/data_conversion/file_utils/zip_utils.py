@@ -22,25 +22,17 @@ def create_zip_buffer(
         bytes: ZIP压缩包的字节数据
     """
     zip_buffer = io.BytesIO()
-    # 注意：zipfile 库本身不支持直接设置压缩级别
-    # 但你可以通过手动调用 zlib 来实现
 
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_STORED) as zipf:
+    # 使用正确的压缩级别创建 ZIP 文件
+    with zipfile.ZipFile(
+        zip_buffer, "w", zipfile.ZIP_DEFLATED, compresslevel=compress_level
+    ) as zipf:
         for path, buffer in data_list:
             buffer.seek(0)
             data = buffer.getvalue()
 
-            # 手动压缩数据
-            compressed_data = zlib.compress(data, compress_level)
-
-            # 创建 ZipInfo 对象并设置压缩信息
-            info = zipfile.ZipInfo(str(path))
-            info.compress_type = zipfile.ZIP_DEFLATED
-            info.compress_size = len(compressed_data)
-            info.file_size = len(data)
-
-            # 将预先压缩好的数据写入 ZIP
-            zipf.writestr(info, compressed_data)
+            # 直接写入原始数据，让 zipfile 自动处理压缩
+            zipf.writestr(str(path), data)
 
     zip_buffer.seek(0)
     return zip_buffer.getvalue()

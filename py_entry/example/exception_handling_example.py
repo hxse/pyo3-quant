@@ -16,7 +16,7 @@ simulated_data_config = DataGenerationParams(
     timeframes=["15m", "1h"],
     start_time=1735689600000,
     num_bars=10000,
-    fixed_seed=True,
+    fixed_seed=42,
     BaseDataKey="ohlcv_15m",
 )
 

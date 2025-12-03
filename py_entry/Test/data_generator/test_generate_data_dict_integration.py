@@ -67,7 +67,6 @@ class TestGenerateDataDictIntegration:
             timeframes=timeframes,
             start_time=basic_start_time,
             num_bars=num_bars,
-            fixed_seed=False,
             BaseDataKey="ohlcv_15m",
         )
 
@@ -94,7 +93,6 @@ class TestGenerateDataDictIntegration:
             timeframes=timeframes,
             start_time=basic_start_time,
             num_bars=num_bars,
-            fixed_seed=False,
             BaseDataKey="ohlcv_15m",
         )
 
@@ -127,7 +125,6 @@ class TestGenerateDataDictIntegration:
             timeframes=timeframes,
             start_time=basic_start_time,
             num_bars=num_bars,
-            fixed_seed=False,
             BaseDataKey="ohlcv_15m",
         )
 

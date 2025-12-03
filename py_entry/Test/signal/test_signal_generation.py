@@ -61,7 +61,7 @@ def test_signal_scenario(scenario, setting_container):
         timeframes=["15m", "1h", "4h"],
         start_time=None,  # 使用默认时间
         num_bars=10000,  # 生成10000根K线
-        fixed_seed=True,  # 使用固定种子保证可重现
+        fixed_seed=42,  # 使用固定种子保证可重现
         BaseDataKey="ohlcv_15m",  # 基础数据键
     )
     other_params = OtherParams(

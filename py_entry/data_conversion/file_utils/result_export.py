@@ -29,9 +29,9 @@ def save_backtest_results(
         cache: 缓存对象，必须已包含对应格式的buffers
     """
     # 从缓存获取buffers
-    buffers = cache.get(config.dataframe_format)
+    buffers = cache.get(config.dataframe_format, config.keep_index)
     assert buffers is not None, (
-        f"缓存中未找到 {config.dataframe_format} 格式的buffers。"
+        f"缓存中未找到 {config.dataframe_format} 格式（keep_index={config.keep_index}）的buffers。"
         "请确保在调用此函数前已调用 convert_all_backtest_data_to_buffers()。"
     )
 
@@ -62,9 +62,9 @@ def upload_backtest_results(
         cache: 缓存对象，必须已包含对应格式的buffers
     """
     # 从缓存获取buffers
-    buffers = cache.get(config.dataframe_format)
+    buffers = cache.get(config.dataframe_format, config.keep_index)
     assert buffers is not None, (
-        f"缓存中未找到 {config.dataframe_format} 格式的buffers。"
+        f"缓存中未找到 {config.dataframe_format} 格式（keep_index={config.keep_index}）的buffers。"
         "请确保在调用此函数前已调用 convert_all_backtest_data_to_buffers()。"
     )
 

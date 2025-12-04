@@ -4,6 +4,7 @@ import io
 import json
 from pathlib import Path
 from typing import List, Tuple, Optional
+import polars as pl
 
 from py_entry.data_conversion.types import (
     BacktestSummary,
@@ -14,15 +15,49 @@ from py_entry.data_conversion.types import (
 )
 
 
+def _add_index_to_dataframe(df: pl.DataFrame) -> pl.DataFrame:
+    """为DataFrame添加行号（索引）列作为第一列
+
+    Args:
+        df: 输入的DataFrame
+
+    Returns:
+        添加了索引列的DataFrame
+    """
+    if df.height == 0:
+        return df
+
+    # 🌟 使用 with_row_count(name="index", offset=0)
+    # 它会自动将新列放在第一位
+    return df.with_row_index(name="index", offset=0)
+
+
+def _process_dataframe_for_export(df: pl.DataFrame, keep_index: bool) -> pl.DataFrame:
+    """处理DataFrame以准备导出，根据需要添加索引
+
+    Args:
+        df: 输入的DataFrame
+        keep_index: 是否添加索引列
+
+    Returns:
+        处理后的DataFrame
+    """
+    if keep_index:
+        return _add_index_to_dataframe(df)
+    return df
+
+
 def convert_backtest_results_to_buffers(
     results: list[BacktestSummary],
     dataframe_format: str = "csv",
+    keep_index: bool = True,
 ) -> List[Tuple[Path, io.BytesIO]]:
     """将回测结果转换为buffer列表，用于保存或上传。
 
     Args:
         results: 回测结果列表
         dataframe_format: DataFrame格式，"csv"或"parquet"
+        keep_index: 是否在DataFrame的第一列添加整数索引
 
     Returns:
         包含(路径, BytesIO)元组的列表
@@ -45,31 +80,36 @@ def convert_backtest_results_to_buffers(
         # Indicators (dict[str, DataFrame])
         if summary.indicators:
             for key, df in summary.indicators.items():
+                processed_df = _process_dataframe_for_export(df, keep_index)
                 buf = io.BytesIO()
                 if dataframe_format == "csv":
-                    df.write_csv(buf)
+                    processed_df.write_csv(buf)
                 else:
-                    df.write_parquet(buf)
+                    processed_df.write_parquet(buf)
                 data_list.append(
                     (Path(f"{prefix}indicators_{key}.{dataframe_format}"), buf)
                 )
 
         # Signals (DataFrame)
         if summary.signals is not None:
+            processed_df = _process_dataframe_for_export(summary.signals, keep_index)
             buf = io.BytesIO()
             if dataframe_format == "csv":
-                summary.signals.write_csv(buf)
+                processed_df.write_csv(buf)
             else:
-                summary.signals.write_parquet(buf)
+                processed_df.write_parquet(buf)
             data_list.append((Path(f"{prefix}signals.{dataframe_format}"), buf))
 
         # Backtest Result (DataFrame)
         if summary.backtest_result is not None:
+            processed_df = _process_dataframe_for_export(
+                summary.backtest_result, keep_index
+            )
             buf = io.BytesIO()
             if dataframe_format == "csv":
-                summary.backtest_result.write_csv(buf)
+                processed_df.write_csv(buf)
             else:
-                summary.backtest_result.write_parquet(buf)
+                processed_df.write_parquet(buf)
             data_list.append((Path(f"{prefix}backtest_result.{dataframe_format}"), buf))
 
     return data_list
@@ -82,6 +122,7 @@ def convert_all_backtest_data_to_buffers(
     engine_settings: Optional[SettingContainer],
     results: list[BacktestSummary],
     dataframe_format: str = "csv",
+    keep_index: bool = True,
 ) -> List[Tuple[Path, io.BytesIO]]:
     """将所有回测数据（包括配置和结果）转换为buffer列表，用于保存或上传。
 
@@ -92,6 +133,7 @@ def convert_all_backtest_data_to_buffers(
         engine_settings: 引擎设置容器
         results: 回测结果列表
         dataframe_format: DataFrame格式，"csv"或"parquet"
+        keep_index: 是否在DataFrame的第一列添加整数索引
 
     Returns:
         包含(路径, BytesIO)元组的列表
@@ -99,7 +141,9 @@ def convert_all_backtest_data_to_buffers(
     data_list = []
 
     # 1. 转换回测结果（使用现有函数）
-    result_buffers = convert_backtest_results_to_buffers(results, dataframe_format)
+    result_buffers = convert_backtest_results_to_buffers(
+        results, dataframe_format, keep_index
+    )
     prefixed_result_buffers = [
         (Path("backtest_results") / path, buffer) for path, buffer in result_buffers
     ]
@@ -109,21 +153,23 @@ def convert_all_backtest_data_to_buffers(
     if data_dict is not None:
         # mapping (DataFrame)
         if data_dict.mapping is not None:
+            processed_df = _process_dataframe_for_export(data_dict.mapping, keep_index)
             buf = io.BytesIO()
             if dataframe_format == "csv":
-                data_dict.mapping.write_csv(buf)
+                processed_df.write_csv(buf)
             else:
-                data_dict.mapping.write_parquet(buf)
+                processed_df.write_parquet(buf)
             data_list.append((Path("data_dict/mapping.csv"), buf))
 
         # skip_mask (Series)
         if data_dict.skip_mask is not None:
-            buf = io.BytesIO()
             skip_mask_df = data_dict.skip_mask.to_frame()
+            processed_df = _process_dataframe_for_export(skip_mask_df, keep_index)
+            buf = io.BytesIO()
             if dataframe_format == "csv":
-                skip_mask_df.write_csv(buf)
+                processed_df.write_csv(buf)
             else:
-                skip_mask_df.write_parquet(buf)
+                processed_df.write_parquet(buf)
             data_list.append((Path("data_dict/skip_mask.csv"), buf))
 
         # skip_mapping (dict)
@@ -138,11 +184,12 @@ def convert_all_backtest_data_to_buffers(
         # source (dict[str, DataFrame])
         if data_dict.source is not None:
             for key, df in data_dict.source.items():
+                processed_df = _process_dataframe_for_export(df, keep_index)
                 buf = io.BytesIO()
                 if dataframe_format == "csv":
-                    df.write_csv(buf)
+                    processed_df.write_csv(buf)
                 else:
-                    df.write_parquet(buf)
+                    processed_df.write_parquet(buf)
                 data_list.append(
                     (Path(f"data_dict/source_{key}.{dataframe_format}"), buf)
                 )

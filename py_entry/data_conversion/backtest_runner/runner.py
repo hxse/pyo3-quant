@@ -42,6 +42,9 @@ from py_entry.data_conversion.file_utils import (
     save_backtest_results,
     upload_backtest_results,
 )
+from py_entry.data_conversion.file_utils.dataframe_utils import (
+    add_contextual_columns_to_all_dataframes,
+)
 from pathlib import Path
 
 import pyo3_quant
@@ -191,20 +194,17 @@ class BacktestRunner:
 
         return self
 
-    def _ensure_buffers_cache(
-        self, dataframe_format: str, keep_index: bool = True
-    ) -> None:
-        """确保指定格式和索引设置的buffers已缓存。
+    def _ensure_buffers_cache(self, dataframe_format: str) -> None:
+        """确保指定格式的buffers已缓存。
 
-        如果缓存中没有该格式和索引设置的buffers，则进行转换并缓存。
+        如果缓存中没有该格式的buffers，则进行转换并缓存。
         该方法假设 self.results 已经存在。
 
         Args:
             dataframe_format: 需要的格式 ("csv" 或 "parquet")
-            keep_index: 是否在DataFrame的第一列添加整数索引
         """
         # 检查是否已缓存
-        if self._buffers_cache.get(dataframe_format, keep_index) is None:
+        if self._buffers_cache.get(dataframe_format) is None:
             # 转换并缓存
             assert self.results is not None, (
                 "_ensure_buffers_cache 方法要求 self.results 非空，"
@@ -217,9 +217,8 @@ class BacktestRunner:
                 self.engine_settings,
                 self.results,
                 dataframe_format,
-                keep_index,
             )
-            self._buffers_cache.set(dataframe_format, buffers, keep_index)
+            self._buffers_cache.set(dataframe_format, buffers)
 
     def save_results(
         self,
@@ -249,7 +248,7 @@ class BacktestRunner:
             raise ValueError("必须先调用 run() 执行回测")
 
         # 确保缓存
-        self._ensure_buffers_cache(config.dataframe_format, config.keep_index)
+        self._ensure_buffers_cache(config.dataframe_format)
 
         # 调用工具函数保存结果
         save_backtest_results(
@@ -292,7 +291,7 @@ class BacktestRunner:
             raise ValueError("必须先调用 run() 执行回测")
 
         # 确保缓存
-        self._ensure_buffers_cache(config.dataframe_format, config.keep_index)
+        self._ensure_buffers_cache(config.dataframe_format)
 
         # 调用工具函数上传结果
         upload_backtest_results(
@@ -304,5 +303,31 @@ class BacktestRunner:
         if self.enable_timing and start_time is not None:
             elapsed = time.perf_counter() - start_time
             logger.info(f"BacktestRunner.upload_results() 耗时: {elapsed:.4f}秒")
+
+        return self
+
+    def format_results_for_export(
+        self,
+        add_index: bool = True,
+        add_time: bool = True,
+        add_date: bool = True,
+    ) -> "BacktestRunner":
+        """为所有 DataFrame 添加列
+
+        这个方法在 run() 之后、save_results() 之前调用，用于集中处理所有 DataFrame 的列添加。
+
+        Args:
+            add_index: 是否添加索引列
+            add_time: 是否添加时间列
+            add_date: 是否添加日期列（ISO格式）
+
+        Returns:
+            self: 支持链式调用
+        """
+
+        # 使用工具函数处理所有 DataFrame
+        add_contextual_columns_to_all_dataframes(
+            self.data_dict, self.results, add_index, add_time, add_date
+        )
 
         return self

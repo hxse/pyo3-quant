@@ -17,7 +17,7 @@ use std::sync::Arc;
 ///
 /// * `df` - 包含信号列的 DataFrame
 /// * `atr_series` - 可选的 ATR Series
-/// * `skip_mask` - 可选的 skip_mask Series
+/// * `skip_mask` - 可选的 skip_mask DataFrame
 ///
 /// # 返回
 ///
@@ -25,7 +25,7 @@ use std::sync::Arc;
 pub fn preprocess_signals(
     df: DataFrame,
     atr_series: &Option<Series>,
-    skip_mask: &Option<Series>,
+    skip_mask: &Option<DataFrame>,
 ) -> Result<DataFrame, QuantError> {
     let mut lazy = df.lazy();
 
@@ -58,10 +58,11 @@ pub fn preprocess_signals(
     );
 
     // 规则4: skip_mask 屏蔽 - enter 信号设为 false
-    if let Some(skip_series) = skip_mask {
+    if let Some(skip_df) = skip_mask {
+        let skip_col = skip_df.column("skip")?;
         let skip_name = "skip_mask_temp";
         let mut df_with_skip = lazy.collect()?;
-        df_with_skip.with_column(skip_series.clone().with_name(skip_name.into()))?;
+        df_with_skip.with_column(skip_col.clone().with_name(skip_name.into()))?;
 
         lazy = df_with_skip.lazy();
         lazy = lazy.with_columns(vec![

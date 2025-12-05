@@ -139,11 +139,13 @@ def generate_data_dict(
     # skip_mask 占位,暂时全为 False
     # 使用基准数据的长度
     base_len = len(source_dict[base_data_key])
-    skip_mask_series = pl.Series("skip", np.zeros(base_len), dtype=pl.Boolean)
+    skip_mask_df = pl.DataFrame(
+        {"skip": pl.Series("skip", np.zeros(base_len), dtype=pl.Boolean)}
+    )
 
     return DataContainer(
         mapping=mapping_df,
-        skip_mask=skip_mask_series,
+        skip_mask=skip_mask_df,
         skip_mapping=skip_mapping,
         source=source_dict,
         BaseDataKey=base_data_key,

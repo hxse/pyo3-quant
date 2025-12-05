@@ -24,7 +24,7 @@ from py_entry.data_conversion.types import (
     ExecutionStage,
 )
 
-from py_entry.data_conversion.data_generator import DataGenerationParams
+from py_entry.data_conversion.data_generator import DataGenerationParams, OtherParams
 
 from py_entry.data_conversion.file_utils import (
     SaveConfig,
@@ -129,7 +129,7 @@ if __name__ == "__main__":
         server_url=json_config["server_url"],
     )
 
-    # 完整的链式调用：配置 -> 运行 -> 保存 -> 上传
+    # 完整的链式调用：配置 -> 运行 -> 添加索引 -> 保存 -> 上传
     br.setup(
         data_source=simulated_data_config,
         indicators_params=indicators_params,
@@ -137,9 +137,7 @@ if __name__ == "__main__":
         backtest_params=backtest_params,
         signal_template=signal_template,
         engine_settings=engine_settings,
-    ).run()
-
-    br.save_results(
+    ).run().format_results_for_export().save_results(
         SaveConfig(
             output_dir="my_strategy",
             dataframe_format="csv",

@@ -1,8 +1,5 @@
-from pdb import Pdb
-from typing import Optional
-import time
-from loguru import logger
-import polars as pl
+from typing import Self, Dict, Any, Optional
+from IPython.display import HTML
 
 from py_entry.data_conversion.types import (
     DataContainer,
@@ -14,40 +11,23 @@ from py_entry.data_conversion.types import (
     BacktestParams,
     PerformanceParams,
     SignalTemplate,
-    SingleParamSet,
     BacktestSummary,
 )
-from py_entry.data_conversion.helpers import validate_no_none_fields
 from py_entry.data_conversion.data_generator import (
-    generate_data_dict,
-    DataGenerationParams,
     OtherParams,
-    OhlcvDataFetchConfig,
     DataSourceConfig,
-)
-from .setup_utils import (
-    build_data,
-    build_indicators_params,
-    build_signal_params,
-    build_backtest_params,
-    build_performance_params,
-    build_signal_template,
-    build_engine_settings,
 )
 from py_entry.data_conversion.file_utils import (
     ResultBuffersCache,
     SaveConfig,
     UploadConfig,
-    convert_all_backtest_data_to_buffers,
-    save_backtest_results,
-    upload_backtest_results,
 )
-from py_entry.data_conversion.file_utils.dataframe_utils import (
-    add_contextual_columns_to_all_dataframes,
-)
-from pathlib import Path
 
-import pyo3_quant
+# 导入拆分后的逻辑模块
+from . import config_logic as _config
+from . import execution_logic as _exec
+from . import result_logic as _result
+from . import display_utils as _display
 
 
 class BacktestRunner:
@@ -88,222 +68,35 @@ class BacktestRunner:
         signal_template: SignalTemplate | None = None,
         engine_settings: SettingContainer | None = None,
         param_set_size: int = 1,
-    ) -> "BacktestRunner":
-        """一次性配置回测所需的所有组件
-
-        Args:
-            data_source: 数据源配置，可以是四种类型之一：
-                - DataGenerationParams: 模拟数据生成参数
-                - OhlcvDataFetchConfig: OHLCV数据获取配置
-                - list[pl.DataFrame]: 预定义的OHLCV DataFrame列表
-                - None: 使用默认模拟数据配置
-            other_params: 其他参数配置对象
-            indicators_params: 可选的指标参数，如果提供则直接返回，为None时返回默认值
-            signal_params: 可选的信号参数，如果提供则直接返回，为None时返回默认值
-            backtest_params: 可选的回测参数，如果提供则直接返回，为None时返回默认值
-            performance_params: 可选的性能参数，如果提供则直接返回，为None时返回默认值
-            signal_template: 可选的信号模板，如果提供则直接返回，为None时返回默认值
-            engine_settings: 可选的引擎设置，如果提供则直接返回，为None时返回默认值
-
-        Returns:
-            self: 返回自身以支持链式调用
-        """
-        start_time = time.perf_counter() if self.enable_timing else None
-
-        # 配置数据
-        self.data_dict = build_data(
-            data_source=data_source,
-            other_params=other_params,
-        )
-
-        if self.data_dict is None:
-            raise ValueError("data_dict 不能为空")
-
-        # 直接创建单个 SingleParamSet
-        self.param_set = [
-            SingleParamSet(
-                indicators=build_indicators_params(indicators_params),
-                signal=build_signal_params(signal_params),
-                backtest=build_backtest_params(backtest_params),
-                performance=build_performance_params(performance_params),
-            )
-            for _ in range(param_set_size)
-        ]
-
-        # 配置模板
-        self.template_config = TemplateContainer(
-            signal=build_signal_template(signal_template),
-        )
-
-        # 配置引擎设置
-        self.engine_settings = build_engine_settings(engine_settings)
-
-        if self.enable_timing and start_time is not None:
-            elapsed = time.perf_counter() - start_time
-            logger.info(f"BacktestRunner.setup() 耗时: {elapsed:.4f}秒")
-
+    ) -> Self:
+        """一次性配置回测所需的所有组件"""
+        # 使用 **locals() 收集所有参数，'self' 自动匹配 perform_setup 的第一个参数 'self'
+        _config.perform_setup(**locals())
         return self
 
-    def run(self) -> "BacktestRunner":
-        """执行回测。
-
-        在执行回测之前，会验证所有必要的配置（数据、参数集、模板、引擎设置）是否已完成。
-
-        Returns:
-            self: 返回自身以支持链式调用。结果存储在 self.results 中。
-
-        Raises:
-            ValueError: 如果任何必要的配置缺失。
-        """
-        start_time = time.perf_counter() if self.enable_timing else None
-
-        if self.data_dict is None:
-            raise ValueError("必须先调用 setup() 配置回测参数")
-        if self.template_config is None:
-            raise ValueError("必须先调用 setup() 配置回测参数")
-        if self.engine_settings is None:
-            raise ValueError("必须先调用 setup() 配置回测参数")
-        if self.param_set is None:
-            raise ValueError("必须先调用 setup() 配置回测参数")
-
-        validate_no_none_fields(self.data_dict)
-        validate_no_none_fields(self.template_config)
-        validate_no_none_fields(self.engine_settings)
-
-        # 验证 param_set 是列表类型
-        if not isinstance(self.param_set, list):
-            raise ValueError(
-                f"param_set 应该是列表类型，但得到的是 {type(self.param_set).__name__}"
-            )
-
-        for i in self.param_set:
-            validate_no_none_fields(i)
-
-        raw_results = pyo3_quant.backtest_engine.run_backtest_engine(
-            self.data_dict,
-            self.param_set,
-            self.template_config,
-            self.engine_settings,
-            None,
-        )
-        self.results = [BacktestSummary.from_dict(result) for result in raw_results]
-
-        if self.enable_timing and start_time is not None:
-            elapsed = time.perf_counter() - start_time
-            logger.info(f"BacktestRunner.run() 耗时: {elapsed:.4f}秒")
-
+    def run(self) -> Self:
+        """执行回测。"""
+        _exec.perform_run(**locals())
         return self
 
     def _ensure_buffers_cache(self, dataframe_format: str) -> None:
-        """确保指定格式的buffers已缓存。
-
-        如果缓存中没有该格式的buffers，则进行转换并缓存。
-        该方法假设 self.results 已经存在。
-
-        Args:
-            dataframe_format: 需要的格式 ("csv" 或 "parquet")
-        """
-        # 检查是否已缓存
-        if self._buffers_cache.get(dataframe_format) is None:
-            # 转换并缓存
-            assert self.results is not None, (
-                "_ensure_buffers_cache 方法要求 self.results 非空，"
-                "但当前为 None。请确保在调用此方法前已执行 run() 方法。"
-            )
-            buffers = convert_all_backtest_data_to_buffers(
-                self.data_dict,
-                self.param_set,
-                self.template_config,
-                self.engine_settings,
-                self.results,
-                dataframe_format,
-            )
-            self._buffers_cache.set(dataframe_format, buffers)
+        """确保指定格式的buffers已缓存。"""
+        _result._ensure_buffers_cache(**locals())
 
     def save_results(
         self,
         config: SaveConfig,
-    ) -> "BacktestRunner":
-        """保存所有回测数据（包括配置和结果）到本地文件。
-
-        保存的数据包括：
-        - data_dict: 数据容器（映射、掩码、源数据等）
-        - param_set: 参数容器（指标、信号、回测、性能参数）
-        - template_config: 模板配置（信号模板）
-        - engine_settings: 引擎设置（执行阶段等）
-        - results: 回测结果（性能指标、指标数据、信号、回测结果）
-
-        Args:
-            config: 保存配置对象
-
-        Returns:
-            self: 支持链式调用
-
-        Raises:
-            ValueError: 如果没有回测结果
-        """
-        start_time = time.perf_counter() if self.enable_timing else None
-
-        if self.results is None:
-            raise ValueError("必须先调用 run() 执行回测")
-
-        # 确保缓存
-        self._ensure_buffers_cache(config.dataframe_format)
-
-        # 调用工具函数保存结果
-        save_backtest_results(
-            results=self.results,
-            config=config,
-            cache=self._buffers_cache,
-        )
-
-        if self.enable_timing and start_time is not None:
-            elapsed = time.perf_counter() - start_time
-            logger.info(f"BacktestRunner.save_results() 耗时: {elapsed:.4f}秒")
-
+    ) -> Self:
+        """保存所有回测数据（包括配置和结果）到本地文件。"""
+        _result.save_results(**locals())
         return self
 
     def upload_results(
         self,
         config: UploadConfig,
-    ) -> "BacktestRunner":
-        """将所有回测数据（包括配置和结果）打包并上传到服务器。
-
-        上传的数据包括：
-        - data_dict: 数据容器（映射、掩码、源数据等）
-        - param_set: 参数容器（指标、信号、回测、性能参数）
-        - template_config: 模板配置（信号模板）
-        - engine_settings: 引擎设置（执行阶段等）
-        - results: 回测结果（性能指标、指标数据、信号、回测结果）
-
-        Args:
-            config: 上传配置对象
-
-        Returns:
-            self: 支持链式调用
-
-        Raises:
-            ValueError: 如果没有回测结果
-        """
-        start_time = time.perf_counter() if self.enable_timing else None
-
-        if self.results is None:
-            raise ValueError("必须先调用 run() 执行回测")
-
-        # 确保缓存
-        self._ensure_buffers_cache(config.dataframe_format)
-
-        # 调用工具函数上传结果
-        upload_backtest_results(
-            results=self.results,
-            config=config,
-            cache=self._buffers_cache,
-        )
-
-        if self.enable_timing and start_time is not None:
-            elapsed = time.perf_counter() - start_time
-            logger.info(f"BacktestRunner.upload_results() 耗时: {elapsed:.4f}秒")
-
+    ) -> Self:
+        """将所有回测数据（包括配置和结果）打包并上传到服务器。"""
+        _result.upload_results(**locals())
         return self
 
     def format_results_for_export(
@@ -311,23 +104,43 @@ class BacktestRunner:
         add_index: bool = True,
         add_time: bool = True,
         add_date: bool = True,
-    ) -> "BacktestRunner":
-        """为所有 DataFrame 添加列
+    ) -> Self:
+        """为所有 DataFrame 添加列"""
+        _result.format_results_for_export(**locals())
+        return self
 
-        这个方法在 run() 之后、save_results() 之前调用，用于集中处理所有 DataFrame 的列添加。
+    def get_zip_buffer(
+        self,
+        dataframe_format: str = "csv",
+        compress_level: int = 1,
+    ) -> bytes:
+        """获取回测结果的ZIP压缩包字节数据。"""
+        return _result.get_zip_buffer(**locals())
+
+    def display_dashboard(
+        self,
+        config: Dict[str, Any],
+        dataframe_format: str = "csv",
+        compress_level: int = 1,
+        lib_path: str = "../lwchart/chart-dashboard.umd.js",
+        css_path: str = "../lwchart/lwchart_demo3.css",
+        embed_files: bool = True,
+        container_id: Optional[str] = None,
+    ) -> HTML:
+        """
+        获取回测结果的 ZIP 压缩包字节数据，并将其加载到 ChartDashboard 组件中。
 
         Args:
-            add_index: 是否添加索引列
-            add_time: 是否添加时间列
-            add_date: 是否添加日期列（ISO格式）
+            config: ChartDashboard 的配置字典。
+            dataframe_format: DataFrame格式，"csv" 或 "parquet"。
+            compress_level: 压缩级别，0-9。
+            lib_path: UMD JavaScript 库文件的路径。
+            css_path: CSS 文件的路径。
+            embed_files: 是否将 JS/CSS 文件内容读取并嵌入到 HTML 中（自包含）。
+            container_id: 可选参数。用于渲染图表的 HTML 容器 ID。
 
         Returns:
-            self: 支持链式调用
+            HTML: IPython.display.HTML 对象，用于在 Jupyter 中渲染图表。
         """
-
-        # 使用工具函数处理所有 DataFrame
-        add_contextual_columns_to_all_dataframes(
-            self.data_dict, self.results, add_index, add_time, add_date
-        )
-
-        return self
+        # 委托给 display_utils 中的 display_dashboard 工具函数
+        return _display.display_dashboard(**locals())

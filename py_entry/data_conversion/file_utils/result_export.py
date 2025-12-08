@@ -3,11 +3,13 @@
 提供将回测结果保存到磁盘和上传到服务器的高级函数。
 """
 
+from pathlib import Path
 from py_entry.data_conversion.types import BacktestSummary
 from .configs import ResultBuffersCache, SaveConfig, UploadConfig
 from .path_utils import validate_output_path, clear_directory
 from .savers import save_buffers_to_disk
-from .uploaders import upload_buffers_to_server
+from .upload import upload_to_server
+import time
 
 
 def save_backtest_results(
@@ -51,27 +53,25 @@ def upload_backtest_results(
     results: list[BacktestSummary],
     config: UploadConfig,
     cache: ResultBuffersCache,
+    zip_data: bytes,
 ) -> None:
     """上传所有回测数据（包括配置和结果）到服务器。
-
-    注意：调用者应确保 cache 中已存在对应格式的buffers，且buffers应包含所有回测数据。
 
     Args:
         results: 回测结果列表（保留参数以保持向后兼容性）
         config: 上传配置
         cache: 缓存对象，必须已包含对应格式的buffers
+        zip_data: ZIP字节数据，必须提供
     """
-    # 从缓存获取buffers
-    buffers = cache.get(config.dataframe_format)
-    assert buffers is not None, (
-        f"缓存中未找到 {config.dataframe_format} 格式的buffers。"
-        "请确保在调用此函数前已调用 convert_all_backtest_data_to_buffers()。"
-    )
 
-    upload_buffers_to_server(
-        buffers,
+    # 保存到本地用于调试
+
+    timestamp = int(time.time())
+    final_zip_name = config.zip_name or f"backtest_results_{timestamp}.zip"
+
+    upload_to_server(
         config=config.request_config,
-        server_dir=config.server_dir,
-        zip_name=config.zip_name,
-        compress_level=config.compress_level,
+        zip_data=zip_data,
+        server_dir=Path(config.server_dir) if config.server_dir else None,
+        zip_name=final_zip_name,
     )

@@ -109,7 +109,7 @@ def add_contextual_columns_to_all_dataframes(
                     )
 
             # 处理 signals
-            if summary.signals is not None:
+            if summary.signals is not None and data_dict is not None:
                 summary.signals = process_dataframe(
                     summary.signals,
                     add_index,
@@ -121,7 +121,7 @@ def add_contextual_columns_to_all_dataframes(
                 )
 
             # 处理 backtest_result
-            if summary.backtest_result is not None:
+            if summary.backtest_result is not None and data_dict is not None:
                 summary.backtest_result = process_dataframe(
                     summary.backtest_result,
                     add_index,

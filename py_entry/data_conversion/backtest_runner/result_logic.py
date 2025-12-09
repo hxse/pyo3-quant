@@ -11,6 +11,7 @@ from py_entry.data_conversion.file_utils import (
     convert_all_backtest_data_to_buffers,
     save_backtest_results,
     upload_backtest_results,
+    ParquetCompression,
 )
 from py_entry.data_conversion.file_utils.dataframe_utils import (
     add_contextual_columns_to_all_dataframes,
@@ -18,13 +19,18 @@ from py_entry.data_conversion.file_utils.dataframe_utils import (
 from py_entry.data_conversion.file_utils.zip_utils import create_zip_buffer
 
 
-def _ensure_buffers_cache(self: "BacktestRunner", dataframe_format: str) -> None:
+def _ensure_buffers_cache(
+    self: "BacktestRunner",
+    dataframe_format: str,
+    parquet_compression: ParquetCompression,
+) -> None:
     """
     确保指定格式的buffers已缓存。
 
     Args:
         self: BacktestRunner 实例。
         dataframe_format: 需要的格式 ("csv" 或 "parquet")
+        parquet_compression: Parquet 压缩算法
     """
     # 检查是否已缓存
     if self._buffers_cache.get(dataframe_format) is None:
@@ -40,6 +46,7 @@ def _ensure_buffers_cache(self: "BacktestRunner", dataframe_format: str) -> None
             self.engine_settings,
             self.results,
             dataframe_format,
+            parquet_compression=parquet_compression,
         )
         self._buffers_cache.set(dataframe_format, buffers)
 
@@ -58,7 +65,7 @@ def save_results(self: "BacktestRunner", config: SaveConfig) -> None:
         raise ValueError("必须先调用 run() 执行回测")
 
     # 确保缓存
-    _ensure_buffers_cache(self, config.dataframe_format)
+    _ensure_buffers_cache(self, config.dataframe_format, config.parquet_compression)
 
     # 调用工具函数保存结果
     save_backtest_results(
@@ -90,6 +97,7 @@ def upload_results(self: "BacktestRunner", config: UploadConfig) -> None:
         self,
         dataframe_format=config.dataframe_format,
         compress_level=config.compress_level,
+        parquet_compression=config.parquet_compression,
     )
 
     upload_backtest_results(
@@ -106,8 +114,9 @@ def upload_results(self: "BacktestRunner", config: UploadConfig) -> None:
 
 def get_zip_buffer(
     self: "BacktestRunner",
-    dataframe_format: str = "csv",
-    compress_level: int = 1,
+    dataframe_format: str,
+    compress_level: int,
+    parquet_compression: ParquetCompression,
 ) -> bytes:
     """
     获取回测结果的ZIP压缩包字节数据。
@@ -116,6 +125,7 @@ def get_zip_buffer(
         self: BacktestRunner 实例。
         dataframe_format: DataFrame格式，"csv" 或 "parquet"
         compress_level: 压缩级别，0-9
+        parquet_compression: Parquet 压缩算法，默认 "snappy"
 
     Returns:
         bytes: ZIP压缩包的字节数据
@@ -126,7 +136,7 @@ def get_zip_buffer(
         raise ValueError("必须先调用 run() 执行回测")
 
     # 确保缓存
-    _ensure_buffers_cache(self, dataframe_format)
+    _ensure_buffers_cache(self, dataframe_format, parquet_compression)
 
     # 从缓存获取buffers
     buffers = self._buffers_cache.get(dataframe_format)
@@ -147,9 +157,9 @@ def get_zip_buffer(
 
 def format_results_for_export(
     self: "BacktestRunner",
-    add_index: bool = True,
-    add_time: bool = True,
-    add_date: bool = True,
+    add_index: bool,
+    add_time: bool,
+    add_date: bool,
 ) -> None:
     """
     为所有 DataFrame 添加列。

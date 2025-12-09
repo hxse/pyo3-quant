@@ -34,9 +34,9 @@ def reorder_columns(
 def add_contextual_columns_to_all_dataframes(
     data_dict: Optional[DataContainer],
     results: Optional[list[BacktestSummary]],
-    add_index: bool = True,
-    add_time: bool = False,
-    add_date: bool = False,
+    add_index: bool,
+    add_time: bool,
+    add_date: bool,
 ) -> None:
     """为所有 DataFrame 添加列
 

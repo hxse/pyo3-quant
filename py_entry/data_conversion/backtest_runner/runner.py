@@ -1,4 +1,4 @@
-from typing import Self, Dict, Any, Optional
+from typing import Self
 from IPython.display import HTML
 
 from py_entry.data_conversion.types import (
@@ -21,6 +21,8 @@ from py_entry.data_conversion.file_utils import (
     ResultBuffersCache,
     SaveConfig,
     UploadConfig,
+    DisplayConfig,
+    ParquetCompression,
 )
 
 # 导入拆分后的逻辑模块
@@ -83,6 +85,16 @@ class BacktestRunner:
         """确保指定格式的buffers已缓存。"""
         _result._ensure_buffers_cache(**locals())
 
+    def format_results_for_export(
+        self,
+        add_index: bool = True,
+        add_time: bool = True,
+        add_date: bool = True,
+    ) -> Self:
+        """为所有 DataFrame 添加列"""
+        _result.format_results_for_export(**locals())
+        return self
+
     def save_results(
         self,
         config: SaveConfig,
@@ -99,48 +111,27 @@ class BacktestRunner:
         _result.upload_results(**locals())
         return self
 
-    def format_results_for_export(
-        self,
-        add_index: bool = True,
-        add_time: bool = True,
-        add_date: bool = True,
-    ) -> Self:
-        """为所有 DataFrame 添加列"""
-        _result.format_results_for_export(**locals())
-        return self
-
-    def get_zip_buffer(
-        self,
-        dataframe_format: str = "csv",
-        compress_level: int = 1,
-    ) -> bytes:
-        """获取回测结果的ZIP压缩包字节数据。"""
-        return _result.get_zip_buffer(**locals())
-
     def display_dashboard(
         self,
-        config: Dict[str, Any],
-        dataframe_format: str = "csv",
-        compress_level: int = 1,
-        lib_path: str = "../lwchart/chart-dashboard.umd.js",
-        css_path: str = "../lwchart/lwchart_demo3.css",
-        embed_files: bool = True,
-        container_id: Optional[str] = None,
+        config: DisplayConfig,
     ) -> HTML:
         """
         获取回测结果的 ZIP 压缩包字节数据，并将其加载到 ChartDashboard 组件中。
 
         Args:
-            config: ChartDashboard 的配置字典。
-            dataframe_format: DataFrame格式，"csv" 或 "parquet"。
-            compress_level: 压缩级别，0-9。
-            lib_path: UMD JavaScript 库文件的路径。
-            css_path: CSS 文件的路径。
-            embed_files: 是否将 JS/CSS 文件内容读取并嵌入到 HTML 中（自包含）。
-            container_id: 可选参数。用于渲染图表的 HTML 容器 ID。
+            config: DisplayConfig 对象或 ChartDashboard 的配置字典。
 
         Returns:
             HTML: IPython.display.HTML 对象，用于在 Jupyter 中渲染图表。
         """
         # 委托给 display_utils 中的 display_dashboard 工具函数
         return _display.display_dashboard(**locals())
+
+    def get_zip_buffer(
+        self,
+        dataframe_format: str = "csv",
+        compress_level: int = 1,
+        parquet_compression: ParquetCompression = "snappy",
+    ) -> bytes:
+        """获取回测结果的ZIP压缩包字节数据。"""
+        return _result.get_zip_buffer(**locals())

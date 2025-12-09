@@ -66,7 +66,12 @@ indicators_params = {
 }
 
 # 自定义信号参数
-signal_params = {"rsi_midline": Param.create(20, 10, 90, 5)}
+signal_params = {
+    # "rsi_upper": Param.create(70, 60, 80, 5),
+    "rsi_center": Param.create(50, 40, 60, 5),
+    # "rsi_lower": Param.create(30, 20, 40, 5),
+}
+
 
 # 自定义回测参数
 backtest_params = BacktestParams(
@@ -93,7 +98,7 @@ enter_long_group = SignalGroup(
     logic=LogicOp.AND,
     comparisons=[
         "close > bbands_upper",
-        "rsi,ohlcv_1h, > $rsi_midline",
+        "rsi,ohlcv_1h, > $rsi_center",
         "sma_0,ohlcv_4h, > sma_1,ohlcv_4h,",
     ],
 )
@@ -140,14 +145,14 @@ if __name__ == "__main__":
     ).run().format_results_for_export().save_results(
         SaveConfig(
             output_dir="my_strategy",
-            dataframe_format="csv",
+            dataframe_format="parquet",
         )
     ).upload_results(
         UploadConfig(
             request_config=request_cfg,
             server_dir="my_strategy",
             zip_name="results.zip",
-            dataframe_format="csv",
+            dataframe_format="parquet",
         )
     )
 

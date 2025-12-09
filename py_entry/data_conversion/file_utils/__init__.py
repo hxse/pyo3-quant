@@ -26,10 +26,12 @@ from .configs import (
     ResultBuffersCache,
     SaveConfig,
     UploadConfig,
+    DisplayConfig,
 )
 from .converters import (
     convert_backtest_results_to_buffers,
     convert_all_backtest_data_to_buffers,
+    ParquetCompression,
 )
 from .path_utils import clear_directory
 from .savers import save_buffers_to_disk
@@ -60,8 +62,10 @@ __all__ = [
     "ResultBuffersCache",
     "SaveConfig",
     "UploadConfig",
+    "DisplayConfig",
     "convert_backtest_results_to_buffers",
     "convert_all_backtest_data_to_buffers",
+    "ParquetCompression",
     "save_buffers_to_disk",
     "save_backtest_results",
     "upload_backtest_results",

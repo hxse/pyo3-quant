@@ -2,11 +2,9 @@ import base64
 import json
 import random
 import time
-from IPython.display import HTML, display
-from typing import Dict, Any, Optional
-from pathlib import Path
-import os
-
+from IPython.display import HTML
+from py_entry.data_conversion.file_utils import DisplayConfig
+from .result_logic import get_zip_buffer
 
 # 导入 BacktestRunner 的类型提示
 from typing import TYPE_CHECKING
@@ -17,48 +15,36 @@ if TYPE_CHECKING:
 
 def display_dashboard(
     self: "BacktestRunner",
-    config: Dict[str, Any],
-    dataframe_format: str,
-    compress_level: int,
-    lib_path: str,
-    css_path: str,
-    embed_files: bool,
-    container_id: Optional[str],
+    config: DisplayConfig,
 ) -> HTML:
     """
     获取回测结果的 ZIP 压缩包字节数据，并将其加载到 ChartDashboard 组件中。
 
     Args:
         self: BacktestRunner 实例。
-        config (dict): ChartDashboard 的配置字典。
-        dataframe_format: DataFrame格式，"csv" 或 "parquet"。
-        compress_level: 压缩级别，0-9。
-        lib_path (str): UMD JavaScript 库文件的路径。
-        css_path (str): CSS 文件的路径。
-        embed_files (bool):
-            - True: 将 JS/CSS 文件内容读取并嵌入到 HTML 中（自包含）。
-            - False: 使用 <script src> 和 <link> 外部引用文件。
-        container_id (str):
-            - 可选参数。用于渲染图表的 HTML 容器 ID。
-            - 默认为 None。如果未提供，将自动生成一个基于时间的唯一 ID。
+        config: DisplayConfig 对象或 ChartDashboard 的配置字典。
 
     Returns:
         HTML: IPython.display.HTML 对象，用于在 Jupyter 中渲染图表。
     """
+
     # 1. 获取 zip_data (委托给 result_logic 中的 get_zip_buffer)
-    zip_data = self.get_zip_buffer(
-        dataframe_format=dataframe_format, compress_level=compress_level
+    zip_data = get_zip_buffer(
+        self,
+        dataframe_format=config.dataframe_format,
+        compress_level=config.compress_level,
+        parquet_compression=config.parquet_compression,
     )
 
     # --- 1. 数据准备 ---
     # 编码数据
     zip_base64 = base64.b64encode(zip_data).decode("utf-8")
     # 将 Python 字典转换为标准的 JS JSON 字符串
-    config_str = json.dumps(config)
+    config_str = json.dumps(config.chart_config)
 
     # --- 2. 唯一 ID 处理 ---
     # 如果用户没有提供 ID，则生成一个唯一 ID
-    if container_id is None:
+    if config.container_id is None:
         # 使用当前时间（毫秒级）
         unique_timestamp = int(time.time() * 1000)
 
@@ -72,12 +58,12 @@ def display_dashboard(
     final_container_id = container_id
 
     # --- 3. 模式切换：外部引用 (False) vs. 嵌入 (True) ---
-    if embed_files:
+    if config.embed_files:
         # 嵌入模式：读取文件内容
         # 尝试读取 JS 文件
         try:
             # 假设 lib_path 是相对于当前工作目录的路径
-            with open(lib_path, "r", encoding="utf-8") as f:
+            with open(config.lib_path, "r", encoding="utf-8") as f:
                 js_content = f.read()
             lib_section = f"""
             <script>
@@ -92,12 +78,12 @@ def display_dashboard(
             """
         except FileNotFoundError:
             return HTML(
-                f"<h2>错误：嵌入模式下未找到 JavaScript 库文件！请检查路径：{lib_path}</h2>"
+                f"<h2>错误：嵌入模式下未找到 JavaScript 库文件！请检查路径：{config.lib_path}</h2>"
             )
 
         # 尝试读取 CSS 文件
         try:
-            with open(css_path, "r", encoding="utf-8") as f:
+            with open(config.css_path, "r", encoding="utf-8") as f:
                 css_content = f.read()
             css_section = f"""
             <style>
@@ -107,19 +93,19 @@ def display_dashboard(
         except FileNotFoundError:
             css_section = ""
             # 保持用户提供的逻辑，但使用 print
-            print(f"警告：嵌入模式下未找到 CSS 文件：{css_path}")
+            print(f"警告：嵌入模式下未找到 CSS 文件：{config.css_path}")
 
         mount_log = "最终挂载尝试 (嵌入模式)"
 
     else:
         # 外部引用模式：使用 <script src>
-        lib_section = f'<script src="{lib_path}"></script>'
-        css_section = f'<link rel="stylesheet" href="{css_path}">'
+        lib_section = f'<script src="{config.lib_path}"></script>'
+        css_section = f'<link rel="stylesheet" href="{config.css_path}">'
         mount_log = "最终挂载尝试 (外部导入模式)"
 
     # --- 4. 创建 HTML/JS 结构 ---
     html_code = f"""
-    <div id="{final_container_id}" style="height: 600px; width: 100%;"></div>
+    <div id="{final_container_id}" style="width: {config.width}; aspect-ratio: {config.aspect_ratio}; resize: both; overflow: hidden;"></div>
 
     {css_section}
     {lib_section}

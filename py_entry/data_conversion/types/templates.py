@@ -2,7 +2,15 @@
 
 from dataclasses import dataclass, field
 from typing import List, Optional
-from .conditions import SignalCondition, LogicOp
+
+from enum import Enum
+
+
+class LogicOp(str, Enum):
+    """逻辑操作符 - 对应 Rust LogicOp"""
+
+    AND = "and"
+    OR = "or"
 
 
 @dataclass

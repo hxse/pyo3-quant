@@ -5,8 +5,6 @@ from typing import Any, Dict, List, Optional, Union
 # 导入项目中已有的类型定义
 from py_entry.data_conversion.types import (
     Param,
-    ParamOperand,
-    SignalDataOperand,
     # SingleParamSet,  # 已注释，因为未使用
     ParamContainer,
     SettingContainer,
@@ -18,7 +16,6 @@ from py_entry.data_conversion.types import (
 # 类型别名
 IndicatorsParams = Dict[str, Dict[str, Dict[str, Param]]]
 SignalParams = Dict[str, Param]
-SignalRightOperand = Union[SignalDataOperand, ParamOperand]
 
 # ===== 模块定义 =====
 

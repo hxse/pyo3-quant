@@ -31,20 +31,20 @@ def reorder_columns(
     return df.select(final_column_order)
 
 
-def add_contextual_columns_to_all_dataframes(
+def add_contextual_columns_to_dataframes(
     data_dict: Optional[DataContainer],
-    results: Optional[list[BacktestSummary]],
+    result: BacktestSummary,
     add_index: bool,
     add_time: bool,
     add_date: bool,
 ) -> None:
-    """为所有 DataFrame 添加列
+    """为单个 BacktestSummary 中的所有 DataFrame 添加上下文列
 
-    这个函数会直接修改传入的 data_dict 和 results 对象，为其中包含的所有 DataFrame 添加指定的列。
+    这个函数会直接修改传入的 data_dict 和 result 对象，为其中包含的所有 DataFrame 添加指定的列。
 
     Args:
         data_dict: 数据容器，包含 mapping, skip_mask, source 等字段
-        results: 回测结果列表，每个结果包含 indicators, signals, backtest_result 等字段
+        result: 单个回测结果，包含 indicators, signals, backtest_result 等字段
         add_index: 是否添加索引列
         add_time: 是否添加时间列
         add_date: 是否添加日期列（ISO格式）
@@ -92,45 +92,40 @@ def add_contextual_columns_to_all_dataframes(
                     time_source_provider,
                 )
 
-    # 处理 results 中的所有 DataFrame
-    if results is not None:
-        for summary in results:
-            # 处理 indicators 中的所有 DataFrame
-            if summary.indicators is not None:
-                for key, df in summary.indicators.items():
-                    summary.indicators[key] = process_dataframe(
-                        df,
-                        add_index,
-                        add_time,
-                        add_date,
-                        key,
-                        data_dict,
-                        time_source_provider,
-                    )
+    # 处理单个 result（删除了循环）
+    if result.indicators is not None:
+        for key, df in result.indicators.items():
+            result.indicators[key] = process_dataframe(
+                df,
+                add_index,
+                add_time,
+                add_date,
+                key,
+                data_dict,
+                time_source_provider,
+            )
 
-            # 处理 signals
-            if summary.signals is not None and data_dict is not None:
-                summary.signals = process_dataframe(
-                    summary.signals,
-                    add_index,
-                    add_time,
-                    add_date,
-                    data_dict.BaseDataKey,
-                    data_dict,
-                    time_source_provider,
-                )
+    if result.signals is not None and data_dict is not None:
+        result.signals = process_dataframe(
+            result.signals,
+            add_index,
+            add_time,
+            add_date,
+            data_dict.BaseDataKey,
+            data_dict,
+            time_source_provider,
+        )
 
-            # 处理 backtest_result
-            if summary.backtest_result is not None and data_dict is not None:
-                summary.backtest_result = process_dataframe(
-                    summary.backtest_result,
-                    add_index,
-                    add_time,
-                    add_date,
-                    data_dict.BaseDataKey,
-                    data_dict,
-                    time_source_provider,
-                )
+    if result.backtest_result is not None and data_dict is not None:
+        result.backtest_result = process_dataframe(
+            result.backtest_result,
+            add_index,
+            add_time,
+            add_date,
+            data_dict.BaseDataKey,
+            data_dict,
+            time_source_provider,
+        )
 
 
 def process_dataframe(

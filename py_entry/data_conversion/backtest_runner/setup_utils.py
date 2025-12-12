@@ -10,26 +10,19 @@ from py_entry.data_conversion.types import (
     PerformanceParams,
     Param,
     PerformanceMetric,
-    SignalTemplate,
-    CompareOp,
     LogicOp,
+    SignalTemplate,
     SignalGroup,
     SettingContainer,
     ExecutionStage,
 )
 
-from py_entry.data_conversion.helpers import (
-    signal_data_vs_data,
-    signal_data_vs_param,
-)
 from py_entry.data_conversion.data_generator import (
     generate_data_dict,
     DataGenerationParams,
     OtherParams,
-    OhlcvDataFetchConfig,
     DataSourceConfig,
 )
-import polars as pl
 
 
 def build_data(

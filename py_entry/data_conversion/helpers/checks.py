@@ -1,5 +1,5 @@
 from dataclasses import asdict, is_dataclass
-from typing import Any, TypeVar, Union
+from typing import TypeVar, Union
 
 # 定义一个类型变量，限制为 dataclass 实例类型
 T = TypeVar("T", bound=object)

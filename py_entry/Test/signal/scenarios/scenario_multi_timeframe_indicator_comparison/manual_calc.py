@@ -49,7 +49,9 @@ def calculate_enter_long(
 
     # 3. 价格与多时间周期指标比较
     close_15m = get_mapped_ohlcv(mapped_data_container, "ohlcv_15m", "close")
-    bb_middle_1h = get_mapped_indicator(mapped_backtest_summary, "ohlcv_1h", "bbands_0_middle")
+    bb_middle_1h = get_mapped_indicator(
+        mapped_backtest_summary, "ohlcv_1h", "bbands_0_middle"
+    )
 
     # 15分钟收盘价 > 1小时EMA
     price_ema_cond = compare_series(close_15m, ema_1h, ">", offset_left=0)
@@ -136,7 +138,9 @@ def calculate_enter_short(
 
     # 3. 价格与多时间周期指标比较
     close_15m = get_mapped_ohlcv(mapped_data_container, "ohlcv_15m", "close")
-    bb_middle_1h = get_mapped_indicator(mapped_backtest_summary, "ohlcv_1h", "bbands_0_middle")
+    bb_middle_1h = get_mapped_indicator(
+        mapped_backtest_summary, "ohlcv_1h", "bbands_0_middle"
+    )
 
     # 15分钟收盘价 < 1小时EMA
     price_ema_cond = compare_series(close_15m, ema_1h, "<", offset_left=0)

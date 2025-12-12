@@ -6,17 +6,12 @@ import json
 import pyo3_quant
 
 from py_entry.data_conversion.backtest_runner import BacktestRunner
-from py_entry.data_conversion.helpers import (
-    signal_data_vs_data,
-    signal_data_vs_param,
-)
 from py_entry.data_conversion.types import (
     BacktestParams,
-    CompareOp,
     IndicatorsParams,
-    LogicOp,
     Param,
     PerformanceParams,
+    LogicOp,
     SignalGroup,
     SignalParams,
     SignalTemplate,
@@ -142,17 +137,17 @@ if __name__ == "__main__":
         backtest_params=backtest_params,
         signal_template=signal_template,
         engine_settings=engine_settings,
-    ).run().format_results_for_export().save_results(
+    ).run().format_results_for_export(
+        export_index=0, dataframe_format="parquet"
+    ).save_results(
         SaveConfig(
             output_dir="my_strategy",
-            dataframe_format="parquet",
         )
     ).upload_results(
         UploadConfig(
             request_config=request_cfg,
             server_dir="my_strategy",
             zip_name="results.zip",
-            dataframe_format="parquet",
         )
     )
 

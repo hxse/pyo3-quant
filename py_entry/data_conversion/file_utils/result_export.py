@@ -4,8 +4,9 @@
 """
 
 from pathlib import Path
-from py_entry.data_conversion.types import BacktestSummary
-from .configs import ResultBuffersCache, SaveConfig, UploadConfig
+import io
+from typing import List, Tuple
+from .configs import SaveConfig, UploadConfig
 from .path_utils import validate_output_path, clear_directory
 from .savers import save_buffers_to_disk
 from .upload import upload_to_server
@@ -13,30 +14,19 @@ import time
 
 
 def save_backtest_results(
-    results: list[BacktestSummary],
+    buffers: List[Tuple[Path, io.BytesIO]],
     config: SaveConfig,
-    cache: ResultBuffersCache,
 ) -> None:
     """保存所有回测数据（包括配置和结果）到本地文件。
 
     注意：
-    1. 调用者应确保 cache 中已存在对应格式的buffers。
-    2. 保存前会自动清空目录。
-    3. 输出目录必须在项目根目录的 data/output 文件夹下。
-    4. 缓存中的buffers应包含所有回测数据（data_dict, param_set, template_config, engine_settings, results）。
+    1. 保存前会自动清空目录。
+    2. 输出目录必须在项目根目录的 data/output 文件夹下。
 
     Args:
-        results: 回测结果列表（保留参数以保持向后兼容性）
+        buffers: 要保存的文件 Buffer 列表
         config: 保存配置
-        cache: 缓存对象，必须已包含对应格式的buffers
     """
-    # 从缓存获取buffers
-    buffers = cache.get(config.dataframe_format)
-    assert buffers is not None, (
-        f"缓存中未找到 {config.dataframe_format} 格式的buffers。"
-        "请确保在调用此函数前已调用 convert_all_backtest_data_to_buffers()。"
-    )
-
     # 验证并获取完整路径
     validated_path = validate_output_path(config.output_dir)
 
@@ -50,18 +40,14 @@ def save_backtest_results(
 
 
 def upload_backtest_results(
-    results: list[BacktestSummary],
-    config: UploadConfig,
-    cache: ResultBuffersCache,
     zip_data: bytes,
+    config: UploadConfig,
 ) -> None:
     """上传所有回测数据（包括配置和结果）到服务器。
 
     Args:
-        results: 回测结果列表（保留参数以保持向后兼容性）
+        zip_data: ZIP字节数据
         config: 上传配置
-        cache: 缓存对象，必须已包含对应格式的buffers
-        zip_data: ZIP字节数据，必须提供
     """
 
     # 保存到本地用于调试

@@ -23,14 +23,13 @@ from .types import (
     RequestConfig,
 )
 from .configs import (
-    ResultBuffersCache,
     SaveConfig,
     UploadConfig,
     DisplayConfig,
 )
 from .converters import (
-    convert_backtest_results_to_buffers,
-    convert_all_backtest_data_to_buffers,
+    convert_backtest_result_to_buffers,
+    convert_backtest_data_to_buffers,
     ParquetCompression,
 )
 from .path_utils import clear_directory
@@ -59,12 +58,11 @@ __all__ = [
     "AuthConfig",
     "RetryConfig",
     "RequestConfig",
-    "ResultBuffersCache",
     "SaveConfig",
     "UploadConfig",
     "DisplayConfig",
-    "convert_backtest_results_to_buffers",
-    "convert_all_backtest_data_to_buffers",
+    "convert_backtest_result_to_buffers",
+    "convert_backtest_data_to_buffers",
     "ParquetCompression",
     "save_buffers_to_disk",
     "save_backtest_results",

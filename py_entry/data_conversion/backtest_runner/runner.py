@@ -1,5 +1,8 @@
-from typing import Self
+from typing import Self, List, Tuple, Optional
+from pathlib import Path
+from io import BytesIO
 from IPython.display import HTML
+
 
 from py_entry.data_conversion.types import (
     DataContainer,
@@ -18,12 +21,12 @@ from py_entry.data_conversion.data_generator import (
     DataSourceConfig,
 )
 from py_entry.data_conversion.file_utils import (
-    ResultBuffersCache,
     SaveConfig,
     UploadConfig,
     DisplayConfig,
     ParquetCompression,
 )
+from py_entry.data_conversion.types.chart_config import ChartConfig
 
 # 导入拆分后的逻辑模块
 from . import config_logic as _config
@@ -54,10 +57,19 @@ class BacktestRunner:
         self.template_config: TemplateContainer | None = None
         self.engine_settings: SettingContainer | None = None
         self.results: list[BacktestSummary] | None = None
-        # 缓存不同格式的转换结果
-        self._buffers_cache: ResultBuffersCache = ResultBuffersCache()
+
+        # 导出使用的缓存数据
+        self.export_buffers: List[Tuple[Path, BytesIO]] | None = None
+        self.export_zip_buffer: bytes | None = None
+
+        # 导出时选中的索引（同时用于 result 和 param）
+        self.export_index: int | None = None
+
         # 时间测量开关
         self.enable_timing = enable_timing
+
+        # 图表配置
+        self.chart_config: ChartConfig | None = None
 
     def setup(
         self,
@@ -78,20 +90,23 @@ class BacktestRunner:
 
     def run(self) -> Self:
         """执行回测。"""
-        _exec.perform_run(**locals())
+        _exec.perform_run(self)
         return self
-
-    def _ensure_buffers_cache(self, dataframe_format: str) -> None:
-        """确保指定格式的buffers已缓存。"""
-        _result._ensure_buffers_cache(**locals())
 
     def format_results_for_export(
         self,
+        export_index: int,
+        dataframe_format: str = "csv",
+        compress_level: int = 1,
+        parquet_compression: ParquetCompression = "snappy",
+        chart_config: Optional[ChartConfig] = None,
         add_index: bool = True,
         add_time: bool = True,
         add_date: bool = True,
     ) -> Self:
-        """为所有 DataFrame 添加列"""
+        """
+        为导出准备结果数据。
+        """
         _result.format_results_for_export(**locals())
         return self
 
@@ -100,7 +115,7 @@ class BacktestRunner:
         config: SaveConfig,
     ) -> Self:
         """保存所有回测数据（包括配置和结果）到本地文件。"""
-        _result.save_results(**locals())
+        _result.save_results(self, config)
         return self
 
     def upload_results(
@@ -108,7 +123,7 @@ class BacktestRunner:
         config: UploadConfig,
     ) -> Self:
         """将所有回测数据（包括配置和结果）打包并上传到服务器。"""
-        _result.upload_results(**locals())
+        _result.upload_results(self, config)
         return self
 
     def display_dashboard(
@@ -117,21 +132,5 @@ class BacktestRunner:
     ) -> HTML:
         """
         获取回测结果的 ZIP 压缩包字节数据，并将其加载到 ChartDashboard 组件中。
-
-        Args:
-            config: DisplayConfig 对象或 ChartDashboard 的配置字典。
-
-        Returns:
-            HTML: IPython.display.HTML 对象，用于在 Jupyter 中渲染图表。
         """
-        # 委托给 display_utils 中的 display_dashboard 工具函数
-        return _display.display_dashboard(**locals())
-
-    def get_zip_buffer(
-        self,
-        dataframe_format: str = "csv",
-        compress_level: int = 1,
-        parquet_compression: ParquetCompression = "snappy",
-    ) -> bytes:
-        """获取回测结果的ZIP压缩包字节数据。"""
-        return _result.get_zip_buffer(**locals())
+        return _display.display_dashboard(self, config)

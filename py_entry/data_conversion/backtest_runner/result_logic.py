@@ -8,47 +8,114 @@ if TYPE_CHECKING:
 from py_entry.data_conversion.file_utils import (
     SaveConfig,
     UploadConfig,
-    convert_all_backtest_data_to_buffers,
+    convert_backtest_data_to_buffers,
     save_backtest_results,
     upload_backtest_results,
     ParquetCompression,
 )
 from py_entry.data_conversion.file_utils.dataframe_utils import (
-    add_contextual_columns_to_all_dataframes,
+    add_contextual_columns_to_dataframes,
 )
 from py_entry.data_conversion.file_utils.zip_utils import create_zip_buffer
+from py_entry.data_conversion.file_utils.converters import convert_to_serializable
+from py_entry.data_conversion.types.chart_config import ChartConfig
+from py_entry.data_conversion.chart_utils.generation import (
+    generate_default_chart_config,
+)
+from typing import Optional
 
 
-def _ensure_buffers_cache(
+def format_results_for_export(
     self: "BacktestRunner",
-    dataframe_format: str,
-    parquet_compression: ParquetCompression,
+    export_index: int,
+    dataframe_format: str = "csv",
+    compress_level: int = 1,
+    parquet_compression: ParquetCompression = "snappy",
+    chart_config: Optional[ChartConfig] = None,
+    add_index: bool = True,
+    add_time: bool = True,
+    add_date: bool = True,
 ) -> None:
     """
-    确保指定格式的buffers已缓存。
+    为导出准备单个回测结果的数据。
+
+    这个方法执行以下操作：
+    1. 验证并选择要导出的 result 和 param
+    2. 为选中的 DataFrame 添加上下文列（索引、时间、日期）
+    3. 生成或设置图表配置 (ChartConfig)
+    4. 将选中的数据转换为文件 Buffers
+    5. 生成 ZIP 压缩包数据
+
+    结果存储在实例属性 `export_buffers` 和 `export_zip_buffer` 中。
 
     Args:
-        self: BacktestRunner 实例。
-        dataframe_format: 需要的格式 ("csv" 或 "parquet")
-        parquet_compression: Parquet 压缩算法
+        export_index: 要导出的结果索引（同时用于 results 和 param_set）
     """
-    # 检查是否已缓存
-    if self._buffers_cache.get(dataframe_format) is None:
-        # 转换并缓存
-        assert self.results is not None, (
-            "_ensure_buffers_cache 方法要求 self.results 非空，"
-            "但当前为 None。请确保在调用此方法前已执行 run() 方法。"
+    start_time = time.perf_counter() if self.enable_timing else None
+
+    # 1. 验证 results 和 param_set 不为空
+    if not self.results:
+        raise ValueError("无回测结果可供导出。请先调用 run() 执行回测。")
+
+    if not self.param_set:
+        raise ValueError("无参数集可供导出。请先调用 run() 执行回测。")
+
+    # 2. 验证 export_index 有效性（同时验证 results 和 param_set）
+    if export_index < 0 or export_index >= len(self.results):
+        raise IndexError(
+            f"export_index {export_index} 超出 results 范围。"
+            f"有效范围: 0 到 {len(self.results) - 1}"
         )
-        buffers = convert_all_backtest_data_to_buffers(
-            self.data_dict,
-            self.param_set,
-            self.template_config,
-            self.engine_settings,
-            self.results,
-            dataframe_format,
-            parquet_compression=parquet_compression,
+
+    if export_index >= len(self.param_set):
+        raise IndexError(
+            f"export_index {export_index} 超出 param_set 范围。"
+            f"有效范围: 0 到 {len(self.param_set) - 1}"
         )
-        self._buffers_cache.set(dataframe_format, buffers)
+
+    # 3. 存储选中的索引
+    self.export_index = export_index
+
+    # 4. 获取单个对象
+    selected_result = self.results[export_index]
+    selected_param = self.param_set[export_index]
+
+    # 5. 为 DataFrame 添加上下文列（传入单个 result）
+    add_contextual_columns_to_dataframes(
+        self.data_dict, selected_result, add_index, add_time, add_date
+    )
+
+    # 6. ChartConfig
+    if chart_config is not None:
+        self.chart_config = chart_config
+    else:
+        if self.data_dict:
+            # 注意：generate_default_chart_config 的签名将在后续步骤更新
+            self.chart_config = generate_default_chart_config(
+                self.data_dict, selected_result, selected_param, dataframe_format
+            )
+
+    # 7. Convert to buffers
+    self.export_buffers = convert_backtest_data_to_buffers(
+        self.data_dict,
+        selected_param,
+        self.template_config,
+        self.engine_settings,
+        selected_result,
+        dataframe_format,
+        parquet_compression,
+        self.chart_config,
+    )
+
+    # 8. Generate ZIP
+    if self.export_buffers:
+        self.export_zip_buffer = create_zip_buffer(
+            self.export_buffers, compress_level=compress_level
+        )
+
+    if self.enable_timing and start_time is not None:
+        elapsed = time.perf_counter() - start_time
+        logger.info(f"BacktestRunner.format_results_for_export() 耗时: {elapsed:.4f}秒")
 
 
 def save_results(self: "BacktestRunner", config: SaveConfig) -> None:
@@ -61,17 +128,15 @@ def save_results(self: "BacktestRunner", config: SaveConfig) -> None:
     """
     start_time = time.perf_counter() if self.enable_timing else None
 
-    if self.results is None:
-        raise ValueError("必须先调用 run() 执行回测")
-
-    # 确保缓存
-    _ensure_buffers_cache(self, config.dataframe_format, config.parquet_compression)
+    if self.export_buffers is None:
+        raise ValueError(
+            "未找到导出数据缓存。请先调用 format_results_for_export() 生成数据。"
+        )
 
     # 调用工具函数保存结果
     save_backtest_results(
-        results=self.results,
+        buffers=self.export_buffers,
         config=config,
-        cache=self._buffers_cache,
     )
 
     if self.enable_timing and start_time is not None:
@@ -89,94 +154,16 @@ def upload_results(self: "BacktestRunner", config: UploadConfig) -> None:
     """
     start_time = time.perf_counter() if self.enable_timing else None
 
-    if self.results is None:
-        raise ValueError("必须先调用 run() 执行回测")
-
-    # 获取ZIP buffer并上传结果
-    zip_data = get_zip_buffer(
-        self,
-        dataframe_format=config.dataframe_format,
-        compress_level=config.compress_level,
-        parquet_compression=config.parquet_compression,
-    )
+    if self.export_zip_buffer is None:
+        raise ValueError(
+            "未找到导出的ZIP数据。请先调用 format_results_for_export() 生成数据。"
+        )
 
     upload_backtest_results(
-        results=self.results,
+        zip_data=self.export_zip_buffer,
         config=config,
-        cache=self._buffers_cache,
-        zip_data=zip_data,
     )
 
     if self.enable_timing and start_time is not None:
         elapsed = time.perf_counter() - start_time
         logger.info(f"BacktestRunner.upload_results() 耗时: {elapsed:.4f}秒")
-
-
-def get_zip_buffer(
-    self: "BacktestRunner",
-    dataframe_format: str,
-    compress_level: int,
-    parquet_compression: ParquetCompression,
-) -> bytes:
-    """
-    获取回测结果的ZIP压缩包字节数据。
-
-    Args:
-        self: BacktestRunner 实例。
-        dataframe_format: DataFrame格式，"csv" 或 "parquet"
-        compress_level: 压缩级别，0-9
-        parquet_compression: Parquet 压缩算法，默认 "snappy"
-
-    Returns:
-        bytes: ZIP压缩包的字节数据
-    """
-    start_time = time.perf_counter() if self.enable_timing else None
-
-    if self.results is None:
-        raise ValueError("必须先调用 run() 执行回测")
-
-    # 确保缓存
-    _ensure_buffers_cache(self, dataframe_format, parquet_compression)
-
-    # 从缓存获取buffers
-    buffers = self._buffers_cache.get(dataframe_format)
-    assert buffers is not None, (
-        f"缓存中未找到 {dataframe_format} 格式的buffers。"
-        "请确保在调用此方法前已执行 run() 方法。"
-    )
-
-    # 创建ZIP buffer
-    zip_data = create_zip_buffer(buffers, compress_level=compress_level)
-
-    if self.enable_timing and start_time is not None:
-        elapsed = time.perf_counter() - start_time
-        logger.info(f"BacktestRunner.get_zip_buffer() 耗时: {elapsed:.4f}秒")
-
-    return zip_data
-
-
-def format_results_for_export(
-    self: "BacktestRunner",
-    add_index: bool,
-    add_time: bool,
-    add_date: bool,
-) -> None:
-    """
-    为所有 DataFrame 添加列。
-
-    Args:
-        self: BacktestRunner 实例。
-        add_index: 是否添加索引列
-        add_time: 是否添加时间列
-        add_date: 是否添加日期列（ISO格式）
-    """
-    start_time = time.perf_counter() if self.enable_timing else None
-
-    # 使用工具函数处理所有 DataFrame
-    add_contextual_columns_to_all_dataframes(
-        self.data_dict, self.results, add_index, add_time, add_date
-    )
-
-    if self.enable_timing and start_time is not None:
-        elapsed = time.perf_counter() - start_time
-        logger.info(f"BacktestRunner.format_results_for_export() 耗时: {elapsed:.4f}秒")

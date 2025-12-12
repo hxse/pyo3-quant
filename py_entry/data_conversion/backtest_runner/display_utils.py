@@ -4,10 +4,11 @@ import random
 import time
 from IPython.display import HTML
 from py_entry.data_conversion.file_utils import DisplayConfig
-from .result_logic import get_zip_buffer
+from py_entry.data_conversion.types.chart_config import DashboardOverride
 
 # 导入 BacktestRunner 的类型提示
 from typing import TYPE_CHECKING
+from loguru import logger
 
 if TYPE_CHECKING:
     from py_entry.data_conversion.backtest_runner.runner import BacktestRunner
@@ -27,20 +28,22 @@ def display_dashboard(
     Returns:
         HTML: IPython.display.HTML 对象，用于在 Jupyter 中渲染图表。
     """
+    start_time = time.perf_counter() if self.enable_timing else None
 
-    # 1. 获取 zip_data (委托给 result_logic 中的 get_zip_buffer)
-    zip_data = get_zip_buffer(
-        self,
-        dataframe_format=config.dataframe_format,
-        compress_level=config.compress_level,
-        parquet_compression=config.parquet_compression,
-    )
+    # 1. 获取 zip_data (使用实例属性)
+    if self.export_zip_buffer is None:
+        raise ValueError(
+            "未找到导出的ZIP数据。请先调用 format_results_for_export() 生成数据。"
+        )
+    zip_data = self.export_zip_buffer
 
     # --- 1. 数据准备 ---
     # 编码数据
     zip_base64 = base64.b64encode(zip_data).decode("utf-8")
+
+    # 确定配置对象
     # 将 Python 字典转换为标准的 JS JSON 字符串
-    config_str = json.dumps(config.chart_config)
+    config_str = json.dumps(config.override)
 
     # --- 2. 唯一 ID 处理 ---
     # 如果用户没有提供 ID，则生成一个唯一 ID
@@ -154,4 +157,11 @@ def display_dashboard(
     """
     # ⚠️ 注意：在 f-string 中，< 和 > 必须转义，否则会被 HTML 解析器错误处理
     # 已经将 <script> 和 <link> 等标签中的 < 和 > 替换为 < 和 >
-    return HTML(html_code)
+
+    html_output = HTML(html_code)
+
+    if self.enable_timing and start_time is not None:
+        elapsed = time.perf_counter() - start_time
+        logger.info(f"BacktestRunner.display_dashboard() 耗时: {elapsed:.4f}秒")
+
+    return html_output

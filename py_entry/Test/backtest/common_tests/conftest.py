@@ -6,20 +6,15 @@ from py_entry.data_conversion.data_generator import (
 )
 from py_entry.data_conversion.types import (
     BacktestParams,
-    CompareOp,
     IndicatorsParams,
-    LogicOp,
     Param,
     PerformanceParams,
+    LogicOp,
     SignalGroup,
     SignalParams,
     SignalTemplate,
     SettingContainer,
     ExecutionStage,
-)
-from py_entry.data_conversion.helpers import (
-    signal_data_vs_data,
-    signal_data_vs_param,
 )
 
 

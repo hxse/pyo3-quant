@@ -11,8 +11,13 @@ from py_entry.data_conversion.types.chart_config import (
     HorizontalLineOption,
 )
 
-from .settings import IGNORE_COLS, INDICATOR_LAYOUT
+from .settings import IGNORE_COLS, INDICATOR_LAYOUT, IndicatorLayout
 from .utils import sort_timeframe_keys
+from .core_helpers import (
+    get_style_option,
+    init_counter,
+    match_indicator_columns,
+)
 
 
 def generate_default_chart_config(
@@ -20,6 +25,7 @@ def generate_default_chart_config(
     result: BacktestSummary,
     param: SingleParamSet,
     dataframe_format: str = "csv",
+    indicator_layout: Optional[IndicatorLayout] = None,
 ) -> ChartConfig:
     """
     根据单个回测数据和 INDICATOR_LAYOUT 生成图表配置。
@@ -29,10 +35,14 @@ def generate_default_chart_config(
         result: 单个回测结果
         param: 单个参数集
         dataframe_format: 数据格式 ("csv" 或 "parquet")
+        indicator_layout: 可选的指标布局配置,如果为 None 则使用默认的 INDICATOR_LAYOUT
 
     Returns:
         ChartConfig 对象（3维数组：时间周期 > 面板 > 系列）
     """
+
+    # 使用传入的 indicator_layout 或默认的 INDICATOR_LAYOUT
+    layout = indicator_layout if indicator_layout is not None else INDICATOR_LAYOUT
 
     chart_groups: List[List[List[SeriesItemConfig]]] = []
 
@@ -61,8 +71,8 @@ def generate_default_chart_config(
         # 当前时间周期的所有面板配置（3维：时间周期 > 面板 > 系列）
         tf_panels: List[List[SeriesItemConfig]] = []
 
-        # 遍历 INDICATOR_LAYOUT，为每个面板生成配置
-        for panel_layout in INDICATOR_LAYOUT:
+        # 遍历 layout，为每个面板生成配置
+        for panel_layout in layout:
             # 当前面板的系列配置
             panel_series: List[SeriesItemConfig] = []
 
@@ -78,26 +88,73 @@ def generate_default_chart_config(
                 if indicator_name == "ohlc" and item_type == "candle":
                     # OHLC K线图
                     if key in data_dict.source:
+                        # 获取当前指标在当前窗格的计数
+                        counter = init_counter(style_counters, indicator_name)
+
+                        # 获取 candle 样式选项（如果有配置）
+                        candleOpt = get_style_option(item_config.candleOptions, counter)
+
                         panel_series.append(
                             SeriesItemConfig(
                                 type="candle",
                                 fileName=f"data_dict/source_{key}.{dataframe_format}",
                                 dataName=["open", "high", "low", "close"],
                                 show=show,
+                                candleOpt=candleOpt,
                             )
                         )
 
-                elif indicator_name == "volume" and item_type == "histogram":
-                    # 成交量（使用 histogram 类型）
+                        style_counters[indicator_name] += 1
+
+                elif indicator_name == "volume" and item_type == "volume":
+                    # 成交量（使用独立的 volume 类型）
+                    # 前端会自动处理涨跌颜色和叠加层配置
                     if key in data_dict.source:
+                        # 获取当前指标在当前窗格的计数
+                        counter = init_counter(style_counters, indicator_name)
+
+                        # 获取 volume 样式选项（如果有配置）
+                        volumeOpt = get_style_option(item_config.volumeOptions, counter)
+
                         panel_series.append(
                             SeriesItemConfig(
-                                type="histogram",
+                                type="volume",
                                 fileName=f"data_dict/source_{key}.{dataframe_format}",
                                 dataName="volume",
                                 show=show,
+                                volumeOpt=volumeOpt,
                             )
                         )
+
+                        style_counters[indicator_name] += 1
+
+                elif item_type == "histogram":
+                    # 普通直方图（非成交量）
+                    # 查找匹配的列
+                    matched_columns = match_indicator_columns(
+                        indicator_name, available_columns
+                    )
+
+                    for matched_column in matched_columns:
+                        # 获取当前指标在当前窗格的计数
+                        counter = init_counter(style_counters, indicator_name)
+
+                        # 获取 histogram 样式选项（如果有配置）
+                        histogramOpt = get_style_option(
+                            item_config.histogramOptions, counter
+                        )
+
+                        panel_series.append(
+                            SeriesItemConfig(
+                                type="histogram",
+                                fileName=f"backtest_results/indicators_{key}.{dataframe_format}",
+                                dataName=matched_column,
+                                show=show,
+                                histogramOpt=histogramOpt,
+                            )
+                        )
+
+                        style_counters[indicator_name] += 1
 
                 elif item_type == "hline":
                     # 水平线 - 只有当对应的指标存在时才添加
@@ -157,24 +214,16 @@ def generate_default_chart_config(
                 elif item_type == "line":
                     # 普通指标线 - 可能匹配多个列（如多个 sma）
                     # 查找所有匹配的列
-                    matched_columns = _match_indicator_columns(
+                    matched_columns = match_indicator_columns(
                         indicator_name, available_columns
                     )
 
                     for idx, matched_column in enumerate(matched_columns):
                         # 获取当前指标在当前窗格的计数
-                        if indicator_name not in style_counters:
-                            style_counters[indicator_name] = 0
-                        counter = style_counters[indicator_name]
+                        counter = init_counter(style_counters, indicator_name)
 
                         # 获取样式选项
-                        lineOpt = None
-                        if item_config.lineOptions:
-                            # 如果有样式数组，按顺序分配，不够就重复最后一个
-                            if counter < len(item_config.lineOptions):
-                                lineOpt = item_config.lineOptions[counter]
-                            else:
-                                lineOpt = item_config.lineOptions[-1]
+                        lineOpt = get_style_option(item_config.lineOptions, counter)
 
                         panel_series.append(
                             SeriesItemConfig(
@@ -221,59 +270,3 @@ def generate_default_chart_config(
         selectedInternalFileName=f"data_dict/source_{data_dict.BaseDataKey}.{dataframe_format}",
         showBottomRow=True,
     )
-
-
-def _match_indicator_columns(indicator_name: str, available_columns: set) -> list[str]:
-    """
-    匹配指标名称到实际的数据列名（支持多个匹配）。
-
-    例如：indicator_name="sma" 可能匹配 ["sma_0", "sma_1", "sma_2"]
-
-    Args:
-        indicator_name: INDICATOR_LAYOUT 中定义的指标名称
-        available_columns: 实际可用的列名集合
-
-    Returns:
-        匹配的列名列表（按照字母顺序排序）
-    """
-    matched = []
-
-    # 直接匹配
-    if indicator_name in available_columns:
-        matched.append(indicator_name)
-        return matched
-
-    # 模糊匹配：查找所有以 indicator_name_ 开头的列
-    # 例如 "sma" 匹配 "sma_0", "sma_1" 等
-    prefix = f"{indicator_name}_"
-    for col in available_columns:
-        if col.startswith(prefix):
-            matched.append(col)
-
-    # 排序以保证顺序一致性
-    return sorted(matched)
-
-
-def _match_indicator_column(
-    indicator_name: str, available_columns: set
-) -> Optional[str]:
-    """
-    匹配指标名称到实际的数据列名（只返回第一个匹配）。
-
-    Args:
-        indicator_name: INDICATOR_LAYOUT 中定义的指标名称
-        available_columns: 实际可用的列名集合
-
-    Returns:
-        匹配的列名，如果没有匹配则返回 None
-    """
-    # 直接匹配
-    if indicator_name in available_columns:
-        return indicator_name
-
-    # 尝试匹配无标识符的情况
-    # 例如：indicator_name="sma" 应该匹配 "sma_0", "sma_1" 等
-    # 但由于我们要求精确匹配，这里不做模糊匹配
-    # 如果需要模糊匹配，可以在这里添加逻辑
-
-    return None

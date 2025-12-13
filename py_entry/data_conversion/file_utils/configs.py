@@ -1,11 +1,8 @@
 """结果导出相关的配置数据结构"""
 
-from numba.core.compiler import DefaultPassBuilder
-
-import io
 from pathlib import Path
-from typing import List, Tuple, Dict, Any, Optional
-from dataclasses import dataclass, field
+from typing import Optional
+from dataclasses import dataclass
 from .types import RequestConfig
 from ..types.chart_config import DashboardOverride
 

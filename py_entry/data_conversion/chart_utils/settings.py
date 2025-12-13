@@ -2,19 +2,37 @@ from py_entry.data_conversion.types.chart_config import (
     IndicatorLayoutItem,
     LineOption,
 )
+from .options import VolumeOption
 
 # 需要过滤的列名
 IGNORE_COLS = {"index", "time", "date"}
+
+# INDICATOR_LAYOUT 类型定义
+# 每个外层列表元素代表一个图表面板（主图或副图）
+# 每个内层列表包含该面板的所有指标配置项
+IndicatorLayout = list[list[IndicatorLayoutItem]]
 
 
 # 图表布局配置
 # 每个外层数组元素代表一个图表面板（主图或副图）
 # 主图在第一个位置 (index 0)，副图按顺序排列 (index 1, 2, 3...)
 
-INDICATOR_LAYOUT: list[list[IndicatorLayoutItem]] = [
+INDICATOR_LAYOUT: IndicatorLayout = [
     [  # position 0: 主图
         IndicatorLayoutItem(indicator="ohlc", type="candle", show=True),
-        IndicatorLayoutItem(indicator="volume", type="histogram", show=True),
+        # Volume 作为独立类型，前端会自动处理涨跌颜色和叠加层配置
+        # 参考文档: https://tradingview.github.io/lightweight-charts/docs/api/interfaces/VolumeSeriesOptions
+        IndicatorLayoutItem(
+            indicator="volume",
+            type="volume",
+            show=False,
+            volumeOptions=[
+                VolumeOption(
+                    priceScaleMarginTop=0.9,  # volume占据底部20%
+                    adjustMainSeries=True,  # 自动调整主系列避免重叠
+                )
+            ],
+        ),
         IndicatorLayoutItem(
             indicator="sma",
             type="line",

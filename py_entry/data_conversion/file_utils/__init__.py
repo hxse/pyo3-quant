@@ -22,11 +22,7 @@ from .types import (
     RetryConfig,
     RequestConfig,
 )
-from .configs import (
-    SaveConfig,
-    UploadConfig,
-    DisplayConfig,
-)
+from .configs import SaveConfig, UploadConfig, DisplayConfig, DashboardOverride
 from .converters import (
     convert_backtest_result_to_buffers,
     convert_backtest_data_to_buffers,
@@ -61,6 +57,7 @@ __all__ = [
     "SaveConfig",
     "UploadConfig",
     "DisplayConfig",
+    "DashboardOverride",
     "convert_backtest_result_to_buffers",
     "convert_backtest_data_to_buffers",
     "ParquetCompression",

@@ -22,6 +22,7 @@ from py_entry.data_conversion.types.chart_config import ChartConfig
 from py_entry.data_conversion.chart_utils.generation import (
     generate_default_chart_config,
 )
+from py_entry.data_conversion.chart_utils.settings import IndicatorLayout
 from typing import Optional
 
 
@@ -32,6 +33,7 @@ def format_results_for_export(
     compress_level: int = 1,
     parquet_compression: ParquetCompression = "snappy",
     chart_config: Optional[ChartConfig] = None,
+    indicator_layout: Optional[IndicatorLayout] = None,
     add_index: bool = True,
     add_time: bool = True,
     add_date: bool = True,
@@ -85,12 +87,23 @@ def format_results_for_export(
         self.data_dict, selected_result, add_index, add_time, add_date
     )
 
-    # 6. ChartConfig
+    # 6. ChartConfig - 三级优先级
+    # 1) 如果传入了 chart_config，直接使用
+    # 2) 如果传入了 indicator_layout，使用它生成 chart_config
+    # 3) 否则使用默认的 INDICATOR_LAYOUT 生成 chart_config
     if chart_config is not None:
         self.chart_config = chart_config
+    elif indicator_layout is not None:
+        if self.data_dict:
+            self.chart_config = generate_default_chart_config(
+                self.data_dict,
+                selected_result,
+                selected_param,
+                dataframe_format,
+                indicator_layout,
+            )
     else:
         if self.data_dict:
-            # 注意：generate_default_chart_config 的签名将在后续步骤更新
             self.chart_config = generate_default_chart_config(
                 self.data_dict, selected_result, selected_param, dataframe_format
             )

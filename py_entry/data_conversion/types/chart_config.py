@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import List, Literal, TypedDict, Optional, Union
+from dataclasses import dataclass, asdict
+from typing import List, Literal, Optional, Union
 
 # 导入详细的选项类型定义
 try:
@@ -7,6 +7,7 @@ try:
         CandleOption,
         LineOption,
         HistogramOption,
+        VolumeOption,
         AreaOption,
         BaselineOption,
         BarOption,
@@ -14,7 +15,7 @@ try:
         VerticalLineOption,
     )
 except ImportError:
-    # 兼容性：如果新模块不存在，使用简化定义
+
     @dataclass
     class CandleOption:
         """Candle/OHLC 图表选项"""
@@ -30,8 +31,15 @@ except ImportError:
     class HistogramOption:
         """柱状图选项"""
 
-        upColor: Optional[str] = None
-        downColor: Optional[str] = None
+        color: Optional[str] = None
+        base: Optional[float] = None
+
+    @dataclass
+    class VolumeOption:
+        """成交量选项"""
+
+        priceScaleMarginTop: Optional[float] = None
+        adjustMainSeries: Optional[bool] = None
 
     @dataclass
     class LineOption:
@@ -101,7 +109,15 @@ class IndicatorLayoutItem:
 
     indicator: str  # 指标名称，如 "ohlc", "volume", "sma", "rsi" 等
     type: Literal[
-        "candle", "histogram", "line", "area", "baseline", "bar", "hline", "vline"
+        "candle",
+        "histogram",
+        "volume",
+        "line",
+        "area",
+        "baseline",
+        "bar",
+        "hline",
+        "vline",
     ]
     show: bool = True
 
@@ -109,6 +125,7 @@ class IndicatorLayoutItem:
     # 按照同周期、同窗格的顺序依次分配，数量不够时重复最后一个
     candleOptions: Optional[List[CandleOption]] = None
     histogramOptions: Optional[List[HistogramOption]] = None
+    volumeOptions: Optional[List[VolumeOption]] = None
     lineOptions: Optional[List[LineOption]] = None
     areaOptions: Optional[List[AreaOption]] = None
     baselineOptions: Optional[List[BaselineOption]] = None
@@ -133,7 +150,15 @@ class SeriesItemConfig:
     """
 
     type: Literal[
-        "candle", "histogram", "line", "area", "baseline", "bar", "hline", "vline"
+        "candle",
+        "histogram",
+        "volume",
+        "line",
+        "area",
+        "baseline",
+        "bar",
+        "hline",
+        "vline",
     ]
     show: bool = True
 
@@ -144,6 +169,7 @@ class SeriesItemConfig:
     # 样式选项（根据 type 选择对应的选项）
     candleOpt: Optional[CandleOption] = None
     histogramOpt: Optional[HistogramOption] = None
+    volumeOpt: Optional[VolumeOption] = None
     lineOpt: Optional[LineOption] = None
     areaOpt: Optional[AreaOption] = None
     baselineOpt: Optional[BaselineOption] = None
@@ -175,9 +201,15 @@ class ChartConfig:
 # --- Overrides ---
 
 
-class DashboardOverride(TypedDict, total=False):
-    template: str
-    showBottomRow: bool
-    viewMode: Literal["chart", "table"]
-    selectedInternalFileName: str
-    selectedZipFileName: str  # Browser only
+@dataclass
+class DashboardOverride:
+    template: Optional[str] = None
+    showBottomRow: Optional[bool] = None
+    viewMode: Optional[Literal["chart", "table"]] = None
+    selectedInternalFileName: Optional[str] = None
+    selectedZipFileName: Optional[str] = None  # Browser only
+    show: Optional[List[str]] = None  # 格式: "slotIdx,paneIdx,seriesIdx,show"
+
+    def to_dict(self):
+        """转换为字典，移除 None 值"""
+        return {k: v for k, v in asdict(self).items() if v is not None}

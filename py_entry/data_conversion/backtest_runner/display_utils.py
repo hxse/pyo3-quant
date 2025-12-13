@@ -4,7 +4,6 @@ import random
 import time
 from IPython.display import HTML
 from py_entry.data_conversion.file_utils import DisplayConfig
-from py_entry.data_conversion.types.chart_config import DashboardOverride
 
 # 导入 BacktestRunner 的类型提示
 from typing import TYPE_CHECKING

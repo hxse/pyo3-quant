@@ -98,6 +98,23 @@ class HistogramOption:
 
 
 @dataclass
+class VolumeOption:
+    """
+    成交量选项
+
+    用于配置成交量柱状图的显示。
+    前端会自动根据OHLC数据设置涨跌颜色，自动应用叠加层配置。
+    """
+
+    priceScaleMarginTop: Optional[float] = None  # 叠加层顶部边距(0-1)，默认 0.7
+    adjustMainSeries: Optional[bool] = None  # 是否自动调整主系列避免重叠，默认 True
+
+    def to_dict(self):
+        """转换为字典，移除 None 值"""
+        return {k: v for k, v in asdict(self).items() if v is not None}
+
+
+@dataclass
 class AreaOption:
     """
     面积图选项

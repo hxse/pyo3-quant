@@ -1,7 +1,6 @@
 from typing import Self, List, Tuple, Optional
 from pathlib import Path
 from io import BytesIO
-from IPython.display import HTML
 
 
 from py_entry.data_conversion.types import (
@@ -32,7 +31,7 @@ from py_entry.data_conversion.types.chart_config import ChartConfig
 from . import config_logic as _config
 from . import execution_logic as _exec
 from . import result_logic as _result
-from . import display_utils as _display
+from . import display as _display
 
 
 class BacktestRunner:
@@ -98,7 +97,7 @@ class BacktestRunner:
         export_index: int,
         dataframe_format: str = "csv",
         compress_level: int = 1,
-        parquet_compression: ParquetCompression = "snappy",
+        parquet_compression: ParquetCompression = "zstd",
         chart_config: Optional[ChartConfig] = None,
         add_index: bool = True,
         add_time: bool = True,
@@ -129,8 +128,11 @@ class BacktestRunner:
     def display_dashboard(
         self,
         config: DisplayConfig,
-    ) -> HTML:
+    ):
         """
         获取回测结果的 ZIP 压缩包字节数据，并将其加载到 ChartDashboard 组件中。
+
+        Returns:
+            HTML 对象（embed_data=True）或 ChartDashboardWidget 对象（embed_data=False）
         """
         return _display.display_dashboard(self, config)

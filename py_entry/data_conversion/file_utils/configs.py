@@ -41,7 +41,11 @@ class DisplayConfig:
     # CSS 文件的路径
     css_path: str = "../lwchart/lwchart_demo3.css"
     # 是否将 JS/CSS 文件内容读取并嵌入到 HTML 中（自包含）
-    embed_files: bool = True
+    embed_files: bool = False
+    # 是否将数据硬编码到 HTML 中
+    # True: 将 ZIP 数据编码为 base64 并硬编码到 HTML（适合导出完全自包含的 HTML）
+    # False: 通过 IPython.display.Javascript 将数据传递到全局变量（减少 HTML 文件大小，仅在 Jupyter 环境中有效）
+    embed_data: bool = False
     # 用于渲染图表的 HTML 容器 ID
     container_id: Optional[str] = None
     # 图表容器的宽度，例如 "100%" 或 "800px"

@@ -1,0 +1,21 @@
+/**
+ * ChartDashboardWidget - CSS 样式
+ * 
+ * 为 Widget 容器提供基础样式
+ */
+
+/* Widget 容器基础样式 */
+.chart-dashboard-widget {
+    width: 100%;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+/* 错误消息样式 */
+.chart-dashboard-widget p {
+    margin: 1em;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+}

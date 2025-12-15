@@ -4,6 +4,35 @@
 
 ---
 
+## ⚡ 快速开始
+
+**如果你是第一次 clone 项目**，推荐使用自动化脚本一键设置：
+
+```bash
+bash scripts/setup_dev_env.sh
+```
+
+这个脚本会自动：
+1. ✅ 安装所有 Python 依赖（包括开发依赖）
+2. ✅ 检查系统依赖（patchelf）
+3. ✅ 配置 Rust 模块开发环境（maturin_import_hook）
+4. ✅ 安装 pre-commit hooks
+5. ✅ 配置 notebook 自动清理
+
+**如果脚本提示缺少 `patchelf`**，请安装：
+```bash
+sudo apt install patchelf
+```
+
+然后重新运行配置命令：
+```bash
+uv run python -m maturin_import_hook site install --args="--release"
+```
+
+> 💡 **注意**：如果你需要更详细的手动配置说明，或者想了解每个步骤的作用，请继续阅读下面的章节。
+
+---
+
 ## 🛠️ 环境依赖与 Rust 安装
 
 本节包含初始化项目和安装 Rust 及其工具链的步骤。
@@ -217,4 +246,3 @@ Rust 1.90.0 版本后默认使用 `lld` 作为链接器。**Mold** 是一个性�
     ```bash
     uv run --no-sync cargo fmt
     ```
-

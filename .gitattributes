@@ -1,0 +1,19 @@
+# Git 属性配置
+# 确保 Jupyter Notebook 使用 nbstripout 过滤器
+
+# 对所有 .ipynb 文件应用 nbstripout 过滤器
+# 注意：已禁用 filter 模式，改为只使用 pre-commit hook
+# 原因：filter 模式可能导致 "git 幻象问题"（文件显示 modified 但实际无差异）
+# 如果你想启用更严格的 filter 模式，取消下面这行的注释：
+# *.ipynb filter=nbstripout diff=ipynb
+
+# 只配置 diff 方式，清理工作由 pre-commit hook 负责
+*.ipynb diff=ipynb
+
+# 可选：设置文本文件的换行符处理
+* text=auto
+*.py text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf

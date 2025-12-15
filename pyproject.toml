@@ -31,6 +31,8 @@ dev = [
     "pandas-ta-classic",
     "ta-lib @ https://github.com/cgohlke/talib-build/releases/download/v0.6.8/ta_lib-0.6.8-cp313-cp313-win_amd64.whl ; sys_platform == 'win32'",
     "ta-lib >=0.6.8 ; sys_platform != 'win32'",
+    "pre-commit>=4.5.0",
+    "nbstripout>=0.8.2",
 ]
 
 [tool.pytest.ini_options]

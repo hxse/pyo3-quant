@@ -1,0 +1,31 @@
+# Pre-commit 配置文件
+# 用于在 git commit 前自动执行检查和清理
+
+repos:
+  # nbstripout - 自动清理 Jupyter Notebook 的输出
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.7.1
+    hooks:
+      - id: nbstripout
+        name: 清理 Jupyter Notebook 输出
+        # 只清理输出，保留 cell 的执行计数可以帮助理解 notebook 的执行顺序
+        # 如果想完全清理包括执行计数，可以添加参数：
+        # args: ['--extra-keys', 'metadata.kernelspec metadata.language_info cell.metadata.ExecuteTime']
+
+  # 可选：其他常用的 pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        name: 删除行尾空格
+        exclude: \.ipynb$  # 排除 notebook 文件，因为 nbstripout 会处理
+      - id: end-of-file-fixer
+        name: 确保文件以换行符结尾
+        exclude: \.ipynb$
+      - id: check-yaml
+        name: 检查 YAML 语法
+      - id: check-added-large-files
+        name: 检查大文件
+        args: ['--maxkb=10000']  # 限制 10MB
+      - id: check-merge-conflict
+        name: 检查合并冲突标记

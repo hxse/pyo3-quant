@@ -9,6 +9,7 @@ from py_entry.data_conversion.types.chart_config import (
     ChartConfig,
     SeriesItemConfig,
     HorizontalLineOption,
+    LineOption,
 )
 
 from .settings import IGNORE_COLS, INDICATOR_LAYOUT, IndicatorLayout
@@ -264,9 +265,44 @@ def generate_default_chart_config(
         # 超过4个图表，默认使用 grid-2x2
         template = "grid-2x2"
 
+    # 生成底栏图表配置
+    # bottomRowChart 是一个二维数组（面板 > 系列）
+    bottom_row_chart: List[List[SeriesItemConfig]] = []
+
+    # 检查是否有回测结果数据
+    if result.backtest_result is not None:
+        # 创建底栏面板（Pane 0）
+        bottom_panel: List[SeriesItemConfig] = []
+
+        # 添加 balance 线（蓝色）
+        bottom_panel.append(
+            SeriesItemConfig(
+                type="line",
+                show=True,
+                fileName=f"backtest_results/backtest_result.{dataframe_format}",
+                dataName="balance",
+                lineOpt=LineOption(color="#2962FF", lineWidth=2),
+            )
+        )
+
+        # 添加 equity 线（橙色）
+        bottom_panel.append(
+            SeriesItemConfig(
+                type="line",
+                show=True,
+                fileName=f"backtest_results/backtest_result.{dataframe_format}",
+                dataName="equity",
+                lineOpt=LineOption(color="#FF6D00", lineWidth=2),
+            )
+        )
+
+        # 将底栏面板添加到底栏图表配置中
+        bottom_row_chart.append(bottom_panel)
+
     return ChartConfig(
         template=template,
         chart=chart_groups,
+        bottomRowChart=bottom_row_chart if bottom_row_chart else None,
         selectedInternalFileName=f"data_dict/source_{data_dict.BaseDataKey}.{dataframe_format}",
         showBottomRow=True,
     )

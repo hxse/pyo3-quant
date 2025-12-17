@@ -188,12 +188,14 @@ class ChartConfig:
     - 第1维：时间周期（如 15m, 1h, 4h）
     - 第2维：面板（主图、副图1、副图2...）
     - 第3维：该面板内的所有系列配置
+    - bottomRowChart 是一个二维数组（面板 > 系列），用于底栏图表配置
     """
 
     template: str
     chart: List[List[List[SeriesItemConfig]]]
 
     showBottomRow: bool = True
+    bottomRowChart: Optional[List[List[SeriesItemConfig]]] = None
     viewMode: Literal["chart", "table"] = "chart"
     selectedInternalFileName: str = ""
 

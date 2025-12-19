@@ -1,6 +1,5 @@
 use super::state::{current_bar_data::CurrentBarData, BacktestState};
 use super::{data_preparer::PreparedData, output::OutputBuffers};
-use crate::backtest_engine::utils::print_position_debug;
 use crate::data_conversion::BacktestParams;
 use crate::error::backtest_error::BacktestError;
 
@@ -43,11 +42,6 @@ pub fn run_main_loop(
                 // 使用状态机方法计算新的仓位状态（内部已更新状态）
                 state.calculate_position(backtest_params);
 
-                // // 在index范围内打印调试信息
-                // if (251..=253).contains(&i) {
-                //     print_position_debug(state, i);
-                // }
-
                 state.calculate_capital(backtest_params);
             }
 
@@ -88,30 +82,45 @@ fn update_buffer_row(buffers: &mut OutputBuffers, state: &BacktestState, row_ind
     buffers.exit_short_price[row_index] = state.action.exit_short_price.unwrap_or(f64::NAN);
 
     // === 风险价格（可选列） ===
-    if let Some(ref mut sl_pct_price) = buffers.sl_pct_price {
-        sl_pct_price[row_index] = state.risk_state.sl_pct_price.unwrap_or(f64::NAN);
+    if let Some(ref mut sl_pct_price_long) = buffers.sl_pct_price_long {
+        sl_pct_price_long[row_index] = state.risk_state.sl_pct_price_long.unwrap_or(f64::NAN);
     }
-    if let Some(ref mut tp_pct_price) = buffers.tp_pct_price {
-        tp_pct_price[row_index] = state.risk_state.tp_pct_price.unwrap_or(f64::NAN);
+    if let Some(ref mut sl_pct_price_short) = buffers.sl_pct_price_short {
+        sl_pct_price_short[row_index] = state.risk_state.sl_pct_price_short.unwrap_or(f64::NAN);
     }
-    if let Some(ref mut tsl_pct_price) = buffers.tsl_pct_price {
-        tsl_pct_price[row_index] = state.risk_state.tsl_pct_price.unwrap_or(f64::NAN);
+    if let Some(ref mut tp_pct_price_long) = buffers.tp_pct_price_long {
+        tp_pct_price_long[row_index] = state.risk_state.tp_pct_price_long.unwrap_or(f64::NAN);
     }
-    if let Some(ref mut sl_atr_price) = buffers.sl_atr_price {
-        sl_atr_price[row_index] = state.risk_state.sl_atr_price.unwrap_or(f64::NAN);
+    if let Some(ref mut tp_pct_price_short) = buffers.tp_pct_price_short {
+        tp_pct_price_short[row_index] = state.risk_state.tp_pct_price_short.unwrap_or(f64::NAN);
     }
-    if let Some(ref mut tp_atr_price) = buffers.tp_atr_price {
-        tp_atr_price[row_index] = state.risk_state.tp_atr_price.unwrap_or(f64::NAN);
+    if let Some(ref mut tsl_pct_price_long) = buffers.tsl_pct_price_long {
+        tsl_pct_price_long[row_index] = state.risk_state.tsl_pct_price_long.unwrap_or(f64::NAN);
     }
-    if let Some(ref mut tsl_atr_price) = buffers.tsl_atr_price {
-        tsl_atr_price[row_index] = state.risk_state.tsl_atr_price.unwrap_or(f64::NAN);
+    if let Some(ref mut tsl_pct_price_short) = buffers.tsl_pct_price_short {
+        tsl_pct_price_short[row_index] = state.risk_state.tsl_pct_price_short.unwrap_or(f64::NAN);
+    }
+    if let Some(ref mut sl_atr_price_long) = buffers.sl_atr_price_long {
+        sl_atr_price_long[row_index] = state.risk_state.sl_atr_price_long.unwrap_or(f64::NAN);
+    }
+    if let Some(ref mut sl_atr_price_short) = buffers.sl_atr_price_short {
+        sl_atr_price_short[row_index] = state.risk_state.sl_atr_price_short.unwrap_or(f64::NAN);
+    }
+    if let Some(ref mut tp_atr_price_long) = buffers.tp_atr_price_long {
+        tp_atr_price_long[row_index] = state.risk_state.tp_atr_price_long.unwrap_or(f64::NAN);
+    }
+    if let Some(ref mut tp_atr_price_short) = buffers.tp_atr_price_short {
+        tp_atr_price_short[row_index] = state.risk_state.tp_atr_price_short.unwrap_or(f64::NAN);
+    }
+    if let Some(ref mut tsl_atr_price_long) = buffers.tsl_atr_price_long {
+        tsl_atr_price_long[row_index] = state.risk_state.tsl_atr_price_long.unwrap_or(f64::NAN);
+    }
+    if let Some(ref mut tsl_atr_price_short) = buffers.tsl_atr_price_short {
+        tsl_atr_price_short[row_index] = state.risk_state.tsl_atr_price_short.unwrap_or(f64::NAN);
     }
 
     // === Risk State Output ===
-    buffers.risk_exit_long_price[row_index] = state.risk_state.exit_long_price.unwrap_or(f64::NAN);
-    buffers.risk_exit_short_price[row_index] =
-        state.risk_state.exit_short_price.unwrap_or(f64::NAN);
-    buffers.risk_exit_in_bar[row_index] = state.risk_state.exit_in_bar;
+    buffers.risk_in_bar_direction[row_index] = state.risk_state.in_bar_direction;
 }
 
 /// 初始化输出缓冲区的第0行数据

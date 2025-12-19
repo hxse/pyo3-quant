@@ -71,21 +71,21 @@ signal_params = {
 # 自定义回测参数
 backtest_params = BacktestParams(
     initial_capital=10000.0,
-    fee_fixed=1,
-    fee_pct=0.001,
-    pause_drawdown=Param.create(0, 0, 0, 0),
-    pause_sma=Param.create(0, 0, 0, 0),
-    pause_ema=Param.create(0, 0, 0, 0),
-    exit_in_bar=False,
+    fee_fixed=0,
+    fee_pct=0.003,
+    pause_drawdown=Param.create(0),
+    pause_sma=Param.create(0),
+    pause_ema=Param.create(0),
+    exit_in_bar=True,
     exit_in_bar_fallback=False,
     tsl_per_bar_update=False,
-    sl_pct=Param.create(2, 0.5, 5, 0.1),
-    tp_pct=Param.create(2, 0.5, 5, 0.1),
-    tsl_pct=Param.create(1, 0.5, 3, 0.1),
-    sl_atr=Param.create(2, 1, 5, 0.5),
-    tp_atr=Param.create(3, 1, 5, 0.5),
-    tsl_atr=Param.create(2, 1, 4, 0.5),
-    atr_period=Param.create(14, 7, 21, 1),
+    sl_pct=Param.create(0.02),
+    # tp_pct=Param.create(0.05),
+    # tsl_pct=Param.create(0.02),
+    # sl_atr=Param.create(2),
+    tp_atr=Param.create(4),
+    tsl_atr=Param.create(2),
+    atr_period=Param.create(14),
 )
 
 # 自定义信号模板
@@ -98,8 +98,19 @@ enter_long_group = SignalGroup(
     ],
 )
 
+enter_short_group = SignalGroup(
+    logic=LogicOp.AND,
+    comparisons=[
+        "close < bbands_lower",
+        "rsi,ohlcv_1h, < $rsi_center",
+        "sma_0,ohlcv_4h, < sma_1,ohlcv_4h,",
+    ],
+)
+
 signal_template = SignalTemplate(
-    name="multi_timeframe_dynamic_strategy", enter_long=enter_long_group
+    name="multi_timeframe_dynamic_strategy",
+    enter_long=enter_long_group,
+    enter_short=enter_short_group,
 )
 
 # 自定义引擎设置
@@ -138,7 +149,7 @@ if __name__ == "__main__":
         signal_template=signal_template,
         engine_settings=engine_settings,
     ).run().format_results_for_export(
-        export_index=0, dataframe_format="parquet"
+        export_index=0, dataframe_format="csv"
     ).save_results(
         SaveConfig(
             output_dir="my_strategy",

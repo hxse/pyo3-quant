@@ -3,7 +3,7 @@ use crate::backtest_engine::{
     utils::{column_names::ColumnName, get_ohlcv_dataframe},
 };
 use crate::data_conversion::{types::param_set::BacktestParams, DataContainer};
-use crate::error::{backtest_error::BacktestError, QuantError};
+use crate::error::QuantError;
 use polars::prelude::*;
 use polars::series::Series;
 

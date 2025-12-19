@@ -20,7 +20,7 @@ pub fn process_signal_group(
     let mut combined_result: Option<BooleanChunked> = None;
 
     // 1. 处理 comparisons (字符串列表)
-    for comparison_str in &group.comparisons {
+    for comparison_str in group.comparisons.iter() {
         // 解析字符串
         let condition = parse_condition(comparison_str)?;
 
@@ -32,10 +32,14 @@ pub fn process_signal_group(
 
         match combined_result {
             None => combined_result = Some(result_bool),
-            Some(current) => match group.logic {
-                LogicOp::AND => combined_result = Some(current.bitand(result_bool)),
-                LogicOp::OR => combined_result = Some(current.bitor(result_bool)),
-            },
+            Some(current) => {
+                let new_combined = match group.logic {
+                    LogicOp::AND => current.bitand(result_bool),
+                    LogicOp::OR => current.bitor(result_bool),
+                };
+
+                combined_result = Some(new_combined);
+            }
         }
     }
 

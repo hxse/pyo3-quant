@@ -9,7 +9,7 @@ use pyo3_polars::PyDataFrame;
 use std::collections::HashMap;
 
 pub fn analyze_performance(
-    backtest_df: &DataFrame,
+    _backtest_df: &DataFrame,
     performance_params: &PerformanceParams,
 ) -> Result<PerformanceMetrics, QuantError> {
     let mut result = HashMap::new();

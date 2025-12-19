@@ -65,7 +65,11 @@ def expected_output(demo_dir, backtest_result):
             "确认无误后，再次运行测试即可通过。"
         )
 
-    return pl.read_csv(csv_path)
+    # 加载并进行特殊处理：CSV 无法保留 Int8 类型，推断为 i64，此处强制转回以通过 strict 比较
+    df = pl.read_csv(csv_path)
+    if "risk_in_bar_direction" in df.columns:
+        df = df.with_columns(pl.col("risk_in_bar_direction").cast(pl.Int8))
+    return df
 
 
 @pytest.fixture(scope="module")

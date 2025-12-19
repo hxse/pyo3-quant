@@ -148,7 +148,7 @@ def required_fixed_cols():
         # Risk 状态列 (新架构)
         "risk_exit_long_price",
         "risk_exit_short_price",
-        "risk_exit_in_bar",  # bool 类型
+        "risk_in_bar_direction",  # i8 类型 (0, 1, -1)
         # 资金状态列
         "balance",
         "equity",
@@ -164,13 +164,19 @@ def required_fixed_cols():
 def optional_cols():
     """可选列定义（基于output.rs源代码）"""
     return {
-        "sl_pct_price": "百分比止损价格",
-        "tp_pct_price": "百分比止盈价格",
-        "tsl_pct_price": "百分比跟踪止损价格",
+        "sl_pct_price_long": "百分比止损价格(多)",
+        "sl_pct_price_short": "百分比止损价格(空)",
+        "tp_pct_price_long": "百分比止盈价格(多)",
+        "tp_pct_price_short": "百分比止盈价格(空)",
+        "tsl_pct_price_long": "百分比跟踪止损价格(多)",
+        "tsl_pct_price_short": "百分比跟踪止损价格(空)",
         "atr": "ATR指标值",
-        "sl_atr_price": "ATR止损价格",
-        "tp_atr_price": "ATR止盈价格",
-        "tsl_atr_price": "ATR跟踪止损价格",
+        "sl_atr_price_long": "ATR止损价格(多)",
+        "sl_atr_price_short": "ATR止损价格(空)",
+        "tp_atr_price_long": "ATR止盈价格(多)",
+        "tp_atr_price_short": "ATR止盈价格(空)",
+        "tsl_atr_price_long": "ATR跟踪止损价格(多)",
+        "tsl_atr_price_short": "ATR跟踪止损价格(空)",
     }
 
 

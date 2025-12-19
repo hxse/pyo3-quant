@@ -98,9 +98,7 @@ def test_basic_output_structure(backtest_df):
         "total_return_pct",
         "fee",
         "fee_cum",
-        "risk_exit_long_price",
-        "risk_exit_short_price",
-        "risk_exit_in_bar",
+        "risk_in_bar_direction",
     ]
 
     for col in required_cols:

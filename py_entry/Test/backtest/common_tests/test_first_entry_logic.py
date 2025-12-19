@@ -14,9 +14,11 @@ class TestFirstEntryRiskPrices:
             pl.col("entry_long_price").is_not_nan() & pl.col("exit_long_price").is_nan()
         )
 
-        if len(long_entries) > 0 and "sl_pct_price" in backtest_df.columns:
+        if len(long_entries) > 0 and "sl_pct_price_long" in backtest_df.columns:
             # 检查进场时是否设置了止损
-            entries_with_sl = long_entries.filter(pl.col("sl_pct_price").is_not_nan())
+            entries_with_sl = long_entries.filter(
+                pl.col("sl_pct_price_long").is_not_nan()
+            )
 
             print(f"📊 多头进场记录: {len(long_entries)}条")
             print(f"  - 设置止损: {len(entries_with_sl)}条")
@@ -32,8 +34,10 @@ class TestFirstEntryRiskPrices:
             pl.col("entry_long_price").is_not_nan() & pl.col("exit_long_price").is_nan()
         )
 
-        if len(long_entries) > 0 and "tp_pct_price" in backtest_df.columns:
-            entries_with_tp = long_entries.filter(pl.col("tp_pct_price").is_not_nan())
+        if len(long_entries) > 0 and "tp_pct_price_long" in backtest_df.columns:
+            entries_with_tp = long_entries.filter(
+                pl.col("tp_pct_price_long").is_not_nan()
+            )
 
             print(f"📊 多头进场记录: {len(long_entries)}条")
             print(f"  - 设置止盈: {len(entries_with_tp)}条")
@@ -44,7 +48,7 @@ class TestFirstEntryRiskPrices:
 
     def test_tsl_price_updates(self, backtest_df):
         """测试跟踪止损价格更新"""
-        if "tsl_pct_price" not in backtest_df.columns:
+        if "tsl_pct_price_long" not in backtest_df.columns:
             pytest.skip("未启用跟踪止损")
 
         # 找到持有多头的序列
@@ -54,7 +58,9 @@ class TestFirstEntryRiskPrices:
 
         if len(hold_long) > 0:
             # TSL 应该随着价格更新
-            tsl_with_values = hold_long.filter(pl.col("tsl_pct_price").is_not_nan())
+            tsl_with_values = hold_long.filter(
+                pl.col("tsl_pct_price_long").is_not_nan()
+            )
 
             print(f"📊 持有多头期间: {len(hold_long)}根K线")
             print(f"  - TSL有值: {len(tsl_with_values)}根K线")

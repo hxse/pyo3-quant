@@ -35,18 +35,24 @@ pub enum ColumnName {
     ExitShortPrice,
 
     // OutputBuffers可选列名
-    SlPctPrice,
-    TpPctPrice,
-    TslPctPrice,
+    SlPctPriceLong,
+    SlPctPriceShort,
+    TpPctPriceLong,
+    TpPctPriceShort,
+    TslPctPriceLong,
+    TslPctPriceShort,
     Atr,
-    SlAtrPrice,
-    TpAtrPrice,
-    TslAtrPrice,
+    SlAtrPriceLong,
+    SlAtrPriceShort,
+    TpAtrPriceLong,
+    TpAtrPriceShort,
+    TslAtrPriceLong,
+    TslAtrPriceShort,
 
     // Risk State Output
     RiskExitLongPrice,
     RiskExitShortPrice,
-    RiskExitInBar,
+    RiskInBarDirection,
 }
 
 impl ColumnName {
@@ -81,18 +87,24 @@ impl ColumnName {
             ColumnName::ExitShortPrice => "exit_short_price",
 
             // OutputBuffers可选列名
-            ColumnName::SlPctPrice => "sl_pct_price",
-            ColumnName::TpPctPrice => "tp_pct_price",
-            ColumnName::TslPctPrice => "tsl_pct_price",
+            ColumnName::SlPctPriceLong => "sl_pct_price_long",
+            ColumnName::SlPctPriceShort => "sl_pct_price_short",
+            ColumnName::TpPctPriceLong => "tp_pct_price_long",
+            ColumnName::TpPctPriceShort => "tp_pct_price_short",
+            ColumnName::TslPctPriceLong => "tsl_pct_price_long",
+            ColumnName::TslPctPriceShort => "tsl_pct_price_short",
             ColumnName::Atr => "atr",
-            ColumnName::SlAtrPrice => "sl_atr_price",
-            ColumnName::TpAtrPrice => "tp_atr_price",
-            ColumnName::TslAtrPrice => "tsl_atr_price",
+            ColumnName::SlAtrPriceLong => "sl_atr_price_long",
+            ColumnName::SlAtrPriceShort => "sl_atr_price_short",
+            ColumnName::TpAtrPriceLong => "tp_atr_price_long",
+            ColumnName::TpAtrPriceShort => "tp_atr_price_short",
+            ColumnName::TslAtrPriceLong => "tsl_atr_price_long",
+            ColumnName::TslAtrPriceShort => "tsl_atr_price_short",
 
             // Risk State Output
             ColumnName::RiskExitLongPrice => "risk_exit_long_price",
             ColumnName::RiskExitShortPrice => "risk_exit_short_price",
-            ColumnName::RiskExitInBar => "risk_exit_in_bar",
+            ColumnName::RiskInBarDirection => "risk_in_bar_direction",
         }
     }
 

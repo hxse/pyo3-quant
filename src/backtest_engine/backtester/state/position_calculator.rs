@@ -1,13 +1,12 @@
 use super::backtest_state::BacktestState;
 use super::risk_trigger::risk_check::Direction;
-use super::risk_trigger::risk_state::RiskState;
 use crate::data_conversion::BacktestParams;
 
 impl BacktestState {
     pub fn reset_position_on_skip(&mut self) {
         self.action.reset_prices();
 
-        self.risk_state = RiskState::default();
+        self.risk_state.reset_all();
     }
 
     /// 计算并更新仓位状态（价格驱动版本）
@@ -19,15 +18,17 @@ impl BacktestState {
     /// 3. 处理i的risk触发（in_bar模式）
     pub fn calculate_position(&mut self, params: &BacktestParams) {
         // === 1. 价格重置逻辑（区分方向） ===
-        // 如果上一bar多头离场完成，本bar重置多头价格
+        // 如果上一bar多头离场完成，本bar重置多头价格和风险状态
         if self.action.exit_long_price.is_some() {
             self.action.entry_long_price = None;
             self.action.exit_long_price = None;
+            self.risk_state.reset_long_state();
         }
-        // 如果上一bar空头离场完成，本bar重置空头价格
+        // 如果上一bar空头离场完成，本bar重置空头价格和风险状态
         if self.action.exit_short_price.is_some() {
             self.action.entry_short_price = None;
             self.action.exit_short_price = None;
+            self.risk_state.reset_short_state();
         }
 
         // === 2. 处理bar(i-1)的策略信号（next_bar模式） ===

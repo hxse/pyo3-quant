@@ -15,19 +15,58 @@ fn perform_comparison(
     compare_series: impl Fn(&Series, &Series) -> PolarsResult<BooleanChunked>,
     compare_scalar: impl Fn(&Series, f64) -> PolarsResult<BooleanChunked>,
 ) -> Result<BooleanChunked, QuantError> {
-    match right {
+    // 1. 执行原始比较
+    let raw_result = match right {
         ResolvedOperand::Series(series_vec) => {
-            // If right is a vector, use the index. If index out of bounds (should be handled by caller), error or panic.
-            // Caller ensures broadcasting or matching length.
             let right_series = if series_vec.len() == 1 {
                 &series_vec[0]
             } else {
                 &series_vec[right_idx]
             };
-            Ok(compare_series(left, right_series)?)
+            compare_series(left, right_series)?
         }
-        ResolvedOperand::Scalar(value) => Ok(compare_scalar(left, *value)?),
-    }
+        ResolvedOperand::Scalar(value) => compare_scalar(left, *value)?,
+    };
+
+    // 2. 计算左操作数的无效掩码 (NaN 或 Null)
+    // is_nan() 返回 True(NaN), Null(Null), False(Valid)
+    // is_null() 返回 True(Null), False(Others)
+    // 组合: is_nan | is_null
+    // Null | True -> True (Null case covered)
+    // True | False -> True (NaN case covered)
+    // False | False -> False (Valid case covered)
+    // 结果是没有 Null 的纯 BooleanChunked
+    let left_invalid = left.is_nan()?.bitor(left.is_null());
+
+    // 3. 计算右操作数的无效掩码并合并
+    let final_mask = match right {
+        ResolvedOperand::Series(series_vec) => {
+            let right_series = if series_vec.len() == 1 {
+                &series_vec[0]
+            } else {
+                &series_vec[right_idx]
+            };
+            let right_invalid = right_series.is_nan()?.bitor(right_series.is_null());
+            left_invalid.bitor(right_invalid)
+        }
+        ResolvedOperand::Scalar(value) => {
+            if value.is_nan() {
+                // 如果标量是 NaN，所有结果都无效
+                // 返回全 True 的掩码 (或者直接返回全 False 的结果)
+                // 这里我们构造一个全 True 的掩码来与 left_invalid 合并 (实际上 logical OR true = true)
+                // 为简单起见，后续直接处理
+                return Ok(raw_result.apply(|_| Some(false)));
+            }
+            // 标量有效，掩码仅取决于左侧
+            left_invalid
+        }
+    };
+
+    // 4. 过滤结果
+    // result = raw_result & (!invalid)
+    // 如果 raw_result 是 Null (因 Null 传播)，!invalid 是 False (因 invalid 是 True)，
+    // Null & False -> False. 正确.
+    Ok(raw_result.bitand(final_mask.not()))
 }
 
 /// 执行简单比较（非交叉）的工具函数

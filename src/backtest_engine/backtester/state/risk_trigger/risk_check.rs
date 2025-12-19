@@ -82,7 +82,10 @@ impl BacktestState {
             // Short: entry * (1 + pct) = entry - entry * (-pct) = entry - entry * (sign * pct)
             // 通用公式: entry * (1.0 - sign * sl_pct)
             let calculated_sl_price = entry_price * (1.0 - sign * sl_pct);
-            self.risk_state.sl_pct_price = Some(calculated_sl_price);
+            match direction {
+                Direction::Long => self.risk_state.sl_pct_price_long = Some(calculated_sl_price),
+                Direction::Short => self.risk_state.sl_pct_price_short = Some(calculated_sl_price),
+            }
         }
 
         // 检查百分比止盈
@@ -92,7 +95,10 @@ impl BacktestState {
             // Short: entry * (1 - pct)
             // 通用公式: entry * (1.0 + sign * tp_pct)
             let calculated_tp_price = entry_price * (1.0 + sign * tp_pct);
-            self.risk_state.tp_pct_price = Some(calculated_tp_price);
+            match direction {
+                Direction::Long => self.risk_state.tp_pct_price_long = Some(calculated_tp_price),
+                Direction::Short => self.risk_state.tp_pct_price_short = Some(calculated_tp_price),
+            }
         }
 
         // 检查 ATR 止损
@@ -102,7 +108,10 @@ impl BacktestState {
             // Short: entry + atr * k
             // 通用公式: entry - sign * atr * k
             let calculated_sl_price = entry_price - sign * current_atr.unwrap() * sl_atr;
-            self.risk_state.sl_atr_price = Some(calculated_sl_price);
+            match direction {
+                Direction::Long => self.risk_state.sl_atr_price_long = Some(calculated_sl_price),
+                Direction::Short => self.risk_state.sl_atr_price_short = Some(calculated_sl_price),
+            }
         }
 
         // 检查 ATR 止盈
@@ -112,7 +121,10 @@ impl BacktestState {
             // Short: entry - atr * k
             // 通用公式: entry + sign * atr * k
             let calculated_tp_price = entry_price + sign * current_atr.unwrap() * tp_atr;
-            self.risk_state.tp_atr_price = Some(calculated_tp_price);
+            match direction {
+                Direction::Long => self.risk_state.tp_atr_price_long = Some(calculated_tp_price),
+                Direction::Short => self.risk_state.tp_atr_price_short = Some(calculated_tp_price),
+            }
         }
 
         // 检查跟踪止损 (PCT & ATR)
@@ -167,7 +179,12 @@ impl BacktestState {
             // Short: low * (1 + pct)
             // 通用: extremum * (1.0 - sign * tsl_pct)
             let calculated_tsl_price = extremum * (1.0 - sign * tsl_pct);
-            self.risk_state.tsl_pct_price = Some(calculated_tsl_price);
+            match direction {
+                Direction::Long => self.risk_state.tsl_pct_price_long = Some(calculated_tsl_price),
+                Direction::Short => {
+                    self.risk_state.tsl_pct_price_short = Some(calculated_tsl_price)
+                }
+            }
         }
 
         // ATR TSL
@@ -177,7 +194,12 @@ impl BacktestState {
             // Short: low + atr * k
             // 通用: extremum - sign * atr * k
             let calculated_tsl_price = extremum - sign * current_atr.unwrap() * tsl_atr;
-            self.risk_state.tsl_atr_price = Some(calculated_tsl_price);
+            match direction {
+                Direction::Long => self.risk_state.tsl_atr_price_long = Some(calculated_tsl_price),
+                Direction::Short => {
+                    self.risk_state.tsl_atr_price_short = Some(calculated_tsl_price)
+                }
+            }
         }
     }
 
@@ -200,31 +222,42 @@ impl BacktestState {
             switch_prices_next_bar(&self.current_bar, params, is_long)
         };
 
+        let (sl_pct_price, sl_atr_price, tp_pct_price, tp_atr_price, tsl_pct_price, tsl_atr_price) =
+            match direction {
+                Direction::Long => (
+                    self.risk_state.sl_pct_price_long,
+                    self.risk_state.sl_atr_price_long,
+                    self.risk_state.tp_pct_price_long,
+                    self.risk_state.tp_atr_price_long,
+                    self.risk_state.tsl_pct_price_long,
+                    self.risk_state.tsl_atr_price_long,
+                ),
+                Direction::Short => (
+                    self.risk_state.sl_pct_price_short,
+                    self.risk_state.sl_atr_price_short,
+                    self.risk_state.tp_pct_price_short,
+                    self.risk_state.tp_atr_price_short,
+                    self.risk_state.tsl_pct_price_short,
+                    self.risk_state.tsl_atr_price_short,
+                ),
+            };
+
         // 检查 SL
-        // Long: price <= sl  => price * 1 <= sl * 1
-        // Short: price >= sl => price * -1 <= sl * -1
-        // 通用: price * sign <= sl * sign
-        let sl_triggered = (self.risk_state.sl_pct_price.is_some()
-            && price_for_sl * sign <= self.risk_state.sl_pct_price.unwrap() * sign)
-            || (self.risk_state.sl_atr_price.is_some()
-                && price_for_sl * sign <= self.risk_state.sl_atr_price.unwrap() * sign);
+        let sl_triggered = (sl_pct_price.is_some()
+            && price_for_sl * sign <= sl_pct_price.unwrap() * sign)
+            || (sl_atr_price.is_some() && price_for_sl * sign <= sl_atr_price.unwrap() * sign);
 
         // 检查 TP
-        // Long: price >= tp => price * 1 >= tp * 1
-        // Short: price <= tp => price * -1 >= tp * -1
-        // 通用: price * sign >= tp * sign
-        let tp_triggered = (self.risk_state.tp_pct_price.is_some()
-            && price_for_tp * sign >= self.risk_state.tp_pct_price.unwrap() * sign)
-            || (self.risk_state.tp_atr_price.is_some()
-                && price_for_tp * sign >= self.risk_state.tp_atr_price.unwrap() * sign);
+        let tp_triggered = (tp_pct_price.is_some()
+            && price_for_tp * sign >= tp_pct_price.unwrap() * sign)
+            || (tp_atr_price.is_some() && price_for_tp * sign >= tp_atr_price.unwrap() * sign);
 
         // 检查 TSL
         let (price_for_tsl, _) = switch_prices_next_bar(&self.current_bar, params, is_long);
         // TSL 逻辑同 SL
-        let tsl_triggered = (self.risk_state.tsl_pct_price.is_some()
-            && price_for_tsl * sign <= self.risk_state.tsl_pct_price.unwrap() * sign)
-            || (self.risk_state.tsl_atr_price.is_some()
-                && price_for_tsl * sign <= self.risk_state.tsl_atr_price.unwrap() * sign);
+        let tsl_triggered = (tsl_pct_price.is_some()
+            && price_for_tsl * sign <= tsl_pct_price.unwrap() * sign)
+            || (tsl_atr_price.is_some() && price_for_tsl * sign <= tsl_atr_price.unwrap() * sign);
 
         (sl_triggered, tp_triggered, tsl_triggered)
     }
@@ -245,26 +278,44 @@ impl BacktestState {
                 Direction::Long => true,
                 Direction::Short => false,
             };
-            let exit_price = calculate_risk_price(
-                self.risk_state.sl_pct_price,
-                self.risk_state.sl_atr_price,
-                self.risk_state.tp_pct_price,
-                self.risk_state.tp_atr_price,
-                is_long,
-            );
+
+            let (sl_pct, sl_atr, tp_pct, tp_atr) = match direction {
+                Direction::Long => (
+                    self.risk_state.sl_pct_price_long,
+                    self.risk_state.sl_atr_price_long,
+                    self.risk_state.tp_pct_price_long,
+                    self.risk_state.tp_atr_price_long,
+                ),
+                Direction::Short => (
+                    self.risk_state.sl_pct_price_short,
+                    self.risk_state.sl_atr_price_short,
+                    self.risk_state.tp_pct_price_short,
+                    self.risk_state.tp_atr_price_short,
+                ),
+            };
+
+            let exit_price = calculate_risk_price(sl_pct, sl_atr, tp_pct, tp_atr, is_long);
 
             match direction {
                 Direction::Long => self.risk_state.exit_long_price = exit_price,
                 Direction::Short => self.risk_state.exit_short_price = exit_price,
             }
 
-            self.risk_state.exit_in_bar = params.exit_in_bar && (sl_triggered || tp_triggered);
+            self.risk_state.in_bar_direction =
+                if params.exit_in_bar && (sl_triggered || tp_triggered) {
+                    match direction {
+                        Direction::Long => 1,
+                        Direction::Short => -1,
+                    }
+                } else {
+                    0
+                };
         } else {
             match direction {
                 Direction::Long => self.risk_state.exit_long_price = None,
                 Direction::Short => self.risk_state.exit_short_price = None,
             }
-            self.risk_state.exit_in_bar = false;
+            self.risk_state.in_bar_direction = 0;
         }
     }
 }

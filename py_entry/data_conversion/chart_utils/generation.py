@@ -101,6 +101,7 @@ def generate_default_chart_config(
                                 fileName=f"data_dict/source_{key}.{dataframe_format}",
                                 dataName=["open", "high", "low", "close"],
                                 show=show,
+                                showInLegend=True,
                                 candleOpt=candleOpt,
                             )
                         )

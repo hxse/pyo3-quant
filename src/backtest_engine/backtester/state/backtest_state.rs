@@ -81,16 +81,7 @@ impl BacktestState {
         let xl = self.action.exit_long_price.is_some();
         let es = self.action.entry_short_price.is_some();
         let xs = self.action.exit_short_price.is_some();
-        let risk_long = self.risk_state.should_exit_in_bar_long() as i8;
-        let risk_short = self.risk_state.should_exit_in_bar_short() as i8;
-        // 计算 risk 状态：1 表示多头 in_bar, -1 表示空头 in_bar, 0 表示无或 next_bar
-        let risk = if risk_long != 0 {
-            1
-        } else if risk_short != 0 {
-            -1
-        } else {
-            0
-        };
+        let risk = self.risk_state.in_bar_direction;
 
         match (el, xl, es, xs, risk) {
             (true, true, true, true, -1) => "reversal_short_risk".to_string(),

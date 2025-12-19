@@ -90,9 +90,6 @@ pub fn run_backtest_engine(
     processed_settings: &SettingContainer,
     input_backtest_df: Option<BacktestSummary>,
 ) -> Result<Vec<BacktestSummary>, QuantError> {
-    let start_time = std::time::Instant::now();
-    eprintln!("rust回测引擎开始运行，任务数: {}", processed_params.len());
-
     // 根据任务数选择执行策略
     let total_tasks = processed_params.len();
 
@@ -131,9 +128,6 @@ pub fn run_backtest_engine(
             })
             .collect::<Result<Vec<_>, QuantError>>()?
     };
-
-    let duration = start_time.elapsed();
-    eprintln!("rust回测引擎运行完成，总耗时: {:?}", duration);
 
     Ok(results)
 }

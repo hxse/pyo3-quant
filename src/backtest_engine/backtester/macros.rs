@@ -92,42 +92,50 @@ macro_rules! validate_output_buffers {
             "peak_equity length mismatch"
         );
         ::core::assert_eq!(
-            $buf.risk_exit_long_price.len(),
+            $buf.risk_in_bar_direction.len(),
             $len_var,
-            "risk_exit_long_price length mismatch"
-        );
-        ::core::assert_eq!(
-            $buf.risk_exit_short_price.len(),
-            $len_var,
-            "risk_exit_short_price length mismatch"
-        );
-        ::core::assert_eq!(
-            $buf.risk_exit_in_bar.len(),
-            $len_var,
-            "risk_exit_in_bar length mismatch"
+            "risk_in_bar_direction length mismatch"
         );
 
         // 可选列
-        if let Some(v) = &$buf.sl_pct_price {
-            ::core::assert_eq!(v.len(), $len_var, "sl_pct_price length mismatch");
+        if let Some(v) = &$buf.sl_pct_price_long {
+            ::core::assert_eq!(v.len(), $len_var, "sl_pct_price_long length mismatch");
         }
-        if let Some(v) = &$buf.tp_pct_price {
-            ::core::assert_eq!(v.len(), $len_var, "tp_pct_price length mismatch");
+        if let Some(v) = &$buf.sl_pct_price_short {
+            ::core::assert_eq!(v.len(), $len_var, "sl_pct_price_short length mismatch");
         }
-        if let Some(v) = &$buf.tsl_pct_price {
-            ::core::assert_eq!(v.len(), $len_var, "tsl_pct_price length mismatch");
+        if let Some(v) = &$buf.tp_pct_price_long {
+            ::core::assert_eq!(v.len(), $len_var, "tp_pct_price_long length mismatch");
+        }
+        if let Some(v) = &$buf.tp_pct_price_short {
+            ::core::assert_eq!(v.len(), $len_var, "tp_pct_price_short length mismatch");
+        }
+        if let Some(v) = &$buf.tsl_pct_price_long {
+            ::core::assert_eq!(v.len(), $len_var, "tsl_pct_price_long length mismatch");
+        }
+        if let Some(v) = &$buf.tsl_pct_price_short {
+            ::core::assert_eq!(v.len(), $len_var, "tsl_pct_price_short length mismatch");
         }
         if let Some(v) = &$buf.atr {
             ::core::assert_eq!(v.len(), $len_var, "atr length mismatch");
         }
-        if let Some(v) = &$buf.sl_atr_price {
-            ::core::assert_eq!(v.len(), $len_var, "sl_atr_price length mismatch");
+        if let Some(v) = &$buf.sl_atr_price_long {
+            ::core::assert_eq!(v.len(), $len_var, "sl_atr_price_long length mismatch");
         }
-        if let Some(v) = &$buf.tp_atr_price {
-            ::core::assert_eq!(v.len(), $len_var, "tp_atr_price length mismatch");
+        if let Some(v) = &$buf.sl_atr_price_short {
+            ::core::assert_eq!(v.len(), $len_var, "sl_atr_price_short length mismatch");
         }
-        if let Some(v) = &$buf.tsl_atr_price {
-            ::core::assert_eq!(v.len(), $len_var, "tsl_atr_price length mismatch");
+        if let Some(v) = &$buf.tp_atr_price_long {
+            ::core::assert_eq!(v.len(), $len_var, "tp_atr_price_long length mismatch");
+        }
+        if let Some(v) = &$buf.tp_atr_price_short {
+            ::core::assert_eq!(v.len(), $len_var, "tp_atr_price_short length mismatch");
+        }
+        if let Some(v) = &$buf.tsl_atr_price_long {
+            ::core::assert_eq!(v.len(), $len_var, "tsl_atr_price_long length mismatch");
+        }
+        if let Some(v) = &$buf.tsl_atr_price_short {
+            ::core::assert_eq!(v.len(), $len_var, "tsl_atr_price_short length mismatch");
         }
     }};
 }

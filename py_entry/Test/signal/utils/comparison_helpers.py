@@ -1,6 +1,7 @@
 """测试工具函数 - 比较计算相关"""
 
 import polars as pl
+import math
 
 
 def compare_series(
@@ -31,6 +32,21 @@ def compare_series(
     if isinstance(right, pl.Series) and offset_right > 0:
         right = right.shift(offset_right)
 
+    # 计算无效掩码 (NaN 或 Null)
+    # 逻辑与Rust一致: (is_nan | is_null) -> True 表示无效
+
+    left_invalid = left.is_nan() | left.is_null()
+
+    if isinstance(right, pl.Series):
+        right_invalid = right.is_nan() | right.is_null()
+        total_invalid = left_invalid | right_invalid
+    else:
+        # 标量情况
+        if math.isnan(right):
+            # 如果标量是NaN，所有结果都视为无效(False)
+            return pl.Series([False] * len(left), dtype=pl.Boolean)
+        total_invalid = left_invalid
+
     # 执行比较
     if op == ">":
         res = left > right
@@ -46,6 +62,11 @@ def compare_series(
         res = left != right
     else:
         raise ValueError(f"Unknown operator: {op}")
+
+    # 过滤无效值
+    # 注意: invalid 为 True 的地方，结果强制为 False
+    # ~invalid 为 False，res & False -> False
+    res = res & (~total_invalid)
 
     if fill_null:
         return res.fill_null(False)

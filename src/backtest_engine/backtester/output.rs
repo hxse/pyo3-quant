@@ -31,31 +31,38 @@ pub struct OutputBuffers {
     /// 空头离场价格
     pub exit_short_price: Vec<f64>,
 
-    // === 可选列 ===
-    /// 百分比止损价格（可选）
-    pub sl_pct_price: Option<Vec<f64>>,
-    /// 百分比止盈价格（可选）
-    pub tp_pct_price: Option<Vec<f64>>,
-    /// 百分比跟踪止损价格（可选）
-    pub tsl_pct_price: Option<Vec<f64>>,
+    // === 可选列（多空分离） ===
+    /// 百分比止损价格（多头）
+    pub sl_pct_price_long: Option<Vec<f64>>,
+    /// 百分比止损价格（空头）
+    pub sl_pct_price_short: Option<Vec<f64>>,
+    /// 百分比止盈价格（多头）
+    pub tp_pct_price_long: Option<Vec<f64>>,
+    /// 百分比止盈价格（空头）
+    pub tp_pct_price_short: Option<Vec<f64>>,
+    /// 百分比跟踪止损价格（多头）
+    pub tsl_pct_price_long: Option<Vec<f64>>,
+    /// 百分比跟踪止损价格（空头）
+    pub tsl_pct_price_short: Option<Vec<f64>>,
 
-    // === 可选列 ===
     /// ATR指标值（可选）
     pub atr: Option<Vec<f64>>,
-    /// ATR止损价格（可选）
-    pub sl_atr_price: Option<Vec<f64>>,
-    /// ATR止盈价格（可选）
-    pub tp_atr_price: Option<Vec<f64>>,
-    /// ATR跟踪止损价格（可选）
-    pub tsl_atr_price: Option<Vec<f64>>,
+    /// ATR止损价格（多头）
+    pub sl_atr_price_long: Option<Vec<f64>>,
+    /// ATR止损价格（空头）
+    pub sl_atr_price_short: Option<Vec<f64>>,
+    /// ATR止盈价格（多头）
+    pub tp_atr_price_long: Option<Vec<f64>>,
+    /// ATR止盈价格（空头）
+    pub tp_atr_price_short: Option<Vec<f64>>,
+    /// ATR跟踪止损价格（多头）
+    pub tsl_atr_price_long: Option<Vec<f64>>,
+    /// ATR跟踪止损价格（空头）
+    pub tsl_atr_price_short: Option<Vec<f64>>,
 
     // === Risk State Output ===
-    /// Risk多头离场价格
-    pub risk_exit_long_price: Vec<f64>,
-    /// Risk空头离场价格
-    pub risk_exit_short_price: Vec<f64>,
-    /// Risk是否In-Bar离场
-    pub risk_exit_in_bar: Vec<bool>,
+    /// Risk 是否 In-Bar 离场（0=无, 1=多, -1=空）
+    pub risk_in_bar_direction: Vec<i8>,
 }
 
 impl OutputBuffers {
@@ -85,43 +92,71 @@ impl OutputBuffers {
             exit_short_price: vec![0.0; capacity],
 
             // 可选列根据参数决定是否初始化
-            sl_pct_price: if params.is_sl_pct_param_valid() {
+            sl_pct_price_long: if params.is_sl_pct_param_valid() {
                 Some(vec![0.0; capacity])
             } else {
                 None
             },
-            tp_pct_price: if params.is_tp_pct_param_valid() {
+            sl_pct_price_short: if params.is_sl_pct_param_valid() {
                 Some(vec![0.0; capacity])
             } else {
                 None
             },
-            tsl_pct_price: if params.is_tsl_pct_param_valid() {
+            tp_pct_price_long: if params.is_tp_pct_param_valid() {
                 Some(vec![0.0; capacity])
             } else {
                 None
             },
-            // ATR相关列 - 不再需要预先分配，将在主循环后直接克隆
+            tp_pct_price_short: if params.is_tp_pct_param_valid() {
+                Some(vec![0.0; capacity])
+            } else {
+                None
+            },
+            tsl_pct_price_long: if params.is_tsl_pct_param_valid() {
+                Some(vec![0.0; capacity])
+            } else {
+                None
+            },
+            tsl_pct_price_short: if params.is_tsl_pct_param_valid() {
+                Some(vec![0.0; capacity])
+            } else {
+                None
+            },
+            // ATR相关列
             atr: None,
-            sl_atr_price: if params.is_sl_atr_param_valid() {
+            sl_atr_price_long: if params.is_sl_atr_param_valid() {
                 Some(vec![0.0; capacity])
             } else {
                 None
             },
-            tp_atr_price: if params.is_tp_atr_param_valid() {
+            sl_atr_price_short: if params.is_sl_atr_param_valid() {
                 Some(vec![0.0; capacity])
             } else {
                 None
             },
-            tsl_atr_price: if params.is_tsl_atr_param_valid() {
+            tp_atr_price_long: if params.is_tp_atr_param_valid() {
+                Some(vec![0.0; capacity])
+            } else {
+                None
+            },
+            tp_atr_price_short: if params.is_tp_atr_param_valid() {
+                Some(vec![0.0; capacity])
+            } else {
+                None
+            },
+            tsl_atr_price_long: if params.is_tsl_atr_param_valid() {
+                Some(vec![0.0; capacity])
+            } else {
+                None
+            },
+            tsl_atr_price_short: if params.is_tsl_atr_param_valid() {
                 Some(vec![0.0; capacity])
             } else {
                 None
             },
 
             // Risk State Output
-            risk_exit_long_price: vec![0.0; capacity],
-            risk_exit_short_price: vec![0.0; capacity],
-            risk_exit_in_bar: vec![false; capacity],
+            risk_in_bar_direction: vec![0; capacity],
         }
     }
 
@@ -162,16 +197,8 @@ impl OutputBuffers {
             (ColumnName::FeeCum.as_str(), self.fee_cum.len()),
             (ColumnName::PeakEquity.as_str(), self.peak_equity.len()),
             (
-                ColumnName::RiskExitLongPrice.as_str(),
-                self.risk_exit_long_price.len(),
-            ),
-            (
-                ColumnName::RiskExitShortPrice.as_str(),
-                self.risk_exit_short_price.len(),
-            ),
-            (
-                ColumnName::RiskExitInBar.as_str(),
-                self.risk_exit_in_bar.len(),
+                ColumnName::RiskInBarDirection.as_str(),
+                self.risk_in_bar_direction.len(),
             ),
         ];
 
@@ -190,28 +217,52 @@ impl OutputBuffers {
         let optional_arrays = [
             (ColumnName::Atr.as_str(), self.atr.as_ref().map(|v| v.len())),
             (
-                ColumnName::SlPctPrice.as_str(),
-                self.sl_pct_price.as_ref().map(|v| v.len()),
+                ColumnName::SlPctPriceLong.as_str(),
+                self.sl_pct_price_long.as_ref().map(|v| v.len()),
             ),
             (
-                ColumnName::SlAtrPrice.as_str(),
-                self.sl_atr_price.as_ref().map(|v| v.len()),
+                ColumnName::SlPctPriceShort.as_str(),
+                self.sl_pct_price_short.as_ref().map(|v| v.len()),
             ),
             (
-                ColumnName::TpPctPrice.as_str(),
-                self.tp_pct_price.as_ref().map(|v| v.len()),
+                ColumnName::SlAtrPriceLong.as_str(),
+                self.sl_atr_price_long.as_ref().map(|v| v.len()),
             ),
             (
-                ColumnName::TpAtrPrice.as_str(),
-                self.tp_atr_price.as_ref().map(|v| v.len()),
+                ColumnName::SlAtrPriceShort.as_str(),
+                self.sl_atr_price_short.as_ref().map(|v| v.len()),
             ),
             (
-                ColumnName::TslPctPrice.as_str(),
-                self.tsl_pct_price.as_ref().map(|v| v.len()),
+                ColumnName::TpPctPriceLong.as_str(),
+                self.tp_pct_price_long.as_ref().map(|v| v.len()),
             ),
             (
-                ColumnName::TslAtrPrice.as_str(),
-                self.tsl_atr_price.as_ref().map(|v| v.len()),
+                ColumnName::TpPctPriceShort.as_str(),
+                self.tp_pct_price_short.as_ref().map(|v| v.len()),
+            ),
+            (
+                ColumnName::TpAtrPriceLong.as_str(),
+                self.tp_atr_price_long.as_ref().map(|v| v.len()),
+            ),
+            (
+                ColumnName::TpAtrPriceShort.as_str(),
+                self.tp_atr_price_short.as_ref().map(|v| v.len()),
+            ),
+            (
+                ColumnName::TslPctPriceLong.as_str(),
+                self.tsl_pct_price_long.as_ref().map(|v| v.len()),
+            ),
+            (
+                ColumnName::TslPctPriceShort.as_str(),
+                self.tsl_pct_price_short.as_ref().map(|v| v.len()),
+            ),
+            (
+                ColumnName::TslAtrPriceLong.as_str(),
+                self.tsl_atr_price_long.as_ref().map(|v| v.len()),
+            ),
+            (
+                ColumnName::TslAtrPriceShort.as_str(),
+                self.tsl_atr_price_short.as_ref().map(|v| v.len()),
             ),
         ];
 
@@ -271,14 +322,6 @@ impl OutputBuffers {
             (ColumnName::Fee.as_str(), &self.fee as &[f64]),
             (ColumnName::FeeCum.as_str(), &self.fee_cum as &[f64]),
             (ColumnName::PeakEquity.as_str(), &self.peak_equity as &[f64]),
-            (
-                ColumnName::RiskExitLongPrice.as_str(),
-                &self.risk_exit_long_price as &[f64],
-            ),
-            (
-                ColumnName::RiskExitShortPrice.as_str(),
-                &self.risk_exit_short_price as &[f64],
-            ),
         ];
 
         // 添加固定列
@@ -287,27 +330,52 @@ impl OutputBuffers {
             columns.push(series.into());
         }
 
-        // RiskExitInBar is boolean, handle separately or cast? Polars handles bool.
-        // But fixed_columns array is typed as &[f64]. I need to handle boolean column separately or change the array structure.
-        // The current fixed_columns is inferred as array of tuples (&str, &[f64]).
-        // So I cannot put boolean vector there.
-        // I will add it separately.
-
-        let risk_exit_in_bar_series = Series::new(
-            ColumnName::RiskExitInBar.as_str().into(),
-            &self.risk_exit_in_bar,
-        );
-        columns.push(risk_exit_in_bar_series.into());
+        let risk_in_bar_direction_series = Int8Chunked::from_slice(
+            ColumnName::RiskInBarDirection.as_pl_small_str(),
+            &self.risk_in_bar_direction,
+        )
+        .into_series();
+        columns.push(risk_in_bar_direction_series.into());
 
         // 定义可选列的名称和数据
         let optional_columns = [
-            (ColumnName::SlPctPrice.as_str(), &self.sl_pct_price),
-            (ColumnName::TpPctPrice.as_str(), &self.tp_pct_price),
-            (ColumnName::TslPctPrice.as_str(), &self.tsl_pct_price),
+            (ColumnName::SlPctPriceLong.as_str(), &self.sl_pct_price_long),
+            (
+                ColumnName::SlPctPriceShort.as_str(),
+                &self.sl_pct_price_short,
+            ),
+            (ColumnName::TpPctPriceLong.as_str(), &self.tp_pct_price_long),
+            (
+                ColumnName::TpPctPriceShort.as_str(),
+                &self.tp_pct_price_short,
+            ),
+            (
+                ColumnName::TslPctPriceLong.as_str(),
+                &self.tsl_pct_price_long,
+            ),
+            (
+                ColumnName::TslPctPriceShort.as_str(),
+                &self.tsl_pct_price_short,
+            ),
             (ColumnName::Atr.as_str(), &self.atr),
-            (ColumnName::SlAtrPrice.as_str(), &self.sl_atr_price),
-            (ColumnName::TpAtrPrice.as_str(), &self.tp_atr_price),
-            (ColumnName::TslAtrPrice.as_str(), &self.tsl_atr_price),
+            (ColumnName::SlAtrPriceLong.as_str(), &self.sl_atr_price_long),
+            (
+                ColumnName::SlAtrPriceShort.as_str(),
+                &self.sl_atr_price_short,
+            ),
+            (ColumnName::TpAtrPriceLong.as_str(), &self.tp_atr_price_long),
+            (
+                ColumnName::TpAtrPriceShort.as_str(),
+                &self.tp_atr_price_short,
+            ),
+            (
+                ColumnName::TslAtrPriceLong.as_str(),
+                &self.tsl_atr_price_long,
+            ),
+            (
+                ColumnName::TslAtrPriceShort.as_str(),
+                &self.tsl_atr_price_short,
+            ),
         ];
 
         // 添加可选列（仅当它们不为 None 时）

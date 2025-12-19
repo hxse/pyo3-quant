@@ -161,6 +161,7 @@ class SeriesItemConfig:
         "vline",
     ]
     show: bool = True
+    showInLegend: bool = False
 
     # 数据源字段
     fileName: Optional[str] = None
@@ -211,6 +212,10 @@ class DashboardOverride:
     selectedInternalFileName: Optional[str] = None
     selectedZipFileName: Optional[str] = None  # Browser only
     show: Optional[List[str]] = None  # 格式: "slotIdx,paneIdx,seriesIdx,show"
+    showInLegend: Optional[List[str]] = (
+        None  # 格式: "slotIdx,paneIdx,seriesIdx,showInLegend"
+    )
+    showRiskLegend: Optional[str] = None  # 格式: "value1,value2,value3"
 
     def to_dict(self):
         """转换为字典，移除 None 值"""

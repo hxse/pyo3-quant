@@ -45,7 +45,6 @@ SIGNAL_PARAMS = {
 #   (1h RSI < 30)               -- 1h 进入超卖区 (趋势反转风险)
 
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="scenario_comprehensive",
     enter_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[

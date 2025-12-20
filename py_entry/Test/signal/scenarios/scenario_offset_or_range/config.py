@@ -25,7 +25,6 @@ SIGNAL_PARAMS: SignalParams = {}
 
 # enter_long: 最近3根K线中至少有一根收盘价大于SMA
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="offset_or_range_test",
     enter_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[

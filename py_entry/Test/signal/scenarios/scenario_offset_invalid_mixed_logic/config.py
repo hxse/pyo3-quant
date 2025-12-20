@@ -30,7 +30,6 @@ SIGNAL_PARAMS: SignalParams = {}
 # enter_long: 混合使用AND和OR逻辑，应该报错
 # 左边使用AND逻辑(&0-2)，右边使用OR逻辑(|1-3)
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="offset_invalid_mixed_logic_test",
     enter_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[

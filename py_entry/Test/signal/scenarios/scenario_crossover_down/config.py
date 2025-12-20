@@ -25,7 +25,6 @@ SIGNAL_PARAMS: SignalParams = {}
 
 # enter_short: 收盘价向下跌破SMA
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="crossover_down_test",
     enter_long=None,
     exit_long=None,
     enter_short=SignalGroup(

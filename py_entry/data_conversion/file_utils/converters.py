@@ -269,7 +269,6 @@ def convert_backtest_data_to_buffers(
     # 4. 转换模板配置
     if template_config is not None:
         template_dict = {
-            "name": template_config.signal.name,
             "enter_long": convert_to_serializable(template_config.signal.enter_long),
             "exit_long": convert_to_serializable(template_config.signal.exit_long),
             "enter_short": convert_to_serializable(template_config.signal.enter_short),

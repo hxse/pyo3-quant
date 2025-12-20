@@ -59,7 +59,6 @@ SIGNAL_PARAMS: SignalParams = {
 
 # 多时间周期指标比较信号模板
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="multi_timeframe_indicator_comparison",
     # 做多入场信号
     # 逻辑：不同时间周期的指标比较，确认多时间周期趋势一致
     enter_long=SignalGroup(

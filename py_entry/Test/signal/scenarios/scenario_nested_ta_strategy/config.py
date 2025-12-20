@@ -48,7 +48,6 @@ SIGNAL_PARAMS: SignalParams = {
 
 # 复杂嵌套策略信号模板
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="nested_ta_strategy",
     # 做多入场信号
     # 逻辑：(ADX > 25 AND 趋势策略) OR (ADX < 25 AND 震荡策略)
     enter_long=SignalGroup(

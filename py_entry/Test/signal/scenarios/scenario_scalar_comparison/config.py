@@ -24,7 +24,6 @@ SIGNAL_PARAMS = {}
 
 # 3. 信号模板 (直接使用数值字面量)
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="scenario_scalar_comparison",
     enter_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[

@@ -24,7 +24,6 @@ SIGNAL_PARAMS = {}
 
 # 3. 信号模板
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="scenario_simplified_syntax",
     enter_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[

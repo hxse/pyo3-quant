@@ -32,7 +32,6 @@ SIGNAL_PARAMS: SignalParams = {}
 # 正确顺序应该是: name, source, offset
 # 这里把source和name的顺序颠倒了
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="syntax_invalid_wrong_order",
     enter_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[

@@ -25,7 +25,6 @@ SIGNAL_PARAMS: SignalParams = {}
 
 # enter_long: 收盘价向上突破SMA
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="crossover_up_test",
     enter_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[

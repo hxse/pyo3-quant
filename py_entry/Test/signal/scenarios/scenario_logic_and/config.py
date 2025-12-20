@@ -29,7 +29,6 @@ SIGNAL_PARAMS = {
 # 3. 信号模板
 # enter_long: (close > sma_20) AND (rsi_14 > 50)
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="scenario_logic_and",
     enter_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[

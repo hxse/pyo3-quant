@@ -103,7 +103,6 @@ def backtest_result(ohlcv_15m):
         pause_ema=Param.create(0, 0, 0, 0),
         exit_in_bar=False,
         exit_in_bar_fallback=False,
-        tsl_per_bar_update=False,
         sl_pct=Param.create(0, 0, 0, 0),  # 禁用
         tp_pct=Param.create(0, 0, 0, 0),  # 禁用
         tsl_pct=Param.create(0, 0, 0, 0),  # 禁用
@@ -147,7 +146,6 @@ def backtest_result(ohlcv_15m):
     )
 
     signal_template = SignalTemplate(
-        name="sma_crossover_strategy",
         enter_long=enter_long_group,
         enter_short=enter_short_group,
         exit_long=exit_long_group,

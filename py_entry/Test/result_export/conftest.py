@@ -72,7 +72,6 @@ def runner_with_results():
         pause_ema=Param.create(0, 0, 0, 0),
         exit_in_bar=False,
         exit_in_bar_fallback=False,
-        tsl_per_bar_update=False,
         sl_pct=Param.create(2, 0.5, 5, 0.1),
         tp_pct=Param.create(2, 0.5, 5, 0.1),
         tsl_pct=Param.create(1, 0.5, 3, 0.1),
@@ -92,9 +91,7 @@ def runner_with_results():
         ],
     )
 
-    signal_template = SignalTemplate(
-        name="multi_timeframe_dynamic_strategy", enter_long=enter_long_group
-    )
+    signal_template = SignalTemplate(enter_long=enter_long_group)
 
     # 6. 自定义引擎设置
     # 为了测试 Chart生成，我们需要确保有结果返回，ExecutionStage.BACKTEST 或 PERFORMANCE 都可以

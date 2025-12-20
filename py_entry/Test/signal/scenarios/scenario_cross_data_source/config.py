@@ -55,7 +55,6 @@ SIGNAL_PARAMS: SignalParams = {}
 #   1. renko_15m SMA < ha_1h close
 
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="cross_data_source_test",
     enter_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[

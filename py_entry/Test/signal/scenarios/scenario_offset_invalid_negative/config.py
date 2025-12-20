@@ -29,7 +29,6 @@ SIGNAL_PARAMS: SignalParams = {}
 
 # enter_long: 使用负数offset，应该报错
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="offset_invalid_negative_test",
     enter_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[

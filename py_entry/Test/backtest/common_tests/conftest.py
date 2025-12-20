@@ -57,7 +57,6 @@ def backtest_result():
         pause_ema=Param.create(0, 0, 0, 0),
         exit_in_bar=False,
         exit_in_bar_fallback=False,
-        tsl_per_bar_update=False,
         sl_pct=Param.create(2, 0.5, 5, 0.1),
         tp_pct=Param.create(2, 0.5, 5, 0.1),
         tsl_pct=Param.create(1, 0.5, 3, 0.1),
@@ -99,7 +98,6 @@ def backtest_result():
     )
 
     signal_template = SignalTemplate(
-        name="dual_sma_strategy",
         enter_long=enter_long_group,
         enter_short=enter_short_group,
         exit_long=exit_long_group,

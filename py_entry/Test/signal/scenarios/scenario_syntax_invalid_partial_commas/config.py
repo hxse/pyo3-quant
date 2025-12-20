@@ -32,7 +32,6 @@ SIGNAL_PARAMS: SignalParams = {}
 # 错误写法: "close, ohlcv_15m > sma_0"
 # 规则：要么0个逗号，要么2个逗号，不允许1个逗号
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="syntax_invalid_partial_commas",
     enter_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[

@@ -128,7 +128,6 @@ def build_backtest_params(
         pause_ema=Param.create(0, 0, 0, 0),
         exit_in_bar=False,
         exit_in_bar_fallback=False,
-        tsl_per_bar_update=False,
         sl_pct=Param.create(2, 0.5, 5, 0.1),
         tp_pct=Param.create(2, 0.5, 5, 0.1),
         tsl_pct=Param.create(1, 0.5, 3, 0.1),
@@ -179,9 +178,7 @@ def build_signal_template(
         comparisons=["sma_0, ohlcv_15m, 0 > sma_1, ohlcv_15m, 0"],
     )
 
-    return SignalTemplate(
-        name="multi_timeframe_dynamic_strategy", enter_long=enter_long_group
-    )
+    return SignalTemplate(enter_long=enter_long_group)
 
 
 def build_engine_settings(

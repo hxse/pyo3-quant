@@ -30,7 +30,6 @@ SIGNAL_PARAMS: SignalParams = {}
 
 # enter_long: 左边有3个offset(&0/1/5)，右边有2个offset(&1/3)，长度不匹配
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="offset_invalid_list_mismatch_test",
     enter_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[

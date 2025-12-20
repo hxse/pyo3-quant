@@ -25,7 +25,6 @@ SIGNAL_PARAMS: SignalParams = {}
 
 # enter_long: K线0、1、5的收盘价都大于SMA
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="offset_and_list_test",
     enter_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[

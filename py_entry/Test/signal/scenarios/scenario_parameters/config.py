@@ -33,7 +33,6 @@ SIGNAL_PARAMS = {
 
 # 3. 信号模板 (使用 $param_name 引用参数)
 SIGNAL_TEMPLATE = SignalTemplate(
-    name="scenario_parameters",
     enter_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[

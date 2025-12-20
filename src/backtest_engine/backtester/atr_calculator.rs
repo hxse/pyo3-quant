@@ -1,6 +1,6 @@
 use crate::backtest_engine::indicators::atr::{atr_eager, ATRConfig};
 use crate::data_conversion::types::param_set::BacktestParams;
-use crate::error::{backtest_error::BacktestError, QuantError};
+use crate::error::QuantError;
 use polars::prelude::*;
 
 /// 根据回测参数条件性地计算 ATR 指标

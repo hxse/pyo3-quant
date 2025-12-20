@@ -32,7 +32,6 @@ pub struct SignalGroup {
 
 #[derive(Debug, Clone, FromPyObject)]
 pub struct SignalTemplate {
-    pub name: String,
     pub enter_long: Option<SignalGroup>,
     pub exit_long: Option<SignalGroup>,
     pub enter_short: Option<SignalGroup>,

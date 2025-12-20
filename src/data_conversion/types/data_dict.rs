@@ -1,6 +1,6 @@
 use polars::prelude::*;
 use pyo3::prelude::*;
-use pyo3_polars::{PyDataFrame, PySeries};
+use pyo3_polars::PyDataFrame;
 use std::collections::HashMap;
 
 pub type DataSource = HashMap<String, DataFrame>;

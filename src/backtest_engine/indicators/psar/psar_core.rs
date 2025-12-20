@@ -190,6 +190,7 @@ pub(crate) fn psar_update(
 }
 
 // 1. 核心计算函数：直接移植numba逻辑
+#[allow(dead_code)]
 pub(crate) fn calc_psar_core(
     high: &[f64],
     low: &[f64],

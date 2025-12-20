@@ -1,6 +1,7 @@
 use pyo3::prelude::*;
 
 #[derive(Debug, Clone, FromPyObject)]
+#[allow(dead_code)]
 pub struct Param {
     /// 当前参数值
     pub value: f64,

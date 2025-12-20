@@ -62,12 +62,6 @@ class BacktestParams:
     # exit_in_bar只覆盖sl,tp, exit_in_bar_fallback定义exit_in_bar不覆盖时的行为
     exit_in_bar_fallback: bool
 
-    # === 跟踪止损选项 ===
-    # 跟踪止损更新方式。
-    # `true` 表示每根K线都更新跟踪止损价格。
-    # `false` 表示只在突破高点或低点时才更新跟踪止损价格。
-    tsl_per_bar_update: bool
-
     # === 止损止盈参数 (百分比) ===
     # 百分比止损阈值。当仓位亏损达到此百分比时触发止损。
     # 如果值 <= 0.0，则不使用百分比止损功能。

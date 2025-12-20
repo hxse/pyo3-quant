@@ -1,7 +1,7 @@
 use crate::data_conversion::{BacktestParams, DataContainer};
-use crate::error::{backtest_error::BacktestError, QuantError};
+use crate::error::QuantError;
 use polars::prelude::*;
-use pyo3::{prelude::*, types::PyAny};
+use pyo3::prelude::*;
 mod atr_calculator;
 mod data_preparer;
 mod macros;

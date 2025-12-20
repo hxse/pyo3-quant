@@ -92,7 +92,7 @@ type Res<'a, T> = IResult<&'a str, T, Error<&'a str>>;
 /// - `_temp` ✓
 /// - `123abc` ✗ (不能以数字开头)
 /// - `-test` ✗ (不能以减号开头)
-fn parse_identifier(input: &str) -> Res<&str> {
+fn parse_identifier(input: &str) -> Res<'_, &str> {
     recognize(pair(
         alt((alpha1, tag("_"))),
         many0(alt((alphanumeric1, tag("_"), tag("-")))),
@@ -105,7 +105,7 @@ fn parse_identifier(input: &str) -> Res<&str> {
 /// # 示例
 /// - `0` → 0
 /// - `123` → 123
-fn parse_u32(input: &str) -> Res<u32> {
+fn parse_u32(input: &str) -> Res<'_, u32> {
     map_res(digit1, u32::from_str).parse(input)
 }
 
@@ -115,7 +115,7 @@ fn parse_u32(input: &str) -> Res<u32> {
 /// - `70` → 70.0
 /// - `0.5` → 0.5
 /// - `-10.5` → -10.5
-fn parse_f64(input: &str) -> Res<f64> {
+fn parse_f64(input: &str) -> Res<'_, f64> {
     map_res(
         recognize(pair(
             opt(tag("-")),
@@ -133,7 +133,7 @@ fn parse_f64(input: &str) -> Res<f64> {
 /// # 示例
 /// - `&1-5` → OffsetType::RangeAnd(1, 5)  // offsets: [1, 2, 3, 4, 5]
 /// - `&0-2` → OffsetType::RangeAnd(0, 2)  // offsets: [0, 1, 2]
-fn parse_offset_range_and(input: &str) -> Res<OffsetType> {
+fn parse_offset_range_and(input: &str) -> Res<'_, OffsetType> {
     map(
         preceded(tag("&"), separated_pair(parse_u32, tag("-"), parse_u32)),
         |(start, end)| OffsetType::RangeAnd(start, end),
@@ -148,7 +148,7 @@ fn parse_offset_range_and(input: &str) -> Res<OffsetType> {
 /// # 示例
 /// - `|1-5` → OffsetType::RangeOr(1, 5)  // offsets: [1, 2, 3, 4, 5]
 /// - `|0-2` → OffsetType::RangeOr(0, 2)  // offsets: [0, 1, 2]
-fn parse_offset_range_or(input: &str) -> Res<OffsetType> {
+fn parse_offset_range_or(input: &str) -> Res<'_, OffsetType> {
     map(
         preceded(tag("|"), separated_pair(parse_u32, tag("-"), parse_u32)),
         |(start, end)| OffsetType::RangeOr(start, end),
@@ -161,7 +161,7 @@ fn parse_offset_range_or(input: &str) -> Res<OffsetType> {
 /// # 示例
 /// - `&0` → OffsetType::ListAnd([0])
 /// - `&0/1/5` → OffsetType::ListAnd([0, 1, 5])
-fn parse_offset_list_and(input: &str) -> Res<OffsetType> {
+fn parse_offset_list_and(input: &str) -> Res<'_, OffsetType> {
     use nom::multi::separated_list1;
     map(
         preceded(tag("&"), separated_list1(tag("/"), parse_u32)),
@@ -181,7 +181,7 @@ fn parse_offset_list_and(input: &str) -> Res<OffsetType> {
 /// # 示例
 /// - `|0` → OffsetType::ListOr([0])
 /// - `|0/1/5` → OffsetType::ListOr([0, 1, 5])
-fn parse_offset_list_or(input: &str) -> Res<OffsetType> {
+fn parse_offset_list_or(input: &str) -> Res<'_, OffsetType> {
     use nom::multi::separated_list1;
     map(
         preceded(tag("|"), separated_list1(tag("/"), parse_u32)),
@@ -204,7 +204,7 @@ fn parse_offset_list_or(input: &str) -> Res<OffsetType> {
 /// - `|1-5` → OffsetType::RangeOr(1, 5)   // 范围：[1,2,3,4,5]任一符合
 /// - `&0/1/5` → OffsetType::ListAnd([0,1,5])  // 列表：[0,1,5]全都符合
 /// - `|0/1/5` → OffsetType::ListOr([0,1,5])   // 列表：[0,1,5]任一符合
-fn parse_offset(input: &str) -> Res<OffsetType> {
+fn parse_offset(input: &str) -> Res<'_, OffsetType> {
     alt((
         parse_offset_range_and,             // &1-5
         parse_offset_range_or,              // |1-5
@@ -223,7 +223,7 @@ fn parse_offset(input: &str) -> Res<OffsetType> {
 /// - `close, ohlcv_15m, 0` → SignalDataOperand { name: "close", source: "ohlcv_15m", offset: Single(0) }
 /// - `sma_0, ohlcv_1h` → SignalDataOperand { name: "sma_0", source: "ohlcv_1h", offset: Single(0) }
 /// - `rsi_0, ohlcv_4h, 0&2` → SignalDataOperand { name: "rsi_0", source: "ohlcv_4h", offset: RangeAnd(0, 2) }
-fn parse_data_operand(input: &str) -> Res<SignalDataOperand> {
+fn parse_data_operand(input: &str) -> Res<'_, SignalDataOperand> {
     let (input, _) = multispace0(input)?;
     let (input, name) = parse_identifier(input)?;
 
@@ -262,7 +262,7 @@ fn parse_data_operand(input: &str) -> Res<SignalDataOperand> {
 /// # 示例
 /// - `$rsi_middle` → ParamOperand { name: "rsi_middle" }
 /// - `$stop_loss` → ParamOperand { name: "stop_loss" }
-fn parse_param_operand(input: &str) -> Res<ParamOperand> {
+fn parse_param_operand(input: &str) -> Res<'_, ParamOperand> {
     map(preceded(tag("$"), parse_identifier), |name| ParamOperand {
         name: name.to_string(),
     })
@@ -277,7 +277,7 @@ fn parse_param_operand(input: &str) -> Res<ParamOperand> {
 /// - `$rsi_lower` → SignalRightOperand::Param(...)
 /// - `70` → SignalRightOperand::Scalar(70.0)
 /// - `sma_1, ohlcv_15m, 0` → SignalRightOperand::Data(...)
-fn parse_right_operand(input: &str) -> Res<SignalRightOperand> {
+fn parse_right_operand(input: &str) -> Res<'_, SignalRightOperand> {
     alt((
         map(parse_param_operand, SignalRightOperand::Param),
         map(parse_f64, SignalRightOperand::Scalar),
@@ -297,7 +297,7 @@ fn parse_right_operand(input: &str) -> Res<SignalRightOperand> {
 /// - `x>`: 向上突破（前值 <= 后值，当前值 > 后值）
 /// - `x<`: 向下突破（前值 >= 后值，当前值 < 后值）
 /// - `x>=`, `x<=`, `x==`, `x!=`: 类似的交叉逻辑
-fn parse_op(input: &str) -> Res<CompareOp> {
+fn parse_op(input: &str) -> Res<'_, CompareOp> {
     alt((
         value(CompareOp::CGT, tag("x>")),
         value(CompareOp::CLT, tag("x<")),
@@ -331,7 +331,7 @@ fn parse_op(input: &str) -> Res<CompareOp> {
 /// "! rsi_0, ohlcv_1h, 0 < $rsi_lower"
 /// "sma_0, ohlcv_4h, 0&2 x> sma_1, ohlcv_4h, 0"
 /// ```
-pub fn parse_condition_str(input: &str) -> Res<SignalCondition> {
+pub fn parse_condition_str(input: &str) -> Res<'_, SignalCondition> {
     let (input, negated) = opt(delimited(multispace0, tag("!"), multispace0)).parse(input)?;
     let (input, left) = delimited(multispace0, parse_data_operand, multispace0).parse(input)?;
     let (input, op) = delimited(multispace0, parse_op, multispace0).parse(input)?;

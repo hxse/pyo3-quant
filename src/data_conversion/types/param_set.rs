@@ -110,12 +110,6 @@ pub struct BacktestParams {
     /// 如果值 <= 0.0，则所有ATR相关的止损止盈功能都不会启用。
     pub atr_period: Option<Param>,
 
-    // === 跟踪止损选项 ===
-    /// 跟踪止损更新方式。
-    /// `true` 表示每根K线都更新跟踪止损价格。
-    /// `false` 表示只在突破高点或低点时才更新跟踪止损价格。
-    pub tsl_per_bar_update: bool,
-
     // === 离场方式 ===
     /// 离场时机选择。
     /// `true` 表示在当前K线内部触发条件时立即离场。

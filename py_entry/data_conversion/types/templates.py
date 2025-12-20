@@ -26,7 +26,6 @@ class SignalGroup:
 class SignalTemplate:
     """信号模板 - 对应 Rust SignalTemplate"""
 
-    name: str
     enter_long: Optional[SignalGroup] = None
     exit_long: Optional[SignalGroup] = None
     enter_short: Optional[SignalGroup] = None

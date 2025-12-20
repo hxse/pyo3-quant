@@ -50,8 +50,6 @@ pub enum ColumnName {
     TslAtrPriceShort,
 
     // Risk State Output
-    RiskExitLongPrice,
-    RiskExitShortPrice,
     RiskInBarDirection,
 }
 
@@ -102,8 +100,6 @@ impl ColumnName {
             ColumnName::TslAtrPriceShort => "tsl_atr_price_short",
 
             // Risk State Output
-            ColumnName::RiskExitLongPrice => "risk_exit_long_price",
-            ColumnName::RiskExitShortPrice => "risk_exit_short_price",
             ColumnName::RiskInBarDirection => "risk_in_bar_direction",
         }
     }

@@ -22,7 +22,7 @@ use crate::data_conversion::{
 
 use crate::error::{IndicatorError, QuantError};
 use polars::prelude::*;
-use pyo3::{prelude::*, types::PyAny};
+use pyo3::prelude::*;
 use pyo3_polars::PyDataFrame;
 use std::collections::HashMap;
 

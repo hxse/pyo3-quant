@@ -237,8 +237,7 @@ pub fn macd_eager(
     }
 
     let series_len = ohlcv_df.height();
-    let min_len =
-        (std::cmp::max(config.fast_period, config.slow_period) + config.signal_period - 2);
+    let min_len = std::cmp::max(config.fast_period, config.slow_period) + config.signal_period - 2;
     if series_len < min_len as usize {
         return Err(
             IndicatorError::DataTooShort("macd".to_string(), min_len, series_len as i64).into(),

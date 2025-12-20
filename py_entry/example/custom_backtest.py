@@ -79,7 +79,6 @@ backtest_params = BacktestParams(
     pause_ema=Param.create(0),
     exit_in_bar=True,
     exit_in_bar_fallback=False,
-    tsl_per_bar_update=False,
     sl_pct=Param.create(0.02),
     # tp_pct=Param.create(0.05),
     # tsl_pct=Param.create(0.02),
@@ -120,7 +119,6 @@ enter_short_group = SignalGroup(
 )
 
 signal_template = SignalTemplate(
-    name="multi_timeframe_dynamic_strategy",
     enter_long=enter_long_group,
     enter_short=enter_short_group,
 )

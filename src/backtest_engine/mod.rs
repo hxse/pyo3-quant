@@ -132,54 +132,6 @@ pub fn run_backtest_engine(
     Ok(results)
 }
 
-/// PyO3 接口函数：运行回测引擎
-///
-/// 这是 Python 端调用的入口函数，负责：
-/// 1. 接收 Python 传递的参数
-/// 2. 调用纯 Rust 回测引擎
-/// 3. 将 Rust 结果转换为 Python 对象
-///
-/// # PyO3 参数说明
-///
-/// * `py` - Python GIL 锁定标记
-/// * `data_dict` - 市场数据字典（Python → Rust 自动转换）
-/// * `param_set` - 回测参数集合
-/// * `template` - 信号生成模板
-/// * `engine_settings` - 引擎配置设置
-/// * `input_backtest_df` - 可选的已有回测结果
-///
-/// # 返回值
-///
-/// 返回 Python 列表，每个元素为一个回测摘要字典
-#[pyfunction(name = "run_backtest_engine")]
-pub fn py_run_backtest_engine(
-    py: Python<'_>,
-    data_dict: DataContainer,
-    param_set: ParamContainer,
-    template: TemplateContainer,
-    engine_settings: SettingContainer,
-    input_backtest_df: Option<BacktestSummary>,
-) -> PyResult<Py<PyAny>> {
-    // 1. 调用纯 Rust 函数执行回测
-    let results = run_backtest_engine(
-        &data_dict,
-        &param_set,
-        &template,
-        &engine_settings,
-        input_backtest_df,
-    )?;
-
-    // 2. 将 results 转换为 Python 字典列表
-    // 每个 BacktestSummary 实现了 into_pyobject 方法进行转换
-    let py_list = pyo3::types::PyList::empty(py);
-    for summary in results {
-        let py_dict = summary.into_pyobject(py)?;
-        py_list.append(py_dict)?;
-    }
-
-    Ok(py_list.into())
-}
-
 /// 执行单个回测任务的核心函数
 ///
 /// 按照执行阶段依次处理：
@@ -298,6 +250,45 @@ fn execute_single_backtest(
         backtest_df,
         performance,
     ))
+}
+
+/// PyO3 接口函数：运行回测引擎
+///
+/// 这是 Python 端调用的入口函数，负责：
+/// 1. 接收 Python 传递的参数
+/// 2. 调用纯 Rust 回测引擎
+/// 3. 将 Rust 结果转换为 Python 对象
+///
+/// # PyO3 参数说明
+///
+/// * `py` - Python GIL 锁定标记
+/// * `data_dict` - 市场数据字典（Python → Rust 自动转换）
+/// * `param_set` - 回测参数集合
+/// * `template` - 信号生成模板
+/// * `engine_settings` - 引擎配置设置
+/// * `input_backtest_df` - 可选的已有回测结果
+///
+/// # 返回值
+///
+/// 返回 Python 列表，每个元素为一个回测摘要字典
+#[pyfunction(name = "run_backtest_engine")]
+pub fn py_run_backtest_engine(
+    data_dict: DataContainer,
+    param_set: ParamContainer,
+    template: TemplateContainer,
+    engine_settings: SettingContainer,
+    input_backtest_df: Option<BacktestSummary>,
+) -> PyResult<Vec<BacktestSummary>> {
+    // 1. 调用纯 Rust 函数执行回测
+    let results = run_backtest_engine(
+        &data_dict,
+        &param_set,
+        &template,
+        &engine_settings,
+        input_backtest_df,
+    )?;
+
+    Ok(results)
 }
 
 /// 注册 PyO3 模块的所有函数

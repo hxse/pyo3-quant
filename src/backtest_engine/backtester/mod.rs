@@ -272,14 +272,12 @@ pub fn run_backtest_with_input(
 /// result = run_backtest(processed_data, signals_df, backtest_params)
 /// ```
 pub fn py_run_backtest(
-    processed_data_py: &Bound<'_, PyAny>,
-    signals_df_py: &Bound<'_, PyAny>,
-    backtest_params_py: &Bound<'_, PyAny>,
+    processed_data: DataContainer,
+    signals_df_py: PyDataFrame,
+    backtest_params: BacktestParams,
 ) -> PyResult<PyDataFrame> {
-    // 从Python对象提取Rust类型
-    let processed_data: DataContainer = processed_data_py.extract()?;
-    let signals_df: DataFrame = signals_df_py.extract::<PyDataFrame>()?.into();
-    let backtest_params: BacktestParams = backtest_params_py.extract()?;
+    // 从 PyDataFrame 获取 DataFrame
+    let signals_df: DataFrame = signals_df_py.into();
 
     // 调用Rust回测函数并处理错误
     let result_df = run_backtest(&processed_data, &signals_df, &backtest_params)
@@ -299,16 +297,14 @@ pub fn py_run_backtest(
 /// result = run_backtest_with_input(processed_data, signals_df, backtest_params, input_backtest_df)
 /// ```
 pub fn py_run_backtest_with_input(
-    processed_data_py: &Bound<'_, PyAny>,
-    signals_df_py: &Bound<'_, PyAny>,
-    backtest_params_py: &Bound<'_, PyAny>,
-    input_backtest_df_py: &Bound<'_, PyAny>,
+    processed_data: DataContainer,
+    signals_df_py: PyDataFrame,
+    backtest_params: BacktestParams,
+    input_backtest_df_py: PyDataFrame,
 ) -> PyResult<PyDataFrame> {
-    // 从Python对象提取Rust类型
-    let processed_data: DataContainer = processed_data_py.extract()?;
-    let signals_df: DataFrame = signals_df_py.extract::<PyDataFrame>()?.into();
-    let backtest_params: BacktestParams = backtest_params_py.extract()?;
-    let input_backtest_df: DataFrame = input_backtest_df_py.extract::<PyDataFrame>()?.into();
+    // 获取 Rust DataFrame
+    let signals_df: DataFrame = signals_df_py.into();
+    let input_backtest_df: DataFrame = input_backtest_df_py.into();
 
     // 调用Rust回测函数并处理错误
     let result_df = run_backtest_with_input(

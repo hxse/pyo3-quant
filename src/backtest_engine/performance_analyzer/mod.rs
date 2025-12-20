@@ -9,7 +9,7 @@ use crate::data_conversion::types::{
 use crate::data_conversion::DataContainer;
 use crate::error::QuantError;
 use polars::prelude::*;
-use pyo3::{prelude::*, types::PyAny};
+use pyo3::prelude::*;
 use pyo3_polars::PyDataFrame;
 use std::collections::HashMap;
 
@@ -55,7 +55,6 @@ pub fn analyze_performance(
     } else {
         1.0
     };
-    result.insert("annualization_factor".to_string(), annualization_factor);
 
     // 3. 基础统计
     let initial_capital = equity.get(0).unwrap_or(1.0);
@@ -127,6 +126,7 @@ pub fn analyze_performance(
                     0.0
                 }
             }
+            PerformanceMetric::AnnualizationFactor => annualization_factor,
         };
         result.insert(key, value);
     }
@@ -138,11 +138,10 @@ pub fn analyze_performance(
 pub fn py_analyze_performance(
     data_dict: DataContainer,
     backtest_df_py: PyDataFrame,
-    performance_params_py: &Bound<'_, PyAny>,
+    performance_params: PerformanceParams,
 ) -> PyResult<PerformanceMetrics> {
     // 1. 将 Python 对象转换为 Rust 类型
     let backtest_df: DataFrame = backtest_df_py.into();
-    let performance_params: PerformanceParams = performance_params_py.extract()?;
 
     // 2. 调用原始的 analyze_performance 函数
     let result = analyze_performance(&data_dict, &backtest_df, &performance_params)?;

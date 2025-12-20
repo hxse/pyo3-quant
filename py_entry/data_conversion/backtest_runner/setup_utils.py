@@ -155,7 +155,7 @@ def build_performance_params(
         return performance_params
 
     # 否则返回默认值
-    return PerformanceParams(metrics=list(PerformanceMetric))
+    return PerformanceParams()
 
 
 def build_signal_template(

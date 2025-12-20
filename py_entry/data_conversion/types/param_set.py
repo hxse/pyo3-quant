@@ -26,6 +26,7 @@ class PerformanceMetric(str, Enum):
     MAX_HOLDING_DURATION = "max_holding_duration"
     MAX_EMPTY_DURATION = "max_empty_duration"
     MAX_SAFE_LEVERAGE = "max_safe_leverage"
+    ANNUALIZATION_FACTOR = "annualization_factor"
 
 
 @dataclass
@@ -106,8 +107,8 @@ class PerformanceParams:
             PerformanceMetric.TOTAL_RETURN,
             PerformanceMetric.MAX_DRAWDOWN,
             PerformanceMetric.SHARPE_RATIO,
-            PerformanceMetric.SORTINO_RATIO,
             PerformanceMetric.CALMAR_RATIO,
+            PerformanceMetric.ANNUALIZATION_FACTOR,
         ]
     )
     risk_free_rate: float = 0.0

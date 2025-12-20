@@ -6,7 +6,7 @@ use crate::data_conversion::types::templates::{SignalGroup, SignalTemplate};
 use crate::data_conversion::types::DataContainer;
 use crate::error::QuantError;
 
-use pyo3::{prelude::*, types::PyAny};
+use pyo3::prelude::*;
 use pyo3_polars::PyDataFrame;
 
 use polars::prelude::*;
@@ -106,22 +106,16 @@ pub fn generate_signals(
 
 #[pyfunction(name = "generate_signals")]
 pub fn py_generate_signals(
-    processed_data_py: &Bound<'_, PyAny>,
-    indicator_dfs_py: &Bound<'_, PyAny>,
-    signal_params_py: &Bound<'_, PyAny>,
-    signal_template_py: &Bound<'_, PyAny>,
+    processed_data: DataContainer,
+    indicator_dfs_py: HashMap<String, PyDataFrame>,
+    signal_params: SignalParams,
+    signal_template: SignalTemplate,
 ) -> PyResult<PyDataFrame> {
     // 1. 将 Python 对象转换为 Rust 类型
-    let processed_data: DataContainer = processed_data_py.extract()?;
-
-    let indicator_dfs_py_map: HashMap<String, PyDataFrame> = indicator_dfs_py.extract()?;
-    let indicator_dfs = indicator_dfs_py_map
+    let indicator_dfs = indicator_dfs_py
         .into_iter()
         .map(|(k, v)| (k, v.into()))
         .collect();
-
-    let signal_params: SignalParams = signal_params_py.extract()?;
-    let signal_template: SignalTemplate = signal_template_py.extract()?;
 
     // 2. 调用原始的 generate_signals 函数
     let result_df = generate_signals(

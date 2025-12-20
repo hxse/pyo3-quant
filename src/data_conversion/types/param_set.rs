@@ -23,6 +23,7 @@ pub enum PerformanceMetric {
     MaxHoldingDuration,
     MaxEmptyDuration,
     MaxSafeLeverage,
+    AnnualizationFactor,
 }
 
 impl PerformanceMetric {
@@ -43,6 +44,7 @@ impl PerformanceMetric {
             Self::MaxHoldingDuration => "max_holding_duration",
             Self::MaxEmptyDuration => "max_empty_duration",
             Self::MaxSafeLeverage => "max_safe_leverage",
+            Self::AnnualizationFactor => "annualization_factor",
         }
     }
 }
@@ -66,6 +68,7 @@ impl<'source> FromPyObject<'source> for PerformanceMetric {
             "max_holding_duration" => Ok(Self::MaxHoldingDuration),
             "max_empty_duration" => Ok(Self::MaxEmptyDuration),
             "max_safe_leverage" => Ok(Self::MaxSafeLeverage),
+            "annualization_factor" => Ok(Self::AnnualizationFactor),
             _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                 "Unknown metric: {}",
                 s

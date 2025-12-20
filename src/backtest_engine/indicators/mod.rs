@@ -75,12 +75,9 @@ pub fn calculate_indicators(
 
 #[pyfunction(name = "calculate_indicators")]
 pub fn py_calculate_indicators(
-    processed_data_py: &Bound<'_, PyAny>,
-    indicators_params_py: &Bound<'_, PyAny>,
+    processed_data: DataContainer,
+    indicators_params: IndicatorsParams,
 ) -> PyResult<HashMap<String, PyDataFrame>> {
-    let processed_data: DataContainer = processed_data_py.extract()?;
-    let indicators_params: IndicatorsParams = indicators_params_py.extract()?;
-
     let result_map = calculate_indicators(&processed_data, &indicators_params)?;
 
     let py_result_map = result_map

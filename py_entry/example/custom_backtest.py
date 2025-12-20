@@ -11,6 +11,7 @@ from py_entry.data_conversion.types import (
     IndicatorsParams,
     Param,
     PerformanceParams,
+    PerformanceMetric,
     LogicOp,
     SignalGroup,
     SignalParams,
@@ -88,6 +89,17 @@ backtest_params = BacktestParams(
     atr_period=Param.create(14),
 )
 
+# 自定义性能参数
+performance_params = PerformanceParams(
+    metrics=[
+        PerformanceMetric.TOTAL_RETURN,
+        PerformanceMetric.MAX_DRAWDOWN,
+        PerformanceMetric.CALMAR_RATIO,
+        PerformanceMetric.ANNUALIZATION_FACTOR,
+    ],
+    leverage_safety_factor=0.8,
+)
+
 # 自定义信号模板
 enter_long_group = SignalGroup(
     logic=LogicOp.AND,
@@ -146,6 +158,7 @@ if __name__ == "__main__":
         indicators_params=indicators_params,
         signal_params=signal_params,
         backtest_params=backtest_params,
+        performance_params=performance_params,
         signal_template=signal_template,
         engine_settings=engine_settings,
     ).run().format_results_for_export(

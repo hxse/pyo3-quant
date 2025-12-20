@@ -9,16 +9,40 @@ pub type SignalParams = HashMap<String, Param>;
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum PerformanceMetric {
     TotalReturn,
-    SharpeRatio,
     MaxDrawdown,
+    MaxDrawdownDuration,
+    SharpeRatio,
+    SortinoRatio,
+    CalmarRatio,
+    TotalTrades,
+    AvgDailyTrades,
+    WinRate,
+    ProfitLossRatio,
+    AvgHoldingDuration,
+    AvgEmptyDuration,
+    MaxHoldingDuration,
+    MaxEmptyDuration,
+    MaxSafeLeverage,
 }
 
 impl PerformanceMetric {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::TotalReturn => "total_return",
-            Self::SharpeRatio => "sharpe_ratio",
             Self::MaxDrawdown => "max_drawdown",
+            Self::SharpeRatio => "sharpe_ratio",
+            Self::SortinoRatio => "sortino_ratio",
+            Self::CalmarRatio => "calmar_ratio",
+            Self::MaxDrawdownDuration => "max_drawdown_duration",
+            Self::TotalTrades => "total_trades",
+            Self::AvgDailyTrades => "avg_daily_trades",
+            Self::WinRate => "win_rate",
+            Self::ProfitLossRatio => "profit_loss_ratio",
+            Self::AvgHoldingDuration => "avg_holding_duration",
+            Self::AvgEmptyDuration => "avg_empty_duration",
+            Self::MaxHoldingDuration => "max_holding_duration",
+            Self::MaxEmptyDuration => "max_empty_duration",
+            Self::MaxSafeLeverage => "max_safe_leverage",
         }
     }
 }
@@ -28,8 +52,20 @@ impl<'source> FromPyObject<'source> for PerformanceMetric {
         let s: String = ob.extract()?;
         match s.as_str() {
             "total_return" => Ok(Self::TotalReturn),
-            "sharpe_ratio" => Ok(Self::SharpeRatio),
             "max_drawdown" => Ok(Self::MaxDrawdown),
+            "sharpe_ratio" => Ok(Self::SharpeRatio),
+            "sortino_ratio" => Ok(Self::SortinoRatio),
+            "calmar_ratio" => Ok(Self::CalmarRatio),
+            "max_drawdown_duration" => Ok(Self::MaxDrawdownDuration),
+            "total_trades" => Ok(Self::TotalTrades),
+            "avg_daily_trades" => Ok(Self::AvgDailyTrades),
+            "win_rate" => Ok(Self::WinRate),
+            "profit_loss_ratio" => Ok(Self::ProfitLossRatio),
+            "avg_holding_duration" => Ok(Self::AvgHoldingDuration),
+            "avg_empty_duration" => Ok(Self::AvgEmptyDuration),
+            "max_holding_duration" => Ok(Self::MaxHoldingDuration),
+            "max_empty_duration" => Ok(Self::MaxEmptyDuration),
+            "max_safe_leverage" => Ok(Self::MaxSafeLeverage),
             _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                 "Unknown metric: {}",
                 s
@@ -294,9 +330,39 @@ impl BacktestParams {
     }
 }
 
-#[derive(Debug, Clone, FromPyObject)]
+#[derive(Debug, Clone)]
 pub struct PerformanceParams {
     pub metrics: Vec<PerformanceMetric>,
+    pub risk_free_rate: f64,
+    pub leverage_safety_factor: Option<f64>,
+}
+
+impl<'source> FromPyObject<'source> for PerformanceParams {
+    fn extract_bound(ob: &Bound<'source, PyAny>) -> PyResult<Self> {
+        let metrics = if let Ok(m) = ob.getattr("metrics") {
+            m.extract()?
+        } else {
+            ob.get_item("metrics")?.extract()?
+        };
+
+        let risk_free_rate = ob
+            .getattr("risk_free_rate")
+            .or_else(|_| ob.get_item("risk_free_rate"))
+            .and_then(|i| i.extract())
+            .unwrap_or(0.0);
+
+        let leverage_safety_factor = ob
+            .getattr("leverage_safety_factor")
+            .or_else(|_| ob.get_item("leverage_safety_factor"))
+            .ok()
+            .and_then(|i| i.extract().ok());
+
+        Ok(Self {
+            metrics,
+            risk_free_rate,
+            leverage_safety_factor,
+        })
+    }
 }
 
 #[derive(Debug, Clone, FromPyObject)]

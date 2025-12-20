@@ -15,15 +15,15 @@ fn pause_expression(stop_pct: f64) -> Expr {
 
 /// 计算回撤幅度的表达式
 ///
-/// 回撤幅度 = (peak_equity - equity) / peak_equity
+/// 直接使用 current_drawdown 列
 fn drawdown_expression() -> Expr {
-    (col("peak_equity_temp") - col("equity_temp")) / col("peak_equity_temp")
+    col(ColumnName::CurrentDrawdown.as_str())
 }
 
 /// 根据回撤情况修改信号
 ///
 /// # 参数
-/// * `equity_df` - 包含equity和peak_equity两列的DataFrame
+/// * `equity_df` - 包含equity和current_drawdown两列的DataFrame
 /// * `signals_df` - 原始信号DataFrame
 /// * `backtest_params` - 回测参数，包含stop_pct和resume_pct
 ///
@@ -43,13 +43,9 @@ pub fn drawdown_pause_signals(
     // 克隆signals_df并转换为lazy模式
     let mut lazy_df = signals_df.clone().lazy();
 
-    // 从 equity_df 中获取 equity 和 peak_equity 列的数据，并直接使用表达式
-    // 使用 with_context 将 equity_df 的列引入计算环境
+    // 从 equity_df 中引入列进行计算
     let equity_lazy_df = equity_df.clone().lazy();
-    lazy_df = lazy_df.with_context(&[equity_lazy_df]).with_columns([
-        col("equity").alias("equity_temp"),
-        col("peak_equity").alias("peak_equity_temp"),
-    ]);
+    lazy_df = lazy_df.with_context(&[equity_lazy_df]);
 
     // 先计算是否触发暂停
     lazy_df =

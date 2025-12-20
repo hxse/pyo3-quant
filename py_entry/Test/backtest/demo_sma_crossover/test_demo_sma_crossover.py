@@ -93,7 +93,7 @@ def test_basic_output_structure(backtest_df):
         "exit_short_price",
         "balance",
         "equity",
-        "peak_equity",
+        "current_drawdown",
         "trade_pnl_pct",
         "total_return_pct",
         "fee",

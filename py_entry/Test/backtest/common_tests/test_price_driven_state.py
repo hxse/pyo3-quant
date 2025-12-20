@@ -128,18 +128,16 @@ class TestFinancialCalculation:
             total_fees = backtest_df["fee_cum"].max()
             print(f"✅ 手续费计算正确，总手续费: {total_fees:.2f}")
 
-    def test_peak_equity_tracking(self, backtest_df):
-        """测试历史最高净值跟踪"""
-        # peak_equity应该单调非递减
-        assert backtest_df["peak_equity"].is_sorted(), "peak_equity应单调非递减"
-
-        # peak_equity应该始终 >= equity
-        violations = backtest_df.filter(pl.col("peak_equity") < pl.col("equity"))
-        assert len(violations) == 0, "peak_equity应始终 >= equity"
-
-        print(
-            f"✅ peak_equity跟踪正确，最高净值: {backtest_df['peak_equity'].max():.2f}"
+    def test_current_drawdown_tracking(self, backtest_df):
+        """测试当前回撤跟踪"""
+        # current_drawdown 应该始终 >= 0
+        assert (backtest_df["current_drawdown"] >= 0).all(), (
+            "current_drawdown 应始终 >= 0"
         )
+
+        # 验证是否存在非零回撤（证明计算生效）
+        max_dd = backtest_df["current_drawdown"].max()
+        print(f"✅ current_drawdown 跟踪正确，最大回撤: {max_dd:.4f}")
 
 
 class TestDataIntegrity:

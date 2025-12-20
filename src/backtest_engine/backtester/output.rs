@@ -10,8 +10,9 @@ pub struct OutputBuffers {
     pub balance: Vec<f64>,
     /// 账户净值（含未实现盈亏），带复利
     pub equity: Vec<f64>,
-    /// 历史最高净值（用于止损后暂停开仓判断）
-    pub peak_equity: Vec<f64>,
+    /// 当前回撤比例
+    pub current_drawdown: Vec<f64>,
+
     /// 单笔回报率
     pub trade_pnl_pct: Vec<f64>,
     /// 累计回报率，带复利
@@ -83,7 +84,7 @@ impl OutputBuffers {
             total_return_pct: vec![0.0; capacity],
             fee: vec![0.0; capacity],
             fee_cum: vec![0.0; capacity],
-            peak_equity: vec![0.0; capacity],
+            current_drawdown: vec![0.0; capacity],
 
             // 价格列
             entry_long_price: vec![0.0; capacity],
@@ -195,7 +196,10 @@ impl OutputBuffers {
             ),
             (ColumnName::Fee.as_str(), self.fee.len()),
             (ColumnName::FeeCum.as_str(), self.fee_cum.len()),
-            (ColumnName::PeakEquity.as_str(), self.peak_equity.len()),
+            (
+                ColumnName::CurrentDrawdown.as_str(),
+                self.current_drawdown.len(),
+            ),
             (
                 ColumnName::RiskInBarDirection.as_str(),
                 self.risk_in_bar_direction.len(),
@@ -321,7 +325,10 @@ impl OutputBuffers {
             ),
             (ColumnName::Fee.as_str(), &self.fee as &[f64]),
             (ColumnName::FeeCum.as_str(), &self.fee_cum as &[f64]),
-            (ColumnName::PeakEquity.as_str(), &self.peak_equity as &[f64]),
+            (
+                ColumnName::CurrentDrawdown.as_str(),
+                &self.current_drawdown as &[f64],
+            ),
         ];
 
         // 添加固定列
@@ -391,16 +398,18 @@ impl OutputBuffers {
         })
     }
 
-    /// 将 OutputBuffers 转换为只包含 equity 和 peak_equity 两列的 DataFrame
+    /// 将 OutputBuffers 转换为只包含 equity 和 current_drawdown 两列的 DataFrame
     ///
     /// # 返回
-    /// 只包含 equity 和 peak_equity 列的 DataFrame
+    /// 只包含 equity 和 current_drawdown 列的 DataFrame
     pub fn to_equity_dataframe(&self) -> Result<DataFrame, BacktestError> {
         let equity_series = Series::new(ColumnName::Equity.as_str().into(), &self.equity);
-        let peak_equity_series =
-            Series::new(ColumnName::PeakEquity.as_str().into(), &self.peak_equity);
+        let current_drawdown_series = Series::new(
+            ColumnName::CurrentDrawdown.as_str().into(),
+            &self.current_drawdown,
+        );
 
-        DataFrame::new(vec![equity_series.into(), peak_equity_series.into()]).map_err(|e| {
+        DataFrame::new(vec![equity_series.into(), current_drawdown_series.into()]).map_err(|e| {
             BacktestError::ValidationError(format!("Failed to create equity DataFrame: {}", e))
         })
     }

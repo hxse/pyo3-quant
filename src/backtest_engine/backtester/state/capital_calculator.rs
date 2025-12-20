@@ -50,6 +50,14 @@ impl BacktestState {
             self.capital_state.peak_equity = self.capital_state.equity;
         }
 
+        // 计算当前回撤
+        self.capital_state.current_drawdown = if self.capital_state.peak_equity > 0.0 {
+            (self.capital_state.peak_equity - self.capital_state.equity)
+                / self.capital_state.peak_equity
+        } else {
+            0.0
+        };
+
         // 计算总回报率（相对于初始资金）
         self.capital_state.total_return_pct =
             self.capital_state.equity / self.capital_state.initial_capital - 1.0;

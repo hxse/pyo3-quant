@@ -152,7 +152,7 @@ def required_fixed_cols():
         # 资金状态列
         "balance",
         "equity",
-        "peak_equity",
+        "current_drawdown",
         "trade_pnl_pct",
         "total_return_pct",
         "fee",
@@ -186,7 +186,7 @@ def financial_cols():
     return [
         "balance",
         "equity",
-        "peak_equity",
+        "current_drawdown",
         "trade_pnl_pct",
         "total_return_pct",
         "fee",

@@ -24,7 +24,7 @@ pub enum ColumnName {
     // OutputBuffers固定列名
     Balance,
     Equity,
-    PeakEquity,
+    CurrentDrawdown,
     TradePnlPct,
     TotalReturnPct,
     Fee,
@@ -76,7 +76,7 @@ impl ColumnName {
             // OutputBuffers固定列名
             ColumnName::Balance => "balance",
             ColumnName::Equity => "equity",
-            ColumnName::PeakEquity => "peak_equity",
+            ColumnName::CurrentDrawdown => "current_drawdown",
             ColumnName::TradePnlPct => "trade_pnl_pct",
             ColumnName::TotalReturnPct => "total_return_pct",
             ColumnName::Fee => "fee",

@@ -47,7 +47,10 @@ pub fn check_signal_only_columns(signals_df: &DataFrame, context: &str) -> Resul
 /// # 返回
 /// * `Result<(), QuantError>` - 如果缺少列则返回错误，否则成功
 pub fn check_equity_columns(equity_df: &DataFrame, context: &str) -> Result<(), QuantError> {
-    let required_columns = [ColumnName::Equity.as_str(), ColumnName::PeakEquity.as_str()];
+    let required_columns = [
+        ColumnName::Equity.as_str(),
+        ColumnName::CurrentDrawdown.as_str(),
+    ];
     let column_names: Vec<String> = equity_df
         .get_column_names()
         .iter()

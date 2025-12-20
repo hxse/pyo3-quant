@@ -17,7 +17,10 @@ pub struct CapitalState {
     /// 累计手续费
     pub fee_cum: f64,
     /// 历史最高净值（用于止损后暂停开仓判断）
+    /// 历史最高净值（用于止损后暂停开仓判断）
     pub peak_equity: f64,
+    /// 当前回撤比例
+    pub current_drawdown: f64,
 }
 impl CapitalState {
     /// 使用指定的初始本金创建新的 CapitalState
@@ -33,6 +36,7 @@ impl CapitalState {
             fee: 0.0,
             fee_cum: 0.0,
             peak_equity: initial_capital, // 初始最高净值设为初始本金
+            current_drawdown: 0.0,
         }
     }
 }

@@ -73,7 +73,7 @@ fn update_buffer_row(buffers: &mut OutputBuffers, state: &BacktestState, row_ind
     buffers.total_return_pct[row_index] = state.capital_state.total_return_pct;
     buffers.fee[row_index] = state.capital_state.fee;
     buffers.fee_cum[row_index] = state.capital_state.fee_cum;
-    buffers.peak_equity[row_index] = state.capital_state.peak_equity;
+    buffers.current_drawdown[row_index] = state.capital_state.current_drawdown;
 
     // === 价格列（价格驱动状态的核心） ===
     buffers.entry_long_price[row_index] = state.action.entry_long_price.unwrap_or(f64::NAN);

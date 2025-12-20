@@ -1,6 +1,6 @@
 """参数集定义"""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional
 from .param import Param
@@ -12,8 +12,20 @@ SignalParams = Dict[str, Param]
 
 class PerformanceMetric(str, Enum):
     TOTAL_RETURN = "total_return"
-    SHARPE_RATIO = "sharpe_ratio"
     MAX_DRAWDOWN = "max_drawdown"
+    MAX_DRAWDOWN_DURATION = "max_drawdown_duration"
+    SHARPE_RATIO = "sharpe_ratio"
+    SORTINO_RATIO = "sortino_ratio"
+    CALMAR_RATIO = "calmar_ratio"
+    TOTAL_TRADES = "total_trades"
+    AVG_DAILY_TRADES = "avg_daily_trades"
+    WIN_RATE = "win_rate"
+    PROFIT_LOSS_RATIO = "profit_loss_ratio"
+    AVG_HOLDING_DURATION = "avg_holding_duration"
+    AVG_EMPTY_DURATION = "avg_empty_duration"
+    MAX_HOLDING_DURATION = "max_holding_duration"
+    MAX_EMPTY_DURATION = "max_empty_duration"
+    MAX_SAFE_LEVERAGE = "max_safe_leverage"
 
 
 @dataclass
@@ -88,7 +100,18 @@ class BacktestParams:
 class PerformanceParams:
     """性能参数 - 对应 Rust PerformanceParams"""
 
-    metrics: List[PerformanceMetric]
+    metrics: List[PerformanceMetric] = field(
+        default_factory=lambda: [
+            PerformanceMetric.MAX_SAFE_LEVERAGE,
+            PerformanceMetric.TOTAL_RETURN,
+            PerformanceMetric.MAX_DRAWDOWN,
+            PerformanceMetric.SHARPE_RATIO,
+            PerformanceMetric.SORTINO_RATIO,
+            PerformanceMetric.CALMAR_RATIO,
+        ]
+    )
+    risk_free_rate: float = 0.0
+    leverage_safety_factor: float = 0.8
 
 
 @dataclass

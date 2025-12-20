@@ -279,6 +279,7 @@ fn execute_single_backtest(
     if processed_settings.execution_stage >= ExecutionStage::Performance && performance.is_none() {
         if let Some(ref bt_df) = backtest_df {
             performance = Some(performance_analyzer::analyze_performance(
+                processed_data,
                 bt_df,
                 &single_param.performance,
             )?);

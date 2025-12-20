@@ -198,7 +198,8 @@ else if has_position():
 - `exit_long_price`, `exit_short_price`: 多空离场价（含策略信号与风控触发）
 
 #### 资金状态列
-- `balance`, `equity`, `peak_equity`
+- `balance`, `equity`
+- `current_drawdown`: 当前回撤比例 (0~1范围，用于绩效分析)
 - `trade_pnl_pct`, `total_return_pct`
 - `fee`, `fee_cum`
 

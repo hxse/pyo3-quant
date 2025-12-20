@@ -53,7 +53,7 @@ pub fn switch_prices_next_bar(
     params: &BacktestParams,
     is_long_position: bool,
 ) -> (f64, f64) {
-    if params.exit_in_bar_fallback {
+    if params.use_extrema_for_exit {
         if is_long_position {
             // 多头：用最低价检查止损，用最高价检查止盈
             (current_bar.low, current_bar.high)

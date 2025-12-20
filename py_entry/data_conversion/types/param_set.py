@@ -59,8 +59,10 @@ class BacktestParams:
     # `false` 表示延迟到下一根K线的开盘价离场。
     exit_in_bar: bool
 
-    # exit_in_bar只覆盖sl,tp, exit_in_bar_fallback定义exit_in_bar不覆盖时的行为
-    exit_in_bar_fallback: bool
+    # 是否使用极值价格（high/low）检查止盈止损。
+    # `True` 表示使用当前K线的最高价/最低价来检查止损止盈条件。
+    # `False` 表示使用当前K线的收盘价来检查。
+    use_extrema_for_exit: bool
 
     # === 止损止盈参数 (百分比) ===
     # 百分比止损阈值。当仓位亏损达到此百分比时触发止损。

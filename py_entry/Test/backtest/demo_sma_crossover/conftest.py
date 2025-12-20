@@ -98,18 +98,18 @@ def backtest_result(ohlcv_15m):
         initial_capital=10000.0,
         fee_fixed=0.0,
         fee_pct=0.001,  # 0.1%手续费
-        pause_drawdown=Param.create(0, 0, 0, 0),
-        pause_sma=Param.create(0, 0, 0, 0),
-        pause_ema=Param.create(0, 0, 0, 0),
+        pause_drawdown=Param.create(0),
+        pause_sma=Param.create(0),
+        pause_ema=Param.create(0),
         exit_in_bar=False,
-        exit_in_bar_fallback=False,
-        sl_pct=Param.create(0, 0, 0, 0),  # 禁用
-        tp_pct=Param.create(0, 0, 0, 0),  # 禁用
-        tsl_pct=Param.create(0, 0, 0, 0),  # 禁用
-        sl_atr=Param.create(0, 0, 0, 0),  # 禁用
-        tp_atr=Param.create(0, 0, 0, 0),  # 禁用
-        tsl_atr=Param.create(0, 0, 0, 0),  # 禁用
-        atr_period=Param.create(14, 7, 21, 1),
+        use_extrema_for_exit=False,
+        sl_pct=Param.create(0),
+        tp_pct=Param.create(0),
+        tsl_pct=Param.create(0),
+        sl_atr=Param.create(0),
+        tp_atr=Param.create(0),
+        tsl_atr=Param.create(0),
+        atr_period=Param.create(14),
     )
 
     # 信号模板：双均线交叉策略

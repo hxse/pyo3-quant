@@ -44,7 +44,7 @@ def full_performance_result():
         pause_sma=Param.create(0),
         pause_ema=Param.create(0),
         exit_in_bar=False,
-        exit_in_bar_fallback=False,
+        use_extrema_for_exit=False,
         sl_pct=Param.create(2),
         tp_pct=Param.create(5),
     )

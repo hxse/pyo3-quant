@@ -127,7 +127,7 @@ def build_backtest_params(
         pause_sma=Param.create(0, 0, 0, 0),
         pause_ema=Param.create(0, 0, 0, 0),
         exit_in_bar=False,
-        exit_in_bar_fallback=False,
+        use_extrema_for_exit=False,
         sl_pct=Param.create(2, 0.5, 5, 0.1),
         tp_pct=Param.create(2, 0.5, 5, 0.1),
         tsl_pct=Param.create(1, 0.5, 3, 0.1),

@@ -116,8 +116,10 @@ pub struct BacktestParams {
     /// `false` 表示延迟到下一根K线的开盘价离场。
     pub exit_in_bar: bool,
 
-    /// exit_in_bar只覆盖sl,tp, exit_in_bar_fallback定义exit_in_bar不覆盖时的行为
-    pub exit_in_bar_fallback: bool,
+    /// 是否使用极值价格（high/low）检查止盈止损。
+    /// `true` 表示使用当前K线的最高价/最低价来检查止损止盈条件。
+    /// `false` 表示使用当前K线的收盘价来检查。
+    pub use_extrema_for_exit: bool,
 
     // === 资金管理 ===
     /// 初始本金。回测开始时的账户资金量 (USD)。
@@ -138,7 +140,6 @@ pub struct BacktestParams {
     ///暂停开仓阈值。当账户净值小于账户净值的ema时,暂停所有新开仓
     pub pause_ema: Param,
 }
-
 impl BacktestParams {
     /// 检查sl_pct参数是否有效（不验证其他参数）。
     /// 当 `sl_pct` 存在且其值大于 0.0 时，返回 true。
@@ -162,13 +163,6 @@ impl BacktestParams {
         self.tsl_pct
             .as_ref()
             .map_or(false, |param| param.value > 0.0)
-    }
-
-    /// 检查是否有任一百分比参数（sl_pct、tp_pct、tsl_pct）有效。
-    pub fn has_any_pct_param(&self) -> bool {
-        self.is_sl_pct_param_valid()
-            || self.is_tp_pct_param_valid()
-            || self.is_tsl_pct_param_valid()
     }
 
     /// 检查sl_atr参数是否有效（不验证atr_period）。

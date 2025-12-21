@@ -110,6 +110,12 @@ pub struct BacktestParams {
     /// 如果值 <= 0.0，则所有ATR相关的止损止盈功能都不会启用。
     pub atr_period: Option<Param>,
 
+    /// ATR跟踪止损更新模式。
+    /// `false` (默认) 表示只有在价格突破新高/低时才更新TSL ATR价格。
+    /// `true` 表示每根K线都会尝试更新TSL ATR价格。
+    /// 无论设置如何，多头TSL只能上移，空头TSL只能下移。
+    pub tsl_atr_tight: bool,
+
     // === 离场方式 ===
     /// 离场时机选择。
     /// `true` 表示在当前K线内部触发条件时立即离场。

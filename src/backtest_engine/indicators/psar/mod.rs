@@ -109,9 +109,11 @@ pub fn psar_expr(config: &PSARConfig) -> Result<Expr, QuantError> {
                     low_vec[0],
                     low_vec[1],
                     close_vec[0],
+                    0,
                     af0,
                     af_step,
                     max_af,
+
                 );
                 psar_long[1] = long_val;
                 psar_short[1] = short_val;

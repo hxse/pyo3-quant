@@ -153,13 +153,29 @@ impl BacktestState {
             Direction::Short => self.risk_state.lowest_since_entry,
         };
 
+        let mut extremum_updated = false;
         let extremum = if is_first_entry {
+            extremum_updated = true;
             entry_price
         } else {
             let prev = stored_extremum.unwrap_or(entry_price);
             match direction {
-                Direction::Long => prev.max(current_extremum),
-                Direction::Short => prev.min(current_extremum),
+                Direction::Long => {
+                    if current_extremum > prev {
+                        extremum_updated = true;
+                        current_extremum
+                    } else {
+                        prev
+                    }
+                }
+                Direction::Short => {
+                    if current_extremum < prev {
+                        extremum_updated = true;
+                        current_extremum
+                    } else {
+                        prev
+                    }
+                }
             }
         };
 
@@ -175,14 +191,23 @@ impl BacktestState {
         // PCT TSL
         if params.is_tsl_pct_param_valid() {
             let tsl_pct = params.tsl_pct.as_ref().unwrap().value;
-            // Long: high * (1 - pct)
-            // Short: low * (1 + pct)
             // 通用: extremum * (1.0 - sign * tsl_pct)
             let calculated_tsl_price = extremum * (1.0 - sign * tsl_pct);
+
             match direction {
-                Direction::Long => self.risk_state.tsl_pct_price_long = Some(calculated_tsl_price),
+                Direction::Long => {
+                    // 多头：只升不降
+                    let old_price = self.risk_state.tsl_pct_price_long;
+                    if old_price.is_none() || calculated_tsl_price > old_price.unwrap() {
+                        self.risk_state.tsl_pct_price_long = Some(calculated_tsl_price);
+                    }
+                }
                 Direction::Short => {
-                    self.risk_state.tsl_pct_price_short = Some(calculated_tsl_price)
+                    // 空头：只降不升
+                    let old_price = self.risk_state.tsl_pct_price_short;
+                    if old_price.is_none() || calculated_tsl_price < old_price.unwrap() {
+                        self.risk_state.tsl_pct_price_short = Some(calculated_tsl_price);
+                    }
                 }
             }
         }
@@ -190,14 +215,34 @@ impl BacktestState {
         // ATR TSL
         if params.is_tsl_atr_param_valid() && current_atr.is_some() {
             let tsl_atr = params.tsl_atr.as_ref().unwrap().value;
-            // Long: high - atr * k
-            // Short: low + atr * k
-            // 通用: extremum - sign * atr * k
+            // 通用: extremum - sign * current_atr.unwrap() * tsl_atr
             let calculated_tsl_price = extremum - sign * current_atr.unwrap() * tsl_atr;
-            match direction {
-                Direction::Long => self.risk_state.tsl_atr_price_long = Some(calculated_tsl_price),
-                Direction::Short => {
-                    self.risk_state.tsl_atr_price_short = Some(calculated_tsl_price)
+
+            // 判断是否应该更新 TSL 价格
+            let should_update = if params.tsl_atr_tight {
+                // tight 模式：每根K线都尝试更新 (配合方向限制)
+                true
+            } else {
+                // 非 tight 模式：只有极值更新时才尝试更新 (配合方向限制)
+                extremum_updated
+            };
+
+            if should_update {
+                match direction {
+                    Direction::Long => {
+                        // 多头：只升不降
+                        let old_price = self.risk_state.tsl_atr_price_long;
+                        if old_price.is_none() || calculated_tsl_price > old_price.unwrap() {
+                            self.risk_state.tsl_atr_price_long = Some(calculated_tsl_price);
+                        }
+                    }
+                    Direction::Short => {
+                        // 空头：只降不升
+                        let old_price = self.risk_state.tsl_atr_price_short;
+                        if old_price.is_none() || calculated_tsl_price < old_price.unwrap() {
+                            self.risk_state.tsl_atr_price_short = Some(calculated_tsl_price);
+                        }
+                    }
                 }
             }
         }

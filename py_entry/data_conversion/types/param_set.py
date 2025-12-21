@@ -92,6 +92,12 @@ class BacktestParams:
     # 如果值 <= 0.0，则所有ATR相关的止损止盈功能都不会启用。
     atr_period: Optional[Param] = None
 
+    # ATR跟踪止损更新模式。
+    # `False` (默认) 表示只有在价格突破新高/低时才更新TSL ATR价格。
+    # `True` 表示每根K线都会尝试更新TSL ATR价格。
+    # 无论设置如何，多头TSL只能上移，空头TSL只能下移。
+    tsl_atr_tight: bool = False
+
 
 @dataclass
 class PerformanceParams:

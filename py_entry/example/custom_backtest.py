@@ -79,11 +79,12 @@ backtest_params = BacktestParams(
     pause_ema=Param.create(0),
     exit_in_bar=True,
     use_extrema_for_exit=False,
+    tsl_atr_tight=False,
     sl_pct=Param.create(0.02),
     # tp_pct=Param.create(0.05),
     # tsl_pct=Param.create(0.02),
     # sl_atr=Param.create(2),
-    tp_atr=Param.create(4),
+    # tp_atr=Param.create(4),
     tsl_atr=Param.create(2),
     atr_period=Param.create(14),
 )

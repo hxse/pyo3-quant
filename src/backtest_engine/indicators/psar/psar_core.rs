@@ -51,11 +51,20 @@ pub(crate) fn psar_first_iteration(
     low_prev: f64,
     low_curr: f64,
     close_prev: f64,
+    force_direction_int: i32,
     af0: f64,
     af_step: f64,
     max_af: f64,
 ) -> (PsarState, f64, f64, f64) {
-    let mut state = psar_init(high_prev, high_curr, low_prev, low_curr, close_prev, 0, af0);
+    let mut state = psar_init(
+        high_prev,
+        high_curr,
+        low_prev,
+        low_curr,
+        close_prev,
+        force_direction_int,
+        af0,
+    );
     let mut psar_long_val = f64::NAN;
     let mut psar_short_val = f64::NAN;
     let mut reversal_val = 0.0;
@@ -217,7 +226,7 @@ pub(crate) fn calc_psar_core(
 
     // 索引1：调用psar_first_iteration计算（有实际值）
     let (state, long_val, short_val, rev_val) = psar_first_iteration(
-        high[0], high[1], low[0], low[1], close[0], af0, af_step, max_af,
+        high[0], high[1], low[0], low[1], close[0], 0, af0, af_step, max_af,
     );
     psar_long[1] = long_val;
     psar_short[1] = short_val;

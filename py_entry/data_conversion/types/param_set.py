@@ -27,6 +27,7 @@ class PerformanceMetric(str, Enum):
     MAX_EMPTY_DURATION = "max_empty_duration"
     MAX_SAFE_LEVERAGE = "max_safe_leverage"
     ANNUALIZATION_FACTOR = "annualization_factor"
+    HAS_LEADING_NAN_COUNT = "has_leading_nan_count"
 
 
 @dataclass

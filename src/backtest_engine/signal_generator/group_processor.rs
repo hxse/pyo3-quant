@@ -16,8 +16,9 @@ pub fn process_signal_group(
     processed_data: &DataContainer,
     indicator_dfs: &IndicatorResults,
     signal_params: &SignalParams,
-) -> Result<BooleanChunked, QuantError> {
+) -> Result<(BooleanChunked, BooleanChunked), QuantError> {
     let mut combined_result: Option<BooleanChunked> = None;
+    let mut combined_mask: Option<BooleanChunked> = None;
 
     // 1. 处理 comparisons (字符串列表)
     for comparison_str in group.comparisons.iter() {
@@ -25,7 +26,7 @@ pub fn process_signal_group(
         let condition = parse_condition(comparison_str)?;
 
         // 评估条件
-        let result_series =
+        let (result_series, mask_bool) =
             evaluate_parsed_condition(&condition, processed_data, indicator_dfs, signal_params)?;
 
         let result_bool = result_series.bool()?.clone();
@@ -41,11 +42,18 @@ pub fn process_signal_group(
                 combined_result = Some(new_combined);
             }
         }
+
+        match combined_mask {
+            None => combined_mask = Some(mask_bool),
+            Some(current) => {
+                combined_mask = Some(current.bitor(mask_bool));
+            }
+        }
     }
 
     // 2. 递归处理 sub_groups
     for sub_group in &group.sub_groups {
-        let sub_result =
+        let (sub_result, sub_mask) =
             process_signal_group(sub_group, processed_data, indicator_dfs, signal_params)?;
 
         match combined_result {
@@ -55,23 +63,25 @@ pub fn process_signal_group(
                 LogicOp::OR => combined_result = Some(current.bitor(sub_result)),
             },
         }
+
+        match combined_mask {
+            None => combined_mask = Some(sub_mask),
+            Some(current) => {
+                combined_mask = Some(current.bitor(sub_mask));
+            }
+        }
     }
 
     // 如果没有任何条件，返回全 false (或者根据业务逻辑决定)
     // 这里假设空组不产生信号，或者应该报错?
     // 既然是 Option, 如果是 None, 我们返回全 False 的 Series?
     // 或者返回 Error?
-    // 为了安全起见，如果 combined_result 为 None，创建一个全 False 的 ChunkedArray
-    match combined_result {
-        Some(res) => Ok(res),
-        None => {
-            // 获取数据长度
-            let len = get_data_length(processed_data, "process_signal_group")?;
-            Ok(BooleanChunked::full(
-                PlSmallStr::from_static("result"),
-                false,
-                len,
-            ))
-        }
-    }
+    // 为安全起见，如果 combined_result 为 None，创建一个全 False 的 ChunkedArray
+    let len = get_data_length(processed_data, "process_signal_group")?;
+    let res = combined_result
+        .unwrap_or_else(|| BooleanChunked::full(PlSmallStr::from_static("result"), false, len));
+    let mask = combined_mask
+        .unwrap_or_else(|| BooleanChunked::full(PlSmallStr::from_static("mask"), false, len));
+
+    Ok((res, mask))
 }

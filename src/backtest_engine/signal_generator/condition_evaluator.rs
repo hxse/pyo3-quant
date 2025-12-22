@@ -14,7 +14,7 @@ fn perform_comparison(
     right_idx: usize, // Index for right series if it's a vector
     compare_series: impl Fn(&Series, &Series) -> PolarsResult<BooleanChunked>,
     compare_scalar: impl Fn(&Series, f64) -> PolarsResult<BooleanChunked>,
-) -> Result<BooleanChunked, QuantError> {
+) -> Result<(BooleanChunked, BooleanChunked), QuantError> {
     // 1. 执行原始比较
     let raw_result = match right {
         ResolvedOperand::Series(series_vec) => {
@@ -55,18 +55,22 @@ fn perform_comparison(
                 // 返回全 True 的掩码 (或者直接返回全 False 的结果)
                 // 这里我们构造一个全 True 的掩码来与 left_invalid 合并 (实际上 logical OR true = true)
                 // 为简单起见，后续直接处理
-                return Ok(raw_result.apply(|_| Some(false)));
+                let mask =
+                    BooleanChunked::full(left_invalid.name().clone(), true, left_invalid.len());
+                return Ok((raw_result.apply(|_| Some(false)), mask));
             }
             // 标量有效，掩码仅取决于左侧
             left_invalid
         }
     };
 
-    // 4. 过滤结果
+    // 4. 计算前导 NaN 掩码 (NaN 或 Null)
+    // 注意：perform_comparison 的逻辑原本是用 !invalid 过滤 raw_result
+    // 我们直接返回 final_mask 记录该位置是否有 NaN
+
+    // 5. 过滤结果
     // result = raw_result & (!invalid)
-    // 如果 raw_result 是 Null (因 Null 传播)，!invalid 是 False (因 invalid 是 True)，
-    // Null & False -> False. 正确.
-    Ok(raw_result.bitand(final_mask.not()))
+    Ok((raw_result.bitand(final_mask.clone().not()), final_mask))
 }
 
 /// 执行简单比较（非交叉）的工具函数
@@ -76,7 +80,7 @@ fn perform_simple_comparison(
     right_idx: usize,
     compare_series: impl Fn(&Series, &Series) -> PolarsResult<BooleanChunked>,
     compare_scalar: impl Fn(&Series, f64) -> PolarsResult<BooleanChunked>,
-) -> Result<BooleanChunked, QuantError> {
+) -> Result<(BooleanChunked, BooleanChunked), QuantError> {
     perform_comparison(
         left_s,
         right_resolved,
@@ -95,9 +99,9 @@ fn perform_crossover_comparison(
     right_idx: usize,
     compare_series: impl Fn(&Series, &Series) -> PolarsResult<BooleanChunked> + Copy,
     compare_scalar: impl Fn(&Series, f64) -> PolarsResult<BooleanChunked> + Copy,
-) -> Result<BooleanChunked, QuantError> {
+) -> Result<(BooleanChunked, BooleanChunked), QuantError> {
     // 当前值的比较
-    let current = perform_comparison(
+    let (current, current_mask) = perform_comparison(
         left_s,
         right_resolved,
         right_idx,
@@ -116,7 +120,7 @@ fn perform_crossover_comparison(
     };
 
     // 前一个值的比较
-    let prev = perform_comparison(
+    let (prev, prev_mask) = perform_comparison(
         &prev_left,
         &prev_right_resolved,
         0, // right_idx is 0 because we constructed a vec of 1
@@ -124,8 +128,8 @@ fn perform_crossover_comparison(
         compare_scalar,
     )?;
 
-    // 返回：当前满足 AND 前值不满足
-    Ok(current.bitand(prev.not()))
+    // 返回：(当前满足 AND 前值不满足, 当前掩码 OR 前值掩码)
+    Ok((current.bitand(prev.not()), current_mask.bitor(prev_mask)))
 }
 
 pub fn evaluate_parsed_condition(
@@ -133,7 +137,7 @@ pub fn evaluate_parsed_condition(
     processed_data: &DataContainer,
     indicator_dfs: &IndicatorResults,
     signal_params: &SignalParams,
-) -> Result<Series, QuantError> {
+) -> Result<(Series, BooleanChunked), QuantError> {
     let left_series_vec = resolve_data_operand(&condition.left, processed_data, indicator_dfs)?;
     let right_resolved = resolve_right_operand(
         &condition.right,
@@ -233,11 +237,12 @@ pub fn evaluate_parsed_condition(
     };
 
     let mut final_result: Option<BooleanChunked> = None;
+    let mut final_mask: Option<BooleanChunked> = None;
 
     for (left_idx, right_idx) in comparison_pairs {
         let left_s = &left_series_vec[left_idx];
 
-        let comparison_result = match condition.op {
+        let (comparison_result, mask_result) = match condition.op {
             CompareOp::GT => perform_simple_comparison(
                 left_s,
                 &right_resolved,
@@ -334,6 +339,15 @@ pub fn evaluate_parsed_condition(
                 }
             }
         }
+
+        match final_mask {
+            None => final_mask = Some(mask_result),
+            Some(ref mut m) => {
+                // 对于 NaN 掩码，无论是 AND 还是 OR 逻辑，我们都倾向于追踪任何一个 NaN。
+                // 这样用户知道这组计算中只要有一个 NaN。
+                *m = m.clone().bitor(mask_result);
+            }
+        }
     }
 
     let mut result_series = final_result
@@ -357,5 +371,9 @@ pub fn evaluate_parsed_condition(
         result_series = bool_chunked.not().into_series();
     }
 
-    Ok(result_series)
+    let mask = final_mask.ok_or_else(|| {
+        QuantError::Signal(SignalError::InvalidInput("Empty mask result".to_string()))
+    })?;
+
+    Ok((result_series, mask))
 }

@@ -11,6 +11,7 @@ use pyo3_polars::PyDataFrame;
 
 use polars::prelude::*;
 use std::collections::HashMap;
+use std::ops::BitOr;
 
 pub mod condition_evaluator;
 pub mod group_processor;
@@ -27,13 +28,17 @@ fn process_signal_field_helper(
     indicator_dfs: &IndicatorResults,
     signal_params: &SignalParams,
     target_series: &mut Series,
+    total_nan_mask: &mut BooleanChunked,
 ) -> Result<(), QuantError> {
     if let Some(group) = group {
-        let group_result =
+        let (group_result, group_mask) =
             process_signal_group(group, processed_data, indicator_dfs, signal_params)?;
         // 使用 bitor 操作合并结果，避免不必要的 clone
         let result_chunked = target_series.bool()? | &group_result;
         *target_series = result_chunked.into_series();
+
+        // 合并 NaN 掩码到总掩码中
+        *total_nan_mask = total_nan_mask.clone().bitor(group_mask);
     }
     Ok(())
 }
@@ -65,12 +70,16 @@ pub fn generate_signals(
         BooleanChunked::full(ColumnName::ExitShort.as_pl_small_str(), false, data_len)
             .into_series();
 
+    let mut total_nan_mask =
+        BooleanChunked::full(ColumnName::HasLeadingNan.as_pl_small_str(), false, data_len);
+
     process_signal_field_helper(
         signal_template.enter_long.as_ref(),
         processed_data,
         indicator_dfs,
         signal_params,
         &mut enter_long_series,
+        &mut total_nan_mask,
     )?;
     process_signal_field_helper(
         signal_template.exit_long.as_ref(),
@@ -78,6 +87,7 @@ pub fn generate_signals(
         indicator_dfs,
         signal_params,
         &mut exit_long_series,
+        &mut total_nan_mask,
     )?;
     process_signal_field_helper(
         signal_template.enter_short.as_ref(),
@@ -85,6 +95,7 @@ pub fn generate_signals(
         indicator_dfs,
         signal_params,
         &mut enter_short_series,
+        &mut total_nan_mask,
     )?;
     process_signal_field_helper(
         signal_template.exit_short.as_ref(),
@@ -92,6 +103,7 @@ pub fn generate_signals(
         indicator_dfs,
         signal_params,
         &mut exit_short_series,
+        &mut total_nan_mask,
     )?;
 
     let signals_df = DataFrame::new(vec![
@@ -99,6 +111,7 @@ pub fn generate_signals(
         exit_long_series.into_column(),
         enter_short_series.into_column(),
         exit_short_series.into_column(),
+        total_nan_mask.into_series().into_column(),
     ])?;
 
     Ok(signals_df)

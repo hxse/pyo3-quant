@@ -203,8 +203,17 @@ fn execute_single_backtest(
 
     // 3. 执行回测阶段
     // 只有当执行阶段 >= Backtest 时才执行
+    // 提前计算 has_leading_nan 计数（在 signals_df 被释放前）
+    let mut has_leading_nan_count: Option<u32> = None;
     if processed_settings.execution_stage >= ExecutionStage::Backtest {
         if let Some(ref sig_df) = signals_df {
+            // 提取 has_leading_nan 计数
+            has_leading_nan_count = sig_df
+                .column("has_leading_nan")
+                .ok()
+                .and_then(|col| col.bool().ok())
+                .map(|bool_col| bool_col.sum().unwrap_or(0));
+
             backtest_df = if let Some(bt) = backtest_df {
                 // 增量回测：基于已有回测结果继续
                 Some(backtester::run_backtest_with_input(
@@ -234,6 +243,7 @@ fn execute_single_backtest(
                 processed_data,
                 bt_df,
                 &single_param.performance,
+                has_leading_nan_count,
             )?);
             // 在 return_only_final 模式下，绩效计算完成后立即释放回测数据
             utils::maybe_release_backtest(processed_settings.return_only_final, &mut backtest_df);

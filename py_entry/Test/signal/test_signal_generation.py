@@ -121,7 +121,13 @@ def test_signal_scenario(scenario, setting_container):
 
         # 7. 对比结果（如果不一致，打印详情）
         try:
-            assert_frame_equal(engine_signals, manual_signals)
+            # 临时移除 has_leading_nan 列进行对比，因为手动计算函数尚未适配此列
+            engine_signals_to_compare = (
+                engine_signals.drop("has_leading_nan")
+                if "has_leading_nan" in engine_signals.columns
+                else engine_signals
+            )
+            assert_frame_equal(engine_signals_to_compare, manual_signals)
             print(f"\n✓ 场景 {scenario.name} 测试通过！")
         except AssertionError:
             print(f"\n✗ 场景 {scenario.name} 测试失败！")

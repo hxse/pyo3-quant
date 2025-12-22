@@ -1,5 +1,5 @@
 use super::backtest_state::BacktestState;
-use super::risk_trigger::risk_check::Direction;
+use super::risk_trigger;
 use crate::data_conversion::BacktestParams;
 
 impl BacktestState {
@@ -66,17 +66,19 @@ impl BacktestState {
         self.risk_state.reset_exit_state();
 
         if self.has_long_position() {
-            self.check_risk_exit(params, self.current_bar.atr, Direction::Long);
+            self.check_risk_exit(params, self.current_bar.atr, risk_trigger::Direction::Long);
             // 如果 in_bar 模式触发，设置 exit_long_price
             if self.risk_state.should_exit_in_bar_long() {
-                self.action.exit_long_price = self.risk_state.exit_long_price;
+                self.action.exit_long_price =
+                    self.risk_state.exit_price(risk_trigger::Direction::Long);
             }
         }
         if self.has_short_position() {
-            self.check_risk_exit(params, self.current_bar.atr, Direction::Short);
+            self.check_risk_exit(params, self.current_bar.atr, risk_trigger::Direction::Short);
             // 如果 in_bar 模式触发，设置 exit_short_price
             if self.risk_state.should_exit_in_bar_short() {
-                self.action.exit_short_price = self.risk_state.exit_short_price;
+                self.action.exit_short_price =
+                    self.risk_state.exit_price(risk_trigger::Direction::Short);
             }
         }
     }

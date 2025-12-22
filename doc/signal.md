@@ -13,7 +13,6 @@
 ```python
 @dataclass
 class SignalTemplate:
-    name: str
     # 多头入场信号组
     enter_long: Optional[SignalGroup] = None
     # 多头出场信号组
@@ -32,7 +31,7 @@ class SignalTemplate:
 @dataclass
 class SignalGroup:
     # 逻辑运算符: 'AND' 或 'OR'
-    logic: str 
+    logic: str
     # 字符串格式的比较条件列表
     comparisons: List[str]
     # 嵌套的子信号组列表
@@ -183,3 +182,22 @@ SignalGroup(
     ]
 )
 ```
+
+---
+
+## 4. 信号生成输出
+
+`BacktestRunner.run()` 执行完成后，信号生成器会返回一个 `DataFrame`，其中包含以下固定列：
+
+| 列名 | 类型 | 描述 |
+| :--- | :--- | :--- |
+| `enter_long` | `bool` | 是否触发多头入场信号 |
+| `exit_long` | `bool` | 是否触发多头出场信号 |
+| `enter_short` | `bool` | 是否触发空头入场信号 |
+| `exit_short` | `bool` | 是否触发空头出场信号 |
+| `has_leading_nan` | `bool` | **无效数据标记**。在参与信号生成的任何指标、数据、参数中，如果当前位置有 `NaN` 或 `Null`，则标记为 `True`（未参与信号生成的数据不被记录）。 |
+
+**`has_leading_nan` 的作用：**
+- 帮助识别策略的“数据预热期”长度。例如使用 SMA(200) 时，前 199 根 K 线的该列通常为 `True`。
+- 帮助识别中间缺失的数据或计算异常（如除以零产生的 NaN）。
+- **信号完整性**：信号评估逻辑在检测到数据无效时，会同步将该位置的信号设为 `False` 并在 `has_leading_nan` 中标记为 `True`，以保证回测的严格性。

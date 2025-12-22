@@ -1,6 +1,6 @@
 //! TSL PSAR 模块 - 使用 Parabolic SAR 作为跟踪止损
 
-use super::risk_check::Direction;
+use super::Direction;
 use crate::backtest_engine::indicators::psar::psar_core::{
     psar_init, psar_update, ForceDirection, PsarState,
 };
@@ -141,20 +141,4 @@ pub fn update_tsl_psar(
     };
 
     (new_state, psar_price)
-}
-
-/// 检查 PSAR 止损是否触发
-///
-/// # 参数
-/// * `psar_price` - PSAR 止损价格
-/// * `check_price` - 用于检查的价格（通常是 close 或 low/high）
-/// * `direction` - 持仓方向
-///
-/// # 返回
-/// * `bool` - true 表示触发止损
-pub fn check_tsl_psar_triggered(psar_price: f64, check_price: f64, direction: Direction) -> bool {
-    match direction {
-        Direction::Long => check_price <= psar_price, // 多头：价格跌破 PSAR
-        Direction::Short => check_price >= psar_price, // 空头：价格涨破 PSAR
-    }
 }

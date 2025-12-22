@@ -1,3 +1,4 @@
+use super::direction::Direction;
 use crate::backtest_engine::indicators::psar::psar_core::PsarState;
 
 #[derive(Debug, Clone)]
@@ -70,6 +71,138 @@ impl Default for RiskState {
 }
 
 impl RiskState {
+    // --- 辅助访问方法 (按方向) ---
+
+    pub fn sl_pct_price(&self, dir: Direction) -> Option<f64> {
+        match dir {
+            Direction::Long => self.sl_pct_price_long,
+            Direction::Short => self.sl_pct_price_short,
+        }
+    }
+    pub fn set_sl_pct_price(&mut self, dir: Direction, val: Option<f64>) {
+        match dir {
+            Direction::Long => self.sl_pct_price_long = val,
+            Direction::Short => self.sl_pct_price_short = val,
+        }
+    }
+
+    pub fn tp_pct_price(&self, dir: Direction) -> Option<f64> {
+        match dir {
+            Direction::Long => self.tp_pct_price_long,
+            Direction::Short => self.tp_pct_price_short,
+        }
+    }
+    pub fn set_tp_pct_price(&mut self, dir: Direction, val: Option<f64>) {
+        match dir {
+            Direction::Long => self.tp_pct_price_long = val,
+            Direction::Short => self.tp_pct_price_short = val,
+        }
+    }
+
+    pub fn sl_atr_price(&self, dir: Direction) -> Option<f64> {
+        match dir {
+            Direction::Long => self.sl_atr_price_long,
+            Direction::Short => self.sl_atr_price_short,
+        }
+    }
+    pub fn set_sl_atr_price(&mut self, dir: Direction, val: Option<f64>) {
+        match dir {
+            Direction::Long => self.sl_atr_price_long = val,
+            Direction::Short => self.sl_atr_price_short = val,
+        }
+    }
+
+    pub fn tp_atr_price(&self, dir: Direction) -> Option<f64> {
+        match dir {
+            Direction::Long => self.tp_atr_price_long,
+            Direction::Short => self.tp_atr_price_short,
+        }
+    }
+    pub fn set_tp_atr_price(&mut self, dir: Direction, val: Option<f64>) {
+        match dir {
+            Direction::Long => self.tp_atr_price_long = val,
+            Direction::Short => self.tp_atr_price_short = val,
+        }
+    }
+
+    pub fn tsl_pct_price(&self, dir: Direction) -> Option<f64> {
+        match dir {
+            Direction::Long => self.tsl_pct_price_long,
+            Direction::Short => self.tsl_pct_price_short,
+        }
+    }
+    pub fn set_tsl_pct_price(&mut self, dir: Direction, val: Option<f64>) {
+        match dir {
+            Direction::Long => self.tsl_pct_price_long = val,
+            Direction::Short => self.tsl_pct_price_short = val,
+        }
+    }
+
+    pub fn tsl_atr_price(&self, dir: Direction) -> Option<f64> {
+        match dir {
+            Direction::Long => self.tsl_atr_price_long,
+            Direction::Short => self.tsl_atr_price_short,
+        }
+    }
+    pub fn set_tsl_atr_price(&mut self, dir: Direction, val: Option<f64>) {
+        match dir {
+            Direction::Long => self.tsl_atr_price_long = val,
+            Direction::Short => self.tsl_atr_price_short = val,
+        }
+    }
+
+    pub fn tsl_psar_price(&self, dir: Direction) -> Option<f64> {
+        match dir {
+            Direction::Long => self.tsl_psar_price_long,
+            Direction::Short => self.tsl_psar_price_short,
+        }
+    }
+    pub fn set_tsl_psar_price(&mut self, dir: Direction, val: Option<f64>) {
+        match dir {
+            Direction::Long => self.tsl_psar_price_long = val,
+            Direction::Short => self.tsl_psar_price_short = val,
+        }
+    }
+
+    pub fn extremum_since_entry(&self, dir: Direction) -> Option<f64> {
+        match dir {
+            Direction::Long => self.highest_since_entry,
+            Direction::Short => self.lowest_since_entry,
+        }
+    }
+    pub fn set_extremum_since_entry(&mut self, dir: Direction, val: Option<f64>) {
+        match dir {
+            Direction::Long => self.highest_since_entry = val,
+            Direction::Short => self.lowest_since_entry = val,
+        }
+    }
+
+    pub fn tsl_psar_state(&self, dir: Direction) -> &Option<PsarState> {
+        match dir {
+            Direction::Long => &self.tsl_psar_state_long,
+            Direction::Short => &self.tsl_psar_state_short,
+        }
+    }
+    pub fn set_tsl_psar_state(&mut self, dir: Direction, val: Option<PsarState>) {
+        match dir {
+            Direction::Long => self.tsl_psar_state_long = val,
+            Direction::Short => self.tsl_psar_state_short = val,
+        }
+    }
+
+    pub fn exit_price(&self, dir: Direction) -> Option<f64> {
+        match dir {
+            Direction::Long => self.exit_long_price,
+            Direction::Short => self.exit_short_price,
+        }
+    }
+    pub fn set_exit_price(&mut self, dir: Direction, val: Option<f64>) {
+        match dir {
+            Direction::Long => self.exit_long_price = val,
+            Direction::Short => self.exit_short_price = val,
+        }
+    }
+
     /// 重置 risk 触发状态（每次风险检查前调用）
     ///
     /// 只重置触发相关字段，保留风险价格阈值（持仓期间需要保持）

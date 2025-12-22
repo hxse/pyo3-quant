@@ -61,6 +61,11 @@ pub struct OutputBuffers {
     /// ATR跟踪止损价格（空头）
     pub tsl_atr_price_short: Option<Vec<f64>>,
 
+    /// PSAR跟踪止损价格（多头）
+    pub tsl_psar_price_long: Option<Vec<f64>>,
+    /// PSAR跟踪止损价格（空头）
+    pub tsl_psar_price_short: Option<Vec<f64>>,
+
     // === Risk State Output ===
     /// Risk 是否 In-Bar 离场（0=无, 1=多, -1=空）
     pub risk_in_bar_direction: Vec<i8>,
@@ -151,6 +156,16 @@ impl OutputBuffers {
                 None
             },
             tsl_atr_price_short: if params.is_tsl_atr_param_valid() {
+                Some(vec![0.0; capacity])
+            } else {
+                None
+            },
+            tsl_psar_price_long: if params.is_tsl_psar_param_valid() {
+                Some(vec![0.0; capacity])
+            } else {
+                None
+            },
+            tsl_psar_price_short: if params.is_tsl_psar_param_valid() {
                 Some(vec![0.0; capacity])
             } else {
                 None
@@ -268,6 +283,14 @@ impl OutputBuffers {
                 ColumnName::TslAtrPriceShort.as_str(),
                 self.tsl_atr_price_short.as_ref().map(|v| v.len()),
             ),
+            (
+                ColumnName::TslPsarPriceLong.as_str(),
+                self.tsl_psar_price_long.as_ref().map(|v| v.len()),
+            ),
+            (
+                ColumnName::TslPsarPriceShort.as_str(),
+                self.tsl_psar_price_short.as_ref().map(|v| v.len()),
+            ),
         ];
 
         // 检查所有可选列的长度
@@ -382,6 +405,14 @@ impl OutputBuffers {
             (
                 ColumnName::TslAtrPriceShort.as_str(),
                 &self.tsl_atr_price_short,
+            ),
+            (
+                ColumnName::TslPsarPriceLong.as_str(),
+                &self.tsl_psar_price_long,
+            ),
+            (
+                ColumnName::TslPsarPriceShort.as_str(),
+                &self.tsl_psar_price_short,
             ),
         ];
 

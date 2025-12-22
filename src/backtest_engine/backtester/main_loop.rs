@@ -34,6 +34,10 @@ pub fn run_main_loop(
         for i in 1..data_length {
             state.current_bar = CurrentBarData::new(prepared_data, i);
             state.prev_bar = CurrentBarData::new(prepared_data, i - 1);
+            // 从 i >= 2 开始才有 prev_prev_bar
+            if i >= 2 {
+                state.prev_prev_bar = CurrentBarData::new(prepared_data, i - 2);
+            }
 
             if state.should_skip_current_bar() {
                 state.reset_position_on_skip();
@@ -117,6 +121,12 @@ fn update_buffer_row(buffers: &mut OutputBuffers, state: &BacktestState, row_ind
     }
     if let Some(ref mut tsl_atr_price_short) = buffers.tsl_atr_price_short {
         tsl_atr_price_short[row_index] = state.risk_state.tsl_atr_price_short.unwrap_or(f64::NAN);
+    }
+    if let Some(ref mut tsl_psar_price_long) = buffers.tsl_psar_price_long {
+        tsl_psar_price_long[row_index] = state.risk_state.tsl_psar_price_long.unwrap_or(f64::NAN);
+    }
+    if let Some(ref mut tsl_psar_price_short) = buffers.tsl_psar_price_short {
+        tsl_psar_price_short[row_index] = state.risk_state.tsl_psar_price_short.unwrap_or(f64::NAN);
     }
 
     // === Risk State Output ===

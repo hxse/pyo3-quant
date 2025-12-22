@@ -137,5 +137,11 @@ macro_rules! validate_output_buffers {
         if let Some(v) = &$buf.tsl_atr_price_short {
             ::core::assert_eq!(v.len(), $len_var, "tsl_atr_price_short length mismatch");
         }
+        if let Some(v) = &$buf.tsl_psar_price_long {
+            ::core::assert_eq!(v.len(), $len_var, "tsl_psar_price_long length mismatch");
+        }
+        if let Some(v) = &$buf.tsl_psar_price_short {
+            ::core::assert_eq!(v.len(), $len_var, "tsl_psar_price_short length mismatch");
+        }
     }};
 }

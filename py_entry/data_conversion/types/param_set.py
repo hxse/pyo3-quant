@@ -98,6 +98,15 @@ class BacktestParams:
     # 无论设置如何，多头TSL只能上移，空头TSL只能下移。
     tsl_atr_tight: bool = False
 
+    # === PSAR 跟踪止损参数 ===
+    # PSAR 初始加速因子。
+    # 三个参数必须同时存在或同时不存在，存在时都必须大于0。
+    tsl_psar_af0: Optional[Param] = None
+    # PSAR 加速因子步进。
+    tsl_psar_af_step: Optional[Param] = None
+    # PSAR 最大加速因子。
+    tsl_psar_max_af: Optional[Param] = None
+
 
 @dataclass
 class PerformanceParams:

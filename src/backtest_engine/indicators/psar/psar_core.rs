@@ -1,5 +1,13 @@
 use std::f64;
 
+/// PSAR 方向枚举（用于初始化时强制方向）
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum ForceDirection {
+    Auto,  // 自动判断方向
+    Long,  // 强制多头
+    Short, // 强制空头
+}
+
 // 核心状态结构体
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct PsarState {
@@ -16,23 +24,21 @@ pub(crate) fn psar_init(
     low_prev: f64,
     low_curr: f64,
     close_prev: f64,
-    force_direction_int: i32,
+    force_direction: ForceDirection,
     af0: f64,
 ) -> PsarState {
-    let is_long: bool;
-    if force_direction_int == 1 {
-        // 强制多头
-        is_long = true;
-    } else if force_direction_int == -1 {
-        // 强制空头
-        is_long = false;
-    } else {
-        // 自动判断 (force_direction_int == 0)
-        let up_dm = high_curr - high_prev;
-        let dn_dm = low_prev - low_curr;
-        let is_falling_initial = dn_dm > up_dm && dn_dm > 0.0;
-        is_long = !is_falling_initial;
-    }
+    let is_long = match force_direction {
+        ForceDirection::Long => true,
+        ForceDirection::Short => false,
+        ForceDirection::Auto => {
+            // 自动判断
+            let up_dm = high_curr - high_prev;
+            let dn_dm = low_prev - low_curr;
+            let is_falling_initial = dn_dm > up_dm && dn_dm > 0.0;
+            !is_falling_initial
+        }
+    };
+
     let current_psar = close_prev;
     let current_ep = if is_long { high_prev } else { low_prev };
     let current_af = af0;
@@ -51,7 +57,7 @@ pub(crate) fn psar_first_iteration(
     low_prev: f64,
     low_curr: f64,
     close_prev: f64,
-    force_direction_int: i32,
+    force_direction: ForceDirection,
     af0: f64,
     af_step: f64,
     max_af: f64,
@@ -62,7 +68,7 @@ pub(crate) fn psar_first_iteration(
         low_prev,
         low_curr,
         close_prev,
-        force_direction_int,
+        force_direction,
         af0,
     );
     let mut psar_long_val = f64::NAN;
@@ -137,6 +143,7 @@ pub(crate) fn psar_update(
     prev_low: f64,
     af_step: f64,
     max_af: f64,
+    force_direction: Option<ForceDirection>, // 强制方向 (None=允许反转, Some=强制方向)
 ) -> (PsarState, f64, f64, f64) {
     let mut new_state = *prev_state; // 复制前一个状态
     let mut psar_long_val = f64::NAN;
@@ -150,33 +157,40 @@ pub(crate) fn psar_update(
         new_state.current_psar
             - new_state.current_af * (new_state.current_psar - new_state.current_ep)
     };
-    // 2. 判断反转
-    let reversal = if new_state.is_long {
-        current_low < next_psar_raw_candidate
-    } else {
-        current_high > next_psar_raw_candidate
-    };
-    // 3. 穿透检查（使用前一根K线）
+
+    // 2. 应用穿透规则（使用prev K线）
     new_state.current_psar = if new_state.is_long {
         next_psar_raw_candidate.min(prev_low)
     } else {
         next_psar_raw_candidate.max(prev_high)
     };
-    // 4. 更新EP和AF（反转前）
-    if !reversal {
+
+    // 3. 判断是否发生反转（仅当未强制方向时）
+    let reversal = if force_direction.is_none() {
+        // 未强制方向时才检查反转
         if new_state.is_long {
-            if current_high > new_state.current_ep {
-                new_state.current_ep = current_high;
-                new_state.current_af = (new_state.current_af + af_step).min(max_af);
-            }
+            current_low < next_psar_raw_candidate
         } else {
-            if current_low < new_state.current_ep {
-                new_state.current_ep = current_low;
-                new_state.current_af = (new_state.current_af + af_step).min(max_af);
-            }
+            current_high > next_psar_raw_candidate
+        }
+    } else {
+        false // 强制方向时不反转
+    };
+
+    // 4. 更新EP和AF（在反转判断之前，且不管是否反转都要执行）
+    if new_state.is_long {
+        if current_high > new_state.current_ep {
+            new_state.current_ep = current_high;
+            new_state.current_af = (new_state.current_af + af_step).min(max_af);
+        }
+    } else {
+        if current_low < new_state.current_ep {
+            new_state.current_ep = current_low;
+            new_state.current_af = (new_state.current_af + af_step).min(max_af);
         }
     }
-    // 5. 处理反转
+
+    // 5. 处理反转（如果发生）
     if reversal {
         reversal_val = 1.0;
         new_state.is_long = !new_state.is_long;
@@ -226,7 +240,15 @@ pub(crate) fn calc_psar_core(
 
     // 索引1：调用psar_first_iteration计算（有实际值）
     let (state, long_val, short_val, rev_val) = psar_first_iteration(
-        high[0], high[1], low[0], low[1], close[0], 0, af0, af_step, max_af,
+        high[0],
+        high[1],
+        low[0],
+        low[1],
+        close[0],
+        ForceDirection::Auto,
+        af0,
+        af_step,
+        max_af,
     );
     psar_long[1] = long_val;
     psar_short[1] = short_val;
@@ -249,6 +271,7 @@ pub(crate) fn calc_psar_core(
             low[i - 1],
             af_step,
             max_af,
+            None, // 允许反转（指标用途）
         );
         psar_long[i] = long_val;
         psar_short[i] = short_val;

@@ -101,7 +101,7 @@ class DisplayConfig:
         """初始化后处理：将相对路径转换为绝对路径，并设置默认 override"""
         # 设置默认的 override 配置
         if self.override is None:
-            self.override = DashboardOverride(showRiskLegend="1,1,1")
+            self.override = DashboardOverride(showRiskLegend="1,1,1,1")
 
         # 查找项目根目录
         project_root = _find_project_root()

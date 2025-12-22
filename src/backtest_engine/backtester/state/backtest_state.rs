@@ -10,6 +10,7 @@ pub struct BacktestState {
     pub risk_state: RiskState,
     pub current_bar: CurrentBarData,
     pub prev_bar: CurrentBarData,
+    pub prev_prev_bar: CurrentBarData, // bar[i-2]，用于 PSAR 初始化
     /// 帐户资金计算
     pub capital_state: CapitalState,
 }
@@ -28,6 +29,7 @@ impl BacktestState {
             risk_state: RiskState::default(),
             current_bar: CurrentBarData::default(),
             prev_bar: CurrentBarData::default(),
+            prev_prev_bar: CurrentBarData::default(),
             capital_state: CapitalState::new(params.initial_capital),
         }
     }

@@ -49,6 +49,10 @@ pub enum ColumnName {
     TslAtrPriceLong,
     TslAtrPriceShort,
 
+    // PSAR 跟踪止损价格
+    TslPsarPriceLong,
+    TslPsarPriceShort,
+
     // Risk State Output
     RiskInBarDirection,
 }
@@ -98,6 +102,10 @@ impl ColumnName {
             ColumnName::TpAtrPriceShort => "tp_atr_price_short",
             ColumnName::TslAtrPriceLong => "tsl_atr_price_long",
             ColumnName::TslAtrPriceShort => "tsl_atr_price_short",
+
+            // PSAR 跟踪止损价格
+            ColumnName::TslPsarPriceLong => "tsl_psar_price_long",
+            ColumnName::TslPsarPriceShort => "tsl_psar_price_short",
 
             // Risk State Output
             ColumnName::RiskInBarDirection => "risk_in_bar_direction",

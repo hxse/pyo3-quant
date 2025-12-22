@@ -215,7 +215,7 @@ class DashboardOverride:
     showInLegend: Optional[List[str]] = (
         None  # 格式: "slotIdx,paneIdx,seriesIdx,showInLegend"
     )
-    showRiskLegend: Optional[str] = None  # 格式: "value1,value2,value3"
+    showRiskLegend: Optional[str] = None  # 格式: "value1,value2,value3,value4"
 
     def to_dict(self):
         """转换为字典，移除 None 值"""

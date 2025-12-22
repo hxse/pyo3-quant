@@ -5,8 +5,8 @@ use polars::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc; // 新增导入
 
-mod psar_core;
-use psar_core::{psar_first_iteration, psar_update};
+pub(crate) mod psar_core;
+use psar_core::{psar_first_iteration, psar_update, ForceDirection};
 
 // --- 配置结构体 ---
 pub struct PSARConfig {
@@ -109,11 +109,10 @@ pub fn psar_expr(config: &PSARConfig) -> Result<Expr, QuantError> {
                     low_vec[0],
                     low_vec[1],
                     close_vec[0],
-                    0,
+                    ForceDirection::Auto,
                     af0,
                     af_step,
                     max_af,
-
                 );
                 psar_long[1] = long_val;
                 psar_short[1] = short_val;
@@ -152,6 +151,7 @@ pub fn psar_expr(config: &PSARConfig) -> Result<Expr, QuantError> {
                         low_vec[i - 1],
                         af_step,
                         max_af,
+                        None, // 允许反转（指标用途）
                     );
                     psar_long[i] = long_val;
                     psar_short[i] = short_val;

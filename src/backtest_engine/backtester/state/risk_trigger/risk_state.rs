@@ -1,3 +1,5 @@
+use crate::backtest_engine::indicators::psar::psar_core::PsarState;
+
 #[derive(Debug, Clone)]
 pub struct RiskState {
     // === 百分比风险价格（多空分离） ===
@@ -20,6 +22,12 @@ pub struct RiskState {
     pub highest_since_entry: Option<f64>,
     /// 当前持仓期间最低价（用于跟踪止损计算）
     pub lowest_since_entry: Option<f64>,
+
+    // === PSAR 跟踪止损状态（多空分离） ===
+    pub tsl_psar_state_long: Option<PsarState>,
+    pub tsl_psar_state_short: Option<PsarState>,
+    pub tsl_psar_price_long: Option<f64>,
+    pub tsl_psar_price_short: Option<f64>,
 
     /// 多头 risk 触发价格（如果触发）
     pub exit_long_price: Option<f64>,
@@ -48,6 +56,11 @@ impl Default for RiskState {
 
             highest_since_entry: None,
             lowest_since_entry: None,
+
+            tsl_psar_state_long: None,
+            tsl_psar_state_short: None,
+            tsl_psar_price_long: None,
+            tsl_psar_price_short: None,
 
             exit_long_price: None,
             exit_short_price: None,
@@ -84,6 +97,8 @@ impl RiskState {
         self.tp_atr_price_long = None;
         self.tsl_atr_price_long = None;
         self.highest_since_entry = None;
+        self.tsl_psar_state_long = None;
+        self.tsl_psar_price_long = None;
         self.exit_long_price = None;
     }
 
@@ -98,6 +113,8 @@ impl RiskState {
         self.tp_atr_price_short = None;
         self.tsl_atr_price_short = None;
         self.lowest_since_entry = None;
+        self.tsl_psar_state_short = None;
+        self.tsl_psar_price_short = None;
         self.exit_short_price = None;
     }
 

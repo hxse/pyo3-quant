@@ -110,6 +110,15 @@ pub struct BacktestParams {
     /// 如果值 <= 0.0，则所有ATR相关的止损止盈功能都不会启用。
     pub atr_period: Option<Param>,
 
+    // === PSAR 跟踪止损参数 ===
+    /// PSAR 初始加速因子。
+    /// 三个参数必须同时存在或同时不存在，存在时都必须大于0。
+    pub tsl_psar_af0: Option<Param>,
+    /// PSAR 加速因子步进。
+    pub tsl_psar_af_step: Option<Param>,
+    /// PSAR 最大加速因子。
+    pub tsl_psar_max_af: Option<Param>,
+
     /// ATR跟踪止损更新模式。
     /// `false` (默认) 表示只有在价格突破新高/低时才更新TSL ATR价格。
     /// `true` 表示每根K线都会尝试更新TSL ATR价格。
@@ -193,6 +202,20 @@ impl BacktestParams {
         self.tsl_atr
             .as_ref()
             .map_or(false, |param| param.value > 0.0)
+    }
+
+    /// 检查 PSAR 止损参数是否有效
+    /// 三个参数必须全部存在且大于0，或全部不存在
+    pub fn is_tsl_psar_param_valid(&self) -> bool {
+        self.tsl_psar_af0.as_ref().map_or(false, |p| p.value > 0.0)
+            && self
+                .tsl_psar_af_step
+                .as_ref()
+                .map_or(false, |p| p.value > 0.0)
+            && self
+                .tsl_psar_max_af
+                .as_ref()
+                .map_or(false, |p| p.value > 0.0)
     }
 
     /// 检查是否有任一ATR参数（sl_atr、tp_atr、tsl_atr）有效。

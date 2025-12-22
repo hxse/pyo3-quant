@@ -17,13 +17,24 @@ pub fn calculate_risk_price(
     sl_atr_price: Option<f64>,
     tp_pct_price: Option<f64>,
     tp_atr_price: Option<f64>,
+    tsl_pct_price: Option<f64>,
+    tsl_atr_price: Option<f64>,
+    tsl_psar_price: Option<f64>,
     is_long_position: bool,
 ) -> Option<f64> {
     // 收集所有有效价格
-    let prices: Vec<f64> = [sl_pct_price, sl_atr_price, tp_pct_price, tp_atr_price]
-        .into_iter()
-        .flatten()
-        .collect();
+    let prices: Vec<f64> = [
+        sl_pct_price,
+        sl_atr_price,
+        tp_pct_price,
+        tp_atr_price,
+        tsl_pct_price,
+        tsl_atr_price,
+        tsl_psar_price,
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
 
     if prices.is_empty() {
         return None;

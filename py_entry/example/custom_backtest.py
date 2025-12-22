@@ -78,15 +78,18 @@ backtest_params = BacktestParams(
     pause_sma=Param.create(0),
     pause_ema=Param.create(0),
     exit_in_bar=True,
-    use_extrema_for_exit=False,
+    use_extrema_for_exit=True,
     tsl_atr_tight=False,
-    sl_pct=Param.create(0.02),
-    # tp_pct=Param.create(0.05),
+    # sl_pct=Param.create(0.02),
+    # tp_pct=Param.create(0.06),
     # tsl_pct=Param.create(0.02),
-    # sl_atr=Param.create(2),
-    # tp_atr=Param.create(4),
+    sl_atr=Param.create(2),
+    tp_atr=Param.create(6),
     tsl_atr=Param.create(2),
     atr_period=Param.create(14),
+    tsl_psar_af0=Param.create(0.02),
+    tsl_psar_af_step=Param.create(0.02),
+    tsl_psar_max_af=Param.create(0.2),
 )
 
 # 自定义性能参数

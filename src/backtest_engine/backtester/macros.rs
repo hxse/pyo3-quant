@@ -14,7 +14,6 @@ macro_rules! validate_prepared_data {
             ::core::assert_eq!($data.high.len(), $len_var, "high length mismatch");
             ::core::assert_eq!($data.low.len(), $len_var, "low length mismatch");
             ::core::assert_eq!($data.close.len(), $len_var, "close length mismatch");
-            ::core::assert_eq!($data.volume.len(), $len_var, "volume length mismatch");
             ::core::assert_eq!(
                 $data.enter_long.len(),
                 $len_var,

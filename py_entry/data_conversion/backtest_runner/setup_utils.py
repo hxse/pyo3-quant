@@ -9,7 +9,6 @@ from py_entry.data_conversion.types import (
     BacktestParams,
     PerformanceParams,
     Param,
-    PerformanceMetric,
     LogicOp,
     SignalTemplate,
     SignalGroup,

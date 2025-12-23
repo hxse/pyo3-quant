@@ -17,7 +17,6 @@ from py_entry.data_conversion.file_utils.dataframe_utils import (
     add_contextual_columns_to_dataframes,
 )
 from py_entry.data_conversion.file_utils.zip_utils import create_zip_buffer
-from py_entry.data_conversion.file_utils.converters import convert_to_serializable
 from py_entry.data_conversion.types.chart_config import ChartConfig
 from py_entry.data_conversion.chart_utils.generation import (
     generate_default_chart_config,

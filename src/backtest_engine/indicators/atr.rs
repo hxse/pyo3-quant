@@ -93,7 +93,7 @@ pub fn atr_expr(config: &ATRConfig) -> Result<(Expr, Expr), QuantError> {
 /// **蓝图层 (LazyFrame -> LazyFrame)**
 pub fn atr_lazy(lazy_df: LazyFrame, config: &ATRConfig) -> Result<LazyFrame, QuantError> {
     // 1. 获取所有核心表达式
-    let (processed_tr_expr, atr_expr) = atr_expr(&config)?;
+    let (processed_tr_expr, atr_expr) = atr_expr(config)?;
 
     // 2. 链接到 LazyFrame 上
     let result_lazy_df = lazy_df
@@ -172,15 +172,12 @@ impl Indicator for AtrIndicator {
         indicator_key: &str,
         param_map: &HashMap<String, Param>,
     ) -> Result<Vec<Series>, QuantError> {
-        let period = param_map
-            .get("period")
-            .and_then(|p| Some(p.value))
-            .ok_or_else(|| {
-                IndicatorError::InvalidParameter(
-                    indicator_key.to_string(),
-                    "Missing or invalid 'period' parameter".to_string(),
-                )
-            })? as i64;
+        let period = param_map.get("period").map(|p| p.value).ok_or_else(|| {
+            IndicatorError::InvalidParameter(
+                indicator_key.to_string(),
+                "Missing or invalid 'period' parameter".to_string(),
+            )
+        })? as i64;
 
         let mut config = ATRConfig::new(period);
         config.alias_name = indicator_key.to_string();

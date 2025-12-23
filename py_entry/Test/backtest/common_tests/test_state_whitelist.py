@@ -1,7 +1,6 @@
 """测试单 Bar 状态枚举白名单"""
 
 import polars as pl
-import pytest
 
 
 class TestStateWhitelist:

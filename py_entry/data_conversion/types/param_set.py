@@ -121,6 +121,7 @@ class PerformanceParams:
             PerformanceMetric.SHARPE_RATIO,
             PerformanceMetric.CALMAR_RATIO,
             PerformanceMetric.ANNUALIZATION_FACTOR,
+            PerformanceMetric.HAS_LEADING_NAN_COUNT,
         ]
     )
     risk_free_rate: float = 0.0

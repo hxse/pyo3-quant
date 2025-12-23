@@ -397,7 +397,7 @@ impl Indicator for AdxIndicator {
         // 从 param_map 中解析参数
         let period = param_map
             .get("period")
-            .and_then(|p| Some(p.value as i64))
+            .map(|p| p.value as i64)
             .ok_or_else(|| {
                 IndicatorError::InvalidParameter(
                     indicator_key.to_string(),
@@ -407,7 +407,7 @@ impl Indicator for AdxIndicator {
 
         let adxr_length = param_map
             .get("adxr_length")
-            .and_then(|p| Some(p.value as i64))
+            .map(|p| p.value as i64)
             .unwrap_or(2); // 默认值
 
         // 构建 ADXConfig

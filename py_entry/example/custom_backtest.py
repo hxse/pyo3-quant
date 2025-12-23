@@ -3,24 +3,21 @@ from loguru import logger
 import json
 
 # 项目导入
-import pyo3_quant
 
 from py_entry.data_conversion.backtest_runner import BacktestRunner
 from py_entry.data_conversion.types import (
     BacktestParams,
-    IndicatorsParams,
     Param,
     PerformanceParams,
     PerformanceMetric,
     LogicOp,
     SignalGroup,
-    SignalParams,
     SignalTemplate,
     SettingContainer,
     ExecutionStage,
 )
 
-from py_entry.data_conversion.data_generator import DataGenerationParams, OtherParams
+from py_entry.data_conversion.data_generator import DataGenerationParams
 
 from py_entry.data_conversion.file_utils import (
     SaveConfig,
@@ -79,7 +76,7 @@ backtest_params = BacktestParams(
     pause_ema=Param.create(0),
     exit_in_bar=True,
     use_extrema_for_exit=True,
-    tsl_atr_tight=False,
+    tsl_atr_tight=True,
     # sl_pct=Param.create(0.02),
     # tp_pct=Param.create(0.06),
     # tsl_pct=Param.create(0.02),
@@ -99,6 +96,7 @@ performance_params = PerformanceParams(
         PerformanceMetric.MAX_DRAWDOWN,
         PerformanceMetric.CALMAR_RATIO,
         PerformanceMetric.ANNUALIZATION_FACTOR,
+        PerformanceMetric.HAS_LEADING_NAN_COUNT,
     ],
     leverage_safety_factor=0.8,
 )

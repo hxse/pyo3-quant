@@ -1,6 +1,6 @@
 /// 回测动作结构体（价格驱动设计）
 /// 用4个价格字段的组合推断所有状态，无需显式Position枚举
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Action {
     // === 价格字段（状态机变量，默认延续） ===
     /// 多头进场价格
@@ -17,19 +17,6 @@ pub struct Action {
     pub is_first_entry_long: bool,
     /// 是否是空头首次进场（用于 risk 触发判断）
     pub is_first_entry_short: bool,
-}
-
-impl Default for Action {
-    fn default() -> Self {
-        Self {
-            entry_long_price: None,
-            entry_short_price: None,
-            exit_long_price: None,
-            exit_short_price: None,
-            is_first_entry_long: false,
-            is_first_entry_short: false,
-        }
-    }
 }
 
 impl Action {

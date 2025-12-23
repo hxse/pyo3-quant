@@ -162,63 +162,48 @@ impl BacktestParams {
     /// 检查sl_pct参数是否有效（不验证其他参数）。
     /// 当 `sl_pct` 存在且其值大于 0.0 时，返回 true。
     pub fn is_sl_pct_param_valid(&self) -> bool {
-        self.sl_pct
-            .as_ref()
-            .map_or(false, |param| param.value > 0.0)
+        self.sl_pct.as_ref().is_some_and(|param| param.value > 0.0)
     }
 
     /// 检查tp_pct参数是否有效（不验证其他参数）。
     /// 当 `tp_pct` 存在且其值大于 0.0 时，返回 true。
     pub fn is_tp_pct_param_valid(&self) -> bool {
-        self.tp_pct
-            .as_ref()
-            .map_or(false, |param| param.value > 0.0)
+        self.tp_pct.as_ref().is_some_and(|param| param.value > 0.0)
     }
 
     /// 检查tsl_pct参数是否有效（不验证其他参数）。
     /// 当 `tsl_pct` 存在且其值大于 0.0 时，返回 true。
     pub fn is_tsl_pct_param_valid(&self) -> bool {
-        self.tsl_pct
-            .as_ref()
-            .map_or(false, |param| param.value > 0.0)
+        self.tsl_pct.as_ref().is_some_and(|param| param.value > 0.0)
     }
 
     /// 检查sl_atr参数是否有效（不验证atr_period）。
     /// 当 `sl_atr` 存在且其值大于 0.0 时，返回 true。
     pub fn is_sl_atr_param_valid(&self) -> bool {
-        self.sl_atr
-            .as_ref()
-            .map_or(false, |param| param.value > 0.0)
+        self.sl_atr.as_ref().is_some_and(|param| param.value > 0.0)
     }
 
     /// 检查tp_atr参数是否有效（不验证atr_period）。
     /// 当 `tp_atr` 存在且其值大于 0.0 时，返回 true。
     pub fn is_tp_atr_param_valid(&self) -> bool {
-        self.tp_atr
-            .as_ref()
-            .map_or(false, |param| param.value > 0.0)
+        self.tp_atr.as_ref().is_some_and(|param| param.value > 0.0)
     }
 
     /// 检查tsl_atr参数是否有效（不验证atr_period）。
     /// 当 `tsl_atr` 存在且其值大于 0.0 时，返回 true。
     pub fn is_tsl_atr_param_valid(&self) -> bool {
-        self.tsl_atr
-            .as_ref()
-            .map_or(false, |param| param.value > 0.0)
+        self.tsl_atr.as_ref().is_some_and(|param| param.value > 0.0)
     }
 
     /// 检查 PSAR 止损参数是否有效
     /// 三个参数必须全部存在且大于0，或全部不存在
     pub fn is_tsl_psar_param_valid(&self) -> bool {
-        self.tsl_psar_af0.as_ref().map_or(false, |p| p.value > 0.0)
+        self.tsl_psar_af0.as_ref().is_some_and(|p| p.value > 0.0)
             && self
                 .tsl_psar_af_step
                 .as_ref()
-                .map_or(false, |p| p.value > 0.0)
-            && self
-                .tsl_psar_max_af
-                .as_ref()
-                .map_or(false, |p| p.value > 0.0)
+                .is_some_and(|p| p.value > 0.0)
+            && self.tsl_psar_max_af.as_ref().is_some_and(|p| p.value > 0.0)
     }
 
     /// 检查是否有任一ATR参数（sl_atr、tp_atr、tsl_atr）有效。
@@ -240,7 +225,7 @@ impl BacktestParams {
             let atr_period_valid = self
                 .atr_period
                 .as_ref()
-                .map_or(false, |param| param.value > 0.0);
+                .is_some_and(|param| param.value > 0.0);
 
             if !atr_period_valid {
                 return Err(BacktestError::InvalidParameter {

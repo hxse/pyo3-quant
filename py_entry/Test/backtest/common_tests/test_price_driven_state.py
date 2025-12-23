@@ -1,7 +1,6 @@
 """价格驱动状态机测试"""
 
 import polars as pl
-import pytest
 
 
 class TestPriceDrivenState:

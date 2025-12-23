@@ -15,7 +15,6 @@
 """
 
 import pytest
-import polars as pl
 from polars.testing import assert_frame_equal
 
 from py_entry.data_conversion.data_generator import DataGenerationParams, OtherParams
@@ -52,7 +51,7 @@ def test_signal_scenario(scenario, setting_container):
         data_gen_params: 数据生成参数 fixture
         setting_container: 设置容器 fixture
     """
-    print(f"\n" + "=" * 60)
+    print("\n" + "=" * 60)
     print(f"测试场景: {scenario.name}")
     print(f"描述: {scenario.description}")
     print("=" * 60)

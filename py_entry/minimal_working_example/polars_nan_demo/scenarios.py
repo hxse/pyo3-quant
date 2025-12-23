@@ -35,7 +35,7 @@ def run_signal_scenario():
     df_wrong = df_multi_period.with_columns(wrong_signal.alias("signal_wrong"))
     print(df_wrong)
     print()
-    print(f"⚠️  问题: 前4行的信号都是 true！(因为 100~103 都 < NaN，NaN 被视为最大值)")
+    print("⚠️  问题: 前4行的信号都是 true！(因为 100~103 都 < NaN，NaN 被视为最大值)")
     print(f"错误触发的信号数量: {wrong_signal.sum()}")
     print()
 
@@ -59,7 +59,7 @@ def run_signal_scenario():
     print(df_correct)
     print()
     print(f"✅ 正确的信号数量: {correct_signal.sum()}")
-    print(f"说明: 只有当两个 SMA 都有效时，才进行比较")
+    print("说明: 只有当两个 SMA 都有效时，才进行比较")
     print()
 
     # 测试34: 同时处理 NaN 和 null

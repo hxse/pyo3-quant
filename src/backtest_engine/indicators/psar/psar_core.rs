@@ -102,11 +102,9 @@ pub(crate) fn psar_first_iteration(
             state.current_ep = high_curr;
             state.current_af = (state.current_af + af_step).min(max_af);
         }
-    } else {
-        if low_curr < state.current_ep {
-            state.current_ep = low_curr;
-            state.current_af = (state.current_af + af_step).min(max_af);
-        }
+    } else if low_curr < state.current_ep {
+        state.current_ep = low_curr;
+        state.current_af = (state.current_af + af_step).min(max_af);
     }
 
     // 6. 处理反转（如果发生）
@@ -183,11 +181,9 @@ pub(crate) fn psar_update(
             new_state.current_ep = current_high;
             new_state.current_af = (new_state.current_af + af_step).min(max_af);
         }
-    } else {
-        if current_low < new_state.current_ep {
-            new_state.current_ep = current_low;
-            new_state.current_af = (new_state.current_af + af_step).min(max_af);
-        }
+    } else if current_low < new_state.current_ep {
+        new_state.current_ep = current_low;
+        new_state.current_af = (new_state.current_af + af_step).min(max_af);
     }
 
     // 5. 处理反转（如果发生）

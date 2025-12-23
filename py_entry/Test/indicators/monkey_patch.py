@@ -1,7 +1,6 @@
 import sys
 import pandas as pd
 from pandas.api.extensions import register_dataframe_accessor
-from types import ModuleType
 
 # 检查是否已经执行过 monkey patch
 if hasattr(pd.DataFrame, "_monkey_patch_applied"):
@@ -41,7 +40,6 @@ else:
 
         try:
             # 导入 AnalysisIndicators 类
-            import pandas_ta_classic
             from pandas_ta_classic.core import AnalysisIndicators as TaClassicAccessor
 
             # 恢复原始 Accessor 机制
@@ -87,7 +85,5 @@ else:
     # 先检查是否已经存在 ta 访问器，如果存在则先删除
     if hasattr(pd.DataFrame, "ta"):
         delattr(pd.DataFrame, "ta")
-
-    import pandas_ta  # 旧库，它会正常注册 df.ta
 
     print("✅ df.tac 访问器已创建，df.ta 指向 pandas_ta。")

@@ -3,7 +3,6 @@ Renko 数据生成模块
 """
 
 import polars as pl
-import numpy as np
 
 from .time_utils import time_format, fixed_cols
 

@@ -280,7 +280,7 @@ impl Indicator for MacdIndicator {
     ) -> Result<Vec<Series>, QuantError> {
         let fast_period = param_map
             .get("fast_period")
-            .and_then(|p| Some(p.value as i64))
+            .map(|p| p.value as i64)
             .ok_or_else(|| {
                 IndicatorError::InvalidParameter(
                     indicator_key.to_string(),
@@ -290,7 +290,7 @@ impl Indicator for MacdIndicator {
 
         let slow_period = param_map
             .get("slow_period")
-            .and_then(|p| Some(p.value as i64))
+            .map(|p| p.value as i64)
             .ok_or_else(|| {
                 IndicatorError::InvalidParameter(
                     indicator_key.to_string(),
@@ -300,7 +300,7 @@ impl Indicator for MacdIndicator {
 
         let signal_period = param_map
             .get("signal_period")
-            .and_then(|p| Some(p.value as i64))
+            .map(|p| p.value as i64)
             .ok_or_else(|| {
                 IndicatorError::InvalidParameter(
                     indicator_key.to_string(),

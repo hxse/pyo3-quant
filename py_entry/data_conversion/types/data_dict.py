@@ -1,7 +1,7 @@
 """数据字典定义"""
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 import polars as pl
 
 

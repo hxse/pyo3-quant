@@ -53,7 +53,7 @@ fn apply_mapping_if_needed(
 
         series_to_map
             .take(indices)
-            .map_err(|e| SignalError::MappingApplyError(e.to_string()).into())
+            .map_err(|e| SignalError::MappingApplyError(e.to_string()))
     } else {
         // 不需要映射，直接克隆并返回原始 Series
         Ok(series_to_map.clone())

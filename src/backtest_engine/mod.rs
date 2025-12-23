@@ -97,7 +97,7 @@ pub fn run_backtest_engine(
         // 单任务：直接执行，不限制 Polars 并发
         // 这种情况下，Polars 可以充分利用其内部并行能力
         processed_params
-            .into_iter()
+            .iter()
             .map(|single_param| {
                 execute_single_backtest(
                     processed_data,

@@ -97,7 +97,7 @@ def compare_crossover(
     op: str,
 ) -> pl.Series:
     """
-    交叉比较：当前满足条件 AND 前值不满足
+    交叉比较：当前满足条件 AND 前值有效 AND 前值不满足
 
     参数：
         left: 左操作数
@@ -108,21 +108,40 @@ def compare_crossover(
         布尔Series，表示交叉发生
 
     示例：
-        x> : 当前 > right AND 前值 <= right
+        x> : 当前 > right AND 前值有效 AND 前值 <= right
+
+    注意：
+        如果前一个值是 NaN 或 Null，即使当前值满足条件，也不会触发交叉信号。
+        这确保了交叉信号仅在发生真实的状态转换时触发，而不是在数据预热期结束后立即触发。
     """
-    # 1. 计算当前状态 (保留Null)
+    # 1. 计算当前状态
     current = compare_series(left, right, op, offset_left=0, fill_null=False)
 
-    # 2. 获取前一状态 (shift 1, 保留Null)
-    # 注意：shift(1) 会引入 Null，compare_series(fill_null=False) 会保留这些 Null
-    # 这样 ~prev 在 Null 处仍为 Null，current & Null -> Null
-    # 从而自动处理了边界情况，无需显式检查 prev_valid
-    prev = current.shift(1)
+    # 2. 计算前值状态（通过位移 left 和 right）
+    prev_left = left.shift(1)
+    if isinstance(right, pl.Series):
+        prev_right = right.shift(1)
+    else:
+        prev_right = right
 
-    # 3. 交叉 = 当前满足 & 前值不满足
-    # 结果中前 N 行将为 Null (而非 False)，这与 Rust 行为一致
-    # 但最终输出需要是布尔值 (Rust 引擎似乎最终输出了 False)
-    return (current & ~prev).fill_null(False)
+    prev = compare_series(prev_left, prev_right, op, offset_left=0, fill_null=False)
+
+    # 3. 计算前值的有效性掩码（前值的 left 和 right 都不是 NaN/Null）
+    prev_left_invalid = prev_left.is_nan() | prev_left.is_null()
+    if isinstance(prev_right, pl.Series):
+        prev_right_invalid = prev_right.is_nan() | prev_right.is_null()
+        prev_invalid = prev_left_invalid | prev_right_invalid
+    else:
+        if math.isnan(prev_right):
+            prev_invalid = pl.Series([True] * len(left), dtype=pl.Boolean)
+        else:
+            prev_invalid = prev_left_invalid
+
+    prev_valid = ~prev_invalid
+
+    # 4. 交叉 = 当前满足 & 前值有效 & 前值不满足
+    # 只有当前值满足条件、前值有效（非 NaN/Null）且前值不满足条件时才触发
+    return (current & prev_valid & ~prev).fill_null(False)
 
 
 def combine_and(*conditions: pl.Series) -> pl.Series:

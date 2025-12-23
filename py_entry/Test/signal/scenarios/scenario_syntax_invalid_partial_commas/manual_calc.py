@@ -4,7 +4,6 @@
 """
 
 import polars as pl
-from py_entry.Test.signal.utils import create_signal_dataframe
 
 
 def calculate_signals(

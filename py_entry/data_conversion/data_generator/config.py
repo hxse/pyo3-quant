@@ -3,7 +3,7 @@
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import Dict, Optional
 import polars as pl
 
 from py_entry.data_conversion.file_utils.types import RequestConfig

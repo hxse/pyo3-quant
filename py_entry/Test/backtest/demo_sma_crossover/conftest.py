@@ -11,11 +11,10 @@ demo_sma_crossover 的配置文件
 """
 
 import pytest
-import polars as pl
 from pathlib import Path
 
 from py_entry.data_conversion.backtest_runner import BacktestRunner
-from py_entry.data_conversion.data_generator.config import DirectDataConfig
+from py_entry.data_conversion.data_generator import DataGenerationParams
 from py_entry.data_conversion.types import (
     BacktestParams,
     IndicatorsParams,
@@ -26,6 +25,8 @@ from py_entry.data_conversion.types import (
     Param,
     SettingContainer,
     ExecutionStage,
+    PerformanceParams,
+    PerformanceMetric,
 )
 
 
@@ -35,58 +36,29 @@ def demo_dir():
     return Path(__file__).parent
 
 
-@pytest.fixture(scope="module")
-def ohlcv_15m(demo_dir):
-    """加载硬编码的 OHLCV 数据"""
-    csv_path = demo_dir / "ohlcv_15m.csv"
-    return pl.read_csv(csv_path)
-
-
-@pytest.fixture(scope="module")
-def expected_output(demo_dir, backtest_result):
+def run_sma_crossover_backtest():
     """
-    加载预期输出数据。
-    如果文件不存在，则从当前回测结果自动生成，并报错提示用户审查。
+    执行 SMA 交叉策略回测 (完全封装，不依赖 pytest)
+
+    Returns:
+        BacktestRunner: 包含回测结果的 runner 实例
     """
-    csv_path = demo_dir / "expected_output.csv"
-
-    if not csv_path.exists():
-        # 从回测结果中提取 DataFrame
-        if not backtest_result or not hasattr(backtest_result[0], "backtest_result"):
-            pytest.fail("无法生成预期输出：回测结果为空")
-
-        df = backtest_result[0].backtest_result
-        df.write_csv(csv_path)
-
-        pytest.fail(
-            f"预期输出文件不存在: {csv_path}\n"
-            "已根据当前回测结果自动生成该文件。\n"
-            "请务必人工审查生成的 CSV 文件内容，确认其作为黄金标准（Golden Master）的正确性。\n"
-            "确认无误后，再次运行测试即可通过。"
-        )
-
-    # 加载并进行特殊处理：CSV 无法保留 Int8 类型，推断为 i64，此处强制转回以通过 strict 比较
-    df = pl.read_csv(csv_path)
-    if "risk_in_bar_direction" in df.columns:
-        df = df.with_columns(pl.col("risk_in_bar_direction").cast(pl.Int8))
-    return df
-
-
-@pytest.fixture(scope="module")
-def backtest_result(ohlcv_15m):
-    """执行回测并返回结果"""
     br = BacktestRunner()
 
-    # 使用 DirectDataConfig 传递硬编码数据
-    data_config = DirectDataConfig(
-        data={"ohlcv_15m": ohlcv_15m}, BaseDataKey="ohlcv_15m"
+    # 创建 DataGenerationParams 对象代替读取 CSV
+    data_config = DataGenerationParams(
+        timeframes=["15m"],
+        start_time=1735689600000,
+        num_bars=300,
+        fixed_seed=42,
+        BaseDataKey="ohlcv_15m",
     )
 
     # 配置指标参数：SMA(5) 和 SMA(10)
     indicators_params: IndicatorsParams = {
         "ohlcv_15m": {
             "sma_fast": {"period": Param.create(5)},
-            "sma_slow": {"period": Param.create(10)},
+            "sma_slow": {"period": Param.create(20)},
         },
     }
 
@@ -96,7 +68,7 @@ def backtest_result(ohlcv_15m):
     # 回测参数：无风控
     backtest_params = BacktestParams(
         initial_capital=10000.0,
-        fee_fixed=0.0,
+        fee_fixed=1,
         fee_pct=0.001,  # 0.1%手续费
         pause_drawdown=Param.create(0),
         pause_sma=Param.create(0),
@@ -112,36 +84,37 @@ def backtest_result(ohlcv_15m):
         atr_period=Param.create(14),
     )
 
+    # 包含所有性能指标
+    performance_params = PerformanceParams(
+        metrics=[metric for metric in PerformanceMetric]
+    )
+
     # 信号模板：双均线交叉策略
-    # 金叉进多：快线上穿慢线
     enter_long_group = SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
-            "sma_fast, ohlcv_15m, 0 x> sma_slow, ohlcv_15m, 0",
+            "sma_fast, ohlcv_15m, 0 > sma_slow, ohlcv_15m, 0",
         ],
     )
 
-    # 死叉进空：快线下穿慢线
     enter_short_group = SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
-            "sma_fast, ohlcv_15m, 0 x< sma_slow, ohlcv_15m, 0",
+            "sma_fast, ohlcv_15m, 0 < sma_slow, ohlcv_15m, 0",
         ],
     )
 
-    # 多头离场：快线下穿慢线
     exit_long_group = SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
-            "sma_fast, ohlcv_15m, 0 x< sma_slow, ohlcv_15m, 0",
+            "sma_fast, ohlcv_15m, 0 < sma_slow, ohlcv_15m, 0",
         ],
     )
 
-    # 空头离场：快线上穿慢线
     exit_short_group = SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
-            "sma_fast, ohlcv_15m, 0 x> sma_slow, ohlcv_15m, 0",
+            "sma_fast, ohlcv_15m, 0 > sma_slow, ohlcv_15m, 0",
         ],
     )
 
@@ -154,7 +127,7 @@ def backtest_result(ohlcv_15m):
 
     # 引擎设置
     engine_settings = SettingContainer(
-        execution_stage=ExecutionStage.BACKTEST,
+        execution_stage=ExecutionStage.PERFORMANCE,
         return_only_final=False,
     )
 
@@ -164,12 +137,23 @@ def backtest_result(ohlcv_15m):
         indicators_params=indicators_params,
         signal_params=signal_params,
         backtest_params=backtest_params,
+        performance_params=performance_params,
         signal_template=signal_template,
         engine_settings=engine_settings,
     )
 
     br.run()
 
+    # 预先格式化以便 ipynb 仪表板使用
+    br.format_results_for_export(export_index=0, dataframe_format="parquet")
+
+    return br
+
+
+@pytest.fixture(scope="module")
+def backtest_result():
+    """执行回测并返回结果"""
+    br = run_sma_crossover_backtest()
     return br.results
 
 

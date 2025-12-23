@@ -6,12 +6,9 @@ from py_entry.data_conversion.data_generator import (
 )
 from py_entry.data_conversion.types import (
     BacktestParams,
-    IndicatorsParams,
     Param,
-    PerformanceParams,
     LogicOp,
     SignalGroup,
-    SignalParams,
     SignalTemplate,
     SettingContainer,
     ExecutionStage,

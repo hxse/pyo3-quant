@@ -128,8 +128,17 @@ fn perform_crossover_comparison(
         compare_scalar,
     )?;
 
-    // 返回：(当前满足 AND 前值不满足, 当前掩码 OR 前值掩码)
-    Ok((current.bitand(prev.not()), current_mask.bitor(prev_mask)))
+    // 交叉信号逻辑：
+    // 1. 当前值满足条件 (current)
+    // 2. 前值有效 (!prev_mask) 且前值不满足条件 (prev.not())
+    //
+    // 如果前值有 NaN/Null (prev_mask = true)，则不触发信号
+    // 这确保交叉信号仅在发生真实的状态转换时触发，而不是在数据预热期结束后立即触发
+    let prev_valid_and_not_satisfied = prev.not().bitand(prev_mask.clone().not());
+    let cross_result = current.bitand(prev_valid_and_not_satisfied);
+
+    // 返回：(交叉信号, 当前掩码 OR 前值掩码)
+    Ok((cross_result, current_mask.bitor(prev_mask)))
 }
 
 pub fn evaluate_parsed_condition(

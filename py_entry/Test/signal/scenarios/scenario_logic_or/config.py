@@ -7,7 +7,6 @@ from py_entry.data_conversion.types import (
     SignalTemplate,
     SignalGroup,
     LogicOp,
-    SignalParams,
     Param,
 )
 

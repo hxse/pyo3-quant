@@ -1,4 +1,3 @@
-import pytest
 import zipfile
 import json
 import io

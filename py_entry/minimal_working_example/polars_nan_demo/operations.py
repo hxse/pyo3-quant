@@ -32,7 +32,7 @@ def run_fill_tests():
     print(f"原始 series: {series_mixed}")
     both_filled = series_mixed.fill_nan(-888.0).fill_null(-999.0)
     print(f"fill_nan(-888.0).fill_null(-999.0) 后: {both_filled}")
-    print(f"NaN 被填充为 -888.0，null 被填充为 -999.0")
+    print("NaN 被填充为 -888.0，null 被填充为 -999.0")
     print()
 
     # 测试20: 使用 forward fill 和 backward fill
@@ -45,7 +45,7 @@ def run_fill_tests():
     # 先填充 NaN，再 forward fill null
     ffilled = series_for_ffill.fill_nan(None).forward_fill()
     print(f"fill_nan(None).forward_fill() 后: {ffilled}")
-    print(f"说明：先将 NaN 转为 null，然后用前值填充")
+    print("说明：先将 NaN 转为 null，然后用前值填充")
     print()
 
     # 测试21: 使用 interpolate
@@ -56,5 +56,5 @@ def run_fill_tests():
     # 先将 NaN 转为 null，再插值
     interpolated = series_for_interp.fill_nan(None).interpolate()
     print(f"fill_nan(None).interpolate() 后: {interpolated}")
-    print(f"说明：先将 NaN 转为 null，然后线性插值")
+    print("说明：先将 NaN 转为 null，然后线性插值")
     print()

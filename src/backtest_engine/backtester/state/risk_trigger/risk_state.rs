@@ -1,7 +1,7 @@
 use super::direction::Direction;
 use crate::backtest_engine::indicators::psar::psar_core::PsarState;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct RiskState {
     // === 百分比风险价格（多空分离） ===
     pub sl_pct_price_long: Option<f64>,
@@ -36,38 +36,6 @@ pub struct RiskState {
     pub exit_short_price: Option<f64>,
     /// 风控触发方向：0=无/next_bar, 1=多头in_bar, -1=空头in_bar
     pub in_bar_direction: i8,
-}
-
-impl Default for RiskState {
-    fn default() -> Self {
-        Self {
-            sl_pct_price_long: None,
-            sl_pct_price_short: None,
-            tp_pct_price_long: None,
-            tp_pct_price_short: None,
-            tsl_pct_price_long: None,
-            tsl_pct_price_short: None,
-
-            sl_atr_price_long: None,
-            sl_atr_price_short: None,
-            tp_atr_price_long: None,
-            tp_atr_price_short: None,
-            tsl_atr_price_long: None,
-            tsl_atr_price_short: None,
-
-            highest_since_entry: None,
-            lowest_since_entry: None,
-
-            tsl_psar_state_long: None,
-            tsl_psar_state_short: None,
-            tsl_psar_price_long: None,
-            tsl_psar_price_short: None,
-
-            exit_long_price: None,
-            exit_short_price: None,
-            in_bar_direction: 0,
-        }
-    }
 }
 
 impl RiskState {

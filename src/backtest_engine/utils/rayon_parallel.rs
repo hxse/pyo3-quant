@@ -13,5 +13,5 @@ where
             QuantError::InfrastructureError(format!("Failed to build thread pool: {}", e))
         })?;
 
-    pool.install(|| f())
+    pool.install(f)
 }

@@ -26,7 +26,7 @@ pub fn run_main_loop(
 
     // ---------- 3. 初始化第0行数据 ----------
     // 将 backtest_state 的初始值写入到 buffers 的第0行
-    initialize_buffer_row_zero(&mut buffers, &state);
+    initialize_buffer_row_zero(&mut buffers, state);
 
     // ---------- 4. 主循环 ----------
     // 索引 0 已经正确初始化
@@ -50,7 +50,7 @@ pub fn run_main_loop(
             }
 
             // 使用工具函数更新当前行数据
-            update_buffer_row(&mut buffers, &state, i);
+            update_buffer_row(&mut buffers, state, i);
         }
     }
 

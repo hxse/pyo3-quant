@@ -1,7 +1,6 @@
 """测试 RiskState 输出列"""
 
 import polars as pl
-import pytest
 
 
 class TestRiskStateColumns:

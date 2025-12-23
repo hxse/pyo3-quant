@@ -1,7 +1,5 @@
 """DataFrame 处理工具函数"""
 
-from requests.utils import add_dict_to_cookiejar
-
 from typing import Optional
 import polars as pl
 

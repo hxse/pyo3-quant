@@ -40,7 +40,7 @@ fn run_backtest_calculation(
     let atr_series = calculate_atr_if_needed(ohlcv, backtest_params)?;
 
     // 2. 准备数据，将Polars DataFrame/Series转换为连续的内存数组切片
-    let prepared_data = PreparedData::new(&processed_data, &signals_df, &atr_series)?;
+    let prepared_data = PreparedData::new(processed_data, signals_df, &atr_series)?;
 
     // 3. 初始化回测状态和输出缓冲区
     let mut backtest_state = BacktestState::new(backtest_params);
@@ -92,7 +92,7 @@ fn run_backtest_with_input_df(
             // 将 OutputBuffers 转换为 DataFrame
             let mut result_df = output_buffers
                 .to_dataframe()
-                .map_err(|e| QuantError::Backtest(e))?;
+                .map_err(QuantError::Backtest)?;
 
             // 添加pause列到结果DataFrame中
             let lazy_df = result_df
@@ -133,11 +133,12 @@ fn run_second_backtest_if_needed(
     initial_output_buffers: OutputBuffers,
 ) -> Result<DataFrame, QuantError> {
     // 检查是否需要根据回撤情况修改信号并运行第二次回测
-    match {
+    let res = {
         // 创建只包含 equity 和 peak_equity 的 DataFrame 用于回撤检查
         let equity_df = initial_output_buffers.to_equity_dataframe()?;
         apply_pause_control(&equity_df, signals_df, backtest_params)
-    } {
+    };
+    match res {
         Ok(Some((modified_signals_df, pause_series))) => {
             // 清空旧的 output_buffers 内存以释放资源
             drop(initial_output_buffers);
@@ -152,7 +153,7 @@ fn run_second_backtest_if_needed(
             // 将 OutputBuffers 转换为 DataFrame
             let mut result_df = new_output_buffers
                 .to_dataframe()
-                .map_err(|e| QuantError::Backtest(e))?;
+                .map_err(QuantError::Backtest)?;
 
             // 添加pause列到结果DataFrame中
             let lazy_df = result_df
@@ -170,7 +171,7 @@ fn run_second_backtest_if_needed(
             // 将 OutputBuffers 转换为 DataFrame
             let result_df = initial_output_buffers
                 .to_dataframe()
-                .map_err(|e| QuantError::Backtest(e))?;
+                .map_err(QuantError::Backtest)?;
 
             Ok(result_df)
         }
@@ -199,9 +200,7 @@ pub fn run_backtest(
     backtest_params: &BacktestParams,
 ) -> Result<DataFrame, QuantError> {
     // 1. 在准备数据之前，先验证参数的有效性
-    backtest_params
-        .validate()
-        .map_err(|e| QuantError::Backtest(e))?;
+    backtest_params.validate().map_err(QuantError::Backtest)?;
 
     // 2. 执行第一次回测计算
     let output_buffers = run_backtest_calculation(processed_data, signals_df, backtest_params)?;
@@ -238,9 +237,7 @@ pub fn run_backtest_with_input(
     input_backtest_df: DataFrame,
 ) -> Result<DataFrame, QuantError> {
     // 1. 在准备数据之前，先验证参数的有效性
-    backtest_params
-        .validate()
-        .map_err(|e| QuantError::Backtest(e))?;
+    backtest_params.validate().map_err(QuantError::Backtest)?;
 
     // 2. 检查是否已经包含pause列，如果有则直接返回（避免重复处理）
     if input_backtest_df

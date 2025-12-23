@@ -4,6 +4,40 @@ use super::price_utils::{calculate_risk_price, switch_prices_in_bar, switch_pric
 use super::tsl_psar::{init_tsl_psar, update_tsl_psar, TslPsarParams};
 use crate::data_conversion::BacktestParams;
 
+/// 风控触发状态详细结果
+#[derive(Debug, Clone, Copy, Default)]
+struct RiskTriggerResult {
+    sl_pct_triggered: bool,
+    sl_atr_triggered: bool,
+    tp_pct_triggered: bool,
+    tp_atr_triggered: bool,
+    tsl_pct_triggered: bool,
+    tsl_atr_triggered: bool,
+    tsl_psar_triggered: bool,
+}
+
+impl RiskTriggerResult {
+    /// 是否有任何止损触发
+    fn sl_triggered(&self) -> bool {
+        self.sl_pct_triggered || self.sl_atr_triggered
+    }
+
+    /// 是否有任何止盈触发
+    fn tp_triggered(&self) -> bool {
+        self.tp_pct_triggered || self.tp_atr_triggered
+    }
+
+    /// 是否有任何跟踪止损触发
+    fn tsl_triggered(&self) -> bool {
+        self.tsl_pct_triggered || self.tsl_atr_triggered || self.tsl_psar_triggered
+    }
+
+    /// 是否有任何风控条件触发
+    fn any_triggered(&self) -> bool {
+        self.sl_triggered() || self.tp_triggered() || self.tsl_triggered()
+    }
+}
+
 impl BacktestState {
     /// 通用 Risk 离场检查逻辑
     pub(crate) fn check_risk_exit(
@@ -12,7 +46,7 @@ impl BacktestState {
         current_atr: Option<f64>,
         direction: Direction,
     ) {
-        let is_atr_valid = current_atr.is_some() && !current_atr.unwrap().is_nan();
+        let is_atr_valid = current_atr.map_or(false, |atr| !atr.is_nan());
 
         // 1. 获取基础数据
         let (entry_price, is_first_entry) = self.get_entry_info(direction);
@@ -28,11 +62,10 @@ impl BacktestState {
         );
 
         // 3. 检查触发条件
-        let (sl_triggered, tp_triggered, tsl_triggered) =
-            self.check_risk_triggers(params, direction);
+        let trigger_result = self.check_risk_triggers(params, direction);
 
         // 4. 应用结果
-        self.apply_risk_outcome(params, direction, sl_triggered, tp_triggered, tsl_triggered);
+        self.apply_risk_outcome(params, direction, trigger_result);
     }
 
     /// 获取进场信息
@@ -79,18 +112,22 @@ impl BacktestState {
 
         // 检查 ATR 止损
         if params.is_sl_atr_param_valid() && is_atr_valid && is_first_entry {
-            let sl_atr = params.sl_atr.as_ref().unwrap().value;
-            let calculated_sl_price = entry_price - sign * current_atr.unwrap() * sl_atr;
-            self.risk_state
-                .set_sl_atr_price(direction, Some(calculated_sl_price));
+            if let Some(atr) = current_atr {
+                let sl_atr = params.sl_atr.as_ref().unwrap().value;
+                let calculated_sl_price = entry_price - sign * atr * sl_atr;
+                self.risk_state
+                    .set_sl_atr_price(direction, Some(calculated_sl_price));
+            }
         }
 
         // 检查 ATR 止盈
         if params.is_tp_atr_param_valid() && is_atr_valid && is_first_entry {
-            let tp_atr = params.tp_atr.as_ref().unwrap().value;
-            let calculated_tp_price = entry_price + sign * current_atr.unwrap() * tp_atr;
-            self.risk_state
-                .set_tp_atr_price(direction, Some(calculated_tp_price));
+            if let Some(atr) = current_atr {
+                let tp_atr = params.tp_atr.as_ref().unwrap().value;
+                let calculated_tp_price = entry_price + sign * atr * tp_atr;
+                self.risk_state
+                    .set_tp_atr_price(direction, Some(calculated_tp_price));
+            }
         }
 
         // 检查跟踪止损 (PCT & ATR)
@@ -162,24 +199,26 @@ impl BacktestState {
         }
 
         // ATR TSL
-        if params.is_tsl_atr_param_valid() && current_atr.is_some() {
-            let tsl_atr = params.tsl_atr.as_ref().unwrap().value;
-            let calculated_tsl_price = extremum - sign * current_atr.unwrap() * tsl_atr;
+        if params.is_tsl_atr_param_valid() {
+            if let Some(atr) = current_atr {
+                let tsl_atr = params.tsl_atr.as_ref().unwrap().value;
+                let calculated_tsl_price = extremum - sign * atr * tsl_atr;
 
-            // 判断是否应该更新 TSL 价格
-            let should_update = if params.tsl_atr_tight {
-                // tight 模式：每根K线都尝试更新 (配合方向限制)
-                true
-            } else {
-                // 非 tight 模式：只有极值更新时才尝试更新 (配合方向限制)
-                extremum_updated
-            };
+                // 判断是否应该更新 TSL 价格
+                let should_update = if params.tsl_atr_tight {
+                    // tight 模式：每根K线都尝试更新 (配合方向限制)
+                    true
+                } else {
+                    // 非 tight 模式：只有极值更新时才尝试更新 (配合方向限制)
+                    extremum_updated
+                };
 
-            if should_update {
-                let old_price = self.risk_state.tsl_atr_price(direction);
-                let new_price =
-                    update_price_one_direction(old_price, calculated_tsl_price, direction);
-                self.risk_state.set_tsl_atr_price(direction, new_price);
+                if should_update {
+                    let old_price = self.risk_state.tsl_atr_price(direction);
+                    let new_price =
+                        update_price_one_direction(old_price, calculated_tsl_price, direction);
+                    self.risk_state.set_tsl_atr_price(direction, new_price);
+                }
             }
         }
     }
@@ -253,7 +292,7 @@ impl BacktestState {
         &self,
         params: &BacktestParams,
         direction: Direction,
-    ) -> (bool, bool, bool) {
+    ) -> RiskTriggerResult {
         let sign = direction.sign();
 
         let is_long = match direction {
@@ -272,33 +311,38 @@ impl BacktestState {
         let tp_atr_price = self.risk_state.tp_atr_price(direction);
         let tsl_pct_price = self.risk_state.tsl_pct_price(direction);
         let tsl_atr_price = self.risk_state.tsl_atr_price(direction);
+        let tsl_psar_price = self.risk_state.tsl_psar_price(direction);
 
         // 检查 SL
-        let sl_triggered = (sl_pct_price.is_some()
-            && price_for_sl * sign <= sl_pct_price.unwrap() * sign)
-            || (sl_atr_price.is_some() && price_for_sl * sign <= sl_atr_price.unwrap() * sign);
+        let sl_pct_triggered =
+            sl_pct_price.is_some() && price_for_sl * sign <= sl_pct_price.unwrap() * sign;
+        let sl_atr_triggered =
+            sl_atr_price.is_some() && price_for_sl * sign <= sl_atr_price.unwrap() * sign;
 
         // 检查 TP
-        let tp_triggered = (tp_pct_price.is_some()
-            && price_for_tp * sign >= tp_pct_price.unwrap() * sign)
-            || (tp_atr_price.is_some() && price_for_tp * sign >= tp_atr_price.unwrap() * sign);
+        let tp_pct_triggered =
+            tp_pct_price.is_some() && price_for_tp * sign >= tp_pct_price.unwrap() * sign;
+        let tp_atr_triggered =
+            tp_atr_price.is_some() && price_for_tp * sign >= tp_atr_price.unwrap() * sign;
 
         // 检查 TSL
         let (price_for_tsl, _) = switch_prices_next_bar(&self.current_bar, params, is_long);
-        // TSL 逻辑同 SL
         let tsl_pct_triggered =
             tsl_pct_price.is_some() && price_for_tsl * sign <= tsl_pct_price.unwrap() * sign;
         let tsl_atr_triggered =
             tsl_atr_price.is_some() && price_for_tsl * sign <= tsl_atr_price.unwrap() * sign;
-
-        // PSAR TSL 触发检查
-        let tsl_psar_price = self.risk_state.tsl_psar_price(direction);
         let tsl_psar_triggered =
             tsl_psar_price.is_some() && price_for_tsl * sign <= tsl_psar_price.unwrap() * sign;
 
-        let tsl_triggered = tsl_pct_triggered || tsl_atr_triggered || tsl_psar_triggered;
-
-        (sl_triggered, tp_triggered, tsl_triggered)
+        RiskTriggerResult {
+            sl_pct_triggered,
+            sl_atr_triggered,
+            tp_pct_triggered,
+            tp_atr_triggered,
+            tsl_pct_triggered,
+            tsl_atr_triggered,
+            tsl_psar_triggered,
+        }
     }
 
     /// 应用 Risk 结果
@@ -306,11 +350,9 @@ impl BacktestState {
         &mut self,
         params: &BacktestParams,
         direction: Direction,
-        sl_triggered: bool,
-        tp_triggered: bool,
-        tsl_triggered: bool,
+        result: RiskTriggerResult,
     ) {
-        let should_exit = sl_triggered || tp_triggered || tsl_triggered;
+        let should_exit = result.any_triggered();
 
         if should_exit {
             let is_long = match direction {
@@ -327,36 +369,77 @@ impl BacktestState {
             let tsl_psar = self.risk_state.tsl_psar_price(direction);
 
             // 根据触发状态过滤价格，避免未触发的优良价格掩盖已触发的离场价格
-            let sl_pct_eff = if sl_triggered { sl_pct } else { None };
-            let sl_atr_eff = if sl_triggered { sl_atr } else { None };
-            let tp_pct_eff = if tp_triggered { tp_pct } else { None };
-            let tp_atr_eff = if tp_triggered { tp_atr } else { None };
-            let tsl_pct_eff = if tsl_triggered { tsl_pct } else { None };
-            let tsl_atr_eff = if tsl_triggered { tsl_atr } else { None };
-            let tsl_psar_eff = if tsl_triggered { tsl_psar } else { None };
+            let sl_pct_eff = if result.sl_pct_triggered {
+                sl_pct
+            } else {
+                None
+            };
+            let sl_atr_eff = if result.sl_atr_triggered {
+                sl_atr
+            } else {
+                None
+            };
+            let tp_pct_eff = if result.tp_pct_triggered {
+                tp_pct
+            } else {
+                None
+            };
+            let tp_atr_eff = if result.tp_atr_triggered {
+                tp_atr
+            } else {
+                None
+            };
+            let tsl_pct_eff = if result.tsl_pct_triggered {
+                tsl_pct
+            } else {
+                None
+            };
+            let tsl_atr_eff = if result.tsl_atr_triggered {
+                tsl_atr
+            } else {
+                None
+            };
+            let tsl_psar_eff = if result.tsl_psar_triggered {
+                tsl_psar
+            } else {
+                None
+            };
 
-            let exit_price = calculate_risk_price(
-                sl_pct_eff,
-                sl_atr_eff,
-                tp_pct_eff,
-                tp_atr_eff,
-                tsl_pct_eff,
-                tsl_atr_eff,
-                tsl_psar_eff,
-                is_long,
-            );
+            // 判断是否为 In-Bar 模式触发 (仅 SL/TP 受 exit_in_bar 影响)
+            let is_in_bar_exit =
+                params.exit_in_bar && (result.sl_triggered() || result.tp_triggered());
+
+            let exit_price = if is_in_bar_exit {
+                // 1. In-Bar 模式：只包含触发的 SL/TP 价格。
+                // TSL/PSAR 始终为 Next-Bar，不参与 In-Bar 的悲观结算价格计算。
+                calculate_risk_price(
+                    sl_pct_eff, sl_atr_eff, tp_pct_eff, tp_atr_eff, None, None, None, is_long,
+                )
+            } else {
+                // 2. Next-Bar 模式：包含所有触发的价格（SL/TP/TSL/PSAR）
+                // 虽然最终離場價通常是下一根 K 線開盤價，但在這裡記錄最先觸發的那個價格作為參考
+                calculate_risk_price(
+                    sl_pct_eff,
+                    sl_atr_eff,
+                    tp_pct_eff,
+                    tp_atr_eff,
+                    tsl_pct_eff,
+                    tsl_atr_eff,
+                    tsl_psar_eff,
+                    is_long,
+                )
+            };
 
             self.risk_state.set_exit_price(direction, exit_price);
 
-            self.risk_state.in_bar_direction =
-                if params.exit_in_bar && (sl_triggered || tp_triggered) {
-                    match direction {
-                        Direction::Long => 1,
-                        Direction::Short => -1,
-                    }
-                } else {
-                    0
-                };
+            self.risk_state.in_bar_direction = if is_in_bar_exit {
+                match direction {
+                    Direction::Long => 1,
+                    Direction::Short => -1,
+                }
+            } else {
+                0
+            };
         } else {
             self.risk_state.set_exit_price(direction, None);
             self.risk_state.in_bar_direction = 0;

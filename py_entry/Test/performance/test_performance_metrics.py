@@ -1,6 +1,3 @@
-import pytest
-
-
 def test_performance_metrics_exist(full_performance_result):
     """验证所有请求的指标都在结果中，且不是默认的 0.0 (除非真的没交易)"""
     metrics = full_performance_result.performance

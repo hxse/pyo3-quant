@@ -13,7 +13,6 @@ pub enum ColumnName {
     High,
     Low,
     Close,
-    Volume,
 
     // 信号相关列名
     EnterLong,
@@ -70,7 +69,6 @@ impl ColumnName {
             ColumnName::High => "high",
             ColumnName::Low => "low",
             ColumnName::Close => "close",
-            ColumnName::Volume => "volume",
 
             // 信号相关列名
             ColumnName::EnterLong => "enter_long",

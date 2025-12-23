@@ -1,5 +1,4 @@
 import time
-import pyo3_quant
 from loguru import logger
 from py_entry.data_conversion.backtest_runner import BacktestRunner
 

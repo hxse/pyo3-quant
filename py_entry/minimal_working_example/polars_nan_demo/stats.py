@@ -17,14 +17,14 @@ def run_count_tests():
     # 方法1: 直接使用 is_nan().sum()
     nan_count_1 = series_for_count.is_nan().sum()
     print(f"方法1 - is_nan().sum(): {nan_count_1}")
-    print(f"  问题: is_nan() 对 null 返回 null，sum() 会忽略 null")
+    print("  问题: is_nan() 对 null 返回 null，sum() 会忽略 null")
     print(f"  is_nan() 结果: {series_for_count.is_nan()}")
     print()
 
     # 方法2: 填充后再统计 (推荐)
     nan_count_2 = series_for_count.is_nan().fill_null(False).sum()
     print(f"方法2 - is_nan().fill_null(False).sum(): {nan_count_2}")
-    print(f"  推荐: 更准确，显式处理了 null 位置")
+    print("  推荐: 更准确，显式处理了 null 位置")
     print(f"  fill_null(False) 后: {series_for_count.is_nan().fill_null(False)}")
     print()
 

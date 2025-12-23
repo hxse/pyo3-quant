@@ -111,15 +111,13 @@ pub fn rsi_expr(
         column_name: processed_gain_temp_name.to_string(),
         alias_name: avg_gain_temp_name.to_string(),
         period,
-    })
-    .map_err(QuantError::from)?;
+    })?;
 
     let avg_loss_expr = rma_expr(&RMAConfig {
         column_name: processed_loss_temp_name.to_string(),
         alias_name: avg_loss_temp_name.to_string(),
         period,
-    })
-    .map_err(QuantError::from)?;
+    })?;
 
     // 6. 计算 RSI
     // RSI = 100.0 * (avg_gain / (avg_gain + avg_loss))

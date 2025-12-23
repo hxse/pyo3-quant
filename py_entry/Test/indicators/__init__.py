@@ -5,4 +5,4 @@
 """
 
 # 自动加载 monkey_patch，确保 pandas_ta 访问器正常工作
-from . import monkey_patch
+from . import monkey_patch as monkey_patch

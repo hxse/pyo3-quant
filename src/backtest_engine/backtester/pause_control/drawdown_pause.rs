@@ -76,7 +76,7 @@ pub fn drawdown_pause_signals(
         .collect();
 
     // 选择原始列和pause列
-    let mut select_columns: Vec<Expr> = original_columns.iter().map(|name| col(name)).collect();
+    let mut select_columns: Vec<Expr> = original_columns.iter().map(col).collect();
     select_columns.push(col("pause"));
 
     lazy_df = lazy_df.select(select_columns);

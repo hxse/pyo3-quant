@@ -7,7 +7,6 @@ from py_entry.data_conversion.types import (
     SignalTemplate,
     SignalGroup,
     LogicOp,
-    SignalParams,
     Param,
 )
 # from py_entry.Test.signal.utils import get_indicator

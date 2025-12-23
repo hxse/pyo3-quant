@@ -16,8 +16,6 @@ pub struct PreparedData<'a> {
     pub low: &'a [f64],
     /// 收盘价数组
     pub close: &'a [f64],
-    /// 成交量数组
-    pub volume: &'a [f64],
     /// 做多入场信号数组
     pub enter_long: Vec<i32>,
     /// 做多离场信号数组
@@ -102,10 +100,6 @@ impl<'a> PreparedData<'a> {
             .column(ColumnName::Close.as_str())?
             .f64()?
             .cont_slice()?;
-        let volume = ohlcv_df
-            .column(ColumnName::Volume.as_str())?
-            .f64()?
-            .cont_slice()?;
 
         // 3. 处理信号列：从预处理后的 DataFrame 提取所有信号
         let (enter_long, exit_long, enter_short, exit_short) =
@@ -124,7 +118,6 @@ impl<'a> PreparedData<'a> {
             high,
             low,
             close,
-            volume,
             enter_long,
             exit_long,
             enter_short,

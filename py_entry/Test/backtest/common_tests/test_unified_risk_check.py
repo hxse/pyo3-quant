@@ -17,7 +17,7 @@ class TestLongShortSymmetry:
         in_bar_long = len(backtest_df.filter(pl.col("risk_in_bar_direction") == 1))
         in_bar_short = len(backtest_df.filter(pl.col("risk_in_bar_direction") == -1))
 
-        print(f"📊 风控触发统计:")
+        print("📊 风控触发统计:")
         print(f"  - 多头风控: {long_risk_count}次 (In-Bar: {in_bar_long})")
         print(f"  - 空头风控: {short_risk_count}次 (In-Bar: {in_bar_short})")
         print("✅ 多空风控触发统计完成")

@@ -2,8 +2,6 @@
 时间处理工具模块
 """
 
-from datetime import datetime
-
 time_format = "%Y-%m-%dT%H:%M:%S%.3f%Z"
 fixed_cols = ["time", "date"]
 

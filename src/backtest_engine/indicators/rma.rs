@@ -100,7 +100,7 @@ impl Indicator for RmaIndicator {
     ) -> Result<Vec<Series>, QuantError> {
         let period = param_map
             .get("period")
-            .and_then(|p| Some(p.value as i64))
+            .map(|p| p.value as i64)
             .ok_or_else(|| {
                 IndicatorError::InvalidParameter(
                     indicator_key.to_string(),

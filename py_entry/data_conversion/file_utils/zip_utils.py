@@ -2,7 +2,6 @@ import zipfile
 import io
 from pathlib import Path
 from typing import List, Tuple
-import zlib
 
 
 def create_zip_buffer(

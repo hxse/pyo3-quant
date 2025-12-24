@@ -1,126 +1,46 @@
+"""
+通用测试的 pytest 配置
+
+使用策略注册表进行参数化测试，所有已注册策略都会被测试。
+"""
+
 import pytest
 
 from py_entry.data_conversion.backtest_runner import BacktestRunner
-from py_entry.data_conversion.data_generator import (
-    DataGenerationParams,
-)
-from py_entry.data_conversion.types import (
-    BacktestParams,
-    Param,
-    LogicOp,
-    SignalGroup,
-    SignalTemplate,
-    SettingContainer,
-    ExecutionStage,
-)
+from py_entry.Test.backtest.strategies import get_all_strategies
+from py_entry.Test.backtest.strategies.base import StrategyConfig
 
 
-@pytest.fixture(scope="class")
-def backtest_result():
-    """缓存回测结果，避免重复运行"""
+def _run_backtest(strategy: StrategyConfig):
+    """执行回测并返回结果"""
     br = BacktestRunner()
 
-    # 创建 DataGenerationParams 对象
-    simulated_data_config = DataGenerationParams(
-        timeframes=["15m", "1h", "4h"],
-        start_time=1735689600000,
-        num_bars=10000,
-        fixed_seed=42,
-        BaseDataKey="ohlcv_15m",
-    )
-
-    # 构建指标参数
-    indicators_params = {
-        "ohlcv_15m": {
-            "sma_fast": {
-                "period": Param.create(5),
-            },
-            "sma_slow": {
-                "period": Param.create(10),
-            },
-        },
-    }
-
-    # 自定义信号参数
-    signal_params = {}
-
-    # 自定义回测参数
-    backtest_params = BacktestParams(
-        initial_capital=10000.0,
-        fee_fixed=1,
-        fee_pct=0.001,
-        pause_drawdown=Param.create(0),
-        pause_sma=Param.create(0),
-        pause_ema=Param.create(0),
-        exit_in_bar=False,
-        use_extrema_for_exit=False,
-        sl_pct=Param.create(2),
-        tp_pct=Param.create(2),
-        tsl_pct=Param.create(1),
-        sl_atr=Param.create(2),
-        tp_atr=Param.create(3),
-        tsl_atr=Param.create(2),
-        atr_period=Param.create(14),
-    )
-
-    # 自定义信号模板
-    # 双均线策略：金叉进多，死叉进空
-    enter_long_group = SignalGroup(
-        logic=LogicOp.AND,
-        comparisons=[
-            "sma_fast, ohlcv_15m, 0 > sma_slow, ohlcv_15m, 0",
-        ],
-    )
-
-    enter_short_group = SignalGroup(
-        logic=LogicOp.AND,
-        comparisons=[
-            "sma_fast, ohlcv_15m, 0 < sma_slow, ohlcv_15m, 0",
-        ],
-    )
-
-    # 离场条件：反向交叉
-    exit_long_group = SignalGroup(
-        logic=LogicOp.AND,
-        comparisons=[
-            "sma_fast, ohlcv_15m, 0 < sma_slow, ohlcv_15m, 0",
-        ],
-    )
-
-    exit_short_group = SignalGroup(
-        logic=LogicOp.AND,
-        comparisons=[
-            "sma_fast, ohlcv_15m, 0 > sma_slow, ohlcv_15m, 0",
-        ],
-    )
-
-    signal_template = SignalTemplate(
-        enter_long=enter_long_group,
-        enter_short=enter_short_group,
-        exit_long=exit_long_group,
-        exit_short=exit_short_group,
-    )
-
-    # 自定义引擎设置
-    engine_settings = SettingContainer(
-        execution_stage=ExecutionStage.PERFORMANCE,
-        return_only_final=False,
-    )
-
-    # 使用 setup 方法一次性配置所有参数
     br.setup(
-        data_source=simulated_data_config,
-        indicators_params=indicators_params,
-        signal_params=signal_params,
-        backtest_params=backtest_params,
-        signal_template=signal_template,
-        engine_settings=engine_settings,
+        data_source=strategy.data_config,
+        indicators_params=strategy.indicators_params,
+        signal_params=strategy.signal_params,
+        backtest_params=strategy.backtest_params,
+        signal_template=strategy.signal_template,
+        engine_settings=strategy.engine_settings,
+        performance_params=strategy.performance_params,
     )
 
-    # 执行回测
     br.run()
-
     return br.results
+
+
+@pytest.fixture(scope="class", params=get_all_strategies(), ids=lambda s: s.name)
+def backtest_result(request):
+    """
+    参数化回测结果 fixture
+
+    对所有已注册策略执行回测，每个策略的测试独立运行。
+    测试报告中会显示策略名称。
+    """
+    strategy: StrategyConfig = request.param
+    print(f"\n🚀 正在测试策略: {strategy.name}")
+    print(f"   {strategy.description}")
+    return _run_backtest(strategy)
 
 
 @pytest.fixture
@@ -129,6 +49,18 @@ def backtest_df(backtest_result):
     if not backtest_result or not hasattr(backtest_result[0], "backtest_result"):
         return None
     return backtest_result[0].backtest_result
+
+
+@pytest.fixture
+def current_strategy(request):
+    """获取当前测试的策略配置"""
+    # 从 backtest_result fixture 的参数中获取
+    if hasattr(request, "param"):
+        return request.param
+    return None
+
+
+# ============ 列定义 Fixtures ============
 
 
 @pytest.fixture

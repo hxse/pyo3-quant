@@ -136,3 +136,38 @@ class BacktestRunner:
             HTML 对象（embed_data=True）或 ChartDashboardWidget 对象（embed_data=False）
         """
         return _display.display_dashboard(self, config)
+
+    def diagnose_states(
+        self,
+        result_index: int = 0,
+        print_summary: bool = True,
+    ) -> dict:
+        """
+        诊断回测结果的状态机覆盖情况
+
+        分析回测是否覆盖全部 11 种状态机状态，帮助快速验证策略的健壮性。
+
+        Args:
+            result_index: 回测结果索引（多参数集时使用）
+            print_summary: 是否打印摘要信息
+
+        Returns:
+            dict: 包含状态分布信息的字典：
+                - found_states: 找到的状态列表
+                - missing_states: 缺失的状态列表
+                - distribution: 各状态的计数
+                - coverage: 覆盖比例 (found/11)
+                - is_complete: 是否覆盖全部 11 种状态
+
+        Example:
+            >>> br = BacktestRunner().setup(...).run()
+            >>> result = br.diagnose_states()
+            >>> if result["is_complete"]:
+            ...     print("✅ 全部 11 种状态已覆盖")
+        """
+        from . import diagnostics as _diag
+
+        if print_summary:
+            _diag.print_state_summary(self, result_index)
+
+        return _diag.analyze_state_distribution(self, result_index)

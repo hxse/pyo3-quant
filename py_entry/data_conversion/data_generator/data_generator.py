@@ -66,6 +66,11 @@ def generate_data_dict(
             start_time,
             simulated_data_config.num_bars,
             simulated_data_config.fixed_seed,
+            volatility=simulated_data_config.volatility,
+            trend=simulated_data_config.trend,
+            gap_factor=simulated_data_config.gap_factor,
+            extreme_prob=simulated_data_config.extreme_prob,
+            extreme_mult=simulated_data_config.extreme_mult,
         )
 
         # 将列表转换为字典

@@ -36,11 +36,14 @@ def generate_ohlcv(
     num_bars: int,
     initial_price: float = 100.0,
     volatility: float = 0.02,
-    gap_factor: float = 0.5,  # 新增参数: 控制 Open 价格相对于前一 Close 的波动性
+    trend: float = 0.0,  # 新增: 趋势系数
+    gap_factor: float = 0.5,
+    extreme_prob: float = 0.0,  # 新增: 极端行情概率
+    extreme_mult: float = 3.0,  # 新增: 极端行情波动倍数
     fixed_seed: Optional[int] = None,
 ) -> pl.DataFrame:
     """
-    生成单周期OHLCV模拟数据，引入随机跳空，更接近真实K线市场。
+    生成单周期OHLCV模拟数据，支持趋势、跳空和极端行情。
 
     Args:
         timeframe: 时间周期
@@ -48,50 +51,61 @@ def generate_ohlcv(
         num_bars: K线数量
         initial_price: 初始价格,默认100.0
         volatility: 波动率,默认0.02
+        trend: 趋势系数,正值上涨趋势,负值下跌趋势,默认0
         gap_factor: 跳空因子,控制Open价格相对于前一Close的波动性,默认0.5
-        fixed_seed: 是否使用固定种子,如果为None则使用随机种子,如果是正整数则使用该种子,默认None
+        extreme_prob: 极端行情概率,范围0-1,默认0
+        extreme_mult: 极端行情波动倍数,默认3.0
+        fixed_seed: 是否使用固定种子
     """
     interval_ms = parse_timeframe(timeframe)
 
-    # 使用上下文管理器临时设置随机种子，确保不影响全局状态
     with temporary_numpy_seed(fixed_seed):
-        # 1. 使用 numpy 生成所有随机数
-        # 随机收益率 (用于计算 Close)
-        returns = np.random.normal(0, volatility, num_bars)
-        # 随机 Open 价格跳空 (相对于前一 Close)
+        # 1. 生成基础收益率 (带趋势)
+        returns = np.random.normal(trend, volatility, num_bars)
+
+        # 2. 添加极端行情 (随机选择一些 bar 放大波动)
+        if extreme_prob > 0:
+            is_extreme = np.random.random(num_bars) < extreme_prob
+            # 极端行情时波动放大，且随机选择方向
+            extreme_direction = np.random.choice([-1, 1], num_bars)
+            extreme_returns = np.random.normal(0, volatility * extreme_mult, num_bars)
+            returns = np.where(is_extreme, extreme_returns * extreme_direction, returns)
+
+        # 3. 随机 Open 价格跳空
         open_returns = np.random.normal(0, volatility * gap_factor, num_bars)
-        # High/Low 的波动因子 (相对于 OHLC 范围)
+        # 极端行情时跳空也放大
+        if extreme_prob > 0:
+            extreme_gaps = np.random.normal(
+                0, volatility * gap_factor * extreme_mult, num_bars
+            )
+            extreme_gap_direction = np.random.choice([-1, 1], num_bars)
+            open_returns = np.where(
+                is_extreme, extreme_gaps * extreme_gap_direction, open_returns
+            )
+
+        # High/Low 的波动因子
         range_factors = np.abs(np.random.normal(0, volatility / 3, num_bars))
+        # 极端行情时 High/Low 范围更大
+        if extreme_prob > 0:
+            extreme_range = np.abs(
+                np.random.normal(0, volatility * extreme_mult / 3, num_bars)
+            )
+            range_factors = np.where(is_extreme, extreme_range, range_factors)
 
         volumes = np.abs(np.random.normal(1000000, 200000, num_bars))
 
-        # 2. 计算 Close 价格 (随机游走: 使用累积乘积)
+        # 4. 计算 Close 价格 (随机游走)
         price_multipliers = 1.0 + returns
         close_prices = initial_price * np.cumprod(price_multipliers)
 
-        # 3. 计算 Open 价格 (引入跳空)
-        # 使用前一根的 close 作为基准
+        # 5. 计算 Open 价格 (引入跳空)
         prev_close = np.concatenate([[initial_price], close_prices[:-1]])
-
-        # Open 价格 = 前一 Close * (1 + 随机跳空收益率)
-        # 这使得 Open 价格可能高于或低于前一 Close，从而产生跳空。
         open_prices = prev_close * (1.0 + open_returns)
 
-        # 4. 计算 High 和 Low (确保 H/L 包含 O/C)
-        # 确定 O, H, L, C 四个价格中的最大和最小范围
-        # H/L 需要以 O, C 和 C_prev (即 O_t) 为基准扩展，
-        # 但简单起见，我们确保 H/L 价格包含 O 和 C 即可。
-
-        # 新的 High 和 Low 基准 (确保 Open 和 Close 在 H/L 范围内)
+        # 6. 计算 High 和 Low
         max_oc = np.maximum(open_prices, close_prices)
         min_oc = np.minimum(open_prices, close_prices)
-
-        # High = max(O, C) + 额外的波动 (range_factors)
-        # 确保 High 价格在 O 和 C 的基础上有一个随机的上涨幅度
         high_prices = max_oc + range_factors * max_oc
-
-        # Low = min(O, C) - 额外的波动 (range_factors)
-        # 确保 Low 价格在 O 和 C 的基础上有一个随机的下跌幅度
         low_prices = min_oc - range_factors * min_oc
 
         # 5. 生成时间序列
@@ -133,6 +147,11 @@ def generate_multi_timeframe_ohlcv(
     start_time: int,
     num_bars: int,
     fixed_seed: Optional[int] = None,
+    volatility: float = 0.02,
+    trend: float = 0.0,
+    gap_factor: float = 0.5,
+    extreme_prob: float = 0.0,
+    extreme_mult: float = 3.0,
 ) -> list[pl.DataFrame]:
     """
     生成多周期OHLCV数据
@@ -141,7 +160,12 @@ def generate_multi_timeframe_ohlcv(
         timeframes: 时间周期列表,按从小到大排序
         start_time: 起始时间
         num_bars: 最小周期的k线数量
-        fixed_seed: 是否使用固定种子,如果为None则使用随机种子,如果是正整数则使用该种子,默认None
+        fixed_seed: 随机种子
+        volatility: 波动率
+        trend: 趋势系数
+        gap_factor: 跳空因子
+        extreme_prob: 极端行情概率
+        extreme_mult: 极端行情波动倍数
 
     Returns:
         按时间周期从小到大排列的 DataFrame 列表
@@ -157,8 +181,12 @@ def generate_multi_timeframe_ohlcv(
             start_time=start_time,
             num_bars=int(ceil(num_bars * base_interval / parse_timeframe(tf))),
             initial_price=100.0,
-            volatility=0.02,
-            fixed_seed=fixed_seed,  # 每个调用都使用相同的种子
+            volatility=volatility,
+            trend=trend,
+            gap_factor=gap_factor,
+            extreme_prob=extreme_prob,
+            extreme_mult=extreme_mult,
+            fixed_seed=fixed_seed,
         )
         for tf in timeframes
     ]

@@ -120,6 +120,7 @@ class IndicatorLayoutItem:
         "vline",
     ]
     show: bool = True
+    showInLegend: bool = False
 
     # 样式选项数组（为多个同名指标提供不同样式）
     # 按照同周期、同窗格的顺序依次分配，数量不够时重复最后一个
@@ -189,16 +190,17 @@ class ChartConfig:
     - 第1维：时间周期（如 15m, 1h, 4h）
     - 第2维：面板（主图、副图1、副图2...）
     - 第3维：该面板内的所有系列配置
-    - bottomRowChart 是一个二维数组（面板 > 系列），用于底栏图表配置
+    - bottomRowChart 是一个三维数组（Slot > Pane > Series），用于底栏图表配置
     """
 
     template: str
     chart: List[List[List[SeriesItemConfig]]]
 
     showBottomRow: bool = True
-    bottomRowChart: Optional[List[List[SeriesItemConfig]]] = None
+    bottomRowChart: Optional[List[List[List[SeriesItemConfig]]]] = None
     viewMode: Literal["chart", "table"] = "chart"
     selectedInternalFileName: str = ""
+    showLegendInAll: bool = True
 
 
 # --- Overrides ---
@@ -216,6 +218,7 @@ class DashboardOverride:
         None  # 格式: "slotIdx,paneIdx,seriesIdx,showInLegend"
     )
     showRiskLegend: Optional[str] = None  # 格式: "value1,value2,value3,value4"
+    showLegendInAll: bool = True
 
     def to_dict(self):
         """转换为字典，移除 None 值"""

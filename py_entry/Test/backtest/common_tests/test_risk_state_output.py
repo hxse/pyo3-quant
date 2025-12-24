@@ -8,13 +8,12 @@ class TestRiskStateColumns:
 
     def test_risk_exit_columns_exist(self, backtest_df):
         """测试所有 risk_exit_* 列存在"""
-        required_risk_cols = [
-            "risk_in_bar_direction",
-        ]
+        required_risk_cols = {"risk_in_bar_direction"}
 
-        for col in required_risk_cols:
-            assert col in backtest_df.columns, f"缺少列: {col}"
+        existing_cols = set(backtest_df.columns)
+        missing_cols = required_risk_cols - existing_cols
 
+        assert len(missing_cols) == 0, f"缺少列: {missing_cols}"
         print("✅ 所有 RiskState 输出列存在")
 
     def test_risk_in_bar_direction_is_i8(self, backtest_df):

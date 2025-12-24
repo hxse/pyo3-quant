@@ -19,7 +19,9 @@ IndicatorLayout = list[list[IndicatorLayoutItem]]
 
 INDICATOR_LAYOUT: IndicatorLayout = [
     [  # position 0: 主图
-        IndicatorLayoutItem(indicator="ohlc", type="candle", show=True),
+        IndicatorLayoutItem(
+            indicator="ohlc", type="candle", show=True, showInLegend=True
+        ),
         # Volume 作为独立类型，前端会自动处理涨跌颜色和叠加层配置
         # 参考文档: https://tradingview.github.io/lightweight-charts/docs/api/interfaces/VolumeSeriesOptions
         IndicatorLayoutItem(
@@ -32,6 +34,7 @@ INDICATOR_LAYOUT: IndicatorLayout = [
                     adjustMainSeries=True,  # 自动调整主系列避免重叠
                 )
             ],
+            showInLegend=False,
         ),
         IndicatorLayoutItem(
             indicator="sma",
@@ -65,5 +68,50 @@ INDICATOR_LAYOUT: IndicatorLayout = [
         IndicatorLayoutItem(indicator="macd_signal", type="line", show=True),
         IndicatorLayoutItem(indicator="macd_hist", type="line", show=True),
         IndicatorLayoutItem(indicator="macd_zero", type="hline", show=True, value=0),
+    ],
+]
+
+
+# 底栏图表配置 (Slot > Pane > Items)
+# 与 chart 配置保持一致的三维结构
+BOTTOM_PANEL_LAYOUT: list[list[list[IndicatorLayoutItem]]] = [
+    [  # Slot 0
+        [  # Pane 0
+            IndicatorLayoutItem(
+                indicator="balance",
+                type="line",
+                show=True,
+                showInLegend=True,
+                lineOptions=[LineOption(color="#2962FF", lineWidth=2)],
+            ),
+            IndicatorLayoutItem(
+                indicator="equity",
+                type="line",
+                show=True,
+                showInLegend=True,
+                lineOptions=[LineOption(color="#FF6D00", lineWidth=2)],
+            ),
+            IndicatorLayoutItem(
+                indicator="current_drawdown",
+                type="line",
+                show=False,
+                showInLegend=True,
+                lineOptions=[LineOption(color="#1D2021", lineWidth=2)],
+            ),
+            IndicatorLayoutItem(
+                indicator="fee",
+                type="line",
+                show=False,
+                showInLegend=True,
+                lineOptions=[LineOption(color="#1D2021", lineWidth=2)],
+            ),
+            IndicatorLayoutItem(
+                indicator="fee_cum",
+                type="line",
+                show=False,
+                showInLegend=True,
+                lineOptions=[LineOption(color="#1D2021", lineWidth=2)],
+            ),
+        ],
     ],
 ]

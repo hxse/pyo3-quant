@@ -10,6 +10,28 @@ import pytest
 import json
 from pathlib import Path
 
+from py_entry.Test.backtest.strategies import get_strategy
+from py_entry.data_conversion.backtest_runner import BacktestRunner
+
+
+@pytest.fixture(scope="module")
+def backtest_result():
+    """使用 reversal_extreme 策略执行回测"""
+    strategy = get_strategy("reversal_extreme")
+    br = (
+        BacktestRunner()
+        .setup(
+            data_source=strategy.data_config,
+            indicators_params=strategy.indicators_params,
+            signal_params=strategy.signal_params,
+            backtest_params=strategy.backtest_params,
+            signal_template=strategy.signal_template,
+            engine_settings=strategy.engine_settings,
+        )
+        .run()
+    )
+    return br.results
+
 
 def test_performance_matches_baseline(backtest_result):
     """验证回测性能指标与 JSON 基准一致"""
@@ -35,7 +57,6 @@ def test_performance_matches_baseline(backtest_result):
 
     # 4. 逐项比较
     mismatches = []
-    # 比较所有基准中存在的指标
     for key in baseline:
         if key not in current:
             mismatches.append(f"缺少指标: {key}")
@@ -44,13 +65,11 @@ def test_performance_matches_baseline(backtest_result):
             c_val = current[key]
 
             if isinstance(b_val, (int, float)) and isinstance(c_val, (int, float)):
-                # 数值类型使用容差比较
                 if abs(c_val - b_val) > 1e-10:
                     mismatches.append(
                         f"{key}: 当前={c_val}, 基准={b_val} (差异={c_val - b_val})"
                     )
             elif c_val != b_val:
-                # 其他类型直接比较
                 mismatches.append(f"{key}: 当前={c_val}, 基准={b_val}")
 
     if mismatches:

@@ -32,22 +32,15 @@ impl BacktestState {
         }
 
         // === 2. 处理bar(i-1)的策略信号（next_bar模式） ===
+        //
+        // 执行顺序说明（同bar最复杂场景）：
+        // 1. 先策略离场（开盘价平掉上一根K线信号的仓位）
+        // 2. 再策略进场（开盘价按上一根K线信号反手开仓）
+        // 3. 最后risk检查（可能在SL/TP价格触发新仓位的离场）
+        //
+        // 这样 can_enter_long() 检查 is_exiting_short() 时，exit_short_price 已经设置。
 
-        // 重置首次进场标志（默认为 false，只有在发生进场时才设为 true）
-        self.action.is_first_entry_long = false;
-        self.action.is_first_entry_short = false;
-
-        // 2.1 进场检查（含反手逻辑）
-        if self.can_enter_long() && self.prev_bar.enter_long {
-            self.action.entry_long_price = Some(self.current_bar.open);
-            self.action.is_first_entry_long = true;
-        }
-        if self.can_enter_short() && self.prev_bar.enter_short {
-            self.action.entry_short_price = Some(self.current_bar.open);
-            self.action.is_first_entry_short = true;
-        }
-
-        // 2.2 策略离场检查
+        // 2.1 策略离场检查
         if self.has_long_position()
             && (self.prev_bar.exit_long || self.risk_state.should_exit_next_bar_long())
             && !self.risk_state.should_exit_in_bar_long()
@@ -59,6 +52,20 @@ impl BacktestState {
             && !self.risk_state.should_exit_in_bar_short()
         {
             self.action.exit_short_price = Some(self.current_bar.open);
+        }
+
+        // 2.2 进场检查（含反手逻辑）
+        // 重置首次进场标志（默认为 false，只有在发生进场时才设为 true）
+        self.action.is_first_entry_long = false;
+        self.action.is_first_entry_short = false;
+
+        if self.can_enter_long() && self.prev_bar.enter_long {
+            self.action.entry_long_price = Some(self.current_bar.open);
+            self.action.is_first_entry_long = true;
+        }
+        if self.can_enter_short() && self.prev_bar.enter_short {
+            self.action.entry_short_price = Some(self.current_bar.open);
+            self.action.is_first_entry_short = true;
         }
 
         // === 3. 处理bar(i)的risk触发（可能in_bar模式） ===

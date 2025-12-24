@@ -11,13 +11,37 @@ from py_entry.data_conversion.file_utils.types import RequestConfig
 
 @dataclass
 class DataGenerationParams:
-    """数据生成参数配置类"""
+    """数据生成参数配置类
+
+    Attributes:
+        timeframes: 时间周期列表
+        start_time: 起始时间戳 (毫秒)
+        num_bars: K线数量
+        BaseDataKey: 基准数据键
+        fixed_seed: 随机种子
+        volatility: 波动率 (默认 0.02 = 2%)
+        trend: 趋势系数 (默认 0，正值上涨趋势，负值下跌趋势)
+        gap_factor: 跳空因子 (默认 0.5，越大跳空越频繁)
+        extreme_prob: 极端行情概率 (默认 0，范围 0-1)
+        extreme_mult: 极端行情波动倍数 (默认 3)
+    """
 
     timeframes: list[str]
     start_time: int | None
     num_bars: int
     BaseDataKey: str
     fixed_seed: Optional[int] = None
+
+    # 波动性参数
+    volatility: float = 0.02
+    # 趋势参数 (每 bar 的期望收益率偏移)
+    trend: float = 0.0
+    # 跳空因子
+    gap_factor: float = 0.5
+    # 极端行情概率
+    extreme_prob: float = 0.0
+    # 极端行情波动倍数
+    extreme_mult: float = 3.0
 
 
 @dataclass

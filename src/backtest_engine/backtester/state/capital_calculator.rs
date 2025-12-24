@@ -21,8 +21,9 @@ impl BacktestState {
     /// # 参数
     /// * `params` - 回测参数，包含手续费等信息
     pub fn calculate_capital(&mut self, params: &BacktestParams) {
-        // 重置当前交易的手续费
+        // 重置当前 bar 的交易状态
         self.capital_state.fee = 0.0;
+        self.capital_state.trade_pnl_pct = 0.0;
 
         // 计算已实现盈亏（通过处理离场交易）
         self.calculate_realized_pnl(params);
@@ -75,6 +76,9 @@ impl BacktestState {
     /// - 全仓交易，单仓位模型
     /// - 费用仅在平仓时结算
     fn calculate_realized_pnl(&mut self, params: &BacktestParams) {
+        // 记录 bar 开始时的 balance，用于计算综合 trade_pnl_pct
+        let bar_start_balance = self.capital_state.balance;
+
         // === 第一轮：策略离场（next_bar） ===
         if self.is_exiting_long() && !self.risk_state.should_exit_in_bar_long() {
             self.calculate_long_exit_pnl(params);
@@ -89,6 +93,12 @@ impl BacktestState {
         }
         if self.is_exiting_short() && self.risk_state.should_exit_in_bar_short() {
             self.calculate_short_exit_pnl(params);
+        }
+
+        // === 计算综合 trade_pnl_pct ===
+        // 反映整个 bar 的总回报率，使得 balance = prev_balance * (1 + trade_pnl_pct) 始终成立
+        if self.capital_state.balance != bar_start_balance {
+            self.capital_state.trade_pnl_pct = self.capital_state.balance / bar_start_balance - 1.0;
         }
     }
 
@@ -120,16 +130,11 @@ impl BacktestState {
                 let new_balance = realized_value - fee_amount;
 
                 // --- 5. 更新状态 ---
-
-                // 计算单笔盈亏百分比（扣除手续费后的净回报）
-                // (新余额 / 旧余额) - 1.0
-                self.capital_state.trade_pnl_pct = new_balance / initial_balance - 1.0;
-
                 // 更新账户余额
                 self.capital_state.balance = new_balance;
 
-                // 更新费用累计
-                self.capital_state.fee = fee_amount;
+                // 更新费用（累加，支持同 bar 多次结算）
+                self.capital_state.fee += fee_amount;
                 self.capital_state.fee_cum += fee_amount;
             }
         }
@@ -160,9 +165,9 @@ impl BacktestState {
                 let new_balance = realized_value - fee_amount;
 
                 // --- 5. 更新状态
-                self.capital_state.trade_pnl_pct = new_balance / initial_balance - 1.0;
                 self.capital_state.balance = new_balance;
-                self.capital_state.fee = fee_amount;
+                // 更新费用（累加，支持同 bar 多次结算）
+                self.capital_state.fee += fee_amount;
                 self.capital_state.fee_cum += fee_amount;
             }
         }

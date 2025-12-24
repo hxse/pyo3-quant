@@ -158,9 +158,15 @@ class TestDataIntegrity:
             ]
         ]
 
-        for col in non_price_required_cols:
-            null_count = backtest_df[col].null_count()
-            assert null_count == 0, f"{col}列包含{null_count}个空值"
+        # 矢量化检查所有非价格必需列的空值
+        null_counts = backtest_df.select(
+            [pl.col(col).null_count().alias(col) for col in non_price_required_cols]
+        ).row(0, named=True)
+
+        cols_with_nulls = {
+            col: count for col, count in null_counts.items() if count > 0
+        }
+        assert len(cols_with_nulls) == 0, f"发现空值: {cols_with_nulls}"
 
         print("✅ 必需列无空值")
 

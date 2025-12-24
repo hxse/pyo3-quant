@@ -65,12 +65,14 @@ test-path path:
 # ==================== 代码检查 ====================
 
 # 运行 Rust cargo check
-check:
+check-rust:
     cargo check
 
 # 运行 Python 类型检查 (ty)
 check-py:
     uvx ty check
+
+check: check-rust check-py
 
 # ==================== 代码格式化 ====================
 

@@ -9,10 +9,14 @@ from py_entry.data_conversion.types.chart_config import (
     ChartConfig,
     SeriesItemConfig,
     HorizontalLineOption,
-    LineOption,
 )
 
-from .settings import IGNORE_COLS, INDICATOR_LAYOUT, IndicatorLayout
+from .settings import (
+    BOTTOM_PANEL_LAYOUT,
+    IGNORE_COLS,
+    INDICATOR_LAYOUT,
+    IndicatorLayout,
+)
 from .utils import sort_timeframe_keys
 from .core_helpers import (
     get_style_option,
@@ -84,6 +88,7 @@ def generate_default_chart_config(
                 indicator_name = item_config.indicator
                 item_type = item_config.type
                 show = item_config.show
+                showInLegend = item_config.showInLegend
 
                 # 处理不同类型的指标
                 if indicator_name == "ohlc" and item_type == "candle":
@@ -101,7 +106,7 @@ def generate_default_chart_config(
                                 fileName=f"data_dict/source_{key}.{dataframe_format}",
                                 dataName=["open", "high", "low", "close"],
                                 show=show,
-                                showInLegend=True,
+                                showInLegend=showInLegend,
                                 candleOpt=candleOpt,
                             )
                         )
@@ -124,6 +129,7 @@ def generate_default_chart_config(
                                 fileName=f"data_dict/source_{key}.{dataframe_format}",
                                 dataName="volume",
                                 show=show,
+                                showInLegend=showInLegend,
                                 volumeOpt=volumeOpt,
                             )
                         )
@@ -152,6 +158,7 @@ def generate_default_chart_config(
                                 fileName=f"backtest_results/indicators_{key}.{dataframe_format}",
                                 dataName=matched_column,
                                 show=show,
+                                showInLegend=showInLegend,
                                 histogramOpt=histogramOpt,
                             )
                         )
@@ -210,6 +217,7 @@ def generate_default_chart_config(
                                 type="hline",
                                 hLineOpt=hline_opt,
                                 show=show,
+                                showInLegend=showInLegend,
                             )
                         )
 
@@ -233,6 +241,7 @@ def generate_default_chart_config(
                                 fileName=f"backtest_results/indicators_{key}.{dataframe_format}",
                                 dataName=matched_column,
                                 show=show,
+                                showInLegend=showInLegend,
                                 lineOpt=lineOpt,
                             )
                         )
@@ -267,38 +276,33 @@ def generate_default_chart_config(
         template = "grid-2x2"
 
     # 生成底栏图表配置
-    # bottomRowChart 是一个二维数组（面板 > 系列）
-    bottom_row_chart: List[List[SeriesItemConfig]] = []
+    # bottomRowChart 是一个三维数组（Slot > Pane > Series）
+    bottom_row_chart: List[List[List[SeriesItemConfig]]] = []
 
     # 检查是否有回测结果数据
     if result.backtest_result is not None:
-        # 创建底栏面板（Pane 0）
-        bottom_panel: List[SeriesItemConfig] = []
+        # 遍历 BOTTOM_PANEL_LAYOUT (Slot > Pane > Items)
+        for slot_layout in BOTTOM_PANEL_LAYOUT:
+            bottom_slot: List[List[SeriesItemConfig]] = []
+            for pane_layout in slot_layout:
+                bottom_panel: List[SeriesItemConfig] = []
+                for item in pane_layout:
+                    # 样式分配计数器（每个指标名在当前窗格内的计数）
+                    # 对于底栏通常很简单，我们直接获取第一个样式
+                    lineOpt = get_style_option(item.lineOptions, 0)
 
-        # 添加 balance 线（蓝色）
-        bottom_panel.append(
-            SeriesItemConfig(
-                type="line",
-                show=True,
-                fileName=f"backtest_results/backtest_result.{dataframe_format}",
-                dataName="balance",
-                lineOpt=LineOption(color="#2962FF", lineWidth=2),
-            )
-        )
-
-        # 添加 equity 线（橙色）
-        bottom_panel.append(
-            SeriesItemConfig(
-                type="line",
-                show=True,
-                fileName=f"backtest_results/backtest_result.{dataframe_format}",
-                dataName="equity",
-                lineOpt=LineOption(color="#FF6D00", lineWidth=2),
-            )
-        )
-
-        # 将底栏面板添加到底栏图表配置中
-        bottom_row_chart.append(bottom_panel)
+                    bottom_panel.append(
+                        SeriesItemConfig(
+                            type=item.type,
+                            show=item.show,
+                            showInLegend=item.showInLegend,
+                            fileName=f"backtest_results/backtest_result.{dataframe_format}",
+                            dataName=item.indicator,
+                            lineOpt=lineOpt,
+                        )
+                    )
+                bottom_slot.append(bottom_panel)
+            bottom_row_chart.append(bottom_slot)
 
     return ChartConfig(
         template=template,
@@ -306,4 +310,5 @@ def generate_default_chart_config(
         bottomRowChart=bottom_row_chart if bottom_row_chart else None,
         selectedInternalFileName=f"data_dict/source_{data_dict.BaseDataKey}.{dataframe_format}",
         showBottomRow=True,
+        showLegendInAll=True,
     )

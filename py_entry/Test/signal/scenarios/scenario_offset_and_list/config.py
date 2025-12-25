@@ -23,15 +23,15 @@ INDICATORS_PARAMS: IndicatorsParams = {
 
 SIGNAL_PARAMS: SignalParams = {}
 
-# enter_long: K线0、1、5的收盘价都大于SMA
+# entry_long: K线0、1、5的收盘价都大于SMA
 SIGNAL_TEMPLATE = SignalTemplate(
-    enter_long=SignalGroup(
+    entry_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             "close, ohlcv_15m, &0/1/5 > sma_0, ohlcv_15m, 0",
         ],
     ),
     exit_long=None,
-    enter_short=None,
+    entry_short=None,
     exit_short=None,
 )

@@ -24,7 +24,7 @@ SIGNAL_PARAMS = {}
 
 # 3. 信号模板
 SIGNAL_TEMPLATE = SignalTemplate(
-    enter_long=SignalGroup(
+    entry_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             # 简化写法: close > sma_10 (隐含 source=base_data_key, offset=0)
@@ -38,7 +38,7 @@ SIGNAL_TEMPLATE = SignalTemplate(
             "close, , > sma_10, ,",
         ],
     ),
-    enter_short=SignalGroup(
+    entry_short=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             # 混合写法: close, ohlcv_15m, 1 > sma_10 (左边偏移1, 右边简化)

@@ -15,7 +15,7 @@ from py_entry.Test.signal.utils import (
 )
 
 
-def calculate_enter_long(
+def calculate_entry_long(
     signal_params,
     data_container,
     backtest_summary,
@@ -23,7 +23,7 @@ def calculate_enter_long(
     mapped_backtest_summary,
 ) -> pl.Series:
     """
-    手写模拟 enter_long 信号计算
+    手写模拟 entry_long 信号计算
 
     条件：close, ohlcv_15m, &0-2 > sma_0, ohlcv_15m, 0
 
@@ -57,14 +57,14 @@ def calculate_exit_long(
     return create_false_series(length)
 
 
-def calculate_enter_short(
+def calculate_entry_short(
     signal_params,
     data_container,
     backtest_summary,
     mapped_data_container,
     mapped_backtest_summary,
 ) -> pl.Series:
-    """enter_short 为 None，返回全 False"""
+    """entry_short 为 None，返回全 False"""
     length = get_data_length(mapped_data_container)
     return create_false_series(length)
 
@@ -93,7 +93,7 @@ def calculate_signals(
 
     这是场景的统一接口函数
     """
-    enter_long = calculate_enter_long(
+    entry_long = calculate_entry_long(
         signal_params,
         data_container,
         backtest_summary,
@@ -107,7 +107,7 @@ def calculate_signals(
         mapped_data_container,
         mapped_backtest_summary,
     )
-    enter_short = calculate_enter_short(
+    entry_short = calculate_entry_short(
         signal_params,
         data_container,
         backtest_summary,
@@ -122,4 +122,4 @@ def calculate_signals(
         mapped_backtest_summary,
     )
 
-    return create_signal_dataframe(enter_long, exit_long, enter_short, exit_short)
+    return create_signal_dataframe(entry_long, exit_long, entry_short, exit_short)

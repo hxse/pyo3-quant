@@ -66,13 +66,13 @@ def get_config() -> StrategyConfig:
 
     # 信号模板：RSI 超卖做多，超买做空
     # RSI < 30 进多
-    enter_long_group = SignalGroup(
+    entry_long_group = SignalGroup(
         logic=LogicOp.AND,
         comparisons=["rsi, ohlcv_15m, 0 < 30"],
     )
 
     # RSI > 70 进空
-    enter_short_group = SignalGroup(
+    entry_short_group = SignalGroup(
         logic=LogicOp.AND,
         comparisons=["rsi, ohlcv_15m, 0 > 70"],
     )
@@ -90,8 +90,8 @@ def get_config() -> StrategyConfig:
     )
 
     signal_template = SignalTemplate(
-        enter_long=enter_long_group,
-        enter_short=enter_short_group,
+        entry_long=entry_long_group,
+        entry_short=entry_short_group,
         exit_long=exit_long_group,
         exit_short=exit_short_group,
     )

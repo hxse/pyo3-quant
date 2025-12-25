@@ -58,13 +58,13 @@ pub fn generate_signals(
         )));
     }
 
-    let mut enter_long_series =
-        BooleanChunked::full(ColumnName::EnterLong.as_pl_small_str(), false, data_len)
+    let mut entry_long_series =
+        BooleanChunked::full(ColumnName::EntryLong.as_pl_small_str(), false, data_len)
             .into_series();
     let mut exit_long_series =
         BooleanChunked::full(ColumnName::ExitLong.as_pl_small_str(), false, data_len).into_series();
-    let mut enter_short_series =
-        BooleanChunked::full(ColumnName::EnterShort.as_pl_small_str(), false, data_len)
+    let mut entry_short_series =
+        BooleanChunked::full(ColumnName::EntryShort.as_pl_small_str(), false, data_len)
             .into_series();
     let mut exit_short_series =
         BooleanChunked::full(ColumnName::ExitShort.as_pl_small_str(), false, data_len)
@@ -74,11 +74,11 @@ pub fn generate_signals(
         BooleanChunked::full(ColumnName::HasLeadingNan.as_pl_small_str(), false, data_len);
 
     process_signal_field_helper(
-        signal_template.enter_long.as_ref(),
+        signal_template.entry_long.as_ref(),
         processed_data,
         indicator_dfs,
         signal_params,
-        &mut enter_long_series,
+        &mut entry_long_series,
         &mut total_nan_mask,
     )?;
     process_signal_field_helper(
@@ -90,11 +90,11 @@ pub fn generate_signals(
         &mut total_nan_mask,
     )?;
     process_signal_field_helper(
-        signal_template.enter_short.as_ref(),
+        signal_template.entry_short.as_ref(),
         processed_data,
         indicator_dfs,
         signal_params,
-        &mut enter_short_series,
+        &mut entry_short_series,
         &mut total_nan_mask,
     )?;
     process_signal_field_helper(
@@ -107,9 +107,9 @@ pub fn generate_signals(
     )?;
 
     let signals_df = DataFrame::new(vec![
-        enter_long_series.into_column(),
+        entry_long_series.into_column(),
         exit_long_series.into_column(),
-        enter_short_series.into_column(),
+        entry_short_series.into_column(),
         exit_short_series.into_column(),
         total_nan_mask.into_series().into_column(),
     ])?;

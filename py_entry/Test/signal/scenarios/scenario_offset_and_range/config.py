@@ -27,15 +27,15 @@ INDICATORS_PARAMS: IndicatorsParams = {
 SIGNAL_PARAMS: SignalParams = {}
 
 # 信号模板
-# enter_long: 最近3根K线的收盘价都大于当前SMA
+# entry_long: 最近3根K线的收盘价都大于当前SMA
 SIGNAL_TEMPLATE = SignalTemplate(
-    enter_long=SignalGroup(
+    entry_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             "close, ohlcv_15m, &0-2 > sma_0, ohlcv_15m, 0",
         ],
     ),
     exit_long=None,
-    enter_short=None,
+    entry_short=None,
     exit_short=None,
 )

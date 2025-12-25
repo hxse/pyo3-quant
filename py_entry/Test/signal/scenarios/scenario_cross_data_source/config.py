@@ -55,7 +55,7 @@ SIGNAL_PARAMS: SignalParams = {}
 #   1. renko_15m SMA < ha_1h close
 
 SIGNAL_TEMPLATE = SignalTemplate(
-    enter_long=SignalGroup(
+    entry_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             "sma_0, ohlcv_15m, 0 > close, renko_1h, 0",  # ohlcv指标 vs renko价格
@@ -69,7 +69,7 @@ SIGNAL_TEMPLATE = SignalTemplate(
             "sma_0, ohlcv_15m, 0 < close, renko_1h, 0",
         ],
     ),
-    enter_short=SignalGroup(
+    entry_short=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             "close, ha_15m, 0 < ema_0, ohlcv_4h, 0",

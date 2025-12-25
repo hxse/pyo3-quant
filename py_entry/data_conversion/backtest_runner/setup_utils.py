@@ -172,12 +172,12 @@ def build_signal_template(
         return signal_template
 
     # 否则返回默认值
-    enter_long_group = SignalGroup(
+    entry_long_group = SignalGroup(
         logic=LogicOp.AND,
         comparisons=["sma_0, ohlcv_15m, 0 > sma_1, ohlcv_15m, 0"],
     )
 
-    return SignalTemplate(enter_long=enter_long_group)
+    return SignalTemplate(entry_long=entry_long_group)
 
 
 def build_engine_settings(

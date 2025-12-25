@@ -44,7 +44,7 @@ SIGNAL_PARAMS = {
 #   (1h RSI < 30)               -- 1h 进入超卖区 (趋势反转风险)
 
 SIGNAL_TEMPLATE = SignalTemplate(
-    enter_long=SignalGroup(
+    entry_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             "close, ohlcv_15m, 0 > bbands_20_upper, ohlcv_15m, 0",
@@ -59,7 +59,7 @@ SIGNAL_TEMPLATE = SignalTemplate(
             "rsi_14, ohlcv_1h, 0 < $rsi_oversold",
         ],
     ),
-    enter_short=None,
+    entry_short=None,
     exit_short=None,
 )
 

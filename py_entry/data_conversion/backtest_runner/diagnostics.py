@@ -55,6 +55,8 @@ def analyze_state_distribution(runner: "BacktestRunner", result_index: int = 0) 
         )
 
     df = runner.results[result_index].backtest_result
+    if df is None:
+        raise ValueError(f"回测结果索引 {result_index} 不包含 backtest_result 数据")
 
     # 转换为布尔列
     df = df.with_columns(

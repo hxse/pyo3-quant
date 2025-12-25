@@ -102,7 +102,7 @@ performance_params = PerformanceParams(
 )
 
 # 自定义信号模板
-enter_long_group = SignalGroup(
+entry_long_group = SignalGroup(
     logic=LogicOp.AND,
     comparisons=[
         "close > bbands_upper",
@@ -111,7 +111,7 @@ enter_long_group = SignalGroup(
     ],
 )
 
-enter_short_group = SignalGroup(
+entry_short_group = SignalGroup(
     logic=LogicOp.AND,
     comparisons=[
         "close < bbands_lower",
@@ -121,8 +121,8 @@ enter_short_group = SignalGroup(
 )
 
 signal_template = SignalTemplate(
-    enter_long=enter_long_group,
-    enter_short=enter_short_group,
+    entry_long=entry_long_group,
+    entry_short=entry_short_group,
 )
 
 # 自定义引擎设置

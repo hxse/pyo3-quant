@@ -210,12 +210,26 @@ def generate_default_chart_config(
                                 value=hline_value,
                                 color=color,
                                 label=indicator_name,
+                                showLabel=item_config.showLabel,
                             )
 
                         panel_series.append(
                             SeriesItemConfig(
                                 type="hline",
                                 hLineOpt=hline_opt,
+                                show=show,
+                                showInLegend=showInLegend,
+                            )
+                        )
+
+                elif item_type == "vline":
+                    # 垂直线
+                    if item_config.vLineOpt:
+                        vline_opt = item_config.vLineOpt
+                        panel_series.append(
+                            SeriesItemConfig(
+                                type="vline",
+                                vLineOpt=vline_opt,
                                 show=show,
                                 showInLegend=showInLegend,
                             )

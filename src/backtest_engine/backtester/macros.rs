@@ -15,15 +15,15 @@ macro_rules! validate_prepared_data {
             ::core::assert_eq!($data.low.len(), $len_var, "low length mismatch");
             ::core::assert_eq!($data.close.len(), $len_var, "close length mismatch");
             ::core::assert_eq!(
-                $data.enter_long.len(),
+                $data.entry_long.len(),
                 $len_var,
-                "enter_long length mismatch"
+                "entry_long length mismatch"
             );
             ::core::assert_eq!($data.exit_long.len(), $len_var, "exit_long length mismatch");
             ::core::assert_eq!(
-                $data.enter_short.len(),
+                $data.entry_short.len(),
                 $len_var,
-                "enter_short length mismatch"
+                "entry_short length mismatch"
             );
             ::core::assert_eq!(
                 $data.exit_short.len(),

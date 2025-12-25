@@ -12,8 +12,8 @@ use polars::prelude::*;
 /// * `Result<(), QuantError>` - 如果缺少列则返回错误，否则成功
 pub fn check_signal_only_columns(signals_df: &DataFrame, context: &str) -> Result<(), QuantError> {
     let required_columns = [
-        ColumnName::EnterLong.as_str(),
-        ColumnName::EnterShort.as_str(),
+        ColumnName::EntryLong.as_str(),
+        ColumnName::EntryShort.as_str(),
         ColumnName::ExitLong.as_str(),
         ColumnName::ExitShort.as_str(),
     ];

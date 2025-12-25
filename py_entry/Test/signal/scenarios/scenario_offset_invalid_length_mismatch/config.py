@@ -28,15 +28,15 @@ INDICATORS_PARAMS: IndicatorsParams = {
 
 SIGNAL_PARAMS: SignalParams = {}
 
-# enter_long: 左边有3个offset(&0-2)，右边有2个offset(&1-2)，长度不匹配
+# entry_long: 左边有3个offset(&0-2)，右边有2个offset(&1-2)，长度不匹配
 SIGNAL_TEMPLATE = SignalTemplate(
-    enter_long=SignalGroup(
+    entry_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             "close, ohlcv_15m, &0-2 > sma_0, ohlcv_15m, &1-2",
         ],
     ),
     exit_long=None,
-    enter_short=None,
+    entry_short=None,
     exit_short=None,
 )

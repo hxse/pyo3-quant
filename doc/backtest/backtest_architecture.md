@@ -38,9 +38,9 @@ graph LR
 
 | 规则 | 条件 | 处理 |
 |-----|------|------|
-| **R1** | `enter_long && enter_short` | **两者都设为 false** |
-| **R2** | `enter_long && exit_long` | `enter_long = false` |
-| **R3** | `enter_short && exit_short` | `enter_short = false` |
+| **R1** | `entry_long && entry_short` | **两者都设为 false** |
+| **R2** | `entry_long && exit_long` | `entry_long = false` |
+| **R3** | `entry_short && exit_short` | `entry_short = false` |
 | **R4** | `skip_mask = true` | 进场信号全部屏蔽 |
 | **R5** | `atr = NaN`（启用 ATR 风控时） | 进场信号全部屏蔽 |
 
@@ -49,9 +49,9 @@ graph LR
 状态枚举依赖于清洗后的信号满足以下**互斥约束**：
 
 ```
-约束1: ¬(enter_long ∧ enter_short)   // 不能同时进多进空
-约束2: ¬(enter_long ∧ exit_long)     // 不能同 bar 进多又平多
-约束3: ¬(enter_short ∧ exit_short)   // 不能同 bar 进空又平空
+约束1: ¬(entry_long ∧ entry_short)   // 不能同时进多进空
+约束2: ¬(entry_long ∧ exit_long)     // 不能同 bar 进多又平多
+约束3: ¬(entry_short ∧ exit_short)   // 不能同 bar 进空又平空
 ```
 
 若违反约束：
@@ -82,14 +82,14 @@ graph LR
 
 | 约束 | 说明 |
 |------|------|
-| 进场需无仓位或正在反手 | `can_enter_long() = has_no_position() \|\| is_exiting_short()` |
+| 进场需无仓位或正在反手 | `can_entry_long() = has_no_position() \|\| is_exiting_short()` |
 | 离场需持有对应仓位 | `has_long_position()` 时才处理 `exit_long` 信号 |
-| 持仓时忽略同向进场信号 | 持多头时 `enter_long` 信号被忽略 |
+| 持仓时忽略同向进场信号 | 持多头时 `entry_long` 信号被忽略 |
 | 无仓时忽略离场信号 | 无持仓时 `exit_long/short` 信号被忽略 |
 
 #### 进场逻辑
 ```
-if can_enter_long() && prev_bar.enter_long:
+if can_entry_long() && prev_bar.entry_long:
     entry_long_price = current_bar.open
     first_entry_side = 1
 ```
@@ -156,47 +156,47 @@ flowchart LR
         S11["reversal_to_short_then_exit<br/>平多@ open → 开空@ open → 平空@ sl/tp"]
     end
 
-    P0 -->|"enter_long<br/>@ open"| S1
-    P0 -->|"enter_short<br/>@ open"| S2
+    P0 -->|"entry_long<br/>@ open"| S1
+    P0 -->|"entry_short<br/>@ open"| S2
     P0 -->|"无信号"| S3
 
     P1 -->|"无信号"| S1
     P1 -->|"exit_long"| S4
     P1 -->|"SL/TP 触发"| S5
-    P1 -->|"exit_long + enter_short"| S8
-    P1 -->|"exit_long + enter_short<br/>+ SL/TP"| S11
+    P1 -->|"exit_long + entry_short"| S8
+    P1 -->|"exit_long + entry_short<br/>+ SL/TP"| S11
 
     P2 -->|"无信号"| S2
     P2 -->|"exit_short"| S6
     P2 -->|"SL/TP 触发"| S7
-    P2 -->|"exit_short + enter_long"| S9
-    P2 -->|"exit_short + enter_long<br/>+ SL/TP"| S10
+    P2 -->|"exit_short + entry_long"| S9
+    P2 -->|"exit_short + entry_long<br/>+ SL/TP"| S10
 ```
 
 #### 时序示例表
 
 | bar | 前 bar 信号 | 当前执行 | 最终状态 |
 |:---:|-------------|----------|----------|
-| i | `enter_long=true` | `entry_long_price=open` | `hold_long` |
+| i | `entry_long=true` | `entry_long_price=open` | `hold_long` |
 | i+1 | `exit_long=true` | `exit_long_price=open` | `exit_long_signal` |
 | i+2 | 无 | 价格重置 | `no_position` |
 
 | bar | 前 bar 信号 | 当前执行 | 最终状态 |
 |:---:|-------------|----------|----------|
-| i | `enter_long=true` | `entry_long_price=open` | `hold_long` |
+| i | `entry_long=true` | `entry_long_price=open` | `hold_long` |
 | i+1 | 无信号，但触发 SL | `exit_long_price=sl_price` | `exit_long_risk` |
 | i+2 | 无 | 价格重置 | `no_position` |
 
 | bar | 前 bar 信号 | 当前执行 | 最终状态 |
 |:---:|-------------|----------|----------|
-| i | `enter_short=true` | `entry_short_price=open` | `hold_short` |
-| i+1 | `exit_short + enter_long` | 平空(open) + 开多(open) | `reversal_short_to_long` |
+| i | `entry_short=true` | `entry_short_price=open` | `hold_short` |
+| i+1 | `exit_short + entry_long` | 平空(open) + 开多(open) | `reversal_short_to_long` |
 | i+2 | 无 | 继续持有多头 | `hold_long` |
 
 | bar | 前 bar 信号 | 当前执行 | 最终状态 |
 |:---:|-------------|----------|----------|
-| i | `enter_short=true` | `entry_short_price=open` | `hold_short` |
-| i+1 | `exit_short + enter_long` + 触发 SL | 平空(open) + 开多(open) + 风控平多(sl) | `reversal_to_long_then_exit` |
+| i | `entry_short=true` | `entry_short_price=open` | `hold_short` |
+| i+1 | `exit_short + entry_long` + 触发 SL | 平空(open) + 开多(open) + 风控平多(sl) | `reversal_to_long_then_exit` |
 | i+2 | 无 | 价格重置 | `no_position` |
 
 ### 2.5 风控检查与 In-Bar / Next-Bar 处理（阶段 4）
@@ -207,7 +207,7 @@ flowchart LR
 
 | 类型 | 受 `exit_in_bar` 影响 | 可能的离场模式 |
 |---------|:-------------------:|--------------|
-| **策略信号** (enter_long, exit_long, enter_short, exit_short) | ❌ 否 | 仅 Next-Bar |
+| **策略信号** (entry_long, exit_long, entry_short, exit_short) | ❌ 否 | 仅 Next-Bar |
 | **SL/TP** (sl_pct, sl_atr, tp_pct, tp_atr) | ✅ 是 | In-Bar 或 Next-Bar |
 | **TSL** (tsl_pct, tsl_atr) | ❌ 否 | 仅 Next-Bar |
 | **PSAR** (tsl_psar) | ❌ 否 | 仅 Next-Bar |
@@ -259,7 +259,7 @@ else if has_position():
 | 名称 | 类型 | 说明 |
 |------|------|------|
 | OHLCV 数据 | `DataFrame` | time, open, high, low, close, volume |
-| 策略信号 | `i32[]` | enter_long, exit_long, enter_short, exit_short |
+| 策略信号 | `i32[]` | entry_long, exit_long, entry_short, exit_short |
 | 回测参数 | `BacktestParams` | 资金、手续费、风控配置 |
 
 ### 输出列

@@ -38,7 +38,7 @@ impl BacktestState {
         // 2. 再策略进场（开盘价按上一根K线信号反手开仓）
         // 3. 最后risk检查（可能在SL/TP价格触发新仓位的离场）
         //
-        // 这样 can_enter_long() 检查 is_exiting_short() 时，exit_short_price 已经设置。
+        // 这样 can_entry_long() 检查 is_exiting_short() 时，exit_short_price 已经设置。
 
         // 2.1 策略离场检查
         if self.has_long_position()
@@ -58,11 +58,11 @@ impl BacktestState {
         // 重置首次进场标志
         self.action.first_entry_side = 0;
 
-        if self.can_enter_long() && self.prev_bar.enter_long {
+        if self.can_entry_long() && self.prev_bar.entry_long {
             self.action.entry_long_price = Some(self.current_bar.open);
             self.action.first_entry_side = 1;
         }
-        if self.can_enter_short() && self.prev_bar.enter_short {
+        if self.can_entry_short() && self.prev_bar.entry_short {
             self.action.entry_short_price = Some(self.current_bar.open);
             self.action.first_entry_side = -1;
         }

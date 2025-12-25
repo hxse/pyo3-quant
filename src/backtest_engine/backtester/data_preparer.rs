@@ -17,11 +17,11 @@ pub struct PreparedData<'a> {
     /// 收盘价数组
     pub close: &'a [f64],
     /// 做多入场信号数组
-    pub enter_long: Vec<i32>,
+    pub entry_long: Vec<i32>,
     /// 做多离场信号数组
     pub exit_long: Vec<i32>,
     /// 做空入场信号数组
-    pub enter_short: Vec<i32>,
+    pub entry_short: Vec<i32>,
     /// 做空离场信号数组
     pub exit_short: Vec<i32>,
     /// ATR 指标数组，可选
@@ -58,12 +58,12 @@ impl<'a> PreparedData<'a> {
     fn extract_all_signals(
         signals_df: &DataFrame,
     ) -> Result<(Vec<i32>, Vec<i32>, Vec<i32>, Vec<i32>), QuantError> {
-        let enter_long = Self::extract_signal_column(signals_df, ColumnName::EnterLong.as_str())?;
+        let entry_long = Self::extract_signal_column(signals_df, ColumnName::EntryLong.as_str())?;
         let exit_long = Self::extract_signal_column(signals_df, ColumnName::ExitLong.as_str())?;
-        let enter_short = Self::extract_signal_column(signals_df, ColumnName::EnterShort.as_str())?;
+        let entry_short = Self::extract_signal_column(signals_df, ColumnName::EntryShort.as_str())?;
         let exit_short = Self::extract_signal_column(signals_df, ColumnName::ExitShort.as_str())?;
 
-        Ok((enter_long, exit_long, enter_short, exit_short))
+        Ok((entry_long, exit_long, entry_short, exit_short))
     }
     /// 准备回测数据，将 Polars DataFrame/Series 转换为连续的内存数组切片
     pub fn new(
@@ -102,7 +102,7 @@ impl<'a> PreparedData<'a> {
             .cont_slice()?;
 
         // 3. 处理信号列：从预处理后的 DataFrame 提取所有信号
-        let (enter_long, exit_long, enter_short, exit_short) =
+        let (entry_long, exit_long, entry_short, exit_short) =
             Self::extract_all_signals(&preprocessed_signals_df)?;
 
         // 4. 处理 ATR 数据
@@ -118,9 +118,9 @@ impl<'a> PreparedData<'a> {
             high,
             low,
             close,
-            enter_long,
+            entry_long,
             exit_long,
-            enter_short,
+            entry_short,
             exit_short,
             atr,
         })

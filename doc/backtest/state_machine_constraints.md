@@ -22,7 +22,7 @@
 
 | 层次 | 字段 | 类型 | 来源 |
 |------|------|------|------|
-| **信号层** | `enter_long`, `exit_long` | `bool` | 策略生成，经预处理清洗 |
+| **信号层** | `entry_long`, `exit_long` | `bool` | 策略生成，经预处理清洗 |
 | **价格层** | `entry_long_price`, `exit_long_price` | `Option<f64>` | 运行时根据信号+约束计算 |
 
 - 信号是"意图"：策略**想要**做什么
@@ -40,17 +40,17 @@
 
 | 规则 | 条件 | 处理 | 目的 |
 |-----|------|------|------|
-| R1 | `enter_long ∧ enter_short` | 两者都设为 `false` | 禁止同时进入多空 |
-| R2 | `enter_long ∧ exit_long` | `enter_long = false` | 禁止进多同时平多 |
-| R3 | `enter_short ∧ exit_short` | `enter_short = false` | 禁止进空同时平空 |
+| R1 | `entry_long ∧ entry_short` | 两者都设为 `false` | 禁止同时进入多空 |
+| R2 | `entry_long ∧ exit_long` | `entry_long = false` | 禁止进多同时平多 |
+| R3 | `entry_short ∧ exit_short` | `entry_short = false` | 禁止进空同时平空 |
 | R4 | `skip_mask = true` | 进场信号屏蔽 | 回撤暂停 |
 | R5 | `atr = NaN` | 进场信号屏蔽 | ATR 无效保护 |
 
 **输出保证**（以下信号组合被**拒绝**，不会出现）：
 ```
-❌ enter_long ∧ enter_short   // 被 R1 拒绝
-❌ enter_long ∧ exit_long     // 被 R2 拒绝
-❌ enter_short ∧ exit_short   // 被 R3 拒绝
+❌ entry_long ∧ entry_short   // 被 R1 拒绝
+❌ entry_long ∧ exit_long     // 被 R2 拒绝
+❌ entry_short ∧ exit_short   // 被 R3 拒绝
 ```
 
 ---
@@ -62,7 +62,7 @@
 | 约束 | 代码位置 | 逻辑 | 效果 |
 |------|----------|------|------|
 | **价格重置** | L20-32 | 上一 bar 离场后重置对应方向价格 | 确保离场后可进入新仓位 |
-| **进场需无仓位或反手** | L41,45 | `can_enter_long() = has_no_position() \|\| is_exiting_short()` | 禁止加仓、禁止同时持有多空 |
+| **进场需无仓位或反手** | L41,45 | `can_entry_long() = has_no_position() \|\| is_exiting_short()` | 禁止加仓、禁止同时持有多空 |
 | **离场需持仓** | L51,57 | `has_long_position()` 时才设置 `exit_long_price` | 禁止对不存在的仓位离场 |
 | **风控离场覆盖策略离场** | L53,59 | `!should_exit_in_bar_long()` 条件 | in_bar 已平仓则不再 next_bar 平仓 |
 | **风控需持仓** | L68,75 | `has_long_position()` 时才检查风控 | 无仓位不触发风控 |
@@ -96,7 +96,7 @@
 | 策略进场 | 开盘价 | 按上一根 K 线信号反手开仓 |
 | Risk 离场 | SL/TP 价 | 对新开仓位进行 in_bar 风控 |
 
-这个顺序确保了 `can_enter_long()` 检查 `is_exiting_short()` 时，`exit_short_price` 已经被设置，从而正确触发反手逻辑。
+这个顺序确保了 `can_entry_long()` 检查 `is_exiting_short()` 时，`exit_short_price` 已经被设置，从而正确触发反手逻辑。
 
 ---
 

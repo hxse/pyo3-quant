@@ -15,9 +15,9 @@ pub enum ColumnName {
     Close,
 
     // 信号相关列名
-    EnterLong,
+    EntryLong,
     ExitLong,
-    EnterShort,
+    EntryShort,
     ExitShort,
 
     // OutputBuffers固定列名
@@ -72,9 +72,9 @@ impl ColumnName {
             ColumnName::Close => "close",
 
             // 信号相关列名
-            ColumnName::EnterLong => "enter_long",
+            ColumnName::EntryLong => "entry_long",
             ColumnName::ExitLong => "exit_long",
-            ColumnName::EnterShort => "enter_short",
+            ColumnName::EntryShort => "entry_short",
             ColumnName::ExitShort => "exit_short",
 
             // OutputBuffers固定列名

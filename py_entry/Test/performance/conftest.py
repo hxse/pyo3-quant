@@ -49,11 +49,11 @@ def full_performance_result():
     )
 
     signal_template = SignalTemplate(
-        enter_long=SignalGroup(
+        entry_long=SignalGroup(
             logic=LogicOp.AND,
             comparisons=["sma_fast, ohlcv_15m, 0 > sma_slow, ohlcv_15m, 0"],
         ),
-        enter_short=SignalGroup(
+        entry_short=SignalGroup(
             logic=LogicOp.AND,
             comparisons=["sma_fast, ohlcv_15m, 0 < sma_slow, ohlcv_15m, 0"],
         ),

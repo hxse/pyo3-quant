@@ -26,9 +26,9 @@ SIGNAL_PARAMS = {
 }
 
 # 3. 信号模板
-# enter_long: (close > sma_20) AND (rsi_14 > 50)
+# entry_long: (close > sma_20) AND (rsi_14 > 50)
 SIGNAL_TEMPLATE = SignalTemplate(
-    enter_long=SignalGroup(
+    entry_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             "close, ohlcv_15m, 0 > sma_20, ohlcv_15m, 0",
@@ -36,7 +36,7 @@ SIGNAL_TEMPLATE = SignalTemplate(
         ],
     ),
     exit_long=None,
-    enter_short=None,
+    entry_short=None,
     exit_short=None,
 )
 

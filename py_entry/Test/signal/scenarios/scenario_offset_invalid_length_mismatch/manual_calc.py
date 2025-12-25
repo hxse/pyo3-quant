@@ -25,9 +25,9 @@ def calculate_signals(
     length = len(ohlcv_15m)
     return pl.DataFrame(
         {
-            "enter_long": pl.Series([False] * length),
+            "entry_long": pl.Series([False] * length),
             "exit_long": pl.Series([False] * length),
-            "enter_short": pl.Series([False] * length),
+            "entry_short": pl.Series([False] * length),
             "exit_short": pl.Series([False] * length),
         }
     )

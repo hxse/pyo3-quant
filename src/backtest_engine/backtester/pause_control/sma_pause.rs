@@ -52,18 +52,18 @@ pub fn pause_sma_signals(
     // 应用SMA暂停逻辑修改信号
     lazy_df = lazy_df
         .with_column(
-            // 当暂停时，将enter_long设为false
+            // 当暂停时，将entry_long设为false
             when(col("pause"))
                 .then(lit(false))
-                .otherwise(col(ColumnName::EnterLong.as_str()))
-                .alias(ColumnName::EnterLong.as_str()),
+                .otherwise(col(ColumnName::EntryLong.as_str()))
+                .alias(ColumnName::EntryLong.as_str()),
         )
         .with_column(
-            // 当暂停时，将enter_short设为false
+            // 当暂停时，将entry_short设为false
             when(col("pause"))
                 .then(lit(false))
-                .otherwise(col(ColumnName::EnterShort.as_str()))
-                .alias(ColumnName::EnterShort.as_str()),
+                .otherwise(col(ColumnName::EntryShort.as_str()))
+                .alias(ColumnName::EntryShort.as_str()),
         );
 
     // 获取所有原始列名，除了临时添加的列

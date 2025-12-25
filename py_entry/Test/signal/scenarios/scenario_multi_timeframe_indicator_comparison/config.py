@@ -61,7 +61,7 @@ SIGNAL_PARAMS: SignalParams = {
 SIGNAL_TEMPLATE = SignalTemplate(
     # 做多入场信号
     # 逻辑：不同时间周期的指标比较，确认多时间周期趋势一致
-    enter_long=SignalGroup(
+    entry_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             # 1. EMA多时间周期比较：15分钟EMA > 1小时EMA > 4小时EMA (趋势向上)
@@ -77,7 +77,7 @@ SIGNAL_TEMPLATE = SignalTemplate(
     ),
     # 做空入场信号
     # 逻辑：不同时间周期的指标比较，确认多时间周期趋势向下
-    enter_short=SignalGroup(
+    entry_short=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             # 1. EMA多时间周期比较：15分钟EMA < 1小时EMA < 4小时EMA (趋势向下)

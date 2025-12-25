@@ -283,6 +283,7 @@ def create_hline(
     value: float,
     color: str,
     label: Optional[str] = None,
+    show_label: bool = False,
     show: bool = True,
 ) -> SeriesItemConfig:
     """
@@ -292,12 +293,15 @@ def create_hline(
         value: 水平线的价格值
         color: 线条颜色
         label: 标签文本
+        show_label: 是否显示标签
         show: 是否显示
 
     Returns:
         SeriesItemConfig 对象
     """
-    hline_opt = HorizontalLineOption(value=value, color=color, label=label)
+    hline_opt = HorizontalLineOption(
+        value=value, color=color, label=label, showLabel=show_label
+    )
 
     return SeriesItemConfig(
         type="hline",
@@ -310,6 +314,7 @@ def create_vline(
     value: Union[int, float, str],
     color: str,
     label: Optional[str] = None,
+    show_label: bool = False,
     show: bool = True,
 ) -> SeriesItemConfig:
     """
@@ -319,12 +324,15 @@ def create_vline(
         value: 时间值（Unix时间戳或日期字符串）
         color: 线条颜色
         label: 标签文本
+        show_label: 是否显示标签
         show: 是否显示
 
     Returns:
         SeriesItemConfig 对象
     """
-    vline_opt = VerticalLineOption(value=value, color=color, label=label)
+    vline_opt = VerticalLineOption(
+        value=value, color=color, label=label, showLabel=show_label
+    )
 
     return SeriesItemConfig(
         type="vline",

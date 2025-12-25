@@ -81,12 +81,12 @@ def get_config() -> StrategyConfig:
     # 信号模板
     # 进场：close x sma_fast 交叉（快速反应）
     # 离场：close < sma_exit（持续条件，让信号离场有机会触发）
-    enter_long_group = SignalGroup(
+    entry_long_group = SignalGroup(
         logic=LogicOp.AND,
         comparisons=["close, ohlcv_15m, 0 x> sma_fast, ohlcv_15m, 0"],
     )
 
-    enter_short_group = SignalGroup(
+    entry_short_group = SignalGroup(
         logic=LogicOp.AND,
         comparisons=["close, ohlcv_15m, 0 x< sma_fast, ohlcv_15m, 0"],
     )
@@ -102,8 +102,8 @@ def get_config() -> StrategyConfig:
     )
 
     signal_template = SignalTemplate(
-        enter_long=enter_long_group,
-        enter_short=enter_short_group,
+        entry_long=entry_long_group,
+        entry_short=entry_short_group,
         exit_long=exit_long_group,
         exit_short=exit_short_group,
     )

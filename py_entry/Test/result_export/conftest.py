@@ -81,7 +81,7 @@ def runner_with_results():
     )
 
     # 5. 自定义信号模板
-    enter_long_group = SignalGroup(
+    entry_long_group = SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             "close > bbands_upper",
@@ -90,7 +90,7 @@ def runner_with_results():
         ],
     )
 
-    signal_template = SignalTemplate(enter_long=enter_long_group)
+    signal_template = SignalTemplate(entry_long=entry_long_group)
 
     # 6. 自定义引擎设置
     # 为了测试 Chart生成，我们需要确保有结果返回，ExecutionStage.BACKTEST 或 PERFORMANCE 都可以

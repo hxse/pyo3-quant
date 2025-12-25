@@ -56,12 +56,12 @@ impl BacktestState {
     }
 
     /// 判断能否进入多头（无仓位或即将平空反手）
-    pub fn can_enter_long(&self) -> bool {
+    pub fn can_entry_long(&self) -> bool {
         self.has_no_position() || self.is_exiting_short()
     }
 
     /// 判断能否进入空头（无仓位或即将平多反手）
-    pub fn can_enter_short(&self) -> bool {
+    pub fn can_entry_short(&self) -> bool {
         self.has_no_position() || self.is_exiting_long()
     }
 

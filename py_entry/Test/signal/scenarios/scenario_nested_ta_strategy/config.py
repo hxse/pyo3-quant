@@ -50,7 +50,7 @@ SIGNAL_PARAMS: SignalParams = {
 SIGNAL_TEMPLATE = SignalTemplate(
     # 做多入场信号
     # 逻辑：(ADX > 25 AND 趋势策略) OR (ADX < 25 AND 震荡策略)
-    enter_long=SignalGroup(
+    entry_long=SignalGroup(
         logic=LogicOp.OR,
         sub_groups=[
             # 1. 强趋势策略 (ADX > Threshold)
@@ -84,7 +84,7 @@ SIGNAL_TEMPLATE = SignalTemplate(
     ),
     # 做空入场信号
     # 逻辑：(ADX > 25 AND 趋势策略) OR (ADX < 25 AND 震荡策略)
-    enter_short=SignalGroup(
+    entry_short=SignalGroup(
         logic=LogicOp.OR,
         sub_groups=[
             # 1. 强趋势策略 (ADX > Threshold)

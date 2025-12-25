@@ -13,11 +13,11 @@ pub struct CurrentBarData {
     /// 收盘价
     pub close: f64,
     /// 进多信号
-    pub enter_long: bool,
+    pub entry_long: bool,
     /// 出多信号
     pub exit_long: bool,
     /// 进空信号
-    pub enter_short: bool,
+    pub entry_short: bool,
     /// 出空信号
     pub exit_short: bool,
     /// ATR 值（如果存在）
@@ -37,9 +37,9 @@ impl CurrentBarData {
             high: 0.0,
             low: 0.0,
             close: 0.0,
-            enter_long: false,
+            entry_long: false,
             exit_long: false,
-            enter_short: false,
+            entry_short: false,
             exit_short: false,
             atr: None,
         }
@@ -52,9 +52,9 @@ impl CurrentBarData {
             high: prepared_data.high[index],
             low: prepared_data.low[index],
             close: prepared_data.close[index],
-            enter_long: prepared_data.enter_long[index] != 0,
+            entry_long: prepared_data.entry_long[index] != 0,
             exit_long: prepared_data.exit_long[index] != 0,
-            enter_short: prepared_data.enter_short[index] != 0,
+            entry_short: prepared_data.entry_short[index] != 0,
             exit_short: prepared_data.exit_short[index] != 0,
             atr: prepared_data.atr.as_ref().map(|atr_vec| atr_vec[index]),
         }

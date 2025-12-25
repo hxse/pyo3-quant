@@ -32,7 +32,7 @@ SIGNAL_PARAMS = {
 
 # 3. 信号模板 (使用 $param_name 引用参数)
 SIGNAL_TEMPLATE = SignalTemplate(
-    enter_long=SignalGroup(
+    entry_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             # RSI < 30 (使用参数引用)
@@ -46,7 +46,7 @@ SIGNAL_TEMPLATE = SignalTemplate(
             "rsi_14, ohlcv_15m, 0 > $rsi_sell_threshold",
         ],
     ),
-    enter_short=SignalGroup(
+    entry_short=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             # RSI > 70 (使用参数引用)

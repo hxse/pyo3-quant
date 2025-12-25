@@ -44,7 +44,7 @@ def test_leading_nan_tracking():
 
     # 3. 定义信号模板
     # 使用这两个指标进行比较
-    enter_long_group = SignalGroup(
+    entry_long_group = SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             "sma_10 > sma_20",
@@ -59,7 +59,7 @@ def test_leading_nan_tracking():
     )
 
     signal_template = SignalTemplate(
-        enter_long=enter_long_group,
+        entry_long=entry_long_group,
         exit_long=exit_long_group,
     )
 

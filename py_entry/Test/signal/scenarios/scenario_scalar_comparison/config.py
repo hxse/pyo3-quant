@@ -24,7 +24,7 @@ SIGNAL_PARAMS = {}
 
 # 3. 信号模板 (直接使用数值字面量)
 SIGNAL_TEMPLATE = SignalTemplate(
-    enter_long=SignalGroup(
+    entry_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             # RSI < 30 (直接使用数值)
@@ -38,7 +38,7 @@ SIGNAL_TEMPLATE = SignalTemplate(
             "rsi_14, ohlcv_15m, 0 > 70",
         ],
     ),
-    enter_short=SignalGroup(
+    entry_short=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             # RSI > 70 (直接使用数值)

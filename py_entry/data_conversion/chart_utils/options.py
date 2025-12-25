@@ -198,6 +198,7 @@ class HorizontalLineOption:
     value: float  # 水平线的价格值（必填）
     color: str  # 线条颜色（必填）
     label: Optional[str] = None  # 标签文本（可选）
+    showLabel: bool = False  # 是否显示标签，默认 False
 
     def to_dict(self):
         """转换为字典，移除 None 值"""
@@ -216,6 +217,7 @@ class VerticalLineOption:
     value: Union[int, float, str]  # 时间值（Unix时间戳或日期字符串，必填）
     color: str  # 线条颜色（必填）
     label: Optional[str] = None  # 标签文本（可选）
+    showLabel: bool = False  # 是否显示标签，默认 False
 
     def to_dict(self):
         """转换为字典，移除 None 值"""

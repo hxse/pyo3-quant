@@ -67,12 +67,12 @@ def get_config() -> StrategyConfig:
     )
 
     # 信号模板：金叉做多，死叉做空
-    enter_long_group = SignalGroup(
+    entry_long_group = SignalGroup(
         logic=LogicOp.AND,
         comparisons=["sma_fast, ohlcv_15m, 0 > sma_slow, ohlcv_15m, 0"],
     )
 
-    enter_short_group = SignalGroup(
+    entry_short_group = SignalGroup(
         logic=LogicOp.AND,
         comparisons=["sma_fast, ohlcv_15m, 0 < sma_slow, ohlcv_15m, 0"],
     )
@@ -88,8 +88,8 @@ def get_config() -> StrategyConfig:
     )
 
     signal_template = SignalTemplate(
-        enter_long=enter_long_group,
-        enter_short=enter_short_group,
+        entry_long=entry_long_group,
+        entry_short=entry_short_group,
         exit_long=exit_long_group,
         exit_short=exit_short_group,
     )

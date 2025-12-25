@@ -12,7 +12,7 @@ from py_entry.Test.signal.utils import (
 )
 
 
-def calculate_enter_long(
+def calculate_entry_long(
     signal_params,
     data_container,
     backtest_summary,
@@ -20,7 +20,7 @@ def calculate_enter_long(
     mapped_backtest_summary,
 ) -> pl.Series:
     """
-    enter_long: close > sma_10
+    entry_long: close > sma_10
     Implies: close, ohlcv_15m, 0 > sma_10, ohlcv_15m, 0 (assuming BaseDataKey is ohlcv_15m)
     """
     # BaseDataKey is usually ohlcv_15m in tests
@@ -51,7 +51,7 @@ def calculate_exit_long(
     return compare_series(close, sma, ">", offset_left=0, offset_right=0)
 
 
-def calculate_enter_short(
+def calculate_entry_short(
     signal_params,
     data_container,
     backtest_summary,
@@ -59,7 +59,7 @@ def calculate_enter_short(
     mapped_backtest_summary,
 ) -> pl.Series:
     """
-    enter_short: close, , 1 > sma_10
+    entry_short: close, , 1 > sma_10
     Implies: close, ohlcv_15m, 1 > sma_10, ohlcv_15m, 0
     """
     base_key = data_container.BaseDataKey
@@ -99,7 +99,7 @@ def calculate_signals(
     """
     计算所有信号并返回DataFrame
     """
-    enter_long = calculate_enter_long(
+    entry_long = calculate_entry_long(
         signal_params,
         data_container,
         backtest_summary,
@@ -113,7 +113,7 @@ def calculate_signals(
         mapped_data_container,
         mapped_backtest_summary,
     )
-    enter_short = calculate_enter_short(
+    entry_short = calculate_entry_short(
         signal_params,
         data_container,
         backtest_summary,
@@ -128,4 +128,4 @@ def calculate_signals(
         mapped_backtest_summary,
     )
 
-    return create_signal_dataframe(enter_long, exit_long, enter_short, exit_short)
+    return create_signal_dataframe(entry_long, exit_long, entry_short, exit_short)

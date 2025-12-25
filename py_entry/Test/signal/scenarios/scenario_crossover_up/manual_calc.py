@@ -11,7 +11,7 @@ from py_entry.Test.signal.utils import (
 )
 
 
-def calculate_enter_long(
+def calculate_entry_long(
     signal_params,
     data_container,
     backtest_summary,
@@ -44,7 +44,7 @@ def calculate_exit_long(
     return create_false_series(length)
 
 
-def calculate_enter_short(
+def calculate_entry_short(
     signal_params,
     data_container,
     backtest_summary,
@@ -75,7 +75,7 @@ def calculate_signals(
 ) -> pl.DataFrame:
     """计算所有信号"""
     return create_signal_dataframe(
-        calculate_enter_long(
+        calculate_entry_long(
             signal_params,
             data_container,
             backtest_summary,
@@ -89,7 +89,7 @@ def calculate_signals(
             mapped_data_container,
             mapped_backtest_summary,
         ),
-        calculate_enter_short(
+        calculate_entry_short(
             signal_params,
             data_container,
             backtest_summary,

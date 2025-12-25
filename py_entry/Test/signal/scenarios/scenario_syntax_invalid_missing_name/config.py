@@ -27,16 +27,16 @@ INDICATORS_PARAMS: IndicatorsParams = {
 
 SIGNAL_PARAMS: SignalParams = {}
 
-# enter_long: 省略第一个参数name，应该报错
+# entry_long: 省略第一个参数name，应该报错
 # 错误写法: ", ohlcv_15m, 0 > sma_0, ohlcv_15m, 0"
 SIGNAL_TEMPLATE = SignalTemplate(
-    enter_long=SignalGroup(
+    entry_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             ", ohlcv_15m, 0 > sma_0, ohlcv_15m, 0",
         ],
     ),
     exit_long=None,
-    enter_short=None,
+    entry_short=None,
     exit_short=None,
 )

@@ -23,11 +23,11 @@ INDICATORS_PARAMS: IndicatorsParams = {
 
 SIGNAL_PARAMS: SignalParams = {}
 
-# enter_short: 收盘价向下跌破SMA
+# entry_short: 收盘价向下跌破SMA
 SIGNAL_TEMPLATE = SignalTemplate(
-    enter_long=None,
+    entry_long=None,
     exit_long=None,
-    enter_short=SignalGroup(
+    entry_short=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             "close, ohlcv_15m, 0 x< sma_0, ohlcv_15m, 0",

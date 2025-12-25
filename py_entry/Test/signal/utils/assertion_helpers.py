@@ -4,18 +4,18 @@ import polars as pl
 
 
 def create_signal_dataframe(
-    enter_long: pl.Series,
+    entry_long: pl.Series,
     exit_long: pl.Series,
-    enter_short: pl.Series,
+    entry_short: pl.Series,
     exit_short: pl.Series,
 ) -> pl.DataFrame:
     """
     从4个Series创建信号DataFrame
 
     参数：
-        enter_long: 做多入场信号
+        entry_long: 做多入场信号
         exit_long: 做多离场信号
-        enter_short: 做空入场信号
+        entry_short: 做空入场信号
         exit_short: 做空离场信号
 
     返回：
@@ -23,9 +23,9 @@ def create_signal_dataframe(
     """
     return pl.DataFrame(
         {
-            "enter_long": enter_long,
+            "entry_long": entry_long,
             "exit_long": exit_long,
-            "enter_short": enter_short,
+            "entry_short": entry_short,
             "exit_short": exit_short,
         }
     )
@@ -40,7 +40,7 @@ def print_signal_statistics(df: pl.DataFrame, title: str):
         title: 标题
     """
     print(f"\n{title}:")
-    for col in ["enter_long", "exit_long", "enter_short", "exit_short"]:
+    for col in ["entry_long", "exit_long", "entry_short", "exit_short"]:
         if col in df.columns:
             count = df[col].sum()
             total = len(df)
@@ -61,7 +61,7 @@ def print_comparison_details(
     """
     print("\n=== 信号对比详情 ===")
 
-    for col in ["enter_long", "exit_long", "enter_short", "exit_short"]:
+    for col in ["entry_long", "exit_long", "entry_short", "exit_short"]:
         if col in engine_signals.columns and col in manual_signals.columns:
             engine_col = engine_signals[col]
             manual_col = manual_signals[col]

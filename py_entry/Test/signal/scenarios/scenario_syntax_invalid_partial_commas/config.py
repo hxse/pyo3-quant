@@ -28,17 +28,17 @@ INDICATORS_PARAMS: IndicatorsParams = {
 
 SIGNAL_PARAMS: SignalParams = {}
 
-# enter_long: 只有1个逗号，应该报错
+# entry_long: 只有1个逗号，应该报错
 # 错误写法: "close, ohlcv_15m > sma_0"
 # 规则：要么0个逗号，要么2个逗号，不允许1个逗号
 SIGNAL_TEMPLATE = SignalTemplate(
-    enter_long=SignalGroup(
+    entry_long=SignalGroup(
         logic=LogicOp.AND,
         comparisons=[
             "close, ohlcv_15m > sma_0",
         ],
     ),
     exit_long=None,
-    enter_short=None,
+    entry_short=None,
     exit_short=None,
 )

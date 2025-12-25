@@ -269,9 +269,9 @@ def convert_backtest_data_to_buffers(
     # 4. 转换模板配置
     if template_config is not None:
         template_dict = {
-            "enter_long": convert_to_serializable(template_config.signal.enter_long),
+            "entry_long": convert_to_serializable(template_config.signal.entry_long),
             "exit_long": convert_to_serializable(template_config.signal.exit_long),
-            "enter_short": convert_to_serializable(template_config.signal.enter_short),
+            "entry_short": convert_to_serializable(template_config.signal.entry_short),
             "exit_short": convert_to_serializable(template_config.signal.exit_short),
         }
         json_bytes = json.dumps(template_dict, indent=2, ensure_ascii=False).encode(

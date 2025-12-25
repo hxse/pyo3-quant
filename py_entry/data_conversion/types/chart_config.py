@@ -81,6 +81,7 @@ except ImportError:
         color: str
         value: float
         label: Optional[str] = None
+        showLabel: bool = False
 
     @dataclass
     class VerticalLineOption:
@@ -89,6 +90,7 @@ except ImportError:
         color: str
         value: Union[float, str]
         label: Optional[str] = None
+        showLabel: bool = False
 
 
 # 向后兼容的别名
@@ -121,6 +123,7 @@ class IndicatorLayoutItem:
     ]
     show: bool = True
     showInLegend: bool = False
+    showLabel: bool = False
 
     # 样式选项数组（为多个同名指标提供不同样式）
     # 按照同周期、同窗格的顺序依次分配，数量不够时重复最后一个

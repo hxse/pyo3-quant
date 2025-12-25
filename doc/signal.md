@@ -14,11 +14,11 @@
 @dataclass
 class SignalTemplate:
     # 多头入场信号组
-    enter_long: Optional[SignalGroup] = None
+    entry_long: Optional[SignalGroup] = None
     # 多头出场信号组
     exit_long: Optional[SignalGroup] = None
     # 空头入场信号组
-    enter_short: Optional[SignalGroup] = None
+    entry_short: Optional[SignalGroup] = None
     # 空头出场信号组
     exit_short: Optional[SignalGroup] = None
 ```
@@ -196,9 +196,9 @@ SignalGroup(
 
 | 列名 | 类型 | 描述 |
 | :--- | :--- | :--- |
-| `enter_long` | `bool` | 是否触发多头入场信号 |
+| `entry_long` | `bool` | 是否触发多头入场信号 |
 | `exit_long` | `bool` | 是否触发多头出场信号 |
-| `enter_short` | `bool` | 是否触发空头入场信号 |
+| `entry_short` | `bool` | 是否触发空头入场信号 |
 | `exit_short` | `bool` | 是否触发空头出场信号 |
 | `has_leading_nan` | `bool` | **无效数据标记**。在参与信号生成的任何指标、数据、参数中，如果当前位置有 `NaN` 或 `Null`，则标记为 `True`（未参与信号生成的数据不被记录）。 |
 

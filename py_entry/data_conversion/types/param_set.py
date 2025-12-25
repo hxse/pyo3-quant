@@ -47,13 +47,6 @@ class BacktestParams:
     # 必须 >= 0.0。
     fee_pct: float
 
-    # 暂停开仓阈值。当账户净值从历史最高点回撤达到此百分比时，暂停所有新开仓。
-    pause_drawdown: Param
-    # 暂停开仓阈值。当账户净值小于账户净值的sma时,暂停所有新开仓
-    pause_sma: Param
-    # 暂停开仓阈值。当账户净值小于账户净值的ema时,暂停所有新开仓
-    pause_ema: Param
-
     # === 离场方式 ===
     # 离场时机选择。
     # `true` 表示在当前K线内部触发条件时立即离场。

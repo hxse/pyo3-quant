@@ -214,21 +214,15 @@ fn execute_single_backtest(
                 .and_then(|col| col.bool().ok())
                 .map(|bool_col| bool_col.sum().unwrap_or(0));
 
-            backtest_df = if let Some(bt) = backtest_df {
-                // 增量回测：基于已有回测结果继续
-                Some(backtester::run_backtest_with_input(
-                    processed_data,
-                    sig_df,
-                    &single_param.backtest,
-                    bt,
-                )?)
-            } else {
+            backtest_df = if backtest_df.is_none() {
                 // 全新回测：从零开始
                 Some(backtester::run_backtest(
                     processed_data,
                     sig_df,
                     &single_param.backtest,
                 )?)
+            } else {
+                backtest_df
             };
             // 在 return_only_final 模式下，回测完成后立即释放信号数据
             utils::maybe_release_signals(processed_settings.return_only_final, &mut signals_df);
@@ -323,7 +317,6 @@ pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(indicators::py_calculate_indicators, m)?)?;
     m.add_function(wrap_pyfunction!(signal_generator::py_generate_signals, m)?)?;
     m.add_function(wrap_pyfunction!(backtester::py_run_backtest, m)?)?;
-    m.add_function(wrap_pyfunction!(backtester::py_run_backtest_with_input, m)?)?;
     m.add_function(wrap_pyfunction!(
         performance_analyzer::py_analyze_performance,
         m

@@ -105,16 +105,6 @@ class backtest_engine:
         ...
 
     @staticmethod
-    def run_backtest_with_input(
-        processed_data: DataContainer,
-        signals_df: polars.DataFrame,
-        backtest_params: BacktestParams,
-        input_backtest_df: polars.DataFrame,
-    ) -> polars.DataFrame:
-        """基于已有结果运行回测"""
-        ...
-
-    @staticmethod
     def analyze_performance(
         data_dict: DataContainer,
         backtest_df: polars.DataFrame,

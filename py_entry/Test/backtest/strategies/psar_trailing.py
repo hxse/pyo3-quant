@@ -52,9 +52,6 @@ def get_config() -> StrategyConfig:
         initial_capital=10000.0,
         fee_fixed=1,
         fee_pct=0.001,
-        pause_drawdown=Param.create(0),
-        pause_sma=Param.create(0),
-        pause_ema=Param.create(0),
         exit_in_bar=False,  # PSAR 不支持 in_bar
         use_extrema_for_exit=False,
         # PCT 保护性止损止盈

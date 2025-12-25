@@ -150,13 +150,6 @@ pub struct BacktestParams {
     /// 百分比手续费。每笔交易金额的百分比手续费。
     /// 必须 >= 0.0。
     pub fee_pct: f64,
-
-    ///暂停开仓阈值。当账户净值从历史最高点回撤达到此百分比时，暂停所有新开仓。
-    pub pause_drawdown: Param,
-    ///暂停开仓阈值。当账户净值小于账户净值的sma时,暂停所有新开仓
-    pub pause_sma: Param,
-    ///暂停开仓阈值。当账户净值小于账户净值的ema时,暂停所有新开仓
-    pub pause_ema: Param,
 }
 impl BacktestParams {
     /// 检查sl_pct参数是否有效（不验证其他参数）。
@@ -257,9 +250,6 @@ impl BacktestParams {
             ("initial_capital", self.initial_capital),
             ("fee_fixed", self.fee_fixed),
             ("fee_pct", self.fee_pct),
-            ("pause_drawdown", self.pause_drawdown.value),
-            ("pause_sma", self.pause_sma.value),
-            ("pause_ema", self.pause_ema.value),
         ];
         for (name, value) in &f64_params {
             check_valid_f64(*value, name)?;
@@ -302,35 +292,6 @@ impl BacktestParams {
                 param_name: "fee_pct".to_string(),
                 value: self.fee_pct.to_string(),
                 reason: "百分比手续费不能为负".to_string(),
-            });
-        }
-
-        // 3. 验证暂停参数：最多只能有一个 > 0
-        let pause_params = [
-            ("pause_drawdown", self.pause_drawdown.value),
-            ("pause_sma", self.pause_sma.value),
-            ("pause_ema", self.pause_ema.value),
-        ];
-
-        let active_pause_params: Vec<(&str, f64)> = pause_params
-            .iter()
-            .filter(|(_, value)| *value > 0.0)
-            .map(|(name, value)| (*name, *value))
-            .collect();
-
-        if active_pause_params.len() > 1 {
-            let param_names: Vec<String> = active_pause_params
-                .iter()
-                .map(|(name, _)| (*name).to_string())
-                .collect();
-            return Err(BacktestError::InvalidParameter {
-                param_name: "pause_params".to_string(),
-                value: format!("{:?}", active_pause_params),
-                reason: format!(
-                    "暂停参数中只能有一个大于0，当前有{}个大于0: {}",
-                    active_pause_params.len(),
-                    param_names.join(", ")
-                ),
             });
         }
 

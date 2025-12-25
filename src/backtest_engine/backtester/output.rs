@@ -442,20 +442,4 @@ impl OutputBuffers {
             BacktestError::ValidationError(format!("Failed to create DataFrame: {}", e))
         })
     }
-
-    /// 将 OutputBuffers 转换为只包含 equity 和 current_drawdown 两列的 DataFrame
-    ///
-    /// # 返回
-    /// 只包含 equity 和 current_drawdown 列的 DataFrame
-    pub fn to_equity_dataframe(&self) -> Result<DataFrame, BacktestError> {
-        let equity_series = Series::new(ColumnName::Equity.as_str().into(), &self.equity);
-        let current_drawdown_series = Series::new(
-            ColumnName::CurrentDrawdown.as_str().into(),
-            &self.current_drawdown,
-        );
-
-        DataFrame::new(vec![equity_series.into(), current_drawdown_series.into()]).map_err(|e| {
-            BacktestError::ValidationError(format!("Failed to create equity DataFrame: {}", e))
-        })
-    }
 }

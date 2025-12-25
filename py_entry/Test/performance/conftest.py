@@ -38,10 +38,7 @@ def full_performance_result():
     backtest_params = BacktestParams(
         initial_capital=10000.0,
         fee_fixed=0,
-        fee_pct=0,
-        pause_drawdown=Param.create(0),
-        pause_sma=Param.create(0),
-        pause_ema=Param.create(0),
+        fee_pct=0.001,
         exit_in_bar=False,
         use_extrema_for_exit=False,
         sl_pct=Param.create(2),

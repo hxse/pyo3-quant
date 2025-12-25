@@ -43,7 +43,6 @@
 //!
 //! 这种策略显著降低了大规模回测的内存占用。
 
-use crate::data_conversion::types::settings::ExecutionStage;
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
@@ -161,99 +160,38 @@ fn execute_single_backtest(
     processed_settings: &SettingContainer,
     input_backtest_df: Option<BacktestSummary>,
 ) -> Result<BacktestSummary, QuantError> {
-    // 解构 input_backtest_df，直接移动所有权
-    // 支持增量计算：如果已有某个阶段的结果，则跳过该阶段
-    let (mut indicator_dfs, mut signals_df, mut backtest_df, mut performance) =
-        match input_backtest_df {
-            Some(input) => (
-                input.indicators,
-                input.signals,
-                input.backtest,
-                input.performance,
-            ),
-            None => (None, None, None, None),
-        };
+    // 1. 初始化执行上下文（支持增量计算）
+    let mut ctx = utils::BacktestContext::from_cache(input_backtest_df);
+    let stage = processed_settings.execution_stage;
+    let return_only_final = processed_settings.return_only_final;
 
-    // 1. 计算技术指标阶段
-    // 只有当执行阶段 >= Indicator 且没有已有指标结果时才计算
-    if processed_settings.execution_stage >= ExecutionStage::Indicator && indicator_dfs.is_none() {
-        indicator_dfs = Some(indicators::calculate_indicators(
-            processed_data,
-            &single_param.indicators,
-        )?);
-    }
+    // 2. 顺序执行各个阶段（每个方法内部处理 ExecutionStage 判断和缓存逻辑）
+    ctx.execute_indicator_if_needed(stage, processed_data, &single_param.indicators)?;
 
-    // 2. 生成交易信号阶段
-    // 只有当执行阶段 >= Signals 且没有已有信号结果时才计算
-    if processed_settings.execution_stage >= ExecutionStage::Signals && signals_df.is_none() {
-        if let Some(ref ind_dfs) = indicator_dfs {
-            signals_df = Some(signal_generator::generate_signals(
-                processed_data,
-                ind_dfs,
-                &single_param.signal,
-                &processed_template.signal,
-            )?);
-            // 在 return_only_final 模式下，信号计算完成后立即释放指标数据
-            utils::maybe_release_indicators(
-                processed_settings.return_only_final,
-                &mut indicator_dfs,
-            );
-        }
-    }
+    ctx.execute_signals_if_needed(
+        stage,
+        return_only_final,
+        processed_data,
+        &single_param.signal,
+        &processed_template.signal,
+    )?;
 
-    // 3. 执行回测阶段
-    // 只有当执行阶段 >= Backtest 时才执行
-    // 提前计算 has_leading_nan 计数（在 signals_df 被释放前）
-    let mut has_leading_nan_count: Option<u32> = None;
-    if processed_settings.execution_stage >= ExecutionStage::Backtest {
-        if let Some(ref sig_df) = signals_df {
-            // 提取 has_leading_nan 计数
-            has_leading_nan_count = sig_df
-                .column("has_leading_nan")
-                .ok()
-                .and_then(|col| col.bool().ok())
-                .map(|bool_col| bool_col.sum().unwrap_or(0));
+    ctx.execute_backtest_if_needed(
+        stage,
+        return_only_final,
+        processed_data,
+        &single_param.backtest,
+    )?;
 
-            backtest_df = if backtest_df.is_none() {
-                // 全新回测：从零开始
-                Some(backtester::run_backtest(
-                    processed_data,
-                    sig_df,
-                    &single_param.backtest,
-                )?)
-            } else {
-                backtest_df
-            };
-            // 在 return_only_final 模式下，回测完成后立即释放信号数据
-            utils::maybe_release_signals(processed_settings.return_only_final, &mut signals_df);
-        }
-    }
+    ctx.execute_performance_if_needed(
+        stage,
+        return_only_final,
+        processed_data,
+        &single_param.performance,
+    )?;
 
-    // 4. 绩效分析阶段
-    // 只有当执行阶段 >= Performance 且没有已有绩效结果时才计算
-    if processed_settings.execution_stage >= ExecutionStage::Performance && performance.is_none() {
-        if let Some(ref bt_df) = backtest_df {
-            performance = Some(performance_analyzer::analyze_performance(
-                processed_data,
-                bt_df,
-                &single_param.performance,
-                has_leading_nan_count,
-            )?);
-            // 在 return_only_final 模式下，绩效计算完成后立即释放回测数据
-            utils::maybe_release_backtest(processed_settings.return_only_final, &mut backtest_df);
-        }
-    }
-
-    // 5. 根据配置决定返回结果
-    // 创建最终的回测摘要，包含所有阶段的结果
-    Ok(utils::create_backtest_summary(
-        processed_settings.return_only_final,
-        processed_settings.execution_stage,
-        indicator_dfs,
-        signals_df,
-        backtest_df,
-        performance,
-    ))
+    // 3. 转换为最终结果
+    Ok(ctx.into_summary(return_only_final, stage))
 }
 
 /// PyO3 接口函数：运行回测引擎

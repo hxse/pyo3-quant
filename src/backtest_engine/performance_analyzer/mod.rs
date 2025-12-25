@@ -21,8 +21,13 @@ pub fn analyze_performance(
     processed_data: &DataContainer,
     backtest_df: &DataFrame,
     performance_params: &PerformanceParams,
-    has_leading_nan_count: Option<u32>,
 ) -> Result<PerformanceMetrics, QuantError> {
+    let has_leading_nan_count = backtest_df
+        .column("has_leading_nan")
+        .ok()
+        .and_then(|col| col.bool().ok())
+        .map(|bool_col| bool_col.sum().unwrap_or(0));
+
     let mut result = HashMap::new();
 
     // 1. 数据准备
@@ -144,18 +149,12 @@ pub fn py_analyze_performance(
     data_dict: DataContainer,
     backtest_df_py: PyDataFrame,
     performance_params: PerformanceParams,
-    has_leading_nan_count: Option<u32>,
 ) -> PyResult<PerformanceMetrics> {
     // 1. 将 Python 对象转换为 Rust 类型
     let backtest_df: DataFrame = backtest_df_py.into();
 
     // 2. 调用原始的 analyze_performance 函数
-    let result = analyze_performance(
-        &data_dict,
-        &backtest_df,
-        &performance_params,
-        has_leading_nan_count,
-    )?;
+    let result = analyze_performance(&data_dict, &backtest_df, &performance_params)?;
 
     // 3. PyO3 会自动将 PerformanceMetrics (HashMap<String, f64>) 转换为 Python 字典
     Ok(result)

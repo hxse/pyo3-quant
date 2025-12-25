@@ -10,6 +10,8 @@ pub mod settings;
 pub mod templates;
 
 pub use data_dict::{DataContainer, DataSource};
-pub use param_set::{BacktestParams, ParamContainer, SingleParam};
+pub use param_set::{
+    BacktestParams, IndicatorsParams, ParamContainer, PerformanceParams, SignalParams, SingleParam,
+};
 pub use settings::SettingContainer;
 pub use templates::TemplateContainer;

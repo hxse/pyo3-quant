@@ -39,17 +39,19 @@ performance_analyzer/
 | `current_drawdown` | f64 | 当前回撤比例 |
 | `entry_long_price` | f64 | 多头持仓价格（NaN 表示无仓位） |
 | `entry_short_price` | f64 | 空头持仓价格 |
+| `has_leading_nan` | bool | 无效数据标记，用于统计预热期长度 |
 
 ---
 
 ## 3. 输出指标
 
-### 3.1 收益指标
+### 3.1 收益与统计指标
 
 | 指标 | 键名 | 公式/说明 |
 |------|------|----------|
 | 总回报率 | `total_return` | 最后一行 `total_return_pct` |
 | 年化因子 | `annualization_factor` | `n / time_span_years` |
+| 信号无效计数 | `has_leading_nan_count` | `backtest_df` 中 `has_leading_nan` 为 True 的总行数 |
 
 ### 3.2 风险调整指标
 

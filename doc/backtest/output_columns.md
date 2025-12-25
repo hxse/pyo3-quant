@@ -26,6 +26,7 @@
 | `exit_short_price` | `float64` | 空头离场价格 (NaN 表示无操作)。 |
 | `risk_in_bar_direction` | `int8` | **风控离场标志**。<br>`0`: 无 In-Bar 风控离场。<br>`1`: 多头 In-Bar 风控触发。<br>`-1`: 空头 In-Bar 风控触发。 |
 | `first_entry_side` | `int8` | **首次进场方向**。<br>`0`: 非进场 bar。<br>`1`: 多头首次进场。<br>`-1`: 空头首次进场。 |
+| `has_leading_nan` | `bool` | **无效数据标记**。由信号生成器生成，表示该位置数据是否处于预热期或存在缺失。 |
 
 > [!TIP]
 > **如何识别持仓状态？**

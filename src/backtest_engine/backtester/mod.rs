@@ -81,7 +81,13 @@ pub fn run_backtest(
     let output_buffers = run_backtest_calculation(processed_data, signals_df, backtest_params)?;
 
     // 3. 将 OutputBuffers 转换为 DataFrame
-    let result_df = output_buffers.to_dataframe()?;
+    let mut result_df = output_buffers.to_dataframe()?;
+
+    // 4. 如果信号中存在 has_leading_nan 列，将其复制到结果中
+    // 这有助于绩效分析阶段在只有 backtest_df 的情况下独立执行
+    if let Ok(col) = signals_df.column("has_leading_nan") {
+        result_df.with_column(col.clone())?;
+    }
 
     Ok(result_df)
 }

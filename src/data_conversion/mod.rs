@@ -8,5 +8,6 @@ pub mod types;
 pub mod utils;
 
 pub use types::{
-    BacktestParams, DataContainer, ParamContainer, SettingContainer, SingleParam, TemplateContainer,
+    BacktestParams, DataContainer, IndicatorsParams, ParamContainer, PerformanceParams,
+    SettingContainer, SignalParams, SingleParam, TemplateContainer,
 };

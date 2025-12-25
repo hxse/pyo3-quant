@@ -55,17 +55,16 @@ impl BacktestState {
         }
 
         // 2.2 进场检查（含反手逻辑）
-        // 重置首次进场标志（默认为 false，只有在发生进场时才设为 true）
-        self.action.is_first_entry_long = false;
-        self.action.is_first_entry_short = false;
+        // 重置首次进场标志
+        self.action.first_entry_side = 0;
 
         if self.can_enter_long() && self.prev_bar.enter_long {
             self.action.entry_long_price = Some(self.current_bar.open);
-            self.action.is_first_entry_long = true;
+            self.action.first_entry_side = 1;
         }
         if self.can_enter_short() && self.prev_bar.enter_short {
             self.action.entry_short_price = Some(self.current_bar.open);
-            self.action.is_first_entry_short = true;
+            self.action.first_entry_side = -1;
         }
 
         // === 3. 处理bar(i)的risk触发（可能in_bar模式） ===

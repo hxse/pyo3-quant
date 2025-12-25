@@ -12,11 +12,8 @@ pub struct Action {
     /// 空头离场价格
     pub exit_short_price: Option<f64>,
 
-    // === 状态标志 ===
-    /// 是否是多头首次进场（用于 risk 触发判断）
-    pub is_first_entry_long: bool,
-    /// 是否是空头首次进场（用于 risk 触发判断）
-    pub is_first_entry_short: bool,
+    /// 首次进场方向：0=无, 1=多头, -1=空头
+    pub first_entry_side: i8,
 }
 
 impl Action {

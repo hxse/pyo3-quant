@@ -91,7 +91,7 @@ graph LR
 ```
 if can_enter_long() && prev_bar.enter_long:
     entry_long_price = current_bar.open
-    is_first_entry_long = true
+    first_entry_side = 1
 ```
 
 #### 离场逻辑（策略信号）

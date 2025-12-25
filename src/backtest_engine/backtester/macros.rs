@@ -95,6 +95,11 @@ macro_rules! validate_output_buffers {
             $len_var,
             "risk_in_bar_direction length mismatch"
         );
+        ::core::assert_eq!(
+            $buf.first_entry_side.len(),
+            $len_var,
+            "first_entry_side length mismatch"
+        );
 
         // 可选列
         if let Some(v) = &$buf.sl_pct_price_long {

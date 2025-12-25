@@ -54,6 +54,7 @@ pub enum ColumnName {
 
     // Risk State Output
     RiskInBarDirection,
+    FirstEntrySide,
 
     // 追踪指标状态
     HasLeadingNan,
@@ -110,6 +111,7 @@ impl ColumnName {
 
             // Risk State Output
             ColumnName::RiskInBarDirection => "risk_in_bar_direction",
+            ColumnName::FirstEntrySide => "first_entry_side",
 
             // 追踪指标状态
             ColumnName::HasLeadingNan => "has_leading_nan",

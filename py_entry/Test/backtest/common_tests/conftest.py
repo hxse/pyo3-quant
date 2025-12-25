@@ -76,6 +76,7 @@ def required_fixed_cols():
         "risk_exit_long_price",
         "risk_exit_short_price",
         "risk_in_bar_direction",  # i8 类型 (0, 1, -1)
+        "first_entry_side",  # i8 类型 (0, 1, -1)
         # 资金状态列
         "balance",
         "equity",

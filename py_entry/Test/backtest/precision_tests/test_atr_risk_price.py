@@ -11,7 +11,7 @@
 
     其中:
     - atr 使用 pandas-ta.atr(talib=True) 计算
-    - 价格只在 is_first_entry 时设置，后续 bar 保持不变
+    - 价格只在 first_entry_side 时设置，后续 bar 保持不变
 """
 
 import pandas as pd
@@ -72,16 +72,8 @@ class TestAtrRiskPriceCalculation:
         # 添加参考 ATR 到 df
         df = df.with_columns(ref_atr.alias("ref_atr"))
 
-        # 找到多头进场点 (is_first_entry_long)
-        # 进场点: entry_long_price 存在，且前一个 bar 不存在
-        df = df.with_columns(
-            [
-                pl.col("entry_long_price").is_not_nan().alias("has_entry_long"),
-                pl.col("entry_long_price").shift(1).is_nan().alias("prev_no_entry"),
-            ]
-        ).with_columns(
-            (pl.col("has_entry_long") & pl.col("prev_no_entry")).alias("is_first_entry")
-        )
+        # 使用 first_entry_side 列直接筛选多头首次进场
+        df = df.with_columns((pl.col("first_entry_side") == 1).alias("is_first_entry"))
 
         first_entries = df.filter(
             pl.col("is_first_entry")
@@ -149,16 +141,8 @@ class TestAtrRiskPriceCalculation:
 
         df = df.with_columns(ref_atr.alias("ref_atr"))
 
-        df = df.with_columns(
-            [
-                pl.col("entry_short_price").is_not_nan().alias("has_entry_short"),
-                pl.col("entry_short_price").shift(1).is_nan().alias("prev_no_entry"),
-            ]
-        ).with_columns(
-            (pl.col("has_entry_short") & pl.col("prev_no_entry")).alias(
-                "is_first_entry"
-            )
-        )
+        # 使用 first_entry_side 列直接筛选空头首次进场
+        df = df.with_columns((pl.col("first_entry_side") == -1).alias("is_first_entry"))
 
         first_entries = df.filter(
             pl.col("is_first_entry")
@@ -226,14 +210,8 @@ class TestAtrRiskPriceCalculation:
 
         df = df.with_columns(ref_atr.alias("ref_atr"))
 
-        df = df.with_columns(
-            [
-                pl.col("entry_long_price").is_not_nan().alias("has_entry_long"),
-                pl.col("entry_long_price").shift(1).is_nan().alias("prev_no_entry"),
-            ]
-        ).with_columns(
-            (pl.col("has_entry_long") & pl.col("prev_no_entry")).alias("is_first_entry")
-        )
+        # 使用 first_entry_side 列直接筛选多头首次进场
+        df = df.with_columns((pl.col("first_entry_side") == 1).alias("is_first_entry"))
 
         first_entries = df.filter(
             pl.col("is_first_entry")
@@ -301,16 +279,8 @@ class TestAtrRiskPriceCalculation:
 
         df = df.with_columns(ref_atr.alias("ref_atr"))
 
-        df = df.with_columns(
-            [
-                pl.col("entry_short_price").is_not_nan().alias("has_entry_short"),
-                pl.col("entry_short_price").shift(1).is_nan().alias("prev_no_entry"),
-            ]
-        ).with_columns(
-            (pl.col("has_entry_short") & pl.col("prev_no_entry")).alias(
-                "is_first_entry"
-            )
-        )
+        # 使用 first_entry_side 列直接筛选空头首次进场
+        df = df.with_columns((pl.col("first_entry_side") == -1).alias("is_first_entry"))
 
         first_entries = df.filter(
             pl.col("is_first_entry")

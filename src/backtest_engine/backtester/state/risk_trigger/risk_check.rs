@@ -73,11 +73,11 @@ impl BacktestState {
         match direction {
             Direction::Long => (
                 self.action.entry_long_price.unwrap(),
-                self.action.is_first_entry_long,
+                self.action.first_entry_side == 1,
             ),
             Direction::Short => (
                 self.action.entry_short_price.unwrap(),
-                self.action.is_first_entry_short,
+                self.action.first_entry_side == -1,
             ),
         }
     }

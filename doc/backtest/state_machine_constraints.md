@@ -108,19 +108,23 @@
 
 > ⚠️ **白名单机制**：状态枚举表是**允许列表**，不在列表中的组合均为非法状态。
 
-| # | entry_long_price | exit_long_price | entry_short_price | exit_short_price | in_bar_direction | 状态 |
-|:-:|:----------------:|:---------------:|:-----------------:|:----------------:|:----------------:|------|
-| 1 | ✗ | ✗ | ✗ | ✗ | 0 | `no_position` |
-| 2 | ✓ | ✗ | ✗ | ✗ | 0 | `hold_long` |
-| 3 | ✗ | ✗ | ✓ | ✗ | 0 | `hold_short` |
-| 4 | ✓ | ✓ | ✗ | ✗ | 0 | `exit_long_signal` |
-| 5 | ✓ | ✓ | ✗ | ✗ | 1 | `exit_long_risk` |
-| 6 | ✗ | ✗ | ✓ | ✓ | 0 | `exit_short_signal` |
-| 7 | ✗ | ✗ | ✓ | ✓ | -1 | `exit_short_risk` |
-| 8 | ✓ | ✓ | ✓ | ✗ | 0 | `reversal_long_to_short` |
-| 9 | ✓ | ✗ | ✓ | ✓ | 0 | `reversal_short_to_long` |
-| 10 | ✓ | ✓ | ✓ | ✓ | 1 | `reversal_to_long_then_exit` |
-| 11 | ✓ | ✓ | ✓ | ✓ | -1 | `reversal_to_short_then_exit` |
+| # | entry_L | exit_L | entry_S | exit_S | in_bar | first_entry | 状态 |
+|:-:|:-------:|:------:|:-------:|:------:|:------:|:-----------:|------|
+| 1 | ✗ | ✗ | ✗ | ✗ | 0 | 0 | `no_position` |
+| 2 | ✓ | ✗ | ✗ | ✗ | 0 | 0 | `hold_long` (延续) |
+| 3 | ✓ | ✗ | ✗ | ✗ | 0 | 1 | `hold_long_first` (进场) |
+| 4 | ✗ | ✗ | ✓ | ✗ | 0 | 0 | `hold_short` (延续) |
+| 5 | ✗ | ✗ | ✓ | ✗ | 0 | -1 | `hold_short_first` (进场) |
+| 6 | ✓ | ✓ | ✗ | ✗ | 0 | 0 | `exit_long_signal` |
+| 7 | ✓ | ✓ | ✗ | ✗ | 1 | 0 | `exit_long_risk` (持仓后) |
+| 8 | ✓ | ✓ | ✗ | ✗ | 1 | 1 | `exit_long_risk_first` (秒杀) |
+| 9 | ✗ | ✗ | ✓ | ✓ | 0 | 0 | `exit_short_signal` |
+| 10| ✗ | ✗ | ✓ | ✓ | -1 | 0 | `exit_short_risk` (持仓后) |
+| 11| ✗ | ✗ | ✓ | ✓ | -1 | -1 | `exit_short_risk_first` (秒杀) |
+| 12| ✓ | ✓ | ✓ | ✗ | 0 | -1 | `reversal_L→S` |
+| 13| ✓ | ✗ | ✓ | ✓ | 0 | 1 | `reversal_S→L` |
+| 14| ✓ | ✓ | ✓ | ✓ | 1 | 1 | `reversal→L_risk` |
+| 15| ✓ | ✓ | ✓ | ✓ | -1 | -1 | `reversal→S_risk` |
 
 ### 3.2 被排除的组合（示例）
 
@@ -178,14 +182,16 @@
 - **调试友好**：直接查看价格列即可理解状态流转
 - **测试简单**：只需验证每行状态是否在白名单内即可
 
-### 5.3 `in_bar_direction` 的必要性
+### 5.3 `in_bar_direction` 与 `first_entry_side` 的必要性
 
-`in_bar_direction` (i8) 的作用：
-- `0`：策略信号触发（Next Bar 模式）
-- `1`：多头风控触发（In Bar 模式）
-- `-1`：空头风控触发（In Bar 模式）
+- **`in_bar_direction`** (i8): 标记**离场**模式。0=Next-Bar, 1=多头In-Bar, -1=空头In-Bar。
+- **`first_entry_side`** (i8): 标记**进场**模式。0=无进场, 1=多头进场, -1=空头进场。
 
-**推断逻辑**：用户通过 `exit_long_price` 且 `in_bar_direction == 1`（或 short 对应 -1）即可识别风控离场，无需冗余列。
+**推断逻辑**：
+- 用户通过 `exit_long_price` 且 `in_bar_direction == 1` 识别风控离场。
+- 用户通过 `entry_long_price` 存在且 `first_entry_side == 1` 识别多头进场 Bar，无需使用 `shift(1)` 比较。
+- **“秒杀”场景推断**（即进即出）：
+  * 例如（多头）`first_entry_side == 1` 且 `in_bar_direction == 1`，同时 `entry_long_price` 和 `exit_long_price` 均存在时，表示发生了极端风控场景。
 
 ---
 

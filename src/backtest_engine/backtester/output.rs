@@ -69,6 +69,8 @@ pub struct OutputBuffers {
     // === Risk State Output ===
     /// Risk 是否 In-Bar 离场（0=无, 1=多, -1=空）
     pub risk_in_bar_direction: Vec<i8>,
+    /// 首次进场方向（0=无, 1=多头, -1=空头）
+    pub first_entry_side: Vec<i8>,
 }
 
 impl OutputBuffers {
@@ -173,6 +175,7 @@ impl OutputBuffers {
 
             // Risk State Output
             risk_in_bar_direction: vec![0; capacity],
+            first_entry_side: vec![0; capacity],
         }
     }
 
@@ -218,6 +221,10 @@ impl OutputBuffers {
             (
                 ColumnName::RiskInBarDirection.as_str(),
                 self.risk_in_bar_direction.len(),
+            ),
+            (
+                ColumnName::FirstEntrySide.as_str(),
+                self.first_entry_side.len(),
             ),
         ];
 
@@ -366,6 +373,13 @@ impl OutputBuffers {
         )
         .into_series();
         columns.push(risk_in_bar_direction_series.into());
+
+        let first_entry_side_series = Int8Chunked::from_slice(
+            ColumnName::FirstEntrySide.as_pl_small_str(),
+            &self.first_entry_side,
+        )
+        .into_series();
+        columns.push(first_entry_side_series.into());
 
         // 定义可选列的名称和数据
         let optional_columns = [

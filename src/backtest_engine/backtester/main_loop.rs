@@ -131,6 +131,7 @@ fn update_buffer_row(buffers: &mut OutputBuffers, state: &BacktestState, row_ind
 
     // === Risk State Output ===
     buffers.risk_in_bar_direction[row_index] = state.risk_state.in_bar_direction;
+    buffers.first_entry_side[row_index] = state.action.first_entry_side;
 }
 
 /// 初始化输出缓冲区的第0行数据

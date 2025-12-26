@@ -1,7 +1,7 @@
 use super::backtest_state::BacktestState;
 use crate::data_conversion::BacktestParams;
 
-impl BacktestState {
+impl<'a> BacktestState<'a> {
     pub fn should_skip_current_bar(&mut self) -> bool {
         if self.capital_state.balance <= 0.0 || self.capital_state.equity <= 0.0 {
             return true;

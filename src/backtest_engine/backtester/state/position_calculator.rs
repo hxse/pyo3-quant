@@ -2,7 +2,7 @@ use super::backtest_state::BacktestState;
 use super::risk_trigger;
 use crate::data_conversion::BacktestParams;
 
-impl BacktestState {
+impl<'a> BacktestState<'a> {
     pub fn reset_position_on_skip(&mut self) {
         self.action.reset_prices();
 

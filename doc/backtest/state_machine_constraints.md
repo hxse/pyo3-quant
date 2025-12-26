@@ -121,10 +121,10 @@
 | 9 | ✗ | ✗ | ✓ | ✓ | 0 | 0 | `exit_short_signal` |
 | 10| ✗ | ✗ | ✓ | ✓ | -1 | 0 | `exit_short_risk` (持仓后) |
 | 11| ✗ | ✗ | ✓ | ✓ | -1 | -1 | `exit_short_risk_first` (秒杀) |
-| 12| ✓ | ✓ | ✓ | ✗ | 0 | -1 | `reversal_L→S` |
-| 13| ✓ | ✗ | ✓ | ✓ | 0 | 1 | `reversal_S→L` |
-| 14| ✓ | ✓ | ✓ | ✓ | 1 | 1 | `reversal→L_risk` |
-| 15| ✓ | ✓ | ✓ | ✓ | -1 | -1 | `reversal→S_risk` |
+| 12| ✓ | ✓ | ✓ | ✗ | 0 | -1 | `reversal_L_to_S` |
+| 13| ✓ | ✗ | ✓ | ✓ | 0 | 1 | `reversal_S_to_L` |
+| 14| ✓ | ✓ | ✓ | ✓ | 1 | 1 | `reversal_to_L_risk` |
+| 15| ✓ | ✓ | ✓ | ✓ | -1 | -1 | `reversal_to_S_risk` |
 
 ### 3.2 被排除的组合（示例）
 

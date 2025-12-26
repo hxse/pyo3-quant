@@ -1,142 +1,91 @@
-use super::state::{current_bar_data::CurrentBarData, BacktestState};
-use super::{data_preparer::PreparedData, output::OutputBuffers};
+use super::state::{
+    current_bar_data::CurrentBarData, BacktestState, OutputBuffersIter, PreparedDataIter,
+    WriteConfig,
+};
+use super::{buffer_slices::extract_slices, data_preparer::PreparedData, output::OutputBuffers};
 use crate::data_conversion::BacktestParams;
 use crate::error::backtest_error::BacktestError;
 
-// 引入宏（由于宏使用 #[macro_export] 标注，需要从 crate 根级别导入）
-use crate::{validate_output_buffers, validate_prepared_data};
-
 /// 运行回测主循环
 pub fn run_main_loop(
-    prepared_data: &PreparedData,
-    state: &mut BacktestState,
-    mut buffers: OutputBuffers,
+    mut prepared_data: PreparedData,
     backtest_params: &BacktestParams,
 ) -> Result<OutputBuffers, BacktestError> {
-    // ---------- 1. 长度校验（宏展开） ----------
-    let data_length = validate_prepared_data!(prepared_data, data_length);
+    let data_length = prepared_data.time.len();
 
-    if data_length == 0 {
+    // 创建输出缓冲区
+    let mut buffers = OutputBuffers::new(backtest_params, data_length);
+
+    if data_length <= 2 {
         return Ok(buffers);
     }
 
-    // ---------- 2. OutputBuffers 长度校验 ----------
-    // 这里的校验同样在 Release 模式下帮助编译器推断所有 buffers[i] 安全
-    validate_output_buffers!(buffers, data_length);
+    // 初始化回测状态
+    let mut state = BacktestState::new(backtest_params, &prepared_data);
 
-    // ---------- 3. 初始化第0行数据 ----------
-    // 将 backtest_state 的初始值写入到 buffers 的第0行
-    initialize_buffer_row_zero(&mut buffers, state);
+    // 初始化第0行和第1行数据 (仅写入初始状态)
+    initialize_buffer_rows_0_and_1(&mut buffers, &mut state, &prepared_data);
 
-    // ---------- 4. 主循环 ----------
-    // 索引 0 已经正确初始化
-    if data_length > 1 {
-        for i in 1..data_length {
-            state.current_bar = CurrentBarData::new(prepared_data, i);
-            state.prev_bar = CurrentBarData::new(prepared_data, i - 1);
-            // 从 i >= 2 开始才有 prev_prev_bar
-            if i >= 2 {
-                state.prev_prev_bar = CurrentBarData::new(prepared_data, i - 2);
-            }
+    // 初始化滚动状态 (针对 i=2，前值是 i=1)
+    let mut prev_bar = CurrentBarData::new(&prepared_data, 1);
 
-            if state.should_skip_current_bar() {
-                state.reset_position_on_skip();
-                state.reset_capital_on_skip();
-            } else {
-                // 使用状态机方法计算新的仓位状态（内部已更新状态）
-                state.calculate_position(backtest_params);
+    // 预先构建写入配置，确定哪些可选列需要写入
+    let write_config = WriteConfig::from_params(backtest_params);
 
-                state.calculate_capital(backtest_params);
-            }
+    // 主循环：从 i=2 开始迭代
+    let input_iter = PreparedDataIter::new(&prepared_data, 2);
+    let output_iter = OutputBuffersIter::new(&mut buffers, 2);
 
-            // 使用工具函数更新当前行数据
-            update_buffer_row(&mut buffers, state, i);
+    for ((i, current_bar), mut output_row) in input_iter.zip(output_iter) {
+        state.current_index = i;
+        state.current_bar = current_bar;
+        state.prev_bar = prev_bar;
+
+        if state.should_skip_current_bar() {
+            state.reset_position_on_skip();
+            state.reset_capital_on_skip();
+        } else {
+            state.calculate_position(backtest_params);
+            state.calculate_capital(backtest_params);
         }
+
+        output_row.write_from_state_grouped(&state, &write_config);
+
+        prev_bar = current_bar;
     }
 
-    // 统一处理 ATR 数据赋值（移到主循环外）
-    // 直接克隆整个 Vec，避免循环中的逐个赋值
-    if let Some(ref atr_data) = prepared_data.atr {
-        buffers.atr = Some(atr_data.clone());
+    // ATR 数据赋值
+    if prepared_data.atr.is_some() {
+        buffers.atr = prepared_data.atr.take();
     }
 
     Ok(buffers)
 }
 
-/// 更新输出缓冲区指定行的数据
-///
-/// 将 backtest_state 的当前值写入到 buffers 的指定行
-/// 更新输出缓冲区的单行数据
-///
-/// 将当前回测状态写入输出缓冲区的指定行
-fn update_buffer_row(buffers: &mut OutputBuffers, state: &BacktestState, row_index: usize) {
-    // === 资金状态 ===
-    buffers.balance[row_index] = state.capital_state.balance;
-    buffers.equity[row_index] = state.capital_state.equity;
-    buffers.trade_pnl_pct[row_index] = state.capital_state.trade_pnl_pct;
-    buffers.total_return_pct[row_index] = state.capital_state.total_return_pct;
-    buffers.fee[row_index] = state.capital_state.fee;
-    buffers.fee_cum[row_index] = state.capital_state.fee_cum;
-    buffers.current_drawdown[row_index] = state.capital_state.current_drawdown;
+/// 初始化输出缓冲区的第0行和第1行数据
+#[inline(never)]
+fn initialize_buffer_rows_0_and_1(
+    buffers: &mut OutputBuffers,
+    state: &mut BacktestState<'_>,
+    prepared_data: &PreparedData<'_>,
+) {
+    let (mut fixed, mut opt) = extract_slices(buffers);
 
-    // === 价格列（价格驱动状态的核心） ===
-    buffers.entry_long_price[row_index] = state.action.entry_long_price.unwrap_or(f64::NAN);
-    buffers.entry_short_price[row_index] = state.action.entry_short_price.unwrap_or(f64::NAN);
-    buffers.exit_long_price[row_index] = state.action.exit_long_price.unwrap_or(f64::NAN);
-    buffers.exit_short_price[row_index] = state.action.exit_short_price.unwrap_or(f64::NAN);
-
-    // === 风险价格（可选列） ===
-    if let Some(ref mut sl_pct_price_long) = buffers.sl_pct_price_long {
-        sl_pct_price_long[row_index] = state.risk_state.sl_pct_price_long.unwrap_or(f64::NAN);
-    }
-    if let Some(ref mut sl_pct_price_short) = buffers.sl_pct_price_short {
-        sl_pct_price_short[row_index] = state.risk_state.sl_pct_price_short.unwrap_or(f64::NAN);
-    }
-    if let Some(ref mut tp_pct_price_long) = buffers.tp_pct_price_long {
-        tp_pct_price_long[row_index] = state.risk_state.tp_pct_price_long.unwrap_or(f64::NAN);
-    }
-    if let Some(ref mut tp_pct_price_short) = buffers.tp_pct_price_short {
-        tp_pct_price_short[row_index] = state.risk_state.tp_pct_price_short.unwrap_or(f64::NAN);
-    }
-    if let Some(ref mut tsl_pct_price_long) = buffers.tsl_pct_price_long {
-        tsl_pct_price_long[row_index] = state.risk_state.tsl_pct_price_long.unwrap_or(f64::NAN);
-    }
-    if let Some(ref mut tsl_pct_price_short) = buffers.tsl_pct_price_short {
-        tsl_pct_price_short[row_index] = state.risk_state.tsl_pct_price_short.unwrap_or(f64::NAN);
-    }
-    if let Some(ref mut sl_atr_price_long) = buffers.sl_atr_price_long {
-        sl_atr_price_long[row_index] = state.risk_state.sl_atr_price_long.unwrap_or(f64::NAN);
-    }
-    if let Some(ref mut sl_atr_price_short) = buffers.sl_atr_price_short {
-        sl_atr_price_short[row_index] = state.risk_state.sl_atr_price_short.unwrap_or(f64::NAN);
-    }
-    if let Some(ref mut tp_atr_price_long) = buffers.tp_atr_price_long {
-        tp_atr_price_long[row_index] = state.risk_state.tp_atr_price_long.unwrap_or(f64::NAN);
-    }
-    if let Some(ref mut tp_atr_price_short) = buffers.tp_atr_price_short {
-        tp_atr_price_short[row_index] = state.risk_state.tp_atr_price_short.unwrap_or(f64::NAN);
-    }
-    if let Some(ref mut tsl_atr_price_long) = buffers.tsl_atr_price_long {
-        tsl_atr_price_long[row_index] = state.risk_state.tsl_atr_price_long.unwrap_or(f64::NAN);
-    }
-    if let Some(ref mut tsl_atr_price_short) = buffers.tsl_atr_price_short {
-        tsl_atr_price_short[row_index] = state.risk_state.tsl_atr_price_short.unwrap_or(f64::NAN);
-    }
-    if let Some(ref mut tsl_psar_price_long) = buffers.tsl_psar_price_long {
-        tsl_psar_price_long[row_index] = state.risk_state.tsl_psar_price_long.unwrap_or(f64::NAN);
-    }
-    if let Some(ref mut tsl_psar_price_short) = buffers.tsl_psar_price_short {
-        tsl_psar_price_short[row_index] = state.risk_state.tsl_psar_price_short.unwrap_or(f64::NAN);
+    // 第0行 (如果存在)
+    if !prepared_data.time.is_empty() {
+        state.current_index = 0;
+        state.current_bar = CurrentBarData::new(prepared_data, 0);
+        fixed.write(state, 0);
+        opt.write(state, 0);
     }
 
-    // === Risk State Output ===
-    buffers.risk_in_bar_direction[row_index] = state.risk_state.in_bar_direction;
-    buffers.first_entry_side[row_index] = state.action.first_entry_side;
-}
+    // 第1行 (如果存在)
+    if prepared_data.time.len() > 1 {
+        state.current_index = 1;
+        state.prev_bar = state.current_bar; // bar[0]
+        state.current_bar = CurrentBarData::new(prepared_data, 1);
 
-/// 初始化输出缓冲区的第0行数据
-///
-/// 将 backtest_state 的初始值写入到 buffers 的第0行，确保初始状态正确
-fn initialize_buffer_row_zero(buffers: &mut OutputBuffers, state: &BacktestState) {
-    update_buffer_row(buffers, state, 0);
+        fixed.write(state, 1);
+        opt.write(state, 1);
+    }
 }

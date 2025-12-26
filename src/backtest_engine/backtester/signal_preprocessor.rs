@@ -61,10 +61,10 @@ pub fn preprocess_signals(
     if let Some(skip_df) = skip_mask {
         let skip_col = skip_df.column("skip")?;
         let skip_name = "skip_mask_temp";
-        let mut df_with_skip = lazy.collect()?;
-        df_with_skip.with_column(skip_col.clone().with_name(skip_name.into()))?;
 
-        lazy = df_with_skip.lazy();
+        // 直接使用 lit(Series) 注入，避免中间 collect()
+        lazy = lazy.with_column(lit(skip_col.as_materialized_series().clone()).alias(skip_name));
+
         lazy = lazy.with_columns(vec![
             when(col(skip_name))
                 .then(lit(false))
@@ -75,6 +75,7 @@ pub fn preprocess_signals(
                 .otherwise(col(ColumnName::EntryShort.as_str()))
                 .alias(ColumnName::EntryShort.as_str()),
         ]);
+
         lazy = lazy.drop(Selector::ByName {
             names: Arc::new([skip_name.into()]),
             strict: true,
@@ -84,10 +85,10 @@ pub fn preprocess_signals(
     // 规则5: ATR NaN 屏蔽 - enter 信号设为 false
     if let Some(atr) = atr_series {
         let atr_name = "atr_temp";
-        let mut df_with_atr = lazy.collect()?;
-        df_with_atr.with_column(atr.clone().with_name(atr_name.into()))?;
 
-        lazy = df_with_atr.lazy();
+        // 直接使用 lit(Series) 注入，避免中间 collect()
+        lazy = lazy.with_column(lit(atr.clone()).alias(atr_name));
+
         lazy = lazy.with_columns(vec![
             when(col(atr_name).is_nan())
                 .then(lit(false))
@@ -98,6 +99,7 @@ pub fn preprocess_signals(
                 .otherwise(col(ColumnName::EntryShort.as_str()))
                 .alias(ColumnName::EntryShort.as_str()),
         ]);
+
         lazy = lazy.drop(Selector::ByName {
             names: Arc::new([atr_name.into()]),
             strict: true,

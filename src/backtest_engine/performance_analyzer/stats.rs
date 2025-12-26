@@ -16,13 +16,8 @@ pub struct TradeStats {
 pub fn calculate_trade_stats(trade_pnl_pct: &ChunkedArray<Float64Type>) -> TradeStats {
     let mut stats = TradeStats::default();
 
-    // 转换为 Series 以利用 Polars 矢量化操作
-    let trades_series = trade_pnl_pct.clone().into_series();
-
     // 过滤非零收益（代表已关闭的交易）
-    let closed_trades = trades_series
-        .filter(&trades_series.not_equal(0.0).unwrap())
-        .unwrap();
+    let closed_trades = trade_pnl_pct.filter(&trade_pnl_pct.not_equal(0.0)).unwrap();
 
     let n_trades = closed_trades.len();
     if n_trades == 0 {
@@ -32,12 +27,8 @@ pub fn calculate_trade_stats(trade_pnl_pct: &ChunkedArray<Float64Type>) -> Trade
     stats.total_trades = n_trades as f64;
 
     // 盈利和亏损交易
-    let wins = closed_trades
-        .filter(&closed_trades.gt(0.0).unwrap())
-        .unwrap();
-    let losses = closed_trades
-        .filter(&closed_trades.lt(0.0).unwrap())
-        .unwrap();
+    let wins = closed_trades.filter(&closed_trades.gt(0.0)).unwrap();
+    let losses = closed_trades.filter(&closed_trades.lt(0.0)).unwrap();
 
     stats.wins_count = wins.len() as f64;
     stats.losses_count = losses.len() as f64;
@@ -45,11 +36,11 @@ pub fn calculate_trade_stats(trade_pnl_pct: &ChunkedArray<Float64Type>) -> Trade
     stats.win_rate = stats.wins_count / stats.total_trades;
 
     if stats.wins_count > 0.0 {
-        stats.avg_win = wins.f64().unwrap().mean().unwrap_or(0.0);
+        stats.avg_win = wins.mean().unwrap_or(0.0);
     }
 
     if stats.losses_count > 0.0 {
-        stats.avg_loss = losses.f64().unwrap().mean().unwrap_or(0.0).abs();
+        stats.avg_loss = losses.mean().unwrap_or(0.0).abs();
     }
 
     if stats.avg_loss > 0.0 {
@@ -145,10 +136,8 @@ pub fn calculate_duration_stats(
 
 /// 矢量化计算最大回撤时长
 fn calculate_max_drawdown_duration_vect(current_drawdown: &ChunkedArray<Float64Type>) -> f64 {
-    let dd_series = current_drawdown.clone().into_series();
-
     // 标记是否处于回撤状态 (dd > 0)
-    let is_dd = dd_series.gt(0.0).unwrap();
+    let is_dd = current_drawdown.gt(0.0);
 
     if !is_dd.any() {
         return 0.0;

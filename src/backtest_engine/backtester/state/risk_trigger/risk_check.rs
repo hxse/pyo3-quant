@@ -38,7 +38,7 @@ impl RiskTriggerResult {
     }
 }
 
-impl BacktestState {
+impl<'a> BacktestState<'a> {
     /// 通用 Risk 离场检查逻辑
     pub(crate) fn check_risk_exit(
         &mut self,
@@ -234,33 +234,33 @@ impl BacktestState {
             return;
         }
 
-        // 检查 prev_prev_bar 是否有有效数据（i >= 2 时才有）
-        // 如果 prev_prev_bar 是默认值（close=0），则无法正确初始化 PSAR
-        let has_valid_prev_prev_bar = self.prev_prev_bar.close > 0.0;
         let psar_params = TslPsarParams {
             af0: params.tsl_psar_af0.as_ref().unwrap().value,
             af_step: params.tsl_psar_af_step.as_ref().unwrap().value,
             max_af: params.tsl_psar_max_af.as_ref().unwrap().value,
         };
 
-        if is_first_entry && has_valid_prev_prev_bar {
-            // 初始化 PSAR
-            // 使用 bar[i-2] 和 bar[i-1] 初始化，得到 bar[i] 的 PSAR 值
-            let (state, price) = init_tsl_psar(
-                self.prev_prev_bar.high,
-                self.prev_prev_bar.low,
-                self.prev_prev_bar.close,
-                self.prev_bar.high,
-                self.prev_bar.low,
-                self.prev_bar.close,
-                direction,
-                &psar_params,
-                params.use_extrema_for_exit,
-            );
+        if is_first_entry {
+            // 尝试获取 bar[i-2]
+            if let Some(bar_i_minus_2) = self.get_bar(2) {
+                // 初始化 PSAR
+                // 使用 bar[i-2] 和 bar[i-1] 初始化，得到 bar[i] 的 PSAR 值
+                let (state, price) = init_tsl_psar(
+                    bar_i_minus_2.high,
+                    bar_i_minus_2.low,
+                    bar_i_minus_2.close,
+                    self.prev_bar.high,
+                    self.prev_bar.low,
+                    self.prev_bar.close,
+                    direction,
+                    &psar_params,
+                    params.use_extrema_for_exit,
+                );
 
-            // 存储状态
-            self.risk_state.set_tsl_psar_state(direction, Some(state));
-            self.risk_state.set_tsl_psar_price(direction, Some(price));
+                // 存储状态
+                self.risk_state.set_tsl_psar_state(direction, Some(state));
+                self.risk_state.set_tsl_psar_price(direction, Some(price));
+            }
         } else {
             // 更新 PSAR
             let prev_state = self.risk_state.tsl_psar_state(direction);

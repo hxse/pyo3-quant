@@ -49,15 +49,16 @@ pub fn psar_expr(config: &PSARConfig) -> Result<Expr, QuantError> {
     let af0 = config.af0;
     let af_step = config.af_step;
     let max_af = config.max_af;
-    let psar_long_alias = config.psar_long_alias.clone();
-    let psar_short_alias = config.psar_short_alias.clone();
-    let psar_af_alias = config.psar_af_alias.clone();
-    let psar_reversal_alias = config.psar_reversal_alias.clone();
+    let psar_long_small = PlSmallStr::from_str(&config.psar_long_alias);
+    let psar_short_small = PlSmallStr::from_str(&config.psar_short_alias);
+    let psar_af_small = PlSmallStr::from_str(&config.psar_af_alias);
+    let psar_reversal_small = PlSmallStr::from_str(&config.psar_reversal_alias);
+
     let output_dtype = DataType::Struct(vec![
-        Field::new(psar_long_alias.clone().into(), DataType::Float64),
-        Field::new(psar_short_alias.clone().into(), DataType::Float64),
-        Field::new(psar_af_alias.clone().into(), DataType::Float64),
-        Field::new(psar_reversal_alias.clone().into(), DataType::Float64),
+        Field::new(psar_long_small.clone(), DataType::Float64),
+        Field::new(psar_short_small.clone(), DataType::Float64),
+        Field::new(psar_af_small.clone(), DataType::Float64),
+        Field::new(psar_reversal_small.clone(), DataType::Float64),
     ]);
 
     let psar_struct_expr = high_col
@@ -123,12 +124,10 @@ pub fn psar_expr(config: &PSARConfig) -> Result<Expr, QuantError> {
                     // 这种情况可能表示初始计算失败，或者数据不足以进行有效计算
                     // 暂时不抛出错误，而是返回全 NaN 的 Series，这与 Polars 的行为更一致
                     // 如果需要更严格的错误处理，可以考虑抛出 IndicatorError::ComputeError
-                    let psar_long_series = Series::new(psar_long_alias.as_str().into(), psar_long);
-                    let psar_short_series =
-                        Series::new(psar_short_alias.as_str().into(), psar_short);
-                    let psar_af_series = Series::new(psar_af_alias.as_str().into(), psar_af);
-                    let psar_reversal_series =
-                        Series::new(psar_reversal_alias.as_str().into(), psar_reversal);
+                    let psar_long_series = Series::new(psar_long_small.clone(), psar_long);
+                    let psar_short_series = Series::new(psar_short_small.clone(), psar_short);
+                    let psar_af_series = Series::new(psar_af_small.clone(), psar_af);
+                    let psar_reversal_series = Series::new(psar_reversal_small.clone(), psar_reversal);
                     let df_temp = DataFrame::new(vec![
                         psar_long_series.into(),
                         psar_short_series.into(),
@@ -160,11 +159,10 @@ pub fn psar_expr(config: &PSARConfig) -> Result<Expr, QuantError> {
                     current_state = new_state;
                 }
 
-                let psar_long_series = Series::new(psar_long_alias.as_str().into(), psar_long);
-                let psar_short_series = Series::new(psar_short_alias.as_str().into(), psar_short);
-                let psar_af_series = Series::new(psar_af_alias.as_str().into(), psar_af);
-                let psar_reversal_series =
-                    Series::new(psar_reversal_alias.as_str().into(), psar_reversal);
+                let psar_long_series = Series::new(psar_long_small.clone(), psar_long);
+                let psar_short_series = Series::new(psar_short_small.clone(), psar_short);
+                let psar_af_series = Series::new(psar_af_small.clone(), psar_af);
+                let psar_reversal_series = Series::new(psar_reversal_small.clone(), psar_reversal);
                 let df_temp = DataFrame::new(vec![
                     psar_long_series.into(),
                     psar_short_series.into(),

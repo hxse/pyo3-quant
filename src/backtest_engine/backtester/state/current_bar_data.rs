@@ -3,6 +3,7 @@ use crate::backtest_engine::backtester::data_preparer::PreparedData;
 /// 当前 bar 的数据封装结构体
 ///
 /// 用于封装单个时间点的所有市场数据，避免重复传递多个参数
+#[derive(Debug, Clone, Copy, Default)]
 pub struct CurrentBarData {
     /// 开盘价
     pub open: f64,
@@ -25,38 +26,45 @@ pub struct CurrentBarData {
 }
 
 impl CurrentBarData {
-    /// 从 PreparedData 和索引创建当前 bar 数据
-    ///
-    /// # 参数
-    /// * `prepared_data` - 准备好的数据
-    /// * `index` - 当前索引
-    ///
-    pub fn default() -> Self {
+    /// 从原始值创建 CurrentBarData（用于迭代器，无边界检查）
+    #[inline]
+    pub fn from_values(
+        open: f64,
+        high: f64,
+        low: f64,
+        close: f64,
+        entry_long: i32,
+        exit_long: i32,
+        entry_short: i32,
+        exit_short: i32,
+        atr: Option<f64>,
+    ) -> Self {
         Self {
-            open: 0.0,
-            high: 0.0,
-            low: 0.0,
-            close: 0.0,
-            entry_long: false,
-            exit_long: false,
-            entry_short: false,
-            exit_short: false,
-            atr: None,
+            open,
+            high,
+            low,
+            close,
+            entry_long: entry_long != 0,
+            exit_long: exit_long != 0,
+            entry_short: entry_short != 0,
+            exit_short: exit_short != 0,
+            atr,
         }
     }
 
-    /// 创建新的当前 bar 数据
+    /// 从 PreparedData 和索引创建（保留用于初始化）
+    #[inline]
     pub fn new(prepared_data: &PreparedData, index: usize) -> Self {
-        Self {
-            open: prepared_data.open[index],
-            high: prepared_data.high[index],
-            low: prepared_data.low[index],
-            close: prepared_data.close[index],
-            entry_long: prepared_data.entry_long[index] != 0,
-            exit_long: prepared_data.exit_long[index] != 0,
-            entry_short: prepared_data.entry_short[index] != 0,
-            exit_short: prepared_data.exit_short[index] != 0,
-            atr: prepared_data.atr.as_ref().map(|atr_vec| atr_vec[index]),
-        }
+        Self::from_values(
+            prepared_data.open[index],
+            prepared_data.high[index],
+            prepared_data.low[index],
+            prepared_data.close[index],
+            prepared_data.entry_long[index],
+            prepared_data.exit_long[index],
+            prepared_data.entry_short[index],
+            prepared_data.exit_short[index],
+            prepared_data.atr.as_ref().map(|v| v[index]),
+        )
     }
 }

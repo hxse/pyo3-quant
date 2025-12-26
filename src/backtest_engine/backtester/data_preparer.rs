@@ -68,12 +68,12 @@ impl<'a> PreparedData<'a> {
     /// 准备回测数据，将 Polars DataFrame/Series 转换为连续的内存数组切片
     pub fn new(
         processed_data: &'a DataContainer,
-        signals_df: &DataFrame,
+        signals_df: DataFrame,
         atr_series: &'a Option<Series>,
     ) -> Result<PreparedData<'a>, QuantError> {
         // 1. 预处理信号数据（处理冲突和屏蔽）
         let preprocessed_signals_df = super::signal_preprocessor::preprocess_signals(
-            signals_df.clone(),
+            signals_df,
             atr_series,
             &processed_data.skip_mask,
         )?;

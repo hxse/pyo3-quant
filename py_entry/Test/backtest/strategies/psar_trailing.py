@@ -53,7 +53,12 @@ def get_config() -> StrategyConfig:
         fee_fixed=1,
         fee_pct=0.001,
         exit_in_bar=False,  # PSAR 不支持 in_bar
-        use_extrema_for_exit=False,
+        sl_trigger_mode=False,
+        tp_trigger_mode=False,
+        tsl_trigger_mode=False,
+        sl_anchor_mode=False,
+        tp_anchor_mode=False,
+        tsl_anchor_mode=False,
         # PCT 保护性止损止盈
         sl_pct=Param.create(3),
         tp_pct=Param.create(5),

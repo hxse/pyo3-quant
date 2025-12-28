@@ -134,10 +134,27 @@ pub struct BacktestParams {
     /// `false` 表示延迟到下一根K线的开盘价离场。
     pub exit_in_bar: bool,
 
-    /// 是否使用极值价格（high/low）检查止盈止损。
-    /// `true` 表示使用当前K线的最高价/最低价来检查止损止盈条件。
-    /// `false` 表示使用当前K线的收盘价来检查。
-    pub use_extrema_for_exit: bool,
+    // === 触发模式 (trigger_mode) ===
+    // 控制用什么价格检测止损止盈是否触发
+    // `false` = 使用 close 检测
+    // `true` = 使用 high/low 检测
+    /// SL 触发模式
+    pub sl_trigger_mode: bool,
+    /// TP 触发模式
+    pub tp_trigger_mode: bool,
+    /// TSL 触发模式 (含 tsl_atr, tsl_pct, tsl_psar)
+    pub tsl_trigger_mode: bool,
+
+    // === 锚点模式 (anchor_mode) ===
+    // 控制用什么价格作为计算 SL/TP/TSL 的锚点
+    // `false` = 使用 close 作为锚点
+    // `true` = 使用 high/low (对于SL/TP) 或 extremum (对于TSL) 作为锚点
+    /// SL 锚点模式
+    pub sl_anchor_mode: bool,
+    /// TP 锚点模式
+    pub tp_anchor_mode: bool,
+    /// TSL 锚点模式 (仅影响 tsl_atr, tsl_pct，不影响 tsl_psar)
+    pub tsl_anchor_mode: bool,
 
     // === 资金管理 ===
     /// 初始本金。回测开始时的账户资金量 (USD)。

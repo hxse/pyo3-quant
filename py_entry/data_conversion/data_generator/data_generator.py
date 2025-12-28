@@ -71,6 +71,7 @@ def generate_data_dict(
             gap_factor=simulated_data_config.gap_factor,
             extreme_prob=simulated_data_config.extreme_prob,
             extreme_mult=simulated_data_config.extreme_mult,
+            allow_gaps=simulated_data_config.allow_gaps,
         )
 
         # 将列表转换为字典

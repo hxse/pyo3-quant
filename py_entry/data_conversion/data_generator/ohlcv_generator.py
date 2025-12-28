@@ -40,6 +40,7 @@ def generate_ohlcv(
     gap_factor: float = 0.5,
     extreme_prob: float = 0.0,  # 新增: 极端行情概率
     extreme_mult: float = 3.0,  # 新增: 极端行情波动倍数
+    allow_gaps: bool = True,  # 新增: 是否允许跳空
     fixed_seed: Optional[int] = None,
 ) -> pl.DataFrame:
     """
@@ -55,6 +56,7 @@ def generate_ohlcv(
         gap_factor: 跳空因子,控制Open价格相对于前一Close的波动性,默认0.5
         extreme_prob: 极端行情概率,范围0-1,默认0
         extreme_mult: 极端行情波动倍数,默认3.0
+        allow_gaps: 是否允许跳空, 默认True. 如果False, Open[i] = Close[i-1]
         fixed_seed: 是否使用固定种子
     """
     interval_ms = parse_timeframe(timeframe)
@@ -72,16 +74,19 @@ def generate_ohlcv(
             returns = np.where(is_extreme, extreme_returns * extreme_direction, returns)
 
         # 3. 随机 Open 价格跳空
-        open_returns = np.random.normal(0, volatility * gap_factor, num_bars)
-        # 极端行情时跳空也放大
-        if extreme_prob > 0:
-            extreme_gaps = np.random.normal(
-                0, volatility * gap_factor * extreme_mult, num_bars
-            )
-            extreme_gap_direction = np.random.choice([-1, 1], num_bars)
-            open_returns = np.where(
-                is_extreme, extreme_gaps * extreme_gap_direction, open_returns
-            )
+        if allow_gaps:
+            open_returns = np.random.normal(0, volatility * gap_factor, num_bars)
+            # 极端行情时跳空也放大
+            if extreme_prob > 0:
+                extreme_gaps = np.random.normal(
+                    0, volatility * gap_factor * extreme_mult, num_bars
+                )
+                extreme_gap_direction = np.random.choice([-1, 1], num_bars)
+                open_returns = np.where(
+                    is_extreme, extreme_gaps * extreme_gap_direction, open_returns
+                )
+        else:
+            open_returns = np.zeros(num_bars)
 
         # High/Low 的波动因子
         range_factors = np.abs(np.random.normal(0, volatility / 3, num_bars))
@@ -152,6 +157,7 @@ def generate_multi_timeframe_ohlcv(
     gap_factor: float = 0.5,
     extreme_prob: float = 0.0,
     extreme_mult: float = 3.0,
+    allow_gaps: bool = True,
 ) -> list[pl.DataFrame]:
     """
     生成多周期OHLCV数据
@@ -166,6 +172,7 @@ def generate_multi_timeframe_ohlcv(
         gap_factor: 跳空因子
         extreme_prob: 极端行情概率
         extreme_mult: 极端行情波动倍数
+        allow_gaps: 是否允许跳空
 
     Returns:
         按时间周期从小到大排列的 DataFrame 列表
@@ -186,6 +193,7 @@ def generate_multi_timeframe_ohlcv(
             gap_factor=gap_factor,
             extreme_prob=extreme_prob,
             extreme_mult=extreme_mult,
+            allow_gaps=allow_gaps,
             fixed_seed=fixed_seed,
         )
         for tf in timeframes

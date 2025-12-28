@@ -21,12 +21,12 @@
 
 | 参数名 | 说明 |
 |--------|------|
-| `sl_pct` | **百分比止损**。当亏损达到 `entry_price * pct` 时触发。<br>公式：`entry * (1 - sign * sl_pct)` |
-| `tp_pct` | **百分比止盈**。当盈利达到 `entry_price * pct` 时触发。<br>公式：`entry * (1 + sign * tp_pct)` |
+| `sl_pct` | **百分比止损**。当亏损达到 `signal_close * pct` 时触发。<br>公式：`signal_close * (1 - sign * sl_pct)` |
+| `tp_pct` | **百分比止盈**。当盈利达到 `signal_close * pct` 时触发。<br>公式：`signal_close * (1 + sign * tp_pct)` |
 | `tsl_pct` | **百分比跟踪止损**。当从持仓期间极值回撤达到 `pct` 时触发。<br>公式：`extremum * (1 - sign * tsl_pct)` |
-| `sl_atr` | **ATR 止损**。基于 ATR 的动态止损。<br>公式：`entry - sign * atr * k` |
-| `tp_atr` | **ATR 止盈**。基于 ATR 的动态止盈。<br>公式：`entry + sign * atr * k` |
-| `tsl_atr` | **ATR 跟踪止损**。基于 ATR 的动态跟踪止损。<br>公式：`extremum - sign * atr * k` |
+| `sl_atr` | **ATR 止损**。基于 ATR 的动态止损。<br>公式：`signal_close - sign * signal_atr * k` |
+| `tp_atr` | **ATR 止盈**。基于 ATR 的动态止盈。<br>公式：`signal_close + sign * signal_atr * k` |
+| `tsl_atr` | **ATR 跟踪止损**。基于 ATR 的动态跟踪止损。<br>公式：`extremum - sign * atr * k`（初始距离使用 `signal_atr`） |
 
 > [!IMPORTANT]
 > **ATR 依赖**：如果使用了任何 `*_atr` 参数，必须同时设置 `atr_period` 且 `atr_period > 0`。
@@ -46,8 +46,35 @@ PSAR (Parabolic SAR) 是一种特殊的跟踪止损算法。以下三个参数**
 | 参数名 | 类型 | 默认值 | 说明 |
 |--------|------|:----:|------|
 | `exit_in_bar` | `bool` | `False` | **离场时机选择**。<br>`True`: 允许在 K 线内部（In-Bar）立即离场（以触发价成交）。<br>`False`: 延迟到下一根 K 线开盘（Next-Bar）离场。 |
-| `use_extrema_for_exit` | `bool` | `False` | **价格检查源**。<br>`True`: 使用 High/Low 检查止损止盈。<br>`False`: 使用 Close 检查止损止盈。 |
 | `tsl_atr_tight` | `bool` | `False` | **ATR 跟踪止损更新模式**。<br>`True`: 每根 K 线都尝试收紧止损线。<br>`False`: 仅当创新高/新低时才收紧止损线。 |
+
+### 3.1 触发模式 (Trigger Mode)
+
+控制用什么价格检测止损止盈是否**触发**。
+
+| 参数名 | 类型 | 默认值 | 说明 |
+|--------|------|:----:|------|
+| `sl_trigger_mode` | `bool` | `False` | SL 触发检测。`False`=close, `True`=high/low |
+| `tp_trigger_mode` | `bool` | `False` | TP 触发检测。`False`=close, `True`=high/low |
+| `tsl_trigger_mode` | `bool` | `False` | TSL 触发检测(含psar)。`False`=close, `True`=high/low |
+
+> [!NOTE]
+> **多头**：SL/TSL 使用 low 检测，TP 使用 high 检测。
+> **空头**：SL/TSL 使用 high 检测，TP 使用 low 检测。
+
+### 3.2 锚点模式 (Anchor Mode)
+
+控制用什么价格作为计算 SL/TP/TSL **价格阈值**的锚点。
+
+| 参数名 | 类型 | 默认值 | 说明 |
+|--------|------|:----:|------|
+| `sl_anchor_mode` | `bool` | `False` | SL 锚点。`False`=close, `True`=high/low |
+| `tp_anchor_mode` | `bool` | `False` | TP 锚点。`False`=close, `True`=high/low |
+| `tsl_anchor_mode` | `bool` | `False` | TSL 锚点。`False`=close, `True`=high/low |
+
+> [!NOTE]
+> **多头**：SL 用 low，TP/TSL 用 high 作为锚点。
+> **空头**：SL 用 high，TP/TSL 用 low 作为锚点。
 
 ### `exit_in_bar` 的影响
 

@@ -54,7 +54,12 @@ def get_config() -> StrategyConfig:
         fee_fixed=1,
         fee_pct=0.001,
         exit_in_bar=True,
-        use_extrema_for_exit=True,
+        sl_trigger_mode=True,
+        tp_trigger_mode=True,
+        tsl_trigger_mode=True,
+        sl_anchor_mode=False,
+        tp_anchor_mode=False,
+        tsl_anchor_mode=False,
         # ATR 止损止盈
         sl_atr=Param.create(1.5),
         tp_atr=Param.create(3),

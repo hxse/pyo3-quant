@@ -50,7 +50,72 @@ pub fn calculate_risk_price(
     }
 }
 
-/// 获取 next_bar 模式下用于检查离场条件的价格
+/// 获取用于检查 SL 触发条件的价格
+///
+/// # 参数
+/// * `current_bar` - 当前K线数据
+/// * `params` - 回测参数
+/// * `is_long_position` - 是否为多头仓位
+///
+/// # 返回值
+/// * `f64` - 用于检查止损的价格
+pub fn get_sl_check_price(
+    current_bar: &CurrentBarData,
+    params: &BacktestParams,
+    is_long_position: bool,
+) -> f64 {
+    if params.sl_trigger_mode {
+        // 使用 high/low 检测
+        if is_long_position {
+            current_bar.low // 多头用最低价检查止损
+        } else {
+            current_bar.high // 空头用最高价检查止损
+        }
+    } else {
+        // 使用 close 检测
+        current_bar.close
+    }
+}
+
+/// 获取用于检查 TP 触发条件的价格
+pub fn get_tp_check_price(
+    current_bar: &CurrentBarData,
+    params: &BacktestParams,
+    is_long_position: bool,
+) -> f64 {
+    if params.tp_trigger_mode {
+        // 使用 high/low 检测
+        if is_long_position {
+            current_bar.high // 多头用最高价检查止盈
+        } else {
+            current_bar.low // 空头用最低价检查止盈
+        }
+    } else {
+        // 使用 close 检测
+        current_bar.close
+    }
+}
+
+/// 获取用于检查 TSL 触发条件的价格 (含 tsl_atr, tsl_pct, tsl_psar)
+pub fn get_tsl_check_price(
+    current_bar: &CurrentBarData,
+    params: &BacktestParams,
+    is_long_position: bool,
+) -> f64 {
+    if params.tsl_trigger_mode {
+        // 使用 high/low 检测
+        if is_long_position {
+            current_bar.low // 多头用最低价检查跟踪止损
+        } else {
+            current_bar.high // 空头用最高价检查跟踪止损
+        }
+    } else {
+        // 使用 close 检测
+        current_bar.close
+    }
+}
+
+/// 获取 next_bar 模式下用于检查离场条件的价格（兼容接口）
 ///
 /// # 参数
 /// * `current_bar` - 当前K线数据
@@ -64,18 +129,9 @@ pub fn switch_prices_next_bar(
     params: &BacktestParams,
     is_long_position: bool,
 ) -> (f64, f64) {
-    if params.use_extrema_for_exit {
-        if is_long_position {
-            // 多头：用最低价检查止损，用最高价检查止盈
-            (current_bar.low, current_bar.high)
-        } else {
-            // 空头：用最高价检查止损，用最低价检查止盈
-            (current_bar.high, current_bar.low)
-        }
-    } else {
-        // 不使用 fallback，都用收盘价
-        (current_bar.close, current_bar.close)
-    }
+    let sl_price = get_sl_check_price(current_bar, params, is_long_position);
+    let tp_price = get_tp_check_price(current_bar, params, is_long_position);
+    (sl_price, tp_price)
 }
 
 /// 获取 in_bar 模式下用于检查离场条件的价格

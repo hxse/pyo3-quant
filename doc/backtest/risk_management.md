@@ -6,7 +6,10 @@
 
 ### 1.1 初始化规则
 - **时机**：所有的风控价格阈值（SL/TP/TSL/PSAR）都在**进场当根 K 线 (Entry Bar)** 立即计算并初始化。
-- **依据**：使用进场价格 (`entry_price`) 作为基准。
+- **数据源**：为了避免未来数据泄露，计算使用 **信号 Bar (Signal Bar / Prev Bar)** 的数据。
+    - **基准价格**：使用信号 Bar 的收盘价 (`signal_bar.close`)。
+    - **ATR**：使用信号 Bar 的 ATR (`signal_bar.atr`)。
+- **进场基准**：虽然风控计算基于信号 Bar，但在 TSL 初始化时，极值 (`extremum`) 的追踪仍以进场价格 (`entry_price` / `current_bar.open`) 为起点。
 - **持久化**：一旦初始化，阈值会保存在状态机中，直至离场。对于跟踪止损（TSL/PSAR），阈值会随价格变动而更新。
 
 ### 1.2 风控类型分类
@@ -39,18 +42,29 @@
 - `-1` = 空头 In-Bar 离场
 - `0` = Next-Bar 离场（策略信号离场 / TSL 触发 / `exit_in_bar=False`）
 
-### 2.2 `use_extrema_for_exit` - 触发价格来源
+### 2.2 触发模式 (Trigger Mode)
 
-**作用范围**：影响 **所有风控类型** 的触发判断
+**作用范围**：影响 **触发判断** 所使用的价格
 
-| 值 | 触发判断使用的价格 |
-|----|------------------|
-| `True` | 使用 High/Low 极值（更容易触发） |
-| `False` | 使用 Close 收盘价（更保守） |
+| 参数 | 说明 |
+|------|------|
+| `sl_trigger_mode` | SL 触发检测。`False`=close, `True`=high/low |
+| `tp_trigger_mode` | TP 触发检测。`False`=close, `True`=high/low |
+| `tsl_trigger_mode` | TSL 触发检测(含psar)。`False`=close, `True`=high/low |
 
 **注意**：此参数影响的是"**是否触发**"的判断，而非离场价格本身。
 
-### 2.3 `tsl_atr_tight` - 跟踪止损更新模式
+### 2.3 锚点模式 (Anchor Mode)
+
+**作用范围**：影响 **价格阈值计算** 所使用的锚点
+
+| 参数 | 说明 |
+|------|------|
+| `sl_anchor_mode` | SL 锚点。`False`=close, `True`=high/low (多头用low，空头用high) |
+| `tp_anchor_mode` | TP 锚点。`False`=close, `True`=high/low (多头用high，空头用low) |
+| `tsl_anchor_mode` | TSL 锚点(不含psar)。`False`=close, `True`=extremum |
+
+### 2.4 `tsl_atr_tight` - 跟踪止损更新模式
 
 **作用范围**：仅影响 **TSL-ATR (tsl_atr)**
 
@@ -104,21 +118,21 @@
 
 ## 4. 止损/止盈方式详解
 
-### 4.1 固定百分比 (Fixed Percentage)
+### 1. 百分比止损 (SL PCT)
+- **公式**：`SL = signal_close * (1 - sign * sl_pct)`
+    - 多头：`SL = signal_close * (1 - sl_pct)`
+    - 空头：`SL = signal_close * (1 + sl_pct)`
 
-最基础的风控方式，基于进场价格设定固定的百分比幅度。
+### 2. ATR 止损 (SL ATR)
+- **公式**：`SL = signal_close - sign * signal_atr * sl_atr`
+    - 多头：`SL = signal_close - signal_atr * sl_atr`
+    - 空头：`SL = signal_close + signal_atr * sl_atr`
 
-- **止损 (SL Pct)**: `SL = entry × (1 - sign × pct)`
-- **止盈 (TP Pct)**: `TP = entry × (1 + sign × pct)`
+### 3. 百分比止盈 (TP PCT)
+- **公式**：`TP = signal_close * (1 + sign * tp_pct)`
 
-其中 `sign`：多头为 `1`，空头为 `-1`。
-
-### 4.2 基于 ATR (ATR-Based)
-
-使用进场时的 ATR 值来适应市场波动率。
-
-- **止损 (SL ATR)**: `SL = entry - sign × ATR × k`
-- **止盈 (TP ATR)**: `TP = entry + sign × ATR × k`
+### 4. ATR 止盈 (TP ATR)
+- **公式**：`TP = signal_close + sign * signal_atr * tp_atr`
 
 其中 `k` 为用户配置的倍数参数。
 
@@ -160,3 +174,13 @@
 - `highest_since_entry` (Long) vs `lowest_since_entry` (Short)
 
 这意味着理论上引擎支持同时持有多空仓位（虽然目前策略层限制为单仓位）。
+## 6. 跳空保护 (Gap Protection)
+
+为了更贴近实盘交易中的"限价单"或"安全过滤"行为，系统实施了跳空保护机制：
+
+- **机制**：在确认进场前，系统会检查进场 Bar 的开盘价 (`Entry Open`) 是否已经穿过了基于信号 Bar 计算出的风控价格。
+- **检查范围**：SL PCT/ATR、TP PCT/ATR、TSL PCT/ATR、TSL PSAR（共7种）
+- **逻辑**：
+    - **做多**：如果 `Entry Open < SL` 或 `Entry Open < TSL` 或 `Entry Open < PSAR` 或 `Entry Open > TP`，则**跳过**该次进场。
+    - **做空**：如果 `Entry Open > SL` 或 `Entry Open > TSL` 或 `Entry Open > PSAR` 或 `Entry Open < TP`，则**跳过**该次进场。
+- **对比**：这与 `backtesting.py` 的默认行为不同（后者会进场并立即止损），但通过使用无跳空的数据，两者的结果可以保持一致。

@@ -52,6 +52,10 @@ run-custom:
 run-time path:
     PYTHONPATH=. /usr/bin/time -f "\n执行时间: %e 秒" uv run --no-sync python {{ path }}
 
+# 运行 debug 目录下的脚本 (例: just debug debug_compare)
+debug name:
+    PYTHONPATH=. uv run --no-sync python py_entry/debug/{{name}}.py
+
 # ==================== 测试 ====================
 
 # 运行所有 Python 测试
@@ -61,6 +65,11 @@ test:
 # 运行指定的测试文件或目录 (例: just test-path py_entry/Test/backtest)
 test-path path:
     uv run --no-sync python -m pytest {{path}}
+
+# 运行策略相关性分析测试 (默认 reversal_extreme)
+test-correlation strategy="reversal_extreme":
+    uv run --no-sync python -m pytest py_entry/Test/backtest/correlation_analysis/test_correlation.py -k "{{strategy}}" -s -v
+
 
 # ==================== 代码检查 ====================
 

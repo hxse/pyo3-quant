@@ -87,18 +87,31 @@ graph LR
 | 持仓时忽略同向进场信号 | 持多头时 `entry_long` 信号被忽略 |
 | 无仓时忽略离场信号 | 无持仓时 `exit_long/short` 信号被忽略 |
 
-#### 进场逻辑
-```
-if can_entry_long() && prev_bar.entry_long:
-    entry_long_price = current_bar.open
-    first_entry_side = 1
-```
-
 #### 离场逻辑（策略信号）
 ```
 if has_long_position() && prev_bar.exit_long:
     exit_long_price = current_bar.open  # Next Bar 模式
 ```
+
+#### 进场逻辑（含跳空检查）
+
+进场时会先执行跳空保护检查，通过后才设置进场价格。
+
+```
+if can_entry_long() && prev_bar.entry_long:
+    is_safe = check_entry_safety(params, Direction::Long)  # 跳空保护
+    if is_safe:
+        entry_long_price = current_bar.open
+        first_entry_side = 1
+```
+
+**跳空保护检查范围**：
+- SL PCT/ATR：`open_price < sl_price` (多头) 或 `open_price > sl_price` (空头)
+- TP PCT/ATR：`open_price > tp_price` (多头) 或 `open_price < tp_price` (空头)
+- TSL PCT/ATR：`open_price < tsl_price` (多头) 或 `open_price > tsl_price` (空头)
+- TSL PSAR：`open_price < psar_price` (多头) 或 `open_price > psar_price` (空头)
+
+如果任一条件满足，则跳过进场。
 
 ---
 
@@ -213,7 +226,31 @@ flowchart LR
 | **PSAR** (tsl_psar) | ❌ 否 | 仅 Next-Bar |
 
 > [!IMPORTANT]
-> `exit_in_bar` 参数**只影响 SL/TP**。策略信号、TSL 和 PSAR 始终使用 Next-Bar 模式（下一根开盘价进/离场）。
+> `exit_in_bar` 参数**只影响 SL/TP**。策略信号、TSL 和 PSAR 始终使用 Next-Bar 模式。
+
+#### 触发模式 (Trigger Mode)
+
+控制用什么价格检测止损止盈是否**触发**。
+
+| 参数 | 说明 |
+|------|------|
+| `sl_trigger_mode` | SL 触发检测。`False`=close, `True`=high/low |
+| `tp_trigger_mode` | TP 触发检测。`False`=close, `True`=high/low |
+| `tsl_trigger_mode` | TSL 触发检测(含psar)。`False`=close, `True`=high/low |
+
+#### 锚点模式 (Anchor Mode)
+
+控制用什么价格作为计算 SL/TP/TSL **价格阈值**的锚点。
+
+| 参数 | 说明 |
+|------|------|
+| `sl_anchor_mode` | SL 锚点。`False`=close, `True`=high/low |
+| `tp_anchor_mode` | TP 锚点。`False`=close, `True`=high/low |
+| `tsl_anchor_mode` | TSL 锚点。`False`=close, `True`=high/low |
+
+> [!NOTE]
+> 多头：SL 用 low，TP/TSL 用 high 作为锚点。
+> 空头：SL 用 high，TP/TSL 用 low 作为锚点。
 
 #### In-Bar vs Next-Bar
 
@@ -310,5 +347,8 @@ src/backtest_engine/backtester/
     ├── action.rs             # 价格字段
     └── risk_trigger/
         ├── risk_state.rs     # 风控状态
-        └── risk_check.rs     # 风控逻辑
+        ├── risk_check.rs     # 风控逻辑(触发检查 + 阈值更新)
+        ├── price_utils.rs    # 价格检查工具(get_sl/tp/tsl_check_price)
+        ├── tsl_psar.rs       # PSAR 算法
+        └── direction.rs      # 方向枚举
 ```

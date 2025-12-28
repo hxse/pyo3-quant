@@ -53,10 +53,21 @@ class BacktestParams:
     # `false` 表示延迟到下一根K线的开盘价离场。
     exit_in_bar: bool
 
-    # 是否使用极值价格（high/low）检查止盈止损。
-    # `True` 表示使用当前K线的最高价/最低价来检查止损止盈条件。
-    # `False` 表示使用当前K线的收盘价来检查。
-    use_extrema_for_exit: bool
+    # === 触发模式 (trigger_mode) ===
+    # 控制用什么价格检测止损止盈是否触发
+    # False = 使用 close 检测
+    # True = 使用 high/low 检测
+    sl_trigger_mode: bool
+    tp_trigger_mode: bool
+    tsl_trigger_mode: bool  # 含 tsl_atr, tsl_pct, tsl_psar
+
+    # === 锚点模式 (anchor_mode) ===
+    # 控制用什么价格作为计算 SL/TP/TSL 的锚点
+    # False = 使用 close 作为锚点
+    # True = 使用 high/low 作为锚点 (多头: SL用low,TP用high; 空头: SL用high,TP用low)
+    sl_anchor_mode: bool
+    tp_anchor_mode: bool
+    tsl_anchor_mode: bool
 
     # === 止损止盈参数 (百分比) ===
     # 百分比止损阈值。当仓位亏损达到此百分比时触发止损。

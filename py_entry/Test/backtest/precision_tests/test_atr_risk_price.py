@@ -43,7 +43,7 @@ class TestAtrRiskPriceCalculation:
     """测试 ATR 风控价格的计算正确性"""
 
     def test_sl_atr_price_long_formula(self, backtest_with_config):
-        """验证多头 ATR 止损价格: sl_atr_price_long = entry - atr * sl_atr"""
+        """验证多头 ATR 止损价格: sl_atr_price_long = signal_close - signal_atr * sl_atr"""
         results, strategy, data_dict = backtest_with_config
         backtest_params = strategy.backtest_params
 
@@ -69,8 +69,15 @@ class TestAtrRiskPriceCalculation:
             base_data["close"], base_data["high"], base_data["low"], atr_period
         )
 
-        # 添加参考 ATR 到 df
-        df = df.with_columns(ref_atr.alias("ref_atr"))
+        # 添加参考 Signal Close 和 Signal ATR 到 df
+        # 注意: Pyo3 Signal是基于 prev_bar (i-1)
+        base_close = base_data["close"]
+        df = df.with_columns(
+            [
+                base_close.shift(1).alias("signal_close"),
+                ref_atr.shift(1).alias("signal_atr"),
+            ]
+        )
 
         # 使用 first_entry_side 列直接筛选多头首次进场
         df = df.with_columns((pl.col("first_entry_side") == 1).alias("is_first_entry"))
@@ -78,15 +85,15 @@ class TestAtrRiskPriceCalculation:
         first_entries = df.filter(
             pl.col("is_first_entry")
             & pl.col("sl_atr_price_long").is_not_nan()
-            & pl.col("ref_atr").is_not_nan()
+            & pl.col("signal_atr").is_not_nan()
         )
 
         if len(first_entries) == 0:
             pytest.skip("无多头首次进场记录")
 
-        # 验证公式: sl_atr_price = entry - atr * multiplier
+        # 验证公式: sl_atr_price = signal_close - signal_atr * multiplier
         first_entries = first_entries.with_columns(
-            (pl.col("entry_long_price") - pl.col("ref_atr") * sl_atr_multiplier).alias(
+            (pl.col("signal_close") - pl.col("signal_atr") * sl_atr_multiplier).alias(
                 "expected_sl_price"
             )
         ).with_columns(
@@ -103,8 +110,8 @@ class TestAtrRiskPriceCalculation:
             print(
                 errors.select(
                     [
-                        "entry_long_price",
-                        "ref_atr",
+                        "signal_close",
+                        "signal_atr",
                         "sl_atr_price_long",
                         "expected_sl_price",
                         "price_diff",
@@ -116,7 +123,7 @@ class TestAtrRiskPriceCalculation:
         print(f"✅ {len(first_entries)} 个多头进场点 sl_atr_price_long 计算正确")
 
     def test_sl_atr_price_short_formula(self, backtest_with_config):
-        """验证空头 ATR 止损价格: sl_atr_price_short = entry + atr * sl_atr"""
+        """验证空头 ATR 止损价格: sl_atr_price_short = signal_close + signal_atr * sl_atr"""
         results, strategy, data_dict = backtest_with_config
         backtest_params = strategy.backtest_params
 
@@ -139,7 +146,14 @@ class TestAtrRiskPriceCalculation:
             base_data["close"], base_data["high"], base_data["low"], atr_period
         )
 
-        df = df.with_columns(ref_atr.alias("ref_atr"))
+        # Signal Basis
+        base_close = base_data["close"]
+        df = df.with_columns(
+            [
+                base_close.shift(1).alias("signal_close"),
+                ref_atr.shift(1).alias("signal_atr"),
+            ]
+        )
 
         # 使用 first_entry_side 列直接筛选空头首次进场
         df = df.with_columns((pl.col("first_entry_side") == -1).alias("is_first_entry"))
@@ -147,15 +161,15 @@ class TestAtrRiskPriceCalculation:
         first_entries = df.filter(
             pl.col("is_first_entry")
             & pl.col("sl_atr_price_short").is_not_nan()
-            & pl.col("ref_atr").is_not_nan()
+            & pl.col("signal_atr").is_not_nan()
         )
 
         if len(first_entries) == 0:
             pytest.skip("无空头首次进场记录")
 
-        # 验证公式: sl_atr_price = entry + atr * multiplier (空头)
+        # 验证公式: sl_atr_price = signal_close + signal_atr * multiplier
         first_entries = first_entries.with_columns(
-            (pl.col("entry_short_price") + pl.col("ref_atr") * sl_atr_multiplier).alias(
+            (pl.col("signal_close") + pl.col("signal_atr") * sl_atr_multiplier).alias(
                 "expected_sl_price"
             )
         ).with_columns(
@@ -172,8 +186,8 @@ class TestAtrRiskPriceCalculation:
             print(
                 errors.select(
                     [
-                        "entry_short_price",
-                        "ref_atr",
+                        "signal_close",
+                        "signal_atr",
                         "sl_atr_price_short",
                         "expected_sl_price",
                         "price_diff",
@@ -185,7 +199,7 @@ class TestAtrRiskPriceCalculation:
         print(f"✅ {len(first_entries)} 个空头进场点 sl_atr_price_short 计算正确")
 
     def test_tp_atr_price_long_formula(self, backtest_with_config):
-        """验证多头 ATR 止盈价格: tp_atr_price_long = entry + atr * tp_atr"""
+        """验证多头 ATR 止盈价格: tp_atr_price_long = signal_close + signal_atr * tp_atr"""
         results, strategy, data_dict = backtest_with_config
         backtest_params = strategy.backtest_params
 
@@ -208,7 +222,14 @@ class TestAtrRiskPriceCalculation:
             base_data["close"], base_data["high"], base_data["low"], atr_period
         )
 
-        df = df.with_columns(ref_atr.alias("ref_atr"))
+        # Signal Basis
+        base_close = base_data["close"]
+        df = df.with_columns(
+            [
+                base_close.shift(1).alias("signal_close"),
+                ref_atr.shift(1).alias("signal_atr"),
+            ]
+        )
 
         # 使用 first_entry_side 列直接筛选多头首次进场
         df = df.with_columns((pl.col("first_entry_side") == 1).alias("is_first_entry"))
@@ -216,15 +237,15 @@ class TestAtrRiskPriceCalculation:
         first_entries = df.filter(
             pl.col("is_first_entry")
             & pl.col("tp_atr_price_long").is_not_nan()
-            & pl.col("ref_atr").is_not_nan()
+            & pl.col("signal_atr").is_not_nan()
         )
 
         if len(first_entries) == 0:
             pytest.skip("无多头首次进场记录")
 
-        # 验证公式: tp_atr_price = entry + atr * multiplier
+        # 验证公式: tp_atr_price = signal_close + signal_atr * multiplier
         first_entries = first_entries.with_columns(
-            (pl.col("entry_long_price") + pl.col("ref_atr") * tp_atr_multiplier).alias(
+            (pl.col("signal_close") + pl.col("signal_atr") * tp_atr_multiplier).alias(
                 "expected_tp_price"
             )
         ).with_columns(
@@ -241,8 +262,8 @@ class TestAtrRiskPriceCalculation:
             print(
                 errors.select(
                     [
-                        "entry_long_price",
-                        "ref_atr",
+                        "signal_close",
+                        "signal_atr",
                         "tp_atr_price_long",
                         "expected_tp_price",
                         "price_diff",
@@ -254,7 +275,7 @@ class TestAtrRiskPriceCalculation:
         print(f"✅ {len(first_entries)} 个多头进场点 tp_atr_price_long 计算正确")
 
     def test_tp_atr_price_short_formula(self, backtest_with_config):
-        """验证空头 ATR 止盈价格: tp_atr_price_short = entry - atr * tp_atr"""
+        """验证空头 ATR 止盈价格: tp_atr_price_short = signal_close - signal_atr * tp_atr"""
         results, strategy, data_dict = backtest_with_config
         backtest_params = strategy.backtest_params
 
@@ -277,7 +298,14 @@ class TestAtrRiskPriceCalculation:
             base_data["close"], base_data["high"], base_data["low"], atr_period
         )
 
-        df = df.with_columns(ref_atr.alias("ref_atr"))
+        # Signal Basis
+        base_close = base_data["close"]
+        df = df.with_columns(
+            [
+                base_close.shift(1).alias("signal_close"),
+                ref_atr.shift(1).alias("signal_atr"),
+            ]
+        )
 
         # 使用 first_entry_side 列直接筛选空头首次进场
         df = df.with_columns((pl.col("first_entry_side") == -1).alias("is_first_entry"))
@@ -285,15 +313,15 @@ class TestAtrRiskPriceCalculation:
         first_entries = df.filter(
             pl.col("is_first_entry")
             & pl.col("tp_atr_price_short").is_not_nan()
-            & pl.col("ref_atr").is_not_nan()
+            & pl.col("signal_atr").is_not_nan()
         )
 
         if len(first_entries) == 0:
             pytest.skip("无空头首次进场记录")
 
-        # 验证公式: tp_atr_price = entry - atr * multiplier (空头)
+        # 验证公式: tp_atr_price = signal_close - signal_atr * multiplier
         first_entries = first_entries.with_columns(
-            (pl.col("entry_short_price") - pl.col("ref_atr") * tp_atr_multiplier).alias(
+            (pl.col("signal_close") - pl.col("signal_atr") * tp_atr_multiplier).alias(
                 "expected_tp_price"
             )
         ).with_columns(
@@ -310,8 +338,8 @@ class TestAtrRiskPriceCalculation:
             print(
                 errors.select(
                     [
-                        "entry_short_price",
-                        "ref_atr",
+                        "signal_close",
+                        "signal_atr",
                         "tp_atr_price_short",
                         "expected_tp_price",
                         "price_diff",

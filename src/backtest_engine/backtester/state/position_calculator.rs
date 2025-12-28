@@ -59,12 +59,20 @@ impl<'a> BacktestState<'a> {
         self.action.first_entry_side = 0;
 
         if self.can_entry_long() && self.prev_bar.entry_long {
-            self.action.entry_long_price = Some(self.current_bar.open);
-            self.action.first_entry_side = 1;
+            // [Gap Protection] 检查进场是否安全
+            let is_safe = self.init_entry_with_safety_check(params, risk_trigger::Direction::Long);
+            if is_safe {
+                self.action.entry_long_price = Some(self.current_bar.open);
+                self.action.first_entry_side = 1;
+            }
         }
         if self.can_entry_short() && self.prev_bar.entry_short {
-            self.action.entry_short_price = Some(self.current_bar.open);
-            self.action.first_entry_side = -1;
+            // [Gap Protection] 检查进场是否安全
+            let is_safe = self.init_entry_with_safety_check(params, risk_trigger::Direction::Short);
+            if is_safe {
+                self.action.entry_short_price = Some(self.current_bar.open);
+                self.action.first_entry_side = -1;
+            }
         }
 
         // === 3. 处理bar(i)的risk触发（可能in_bar模式） ===
@@ -72,7 +80,7 @@ impl<'a> BacktestState<'a> {
         self.risk_state.reset_exit_state();
 
         if self.has_long_position() {
-            self.check_risk_exit(params, self.current_bar.atr, risk_trigger::Direction::Long);
+            self.check_risk_exit(params, risk_trigger::Direction::Long);
             // 如果 in_bar 模式触发，设置 exit_long_price
             if self.risk_state.should_exit_in_bar_long() {
                 self.action.exit_long_price =
@@ -80,7 +88,7 @@ impl<'a> BacktestState<'a> {
             }
         }
         if self.has_short_position() {
-            self.check_risk_exit(params, self.current_bar.atr, risk_trigger::Direction::Short);
+            self.check_risk_exit(params, risk_trigger::Direction::Short);
             // 如果 in_bar 模式触发，设置 exit_short_price
             if self.risk_state.should_exit_in_bar_short() {
                 self.action.exit_short_price =

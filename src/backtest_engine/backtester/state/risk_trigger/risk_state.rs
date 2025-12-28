@@ -1,4 +1,4 @@
-use super::direction::Direction;
+use super::risk_price_calc::Direction;
 use crate::backtest_engine::indicators::psar::psar_core::PsarState;
 
 #[derive(Debug, Clone, Default)]
@@ -19,10 +19,10 @@ pub struct RiskState {
     pub tsl_atr_price_long: Option<f64>,
     pub tsl_atr_price_short: Option<f64>,
 
-    /// 当前持仓期间最高价（用于跟踪止损计算）
-    pub highest_since_entry: Option<f64>,
-    /// 当前持仓期间最低价（用于跟踪止损计算）
-    pub lowest_since_entry: Option<f64>,
+    /// 多头锚点（用于跟踪止损计算，根据 tsl_anchor_mode 可能是 close 或 high）
+    pub long_anchor_since_entry: Option<f64>,
+    /// 空头锚点（用于跟踪止损计算，根据 tsl_anchor_mode 可能是 close 或 low）
+    pub short_anchor_since_entry: Option<f64>,
 
     // === PSAR 跟踪止损状态（多空分离） ===
     pub tsl_psar_state_long: Option<PsarState>,
@@ -31,9 +31,9 @@ pub struct RiskState {
     pub tsl_psar_price_short: Option<f64>,
 
     /// 多头 risk 触发价格（如果触发）
-    pub exit_long_price: Option<f64>,
+    pub risk_long_price: Option<f64>,
     /// 空头 risk 触发价格（如果触发）
-    pub exit_short_price: Option<f64>,
+    pub risk_short_price: Option<f64>,
     /// 风控触发方向：0=无/next_bar, 1=多头in_bar, -1=空头in_bar
     pub in_bar_direction: i8,
 }
@@ -132,16 +132,16 @@ impl RiskState {
         }
     }
 
-    pub fn extremum_since_entry(&self, dir: Direction) -> Option<f64> {
+    pub fn anchor_since_entry(&self, dir: Direction) -> Option<f64> {
         match dir {
-            Direction::Long => self.highest_since_entry,
-            Direction::Short => self.lowest_since_entry,
+            Direction::Long => self.long_anchor_since_entry,
+            Direction::Short => self.short_anchor_since_entry,
         }
     }
-    pub fn set_extremum_since_entry(&mut self, dir: Direction, val: Option<f64>) {
+    pub fn set_anchor_since_entry(&mut self, dir: Direction, val: Option<f64>) {
         match dir {
-            Direction::Long => self.highest_since_entry = val,
-            Direction::Short => self.lowest_since_entry = val,
+            Direction::Long => self.long_anchor_since_entry = val,
+            Direction::Short => self.short_anchor_since_entry = val,
         }
     }
 
@@ -160,14 +160,14 @@ impl RiskState {
 
     pub fn exit_price(&self, dir: Direction) -> Option<f64> {
         match dir {
-            Direction::Long => self.exit_long_price,
-            Direction::Short => self.exit_short_price,
+            Direction::Long => self.risk_long_price,
+            Direction::Short => self.risk_short_price,
         }
     }
     pub fn set_exit_price(&mut self, dir: Direction, val: Option<f64>) {
         match dir {
-            Direction::Long => self.exit_long_price = val,
-            Direction::Short => self.exit_short_price = val,
+            Direction::Long => self.risk_long_price = val,
+            Direction::Short => self.risk_short_price = val,
         }
     }
 
@@ -175,8 +175,8 @@ impl RiskState {
     ///
     /// 只重置触发相关字段，保留风险价格阈值（持仓期间需要保持）
     pub fn reset_exit_state(&mut self) {
-        self.exit_long_price = None;
-        self.exit_short_price = None;
+        self.risk_long_price = None;
+        self.risk_short_price = None;
         self.in_bar_direction = 0;
     }
 
@@ -197,10 +197,10 @@ impl RiskState {
         self.sl_atr_price_long = None;
         self.tp_atr_price_long = None;
         self.tsl_atr_price_long = None;
-        self.highest_since_entry = None;
+        self.long_anchor_since_entry = None;
         self.tsl_psar_state_long = None;
         self.tsl_psar_price_long = None;
-        self.exit_long_price = None;
+        self.risk_long_price = None;
     }
 
     /// 重置空头风险状态（空头离场后调用）
@@ -213,29 +213,29 @@ impl RiskState {
         self.sl_atr_price_short = None;
         self.tp_atr_price_short = None;
         self.tsl_atr_price_short = None;
-        self.lowest_since_entry = None;
+        self.short_anchor_since_entry = None;
         self.tsl_psar_state_short = None;
         self.tsl_psar_price_short = None;
-        self.exit_short_price = None;
+        self.risk_short_price = None;
     }
 
     /// 判断多头是否在 in_bar 模式触发
     pub fn should_exit_in_bar_long(&self) -> bool {
-        self.exit_long_price.is_some() && self.in_bar_direction == 1
+        self.risk_long_price.is_some() && self.in_bar_direction == 1
     }
 
     /// 判断空头是否在 in_bar 模式触发
     pub fn should_exit_in_bar_short(&self) -> bool {
-        self.exit_short_price.is_some() && self.in_bar_direction == -1
+        self.risk_short_price.is_some() && self.in_bar_direction == -1
     }
 
     /// 判断多头是否在 next_bar 模式触发
     pub fn should_exit_next_bar_long(&self) -> bool {
-        self.exit_long_price.is_some() && self.in_bar_direction != 1
+        self.risk_long_price.is_some() && self.in_bar_direction != 1
     }
 
     /// 判断空头是否在 next_bar 模式触发
     pub fn should_exit_next_bar_short(&self) -> bool {
-        self.exit_short_price.is_some() && self.in_bar_direction != -1
+        self.risk_short_price.is_some() && self.in_bar_direction != -1
     }
 }

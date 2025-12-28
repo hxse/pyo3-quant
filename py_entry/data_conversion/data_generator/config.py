@@ -42,6 +42,8 @@ class DataGenerationParams:
     extreme_prob: float = 0.0
     # 极端行情波动倍数
     extreme_mult: float = 3.0
+    # 是否允许跳空 (默认 True, 设为 False 则 Open[i] == Close[i-1])
+    allow_gaps: bool = True
 
 
 @dataclass

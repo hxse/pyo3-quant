@@ -40,7 +40,12 @@ def full_performance_result():
         fee_fixed=0,
         fee_pct=0.001,
         exit_in_bar=False,
-        use_extrema_for_exit=False,
+        sl_trigger_mode=False,
+        tp_trigger_mode=False,
+        tsl_trigger_mode=False,
+        sl_anchor_mode=False,
+        tp_anchor_mode=False,
+        tsl_anchor_mode=False,
         sl_pct=Param.create(2),
         tp_pct=Param.create(5),
     )

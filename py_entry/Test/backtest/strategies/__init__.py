@@ -48,13 +48,27 @@ def get_strategy_names() -> List[str]:
 def _auto_discover_strategies():
     """自动发现并导入 strategies/ 目录下的所有策略模块"""
     strategies_dir = Path(__file__).parent
+
+    # 1. 发现单文件策略（如 atr_stoploss.py）
     for py_file in strategies_dir.glob("*.py"):
         module_name = py_file.stem
-        # 跳过 __init__.py 和 base.py
-        if module_name.startswith("_") or module_name == "base":
+        # 跳过 __init__.py、base.py 和备份文件
+        if (
+            module_name.startswith("_")
+            or module_name == "base"
+            or module_name.endswith(".bak")
+        ):
             continue
         # 动态导入模块，触发 @register_strategy 装饰器
         importlib.import_module(f".{module_name}", package=__package__)
+
+    # 2. 发现子目录策略（如 sma_crossover/）
+    for subdir in strategies_dir.iterdir():
+        if subdir.is_dir() and not subdir.name.startswith("_"):
+            # 检查子目录是否包含 __init__.py
+            if (subdir / "__init__.py").exists():
+                # 导入子目录（会自动执行其 __init__.py）
+                importlib.import_module(f".{subdir.name}", package=__package__)
 
 
 # 模块加载时自动发现策略

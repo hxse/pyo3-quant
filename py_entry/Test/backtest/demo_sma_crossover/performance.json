@@ -1,9 +1,9 @@
 {
-  "annualization_factor": 35069.844974162355,
-  "calmar_ratio": -1.2453115227038598,
+  "annualization_factor": 35067.50675067507,
+  "calmar_ratio": -1.0192151566780148,
   "has_leading_nan_count": 20.0,
-  "max_drawdown": 0.7113654408908134,
-  "max_safe_leverage": 1.1245977861929772,
-  "sharpe_ratio": 0.3175582509301845,
-  "total_return": -0.31018570877561336
+  "max_drawdown": 0.9811454716680046,
+  "max_safe_leverage": 0.8153734824255503,
+  "sharpe_ratio": -4.134758016271415,
+  "total_return": -0.977503915637958
 }

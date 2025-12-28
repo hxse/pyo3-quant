@@ -26,8 +26,9 @@ class ReversalExtremeBtp(Strategy):
             timeperiod=C.atr_period,
         )
 
-        # Risk State
+        # Risk State - 独立追踪 TSL，不更新 trade.sl
         self.extremum = None  # To track highest/lowest since entry for TSL
+        self.tsl_price = None  # 独立的 TSL 价格，与 Pyo3 一致
 
     def _get_signals(self):
         # 1. Generate Raw Signals
@@ -82,58 +83,67 @@ class ReversalExtremeBtp(Strategy):
         high = self.data.High[-1]
         low = self.data.Low[-1]
         atr = self.atr[-1]
-        prev_atr = (
-            self.atr[-2] if len(self.atr) > 1 else atr
-        )  # TSL Update uses prev_bar ATR
+
+        # 根据 tsl_anchor_mode 计算锚点：True=High/Low, False=Close
+        anchor_long = high if C.tsl_anchor_mode else close  # 多头锚点
+        anchor_short = low if C.tsl_anchor_mode else close  # 空头锚点
+
+        # Prev bar data (用于 TSL 更新)
+        has_prev = len(self.data) > 1
+        prev_atr = self.atr[-2] if has_prev else atr
+        prev_close = self.data.Close[-2] if has_prev else close
+        prev_anchor_long = (
+            self.data.High[-2] if C.tsl_anchor_mode and has_prev else prev_close
+        )
+        prev_anchor_short = (
+            self.data.Low[-2] if C.tsl_anchor_mode and has_prev else prev_close
+        )
 
         entry_long, entry_short, exit_long, exit_short = self._get_signals()
 
         # --- Risk Management (TSL Update - Pyo3 Compatible) ---
+        # TSL 独立追踪，不更新 trade.sl，与 Pyo3 架构一致
         if self.trades:
             trade = self.trades[0]
             current_bar_idx = len(self.data) - 1
             is_entry_bar = trade.entry_bar == current_bar_idx
 
             # 1. Update Extremum & TSL FIRST (Skip on Entry Bar)
-            # 使用 prev_bar 的 high/low 避免未来数据泄露
             if not is_entry_bar:
-                # Get prev_bar data
-                prev_high = self.data.High[-2] if len(self.data) > 1 else high
-                prev_low = self.data.Low[-2] if len(self.data) > 1 else low
-
-                # Update Extremum with prev_bar (known at current bar open)
+                # Update Extremum with prev_bar
                 if self.position.is_long:
-                    if self.extremum is None or prev_high > self.extremum:
-                        self.extremum = prev_high
+                    if self.extremum is None or prev_anchor_long > self.extremum:
+                        self.extremum = prev_anchor_long
                 else:
-                    if self.extremum is None or prev_low < self.extremum:
-                        self.extremum = prev_low
+                    if self.extremum is None or prev_anchor_short < self.extremum:
+                        self.extremum = prev_anchor_short
 
                 # Update TSL (Ratchet logic)
                 if C.tsl_atr > 0 and self.extremum is not None:
-                    for t in self.trades:
-                        if t.is_long:
-                            tsl_price = self.extremum - prev_atr * C.tsl_atr
-                            if t.sl:
-                                t.sl = max(t.sl, tsl_price)
-                            else:
-                                t.sl = tsl_price
-                        else:
-                            tsl_price = self.extremum + prev_atr * C.tsl_atr
-                            if t.sl:
-                                t.sl = min(t.sl, tsl_price)
-
-            # 2. In-Bar Check AFTER update (先更新后检查)
-            if C.tsl_atr_tight:
-                for t in self.trades:
-                    if t.is_long:
-                        if t.sl and low < t.sl:
-                            self.position.close()
-                            return
+                    if self.position.is_long:
+                        new_tsl = self.extremum - prev_atr * C.tsl_atr
+                        if self.tsl_price is None or new_tsl > self.tsl_price:
+                            self.tsl_price = new_tsl
                     else:
-                        if t.sl and high > t.sl:
-                            self.position.close()
-                            return
+                        new_tsl = self.extremum + prev_atr * C.tsl_atr
+                        if self.tsl_price is None or new_tsl < self.tsl_price:
+                            self.tsl_price = new_tsl
+
+            # 2. TSL Trigger Check
+            # 根据 tsl_trigger_mode 选择触发检查价格：True=High/Low, False=Close
+            if self.tsl_price is not None:
+                if C.tsl_trigger_mode:
+                    # 使用 high/low 检查
+                    tsl_triggered = (
+                        self.position.is_long and low < self.tsl_price
+                    ) or (self.position.is_short and high > self.tsl_price)
+                else:
+                    # 使用 close 检查
+                    tsl_triggered = (
+                        self.position.is_long and close < self.tsl_price
+                    ) or (self.position.is_short and close > self.tsl_price)
+                if tsl_triggered:
+                    self.position.close()
 
         # --- Execution Logic ---
 
@@ -144,50 +154,23 @@ class ReversalExtremeBtp(Strategy):
         if exit_short and self.position.is_short:
             self.position.close()
 
-        # 2. Entry Signals (Reversal supported: Close then Buy/Sell)
-
+        # 2. Entry Signals (Reversal supported)
         if entry_long and not self.position.is_long:
-            # Reversal: Close short if exists
             if self.position.is_short:
                 self.position.close()
 
-            # Calc SL/TP based on Signal Bar (Close[-1])
             sl_fixed = close * (1 - C.sl_pct)
             tp_fixed = close + atr * C.tp_atr
-
-            # Pyo3 Logic: Effective SL is max(Fixed, TSL_Init)
-            initial_sl = sl_fixed
-            if C.tsl_atr > 0:
-                tsl_init = close - atr * C.tsl_atr
-                initial_sl = max(sl_fixed, tsl_init)
-
-            # Initialize Extremum (Signal Bar) for Pyo3 Consistency
-            if C.tsl_anchor_mode:
-                self.extremum = high
-            else:
-                self.extremum = close
-
-            self.buy(sl=initial_sl, tp=tp_fixed, size=size)
+            self.extremum = anchor_long
+            self.tsl_price = self.extremum - atr * C.tsl_atr if C.tsl_atr > 0 else None
+            self.buy(sl=sl_fixed, tp=tp_fixed, size=size)
 
         elif entry_short and not self.position.is_short:
-            # Reversal: Close long if exists
             if self.position.is_long:
                 self.position.close()
 
-            # Calc SL/TP based on Signal Bar (Close[-1])
             sl_fixed = close * (1 + C.sl_pct)
             tp_fixed = close - atr * C.tp_atr
-
-            # Pyo3 Logic: Effective SL is min(Fixed, TSL_Init)
-            initial_sl = sl_fixed
-            if C.tsl_atr > 0:
-                tsl_init = close + atr * C.tsl_atr
-                initial_sl = min(sl_fixed, tsl_init)
-
-            # Initialize Extremum (Signal Bar) for Pyo3 Consistency
-            if C.tsl_anchor_mode:
-                self.extremum = low
-            else:
-                self.extremum = close
-
-            self.sell(sl=initial_sl, tp=tp_fixed, size=size)
+            self.extremum = anchor_short
+            self.tsl_price = self.extremum + atr * C.tsl_atr if C.tsl_atr > 0 else None
+            self.sell(sl=sl_fixed, tp=tp_fixed, size=size)

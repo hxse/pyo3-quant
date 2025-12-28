@@ -13,9 +13,9 @@ class StrategyConfig:
     # ========== 数据配置 ==========
     timeframe: str = "15m"
     start_time: int = 1735689600000
-    num_bars: int = 6000
+    num_bars: int = 10000
     fixed_seed: int = 42
-    allow_gaps: bool = False
+    allow_gaps: bool = True
 
     # ========== 指标参数 ==========
     bbands_period: int = 20

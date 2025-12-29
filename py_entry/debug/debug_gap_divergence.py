@@ -27,6 +27,7 @@ def run_debug():
         timeframe="15m",
         start_time=1735689600000,
         allow_gaps=False,  # 关键：禁用跳空
+        equity_cutoff_ratio=0.20,
     )
 
     print(f"=== 调试配置 ===")
@@ -36,6 +37,9 @@ def run_debug():
     print("\n[1/2] 运行 Pyo3...")
     pyo3_adapter = Pyo3Adapter(config)
     pyo3_adapter.run("reversal_extreme")
+    assert pyo3_adapter.result is not None
+    assert pyo3_adapter.runner is not None
+    assert pyo3_adapter.runner.data_dict is not None
 
     pyo3_df = pyo3_adapter.result.backtest_df.with_row_index("bar_index")
 
@@ -56,6 +60,7 @@ def run_debug():
     ohlcv_df = generate_ohlcv_for_backtestingpy(config)
     btp_adapter = BacktestingPyAdapter(config)
     btp_adapter.run(ohlcv_df, ReversalExtremeBtp)
+    assert btp_adapter.result is not None
 
     # 从 stats['_trades'] 获取交易记录
     btp_trades_df = btp_adapter.result.stats["_trades"]

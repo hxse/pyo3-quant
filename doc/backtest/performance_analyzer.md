@@ -120,32 +120,84 @@ let is_active = long_active || short_active;
 
 ## 6. 矢量化实现
 
-### 交易统计 (stats.rs)
+### 交易统计 (`stats.rs::calculate_trade_stats`)
 
-使用 Polars Series 操作实现矢量化：
+使用 Polars `ChunkedArray<Float64Type>` 操作实现矢量化：
 
 ```rust
-let trades_series = trade_pnl_pct.clone().into_series();
-let closed_trades = trades_series.filter(&trades_series.not_equal(0.0)?)?;
-let wins = closed_trades.filter(&closed_trades.gt(0.0)?)?;
+// 过滤非零收益（代表已关闭的交易）
+let closed_trades = trade_pnl_pct.filter(&trade_pnl_pct.not_equal(0.0)).unwrap();
+
+// 盈利和亏损交易
+let wins = closed_trades.filter(&closed_trades.gt(0.0)).unwrap();
+let losses = closed_trades.filter(&closed_trades.lt(0.0)).unwrap();
+
+// 计算胜率和盈亏比
+let win_rate = wins.len() as f64 / closed_trades.len() as f64;
+let profit_loss_ratio = wins.mean().unwrap_or(0.0) / losses.mean().unwrap_or(0.0).abs();
 ```
 
-### 时长统计
+### 时长统计 (`stats.rs::calculate_duration_stats`)
 
-由于涉及状态机切换检测，仍使用线性扫描，但时间复杂度为 O(n)。
+由于涉及状态机切换检测，持仓/空仓时长仍使用**线性扫描**，时间复杂度为 O(n)。
+
+### 最大回撤时长 (`stats.rs::calculate_max_drawdown_duration_vect`)
+
+> [!NOTE]
+> 虽然函数名含 `_vect`，但由于 Polars RLE 插件可用性问题，实际实现仍使用**线性扫描**作为回退方案。
+
 
 ---
 
 ## 7. Python 接口
 
+### 7.1 推荐方式：通过 BacktestRunner（使用 dataclass）
+
+```python
+from py_entry.data_conversion.types import PerformanceParams, PerformanceMetric
+
+# 使用 dataclass 构造绩效参数
+performance_params = PerformanceParams(
+    metrics=[
+        PerformanceMetric.TOTAL_RETURN,
+        PerformanceMetric.MAX_DRAWDOWN,
+        PerformanceMetric.SHARPE_RATIO,
+        PerformanceMetric.CALMAR_RATIO,
+        PerformanceMetric.ANNUALIZATION_FACTOR,
+        PerformanceMetric.HAS_LEADING_NAN_COUNT,
+    ],
+    risk_free_rate=0.02,         # 2% 无风险利率
+    leverage_safety_factor=0.8,  # 杠杆安全系数
+)
+
+# 通过 BacktestRunner 执行回测后自动调用绩效分析
+result = br.results[0].performance
+# result: dict[str, float]
+# 例如 {"total_return": 0.25, "max_drawdown": 0.15, "sharpe_ratio": 1.5, ...}
+```
+
+### 7.2 底层接口：直接调用 pyo3_quant
+
 ```python
 from pyo3_quant import analyze_performance
 
+# 也可以使用 dict 格式（PyO3 会自动转换）
+performance_params = {
+    "metrics": ["total_return", "max_drawdown", "sharpe_ratio"],
+    "risk_free_rate": 0.02,
+    "leverage_safety_factor": 0.8,
+}
+
 result = analyze_performance(data_dict, backtest_df, performance_params)
-# result: dict[str, float]
 ```
 
-参数类型：
-- `data_dict`: `DataContainer` (含 base_data_key 和 source)
-- `backtest_df`: `polars.DataFrame`
-- `performance_params`: `PerformanceParams`
+**参数类型**：
+- `data_dict`: `DataContainer` (含 `base_data_key` 和 `source`)
+- `backtest_df`: `polars.DataFrame` (回测引擎输出)
+- `performance_params`: `PerformanceParams` (dataclass 或 dict)
+
+**返回值**：
+- `dict[str, float]`: 指标名到指标值的映射
+
+> [!TIP]
+> 完整的 Python 接口文档请参考 [python_api.md](./python_api.md)。

@@ -53,6 +53,11 @@ class TestEngineCorrelation:
             timeframe=data_cfg.timeframes[0] if data_cfg.timeframes else "15m",
             start_time=data_cfg.start_time or 1735689600000,
             allow_gaps=getattr(data_cfg, "allow_gaps", False),
+            equity_cutoff_ratio=(
+                strategy_config.custom_params.get("equity_cutoff_ratio", 0.20)
+                if strategy_config.custom_params
+                else 0.20
+            ),
         )
 
         # 1. 运行 pyo3-quant 引擎
@@ -140,6 +145,7 @@ class TestEngineCorrelation:
             btp_trade_count=btp_trade_count,
             btp_win_rate=btp_win_rate,
             initial_capital=config.initial_capital,
+            equity_cutoff_ratio=config.equity_cutoff_ratio,
         )
 
         print("\n" + "=" * 60)

@@ -29,7 +29,8 @@ def run_lifecycle_analysis():
         commission=0.001,
         timeframe="15m",
         start_time=1735689600000,
-        allow_gaps=False,
+        allow_gaps=True,
+        equity_cutoff_ratio=0.20,
     )
 
     print(f"=== 交易生命周期深度分析 ===\n")
@@ -38,7 +39,8 @@ def run_lifecycle_analysis():
     print(f"  tp_atr: {C.tp_atr}")
     print(f"  tsl_atr: {C.tsl_atr}")
     print(f"  atr_period: {C.atr_period}")
-    print(f"  exit_in_bar: {C.exit_in_bar}")
+    print(f"  sl_exit_in_bar: {C.sl_exit_in_bar}")
+    print(f"  tp_exit_in_bar: {C.tp_exit_in_bar}")
     print(f"  sl_trigger_mode: {C.sl_trigger_mode} (True=High/Low)")
     print(f"  tsl_trigger_mode: {C.tsl_trigger_mode}")
     print(f"  tsl_anchor_mode: {C.tsl_anchor_mode} (True=Extremum)")
@@ -48,10 +50,12 @@ def run_lifecycle_analysis():
     print("\n[1/4] 运行引擎...")
     pyo3_adapter = Pyo3Adapter(config)
     pyo3_adapter.run("reversal_extreme")
+    assert pyo3_adapter.result is not None
 
     ohlcv_df = generate_ohlcv_for_backtestingpy(config)
     btp_adapter = BacktestingPyAdapter(config)
     btp_adapter.run(ohlcv_df, ReversalExtremeBtp)
+    assert btp_adapter.result is not None
 
     # 2. 获取 OHLCV 和 ATR
     print("\n[2/4] 提取数据...")

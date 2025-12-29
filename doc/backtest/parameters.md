@@ -88,3 +88,77 @@ PSAR (Parabolic SAR) 是一种特殊的跟踪止损算法。以下三个参数**
 | 参数名 | 类型 | 说明 |
 |--------|------|------|
 | `atr_period` | `Optional[Param]` | **ATR 周期**。计算 ATR 指标的窗口长度。<br>仅当使用 ATR 相关风控参数时必须。 |
+
+---
+
+## 5. 绩效分析参数 (Performance)
+
+`PerformanceParams` 用于配置绩效分析模块的行为。
+
+| 参数名 | 类型 | 默认值 | 说明 |
+|--------|------|:------:|------|
+| `metrics` | `list[str]` | - | **需要计算的指标列表**。可选值见下表。 |
+| `risk_free_rate` | `float` | `0.0` | **无风险利率**。用于计算夏普比率和索提诺比率。 |
+| `leverage_safety_factor` | `Optional[float]` | `0.8` | **杠杆安全系数**。用于计算 `max_safe_leverage = safety_factor / max_drawdown`。 |
+
+### 可选指标 (Metrics)
+
+| 指标键名 | 说明 |
+|----------|------|
+| `total_return` | 总回报率 |
+| `max_drawdown` | 最大回撤 |
+| `max_drawdown_duration` | 最大回撤持续时长（K线数） |
+| `sharpe_ratio` | 夏普比率 |
+| `sortino_ratio` | 索提诺比率 |
+| `calmar_ratio` | 卡尔马比率 |
+| `total_trades` | 总交易次数 |
+| `avg_daily_trades` | 日均交易次数 |
+| `win_rate` | 胜率 |
+| `profit_loss_ratio` | 盈亏比 |
+| `avg_holding_duration` | 平均持仓时长（K线数） |
+| `max_holding_duration` | 最大持仓时长（K线数） |
+| `avg_empty_duration` | 平均空仓时长（K线数） |
+| `max_empty_duration` | 最大空仓时长（K线数） |
+| `max_safe_leverage` | 最大可承受杠杆 |
+| `annualization_factor` | 年化因子 |
+| `has_leading_nan_count` | 无效信号计数 |
+
+---
+
+## 6. 参数验证规则
+
+引擎在回测开始前会验证参数有效性（`BacktestParams::validate()` 方法）。
+
+### 6.1 必填参数约束
+
+| 参数名 | 约束 | 验证失败时错误 |
+|--------|------|---------------|
+| `initial_capital` | 必须 > 0.0 | `InvalidParameter: 初始本金必须大于0` |
+| `fee_fixed` | 必须 >= 0.0 | `InvalidParameter: 固定手续费不能为负` |
+| `fee_pct` | 必须 >= 0.0 | `InvalidParameter: 百分比手续费不能为负` |
+
+### 6.2 ATR 参数一致性验证
+
+当使用任何 ATR 相关参数（`sl_atr`, `tp_atr`, `tsl_atr`）时，`atr_period` 必须同时满足：
+- `Option<Param>` 不为 `None`
+- `param.value > 0.0`
+
+验证方法：`BacktestParams::validate_atr_consistency()`
+
+### 6.3 参数有效性定义
+
+风控参数（如 `sl_pct`, `tp_atr` 等）的"有效"定义（用于决定是否启用对应功能）：
+
+| 方法 | 逻辑 |
+|------|------|
+| `is_sl_pct_param_valid()` | `sl_pct.is_some() && sl_pct.value > 0.0` |
+| `is_tp_pct_param_valid()` | `tp_pct.is_some() && tp_pct.value > 0.0` |
+| `is_tsl_pct_param_valid()` | `tsl_pct.is_some() && tsl_pct.value > 0.0` |
+| `is_sl_atr_param_valid()` | `sl_atr.is_some() && sl_atr.value > 0.0` |
+| `is_tp_atr_param_valid()` | `tp_atr.is_some() && tp_atr.value > 0.0` |
+| `is_tsl_atr_param_valid()` | `tsl_atr.is_some() && tsl_atr.value > 0.0` |
+| `is_tsl_psar_param_valid()` | 三个 PSAR 参数全部存在且 > 0.0 |
+| `has_any_atr_param()` | 上述任一 ATR 参数有效 |
+
+> [!NOTE]
+> 参数值为 `None` 或 `<= 0.0` 时，对应功能**不会启用**，但**不会报错**。

@@ -50,6 +50,7 @@ class StrategyConfig:
     engine_settings: SettingContainer
     performance_params: Optional[PerformanceParams] = None
     btp_strategy_class: Optional[Type[Strategy]] = None
+    custom_params: Optional[Dict[str, Any]] = None
 
     def __repr__(self) -> str:
         return f"StrategyConfig(name='{self.name}')"

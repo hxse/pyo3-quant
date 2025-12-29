@@ -84,6 +84,10 @@ class ReversalExtremeBtp(Strategy):
         low = self.data.Low[-1]
         atr = self.atr[-1]
 
+        # BTP: Break Trigger Price for TSL
+        btp_long = low if C.tsl_trigger_mode else close
+        btp_short = high if C.tsl_trigger_mode else close
+
         # 根据 tsl_anchor_mode 计算锚点：True=High/Low, False=Close
         anchor_long = high if C.tsl_anchor_mode else close  # 多头锚点
         anchor_short = low if C.tsl_anchor_mode else close  # 空头锚点
@@ -130,18 +134,13 @@ class ReversalExtremeBtp(Strategy):
                             self.tsl_price = new_tsl
 
             # 2. TSL Trigger Check
-            # 根据 tsl_trigger_mode 选择触发检查价格：True=High/Low, False=Close
+            # 2. TSL Trigger Check
+            # 根据 tsl_trigger_mode 选择触发检查价格 (使用 btp 变量)
             if self.tsl_price is not None:
-                if C.tsl_trigger_mode:
-                    # 使用 high/low 检查
-                    tsl_triggered = (
-                        self.position.is_long and low < self.tsl_price
-                    ) or (self.position.is_short and high > self.tsl_price)
-                else:
-                    # 使用 close 检查
-                    tsl_triggered = (
-                        self.position.is_long and close < self.tsl_price
-                    ) or (self.position.is_short and close > self.tsl_price)
+                tsl_triggered = (
+                    self.position.is_long and btp_long < self.tsl_price
+                ) or (self.position.is_short and btp_short > self.tsl_price)
+
                 if tsl_triggered:
                     self.position.close()
 

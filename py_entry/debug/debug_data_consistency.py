@@ -115,7 +115,7 @@ def main():
         print(f"{'=' * 80}")
 
         config = build_config_from_strategy(
-            test_cfg["strategy"], bars=test_cfg["bars"], seed=test_cfg["seed"]
+            str(test_cfg["strategy"]), bars=test_cfg["bars"], seed=test_cfg["seed"]
         )
 
         print(f"CommonConfig.allow_gaps: {config.allow_gaps}")
@@ -123,7 +123,7 @@ def main():
         # 1. 运行 Pyo3
         print("\n运行 Pyo3...")
         pyo3_adapter = Pyo3Adapter(config)
-        pyo3_adapter.run(test_cfg["strategy"])
+        pyo3_adapter.run(str(test_cfg["strategy"]))
 
         assert pyo3_adapter.runner is not None
         assert pyo3_adapter.runner.data_dict is not None

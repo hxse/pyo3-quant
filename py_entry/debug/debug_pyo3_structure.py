@@ -17,13 +17,15 @@ def inspect_pyo3_result():
         commission=0.001,
         timeframe="15m",
         start_time=1735689600000,
-        allow_gaps=False,
+        allow_gaps=True,
+        equity_cutoff_ratio=0.20,
     )
 
     print("=== Pyo3 回测结果结构检查 ===\n")
 
     pyo3_adapter = Pyo3Adapter(config)
     pyo3_adapter.run("reversal_extreme")
+    assert pyo3_adapter.result is not None
 
     df = pyo3_adapter.result.backtest_df
 

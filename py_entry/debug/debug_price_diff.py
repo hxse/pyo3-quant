@@ -27,7 +27,8 @@ def run_price_analysis():
         commission=0.001,
         timeframe="15m",
         start_time=1735689600000,
-        allow_gaps=False,
+        allow_gaps=True,
+        equity_cutoff_ratio=0.20,
     )
 
     print(f"=== 深入价格差异分析 (Bars={config.bars}) ===\n")
@@ -36,10 +37,14 @@ def run_price_analysis():
     print("[1/5] 运行引擎...")
     pyo3_adapter = Pyo3Adapter(config)
     pyo3_adapter.run("reversal_extreme")
+    assert pyo3_adapter.result is not None
+    assert pyo3_adapter.runner is not None
+    assert pyo3_adapter.runner.data_dict is not None
 
     ohlcv_df = generate_ohlcv_for_backtestingpy(config)
     btp_adapter = BacktestingPyAdapter(config)
     btp_adapter.run(ohlcv_df, ReversalExtremeBtp)
+    assert btp_adapter.result is not None
 
     # 2. 提取交易数据
     print("[2/5] 提取交易数据...")

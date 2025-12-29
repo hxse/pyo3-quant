@@ -226,46 +226,64 @@ class TestTradePnlPctCalculation:
         if len(df) == 0:
             pytest.skip("无状态 10/11（反手后风控离场）记录")
 
-        # 逐行计算预期的综合 trade_pnl_pct
-        expected_pnl_pcts = []
-        for row in df.iter_rows(named=True):
-            prev_balance = row["prev_balance"]
-            entry_long = row["entry_long_price"]
-            exit_long = row["exit_long_price"]
-            entry_short = row["entry_short_price"]
-            exit_short = row["exit_short_price"]
-            in_bar_dir = row["risk_in_bar_direction"]
+        # 矢量化计算预期的综合 trade_pnl_pct
+        # 状态 10: 空转多 + 多头风控 (in_bar_direction == 1)
+        # 第一次：空头离场
+        pnl1_pct_state10 = (
+            pl.col("entry_short_price") - pl.col("exit_short_price")
+        ) / pl.col("entry_short_price")
+        realized1_state10 = pl.col("prev_balance") * (1.0 + pnl1_pct_state10)
+        fee1_state10 = (
+            pl.lit(fee_fixed)
+            + pl.col("prev_balance") * fee_pct / 2.0
+            + realized1_state10 * fee_pct / 2.0
+        )
+        balance_after_1_state10 = realized1_state10 - fee1_state10
 
-            if in_bar_dir == 1:
-                # 状态 10: 空转多 + 多头风控
-                # 先平空头，再平多头
-                expected_pnl = _calculate_two_leg_pnl_pct(
-                    prev_balance,
-                    entry_short,
-                    exit_short,  # 第一次：空头
-                    entry_long,
-                    exit_long,  # 第二次：多头
-                    is_first_long=False,
-                    fee_fixed=fee_fixed,
-                    fee_pct=fee_pct,
-                )
-            else:  # in_bar_dir == -1
-                # 状态 11: 多转空 + 空头风控
-                # 先平多头，再平空头
-                expected_pnl = _calculate_two_leg_pnl_pct(
-                    prev_balance,
-                    entry_long,
-                    exit_long,  # 第一次：多头
-                    entry_short,
-                    exit_short,  # 第二次：空头
-                    is_first_long=True,
-                    fee_fixed=fee_fixed,
-                    fee_pct=fee_pct,
-                )
-            expected_pnl_pcts.append(expected_pnl)
+        # 第二次：多头离场（风控）
+        pnl2_pct_state10 = (
+            pl.col("exit_long_price") - pl.col("entry_long_price")
+        ) / pl.col("entry_long_price")
+        realized2_state10 = balance_after_1_state10 * (1.0 + pnl2_pct_state10)
+        fee2_state10 = (
+            pl.lit(fee_fixed)
+            + balance_after_1_state10 * fee_pct / 2.0
+            + realized2_state10 * fee_pct / 2.0
+        )
+        final_balance_state10 = realized2_state10 - fee2_state10
+        expected_pnl_state10 = final_balance_state10 / pl.col("prev_balance") - 1.0
+
+        # 状态 11: 多转空 + 空头风控 (in_bar_direction == -1)
+        # 第一次：多头离场
+        pnl1_pct_state11 = (
+            pl.col("exit_long_price") - pl.col("entry_long_price")
+        ) / pl.col("entry_long_price")
+        realized1_state11 = pl.col("prev_balance") * (1.0 + pnl1_pct_state11)
+        fee1_state11 = (
+            pl.lit(fee_fixed)
+            + pl.col("prev_balance") * fee_pct / 2.0
+            + realized1_state11 * fee_pct / 2.0
+        )
+        balance_after_1_state11 = realized1_state11 - fee1_state11
+
+        # 第二次：空头离场（风控）
+        pnl2_pct_state11 = (
+            pl.col("entry_short_price") - pl.col("exit_short_price")
+        ) / pl.col("entry_short_price")
+        realized2_state11 = balance_after_1_state11 * (1.0 + pnl2_pct_state11)
+        fee2_state11 = (
+            pl.lit(fee_fixed)
+            + balance_after_1_state11 * fee_pct / 2.0
+            + realized2_state11 * fee_pct / 2.0
+        )
+        final_balance_state11 = realized2_state11 - fee2_state11
+        expected_pnl_state11 = final_balance_state11 / pl.col("prev_balance") - 1.0
 
         df = df.with_columns(
-            pl.Series("expected_pnl_pct", expected_pnl_pcts)
+            pl.when(pl.col("risk_in_bar_direction") == 1)
+            .then(expected_pnl_state10)
+            .otherwise(expected_pnl_state11)
+            .alias("expected_pnl_pct")
         ).with_columns(
             (pl.col("trade_pnl_pct") - pl.col("expected_pnl_pct"))
             .abs()

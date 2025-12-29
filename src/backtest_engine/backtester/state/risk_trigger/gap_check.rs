@@ -207,7 +207,7 @@ impl<'a> BacktestState<'a> {
                     self.prev_bar.close,
                     direction,
                     &psar_params,
-                    params.tsl_trigger_mode,
+                    params.tsl_anchor_mode,
                 );
 
                 match direction {

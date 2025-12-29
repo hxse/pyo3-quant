@@ -47,6 +47,8 @@ class StrategyConfig:
     fee_fixed: float = 0.0
     fee_pct: float = 0.001
 
+    equity_cutoff_ratio: float = 0.10  # 20% equity cutoff for correlation test
+
 
 # 默认配置实例
 CONFIG = StrategyConfig()

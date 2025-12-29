@@ -23,7 +23,7 @@ pub struct TslPsarParams {
 /// * `prev_close` - 开仓前一根 K 线（bar[i-1]）的收盘价
 /// * `direction` - 持仓方向
 /// * `params` - PSAR 参数配置
-/// * `use_extrema` - 是否使用极值（true=使用High/Low, false=使用Close）
+/// * `anchor_mode` - 锚点模式（true=使用High/Low, false=使用Close）
 ///
 /// # 返回
 /// * `(PsarState, f64)` - PSAR 状态和当前K线（bar[i]）的止损价格
@@ -36,23 +36,24 @@ pub fn init_tsl_psar(
     prev_close: f64,
     direction: Direction,
     params: &TslPsarParams,
-    use_extrema: bool,
+    anchor_mode: bool,
 ) -> (PsarState, f64) {
     let force_dir = match direction {
         Direction::Long => ForceDirection::Long,
         Direction::Short => ForceDirection::Short,
     };
 
-    // 如果不使用极值，则将所有 High/Low 替换为 Close
+    // 根据 anchor_mode 决定使用 High/Low 还是 Close
+    // 当 anchor_mode=false 时，将所有 High/Low 替换为 Close
     // 这样 PSAR 计算逻辑（包括 EP 更新和穿透规则）都会基于收盘价，避免 High/Low 毛刺的影响
-    let (pp_h, pp_l, p_h, p_l) = if use_extrema {
+    let (pp_h, pp_l, p_h, p_l) = if anchor_mode {
         (prev_prev_high, prev_prev_low, prev_high, prev_low)
     } else {
         (prev_prev_close, prev_prev_close, prev_close, prev_close)
     };
 
     // 1. 用 psar_init 初始化状态（不含反转逻辑）
-    // 注意：psar_init 主要确定初始 EP。如果 use_extrema=False，初始 EP 也应该是 Close。
+    // 注意：psar_init 主要确定初始 EP。如果 anchor_mode=false，初始 EP 也应该是 Close。
     let init_state = psar_init(pp_h, p_h, pp_l, p_l, prev_prev_close, force_dir, params.af0);
 
     // 2. 用 psar_update 计算第一次更新（强制方向不反转）
@@ -83,7 +84,7 @@ pub fn init_tsl_psar(
 /// * `prev_close` - 前一根 K 线的收盘价
 /// * `direction` - 持仓方向
 /// * `params` - PSAR 参数配置
-/// * `use_extrema` - 是否使用极值
+/// * `anchor_mode` - 锚点模式（true=使用High/Low, false=使用Close）
 ///
 /// # 返回
 /// * `(PsarState, f64)` - 新的 PSAR 状态和止损价格
@@ -97,15 +98,15 @@ pub fn update_tsl_psar(
     prev_close: f64,
     direction: Direction,
     params: &TslPsarParams,
-    use_extrema: bool,
+    anchor_mode: bool,
 ) -> (PsarState, f64) {
     let force_dir = match direction {
         Direction::Long => ForceDirection::Long,
         Direction::Short => ForceDirection::Short,
     };
 
-    // 如果不使用极值，使用 Close 替代 High/Low
-    let (c_h, c_l, p_h, p_l) = if use_extrema {
+    // 根据 anchor_mode 决定使用 High/Low 还是 Close
+    let (c_h, c_l, p_h, p_l) = if anchor_mode {
         (curr_high, curr_low, prev_high, prev_low)
     } else {
         (curr_close, curr_close, prev_close, prev_close)

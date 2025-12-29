@@ -117,29 +117,35 @@ if can_entry_long() && prev_bar.entry_long:
 
 ### 2.4 单 Bar 状态枚举（阶段 3）
 
-基于**五个字段**的组合（四个价格 + `in_bar_direction`）可推断出以下状态：
+基于**六个字段**的组合（四个价格 + `in_bar_direction` + `first_entry_side`）可推断出以下 15 种合法状态：
 
-| entry_long | exit_long | entry_short | exit_short | in_bar_dir | 状态 |
-|:----------:|:---------:|:-----------:|:----------:|:----------:|------|
-| ✗ | ✗ | ✗ | ✗ | 0 | `no_position` |
-| ✓ | ✗ | ✗ | ✗ | 0 | `hold_long` |
-| ✗ | ✗ | ✓ | ✗ | 0 | `hold_short` |
-| ✓ | ✓ | ✗ | ✗ | 0 | `exit_long_signal` |
-| ✓ | ✓ | ✗ | ✗ | 1 | `exit_long_risk` |
-| ✗ | ✗ | ✓ | ✓ | 0 | `exit_short_signal` |
-| ✗ | ✗ | ✓ | ✓ | -1 | `exit_short_risk` |
-| ✓ | ✓ | ✓ | ✗ | 0 | `reversal_long_to_short` |
-| ✓ | ✗ | ✓ | ✓ | 0 | `reversal_short_to_long` |
-| ✓ | ✓ | ✓ | ✓ | 1 | `reversal_to_long_then_exit` |
-| ✓ | ✓ | ✓ | ✓ | -1 | `reversal_to_short_then_exit` |
+| # | entry_L | exit_L | entry_S | exit_S | in_bar | first_entry | 状态 |
+|:-:|:-------:|:------:|:-------:|:------:|:------:|:-----------:|------|
+| 1 | ✗ | ✗ | ✗ | ✗ | 0 | 0 | `no_position` |
+| 2 | ✓ | ✗ | ✗ | ✗ | 0 | 0 | `hold_long` (延续) |
+| 3 | ✓ | ✗ | ✗ | ✗ | 0 | 1 | `hold_long_first` (进场) |
+| 4 | ✗ | ✗ | ✓ | ✗ | 0 | 0 | `hold_short` (延续) |
+| 5 | ✗ | ✗ | ✓ | ✗ | 0 | -1 | `hold_short_first` (进场) |
+| 6 | ✓ | ✓ | ✗ | ✗ | 0 | 0 | `exit_long_signal` |
+| 7 | ✓ | ✓ | ✗ | ✗ | 1 | 0 | `exit_long_risk` (持仓后) |
+| 8 | ✓ | ✓ | ✗ | ✗ | 1 | 1 | `exit_long_risk_first` (秒杀) |
+| 9 | ✗ | ✗ | ✓ | ✓ | 0 | 0 | `exit_short_signal` |
+| 10| ✗ | ✗ | ✓ | ✓ | -1 | 0 | `exit_short_risk` (持仓后) |
+| 11| ✗ | ✗ | ✓ | ✓ | -1 | -1 | `exit_short_risk_first` (秒杀) |
+| 12| ✓ | ✓ | ✓ | ✗ | 0 | -1 | `reversal_L_to_S` |
+| 13| ✓ | ✗ | ✓ | ✓ | 0 | 1 | `reversal_S_to_L` |
+| 14| ✓ | ✓ | ✓ | ✓ | 1 | 1 | `reversal_to_L_risk` |
+| 15| ✓ | ✓ | ✓ | ✓ | -1 | -1 | `reversal_to_S_risk` |
 
-> **最后两个状态说明**：
-> - `in_bar_direction = 1`：平空(open) → 进多(open) → **多头被 in-bar 风控平仓**(SL/TP)
-> - `in_bar_direction = -1`：平多(open) → 进空(open) → **空头被 in-bar 风控平仓**(SL/TP)
+> **状态说明**：
+> - `first_entry_side`：标记进场方向。`0`=非进场 bar，`1`=多头首次进场，`-1`=空头首次进场
+> - `in_bar_direction`：标记离场模式。`0`=无/Next-Bar 离场，`1`=多头 In-Bar 离场，`-1`=空头 In-Bar 离场
+> - "秒杀" 状态：同 bar 内进场后立即被风控平仓（`first_entry_side` 和 `in_bar_direction` 同时非零）
 
-**辅助函数**（Rust 实现）：
+**辅助函数**（定义于 `BacktestState`）：
 - `has_long_position()`: `entry_long.is_some() && exit_long.is_none()`
 - `is_exiting_long()`: `entry_long.is_some() && exit_long.is_some()`
+- `can_entry_long()`: `has_no_position() || is_exiting_short()`
 
 ### 2.4.1 状态转换图（时序视角）
 
@@ -272,21 +278,60 @@ flowchart LR
 > **时机**：风控检查完成后。
 
 #### 结算逻辑
+
+**已实现盈亏计算（离场时）：**
 ```
-if is_exiting():
-    pnl = (exit_price - entry_price) * direction  # Long: +1, Short: -1
-    fee = balance * fee_pct + fee_fixed
-    balance += pnl - fee
-    equity = balance
-else if has_position():
-    unrealized_pnl = (current_close - entry_price) * direction
-    equity = balance + unrealized_pnl
+# 1. 原始交易计算（百分比盈亏模式）
+pnl_raw_pct = (exit_price - entry_price) / entry_price  # 多头
+pnl_raw_pct = (entry_price - exit_price) / entry_price  # 空头
+realized_value = balance * (1 + pnl_raw_pct)
+
+# 2. 费用计算（开平各收一半）
+fee = fee_fixed
+    + balance * fee_pct / 2           # 开仓费用
+    + realized_value * fee_pct / 2    # 平仓费用
+
+# 3. 净值结算
+new_balance = realized_value - fee
+```
+
+**未实现盈亏计算（持仓时）：**
+```
+unrealized_pnl_pct = (current_close - entry_price) / entry_price  # 多头
+unrealized_pnl_pct = (entry_price - current_close) / entry_price  # 空头
+equity = balance * (1 + unrealized_pnl_pct)
+```
+
+**综合回报率（反手场景）：**
+```
+# 当同 bar 发生多次结算时（如反手），综合计算整个 bar 的总回报率
+if balance != bar_start_balance:
+    trade_pnl_pct = balance / bar_start_balance - 1
 ```
 
 #### 核心字段
 - `balance`: 已实现盈亏（离场时更新）
 - `equity`: 含未实现盈亏（每 Bar 更新）
 - `peak_equity`: 历史最高净值（用于回撤计算）
+
+#### 余额归零保护
+
+引擎实现了资金保护机制，防止产生负余额或负净值：
+
+```
+# 余额和净值归零保护
+if balance < 0:
+    balance = 0
+if equity < 0:
+    equity = 0
+
+# 归零后跳过后续处理
+def should_skip_current_bar():
+    return balance <= 0 or equity <= 0
+```
+
+> [!WARNING]
+> 当 `balance` 或 `equity` 归零后，该 Bar 及后续所有 Bar 将跳过仓位和资金计算。
 
 ---
 
@@ -327,9 +372,9 @@ else if has_position():
 ## 4. 关键设计决策
 
 1. **价格驱动 vs 枚举驱动**：选择价格驱动，使输出 DataFrame 即为完整状态记录，利于调试。
-2. **首次进场标记**：`is_first_entry_[long|short]` 用于正确初始化风控价格阈值。
+2. **首次进场标记**：`first_entry_side` (i8) 用于正确初始化风控价格阈值。`0`=非进场，`1`=多头，`-1`=空头。
 3. **方向分离的风控**：SL/TP/TSL 价格按多空分别存储，支持多空同时持有的未来扩展。
-4. **`in_bar_direction` 设计**：使用 `i8` 代替 `bool`，明确区分离场方向。
+4. **`in_bar_direction` 设计**：使用 `i8` 代替 `bool`，明确区分离场方向。`0`=Next-Bar，`1`=多头 In-Bar，`-1`=空头 In-Bar。
 
 ---
 
@@ -337,18 +382,48 @@ else if has_position():
 
 ```
 src/backtest_engine/backtester/
-├── main_loop.rs          # 主循环入口
-├── data_preparer.rs      # 信号预处理
-├── output.rs             # OutputBuffers 定义
+├── main_loop.rs              # 主循环入口
+├── mod.rs                    # 模块导出与公开接口
+├── data_preparer.rs          # 数据准备 (PreparedData 结构体)
+├── signal_preprocessor.rs    # 信号预处理（R1-R5 冲突解决、屏蔽规则）
+├── atr_calculator.rs         # ATR 指标计算
+├── buffer_slices.rs          # 缓冲区切片工具
+├── output.rs                 # OutputBuffers 结构体定义（固定列与可选列）
 └── state/
-    ├── backtest_state.rs     # 状态聚合
-    ├── position_calculator.rs # 仓位计算（阶段 1-4）
-    ├── capital_calculator.rs  # 资金结算（阶段 5）
-    ├── action.rs             # 价格字段
+    ├── mod.rs                    # 模块导出
+    ├── backtest_state.rs         # BacktestState 核心状态机
+    │                             # - 状态判断辅助函数 (has_long_position, can_entry_long 等)
+    │                             # - debug_inferred_state() 状态推断调试
+    ├── position_calculator.rs    # 仓位计算（阶段 1-4）
+    │                             # - calculate_position() 主入口
+    │                             # - 执行顺序：价格重置 → 策略离场 → 策略进场 → Risk检查
+    ├── capital_calculator.rs     # 资金结算（阶段 5）
+    │                             # - calculate_capital() 主入口
+    │                             # - 已实现/未实现盈亏计算
+    │                             # - 余额归零保护 (should_skip_current_bar)
+    ├── capital_state.rs          # CapitalState 资金状态结构体
+    ├── action.rs                 # Action 价格字段结构体
+    ├── current_bar_data.rs       # CurrentBarData 当前K线数据结构体
+    ├── output_buffers_iter.rs    # 输出缓冲区迭代器
+    ├── prepared_data_iter.rs     # 预处理数据迭代器
+    ├── write_config.rs           # 写入配置
     └── risk_trigger/
-        ├── risk_state.rs     # 风控状态
-        ├── risk_check.rs     # 风控逻辑(触发检查 + 阈值更新)
-        ├── price_utils.rs    # 价格检查工具(get_sl/tp/tsl_check_price)
-        ├── tsl_psar.rs       # PSAR 算法
-        └── direction.rs      # 方向枚举
+        ├── mod.rs                    # 模块导出
+        ├── risk_state.rs             # RiskState 结构体定义
+        │                             # - 多空分离的风控价格字段
+        │                             # - should_exit_in_bar_*/should_exit_next_bar_* 判断
+        │                             # - reset_*_state() 状态重置方法
+        ├── risk_price_calc.rs        # 风控价格计算公式
+        │                             # - calc_sl_pct_price, calc_tp_atr_price 等
+        │                             # - Direction 枚举 (Long/Short)
+        ├── trigger_price_utils.rs    # 触发价格工具函数
+        ├── gap_check.rs              # 跳空保护检查
+        │                             # - init_entry_with_safety_check() 进场安全检查
+        ├── tsl_psar.rs               # PSAR 算法实现
+        │                             # - init_tsl_psar(), update_tsl_psar()
+        └── risk_check/               # 风控检查逻辑子目录
+            ├── mod.rs                # check_risk_exit() 主入口
+            ├── trigger_checker.rs    # 触发检测逻辑
+            ├── threshold_updater.rs  # update_tsl_thresholds() TSL 阈值更新
+            └── outcome_applier.rs    # 触发结果应用（悲观取值）
 ```

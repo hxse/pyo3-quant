@@ -46,23 +46,26 @@
 
 **作用范围**：影响 **触发判断** 所使用的价格
 
-| 参数 | 说明 |
-|------|------|
-| `sl_trigger_mode` | SL 触发检测。`False`=close, `True`=high/low |
-| `tp_trigger_mode` | TP 触发检测。`False`=close, `True`=high/low |
-| `tsl_trigger_mode` | TSL 触发检测(含psar)。`False`=close, `True`=high/low |
+| 参数 | 影响的风控类型 | 说明 |
+|------|--------------|------|
+| `sl_trigger_mode` | SL PCT, SL ATR | SL 触发检测。`False`=close, `True`=high/low |
+| `tp_trigger_mode` | TP PCT, TP ATR | TP 触发检测。`False`=close, `True`=high/low |
+| `tsl_trigger_mode` | TSL PCT, TSL ATR, **TSL PSAR** | TSL 触发检测。`False`=close, `True`=high/low |
 
-**注意**：此参数影响的是"**是否触发**"的判断，而非离场价格本身。
+**注意**：此参数影响的是"是否触发"的判断，而非离场价格本身。
 
 ### 2.3 锚点模式 (Anchor Mode)
 
 **作用范围**：影响 **价格阈值计算** 所使用的锚点
 
-| 参数 | 说明 |
-|------|------|
-| `sl_anchor_mode` | SL 锚点。`False`=close, `True`=high/low (多头用low，空头用high) |
-| `tp_anchor_mode` | TP 锚点。`False`=close, `True`=high/low (多头用high，空头用low) |
-| `tsl_anchor_mode` | TSL 锚点(不含psar)。`False`=close, `True`=extremum |
+| 参数 | 影响的风控类型 | 说明 |
+|------|--------------|------|
+| `sl_anchor_mode` | SL PCT, SL ATR | SL 锚点。`False`=close, `True`=high/low (多头用low，空头用high) |
+| `tp_anchor_mode` | TP PCT, TP ATR | TP 锚点。`False`=close, `True`=high/low (多头用high，空头用low) |
+| `tsl_anchor_mode` | TSL PCT, TSL ATR, **TSL PSAR** | TSL 锚点。`False`=close, `True`=high/low (extremum) |
+
+> [!IMPORTANT]
+> `tsl_anchor_mode` 现在统一影响所有三种 TSL 类型（PCT、ATR、PSAR）的价格计算方式。
 
 ### 2.4 `tsl_atr_tight` - 跟踪止损更新模式
 
@@ -74,6 +77,39 @@
 | `True` | 每根 K 线都尝试更新 TSL 价格（更紧密跟踪） |
 
 **注意**：无论设置如何，TSL 始终遵循**单向移动原则**（多头只能上移，空头只能下移）。
+
+---
+
+## 2.5 参数使用矩阵（完整参考）
+
+以下表格完整展示了每种风控类型在各阶段使用的参数：
+
+### SL (止损)
+
+| 类型 | 初始化 (Init) | 更新 (Update) | 触发检测 (Trigger) |
+|------|-------------|-------------|----------------|
+| **SL PCT** | `sl_anchor_mode` | N/A (不更新) | `sl_trigger_mode` |
+| **SL ATR** | `sl_anchor_mode` | N/A (不更新) | `sl_trigger_mode` |
+
+### TP (止盈)
+
+| 类型 | 初始化 (Init) | 更新 (Update) | 触发检测 (Trigger) |
+|------|-------------|-------------|----------------|
+| **TP PCT** | `tp_anchor_mode` | N/A (不更新) | `tp_trigger_mode` |
+| **TP ATR** | `tp_anchor_mode` | N/A (不更新) | `tp_trigger_mode` |
+
+### TSL (跟踪止损)
+
+| 类型 | 初始化 (Init) | 更新 (Update) | 触发检测 (Trigger) |
+|------|-------------|-------------|----------------|
+| **TSL PCT** | `tsl_anchor_mode` | `tsl_anchor_mode` | `tsl_trigger_mode` |
+| **TSL ATR** | `tsl_anchor_mode` | `tsl_anchor_mode` | `tsl_trigger_mode` |
+| **TSL PSAR** | `tsl_anchor_mode` | `tsl_anchor_mode` | `tsl_trigger_mode` |
+
+> [!NOTE]
+> - **Init**：进场时计算初始风控价格，发生在 `gap_check.rs`
+> - **Update**：持仓期间更新风控价格，发生在 `threshold_updater.rs`
+> - **Trigger**：检测是否触发离场，发生在 `trigger_checker.rs`
 
 ---
 
@@ -162,6 +198,8 @@
 - 比固定百分比/ATR 更动态，能适应趋势加速
 - 始终使用 Next-Bar 模式离场
 - 三个参数必须同时配置或同时不配置
+- **`tsl_anchor_mode`** 控制 PSAR 计算时使用 High/Low 还是 Close
+- **`tsl_trigger_mode`** 控制 PSAR 触发检测时使用 High/Low 还是 Close
 
 ---
 
@@ -171,16 +209,80 @@
 
 - `sl_pct_price_long` vs `sl_pct_price_short`
 - `tsl_psar_price_long` vs `tsl_psar_price_short`
-- `highest_since_entry` (Long) vs `lowest_since_entry` (Short)
+- `long_anchor_since_entry` (Long) vs `short_anchor_since_entry` (Short)
+
+> [!NOTE]
+> 锚点字段 (`*_anchor_since_entry`) 用于跟踪止损计算，根据 `tsl_anchor_mode` 的设置可能是 `close` 或 `high/low`。
 
 这意味着理论上引擎支持同时持有多空仓位（虽然目前策略层限制为单仓位）。
+
+---
+
 ## 6. 跳空保护 (Gap Protection)
 
-为了更贴近实盘交易中的"限价单"或"安全过滤"行为，系统实施了跳空保护机制：
+为了更贴近实盘交易中的"限价单"或"安全过滤"行为，系统实施了跳空保护机制。
 
-- **机制**：在确认进场前，系统会检查进场 Bar 的开盘价 (`Entry Open`) 是否已经穿过了基于信号 Bar 计算出的风控价格。
-- **检查范围**：SL PCT/ATR、TP PCT/ATR、TSL PCT/ATR、TSL PSAR（共7种）
-- **逻辑**：
-    - **做多**：如果 `Entry Open < SL` 或 `Entry Open < TSL` 或 `Entry Open < PSAR` 或 `Entry Open > TP`，则**跳过**该次进场。
-    - **做空**：如果 `Entry Open > SL` 或 `Entry Open > TSL` 或 `Entry Open > PSAR` 或 `Entry Open < TP`，则**跳过**该次进场。
-- **对比**：这与 `backtesting.py` 的默认行为不同（后者会进场并立即止损），但通过使用无跳空的数据，两者的结果可以保持一致。
+### 6.1 机制说明
+
+在确认进场前，系统会检查进场 Bar 的开盘价 (`Entry Open`) 是否已经穿过了基于信号 Bar 计算出的风控价格。
+
+### 6.2 检查范围
+
+| 风控类型 | 检查条件 |
+|----------|----------|
+| SL PCT | `entry_open` 是否穿过 `sl_pct_price` |
+| SL ATR | `entry_open` 是否穿过 `sl_atr_price` |
+| TP PCT | `entry_open` 是否穿过 `tp_pct_price` |
+| TP ATR | `entry_open` 是否穿过 `tp_atr_price` |
+| TSL PCT | `entry_open` 是否穿过 `tsl_pct_price` |
+| TSL ATR | `entry_open` 是否穿过 `tsl_atr_price` |
+| TSL PSAR | `entry_open` 是否穿过初始 `psar_price` |
+
+### 6.3 跳过逻辑
+
+| 方向 | 跳过条件 |
+|------|----------|
+| **做多** | `Entry Open < SL` 或 `Entry Open < TSL` 或 `Entry Open < PSAR` 或 `Entry Open > TP` |
+| **做空** | `Entry Open > SL` 或 `Entry Open > TSL` 或 `Entry Open > PSAR` 或 `Entry Open < TP` |
+
+### 6.4 代码位置
+
+```
+src/backtest_engine/backtester/state/
+├── position_calculator.rs        # 进场时调用 init_entry_with_safety_check()
+└── risk_trigger/
+    ├── gap_check.rs              # init_entry_with_safety_check() 实现
+    ├── risk_price_calc.rs        # 风控价格计算公式 (calc_sl_pct_price, get_sl_anchor 等)
+    ├── risk_state.rs             # RiskState 结构体定义
+    ├── trigger_price_utils.rs    # 触发价格工具函数
+    ├── tsl_psar.rs               # PSAR 算法 (init_tsl_psar, update_tsl_psar)
+    ├── mod.rs                    # 模块导出
+    └── risk_check/               # 风控检查子目录
+        ├── mod.rs                # check_risk_exit() 主入口
+        ├── trigger_checker.rs    # 触发检测逻辑
+        ├── threshold_updater.rs  # update_tsl_thresholds() TSL 阈值更新
+        └── outcome_applier.rs    # 触发结果应用
+```
+
+**调用流程**:
+```rust
+// position_calculator.rs
+if self.can_entry_long() && self.prev_bar.entry_long {
+    let is_safe = self.init_entry_with_safety_check(params, Direction::Long);
+    if is_safe {
+        self.action.entry_long_price = Some(self.current_bar.open);
+        self.action.first_entry_side = 1;
+    }
+}
+```
+
+### 6.5 与 backtesting.py 的对比
+
+| 行为 | pyo3-quant | backtesting.py |
+|------|------------|----------------|
+| 跳空触发止损 | **跳过进场** | 进场后立即止损 |
+| 结果差异 | 无该笔交易 | 有一笔亏损交易 |
+| 适用场景 | 更保守 | 更激进 |
+
+> [!NOTE]
+> 如果使用无跳空的数据（如 1H/4H 等低频数据），两者的结果可以保持一致。

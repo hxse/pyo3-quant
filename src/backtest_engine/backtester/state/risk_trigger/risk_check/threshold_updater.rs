@@ -129,7 +129,7 @@ impl<'a> BacktestState<'a> {
                 prev_prev_bar.close,
                 direction,
                 &psar_params,
-                params.tsl_trigger_mode,
+                params.tsl_anchor_mode,
             );
 
             self.risk_state

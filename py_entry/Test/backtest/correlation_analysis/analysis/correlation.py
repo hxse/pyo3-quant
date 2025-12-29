@@ -27,13 +27,14 @@ class CorrelationResult:
     btp_trade_count: int  # btp 交易次数
     pyo3_win_rate: float  # pyo3 胜率
     btp_win_rate: float  # btp 胜率
+    equity_cutoff_ratio: float  # 截断阈值比例
     analyzed_bars: int  # 实际分析的 Bar 数（截断后）
     total_bars: int  # 原始 Bar 数
 
     def __str__(self) -> str:
         truncation_msg = ""
         if self.analyzed_bars < self.total_bars:
-            truncation_msg = f"\n  (数据已截断: {self.analyzed_bars}/{self.total_bars} bars, 因检测到净值耗尽)"
+            truncation_msg = f"\n  (数据已截断: {self.analyzed_bars}/{self.total_bars} bars, 因检测到净值耗尽, 阈值: {self.equity_cutoff_ratio:.0%})"
 
         return (
             f"相关性分析结果:{truncation_msg}\n"
@@ -66,12 +67,15 @@ def analyze_correlation(
     btp_trade_count: int,
     btp_win_rate: float,
     initial_capital: float = 10000.0,
+    equity_cutoff_ratio: float = 0.20,
 ) -> CorrelationResult:
     """
     分析两引擎结果的相关性，自动截断因本金耗尽导致的数据
 
     Args:
         initial_capital: 初始本金，用于判定破产截断
+        equity_cutoff_ratio: 截断阈值比例 (0.0-1.0)，当净值低于 initial_capital * equity_cutoff_ratio 时截断
+                             例如 0.20 表示净值低于初始本金的 20% 时截断，0.0 表示禁用截断
     """
     # 长度对齐（取最小长度）
     min_len = min(
@@ -88,8 +92,9 @@ def analyze_correlation(
     btp_drawdown = btp_drawdown[:min_len]
 
     # === 智能截断逻辑 ===
-    # 阈值：本金的 20% (当亏损超过 80% 时，交易行为可能已严重失真)
-    threshold = initial_capital * 0.20
+    # 阈值：本金的 equity_cutoff_ratio 比例 (当低于此阈值时截断)
+    # 例如 0.20 表示当净值低于初始本金的 20% 时截断，0.0 表示禁用截断
+    threshold = initial_capital * equity_cutoff_ratio
 
     # 寻找第一个低于阈值的索引
     # np.argmax 返回第一个 True 的索引，如果全为 False 返回 0
@@ -175,4 +180,5 @@ def analyze_correlation(
         btp_win_rate=btp_win_rate,
         analyzed_bars=int(equity_analysis_len),
         total_bars=min_len,
+        equity_cutoff_ratio=equity_cutoff_ratio,
     )

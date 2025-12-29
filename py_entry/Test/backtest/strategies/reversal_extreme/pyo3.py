@@ -122,4 +122,5 @@ def get_config() -> StrategyConfig:
         signal_template=signal_template,
         engine_settings=engine_settings,
         btp_strategy_class=ReversalExtremeBtp,
+        custom_params={"equity_cutoff_ratio": C.equity_cutoff_ratio},
     )

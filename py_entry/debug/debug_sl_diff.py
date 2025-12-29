@@ -18,8 +18,9 @@ import sys
 sys.path.insert(0, "/home/hxse/pyo3-quant")
 
 import pandas as pd
-import numpy as np
 import talib
+from talib import MA_Type
+
 
 from py_entry.Test.backtest.correlation_analysis.adapters.pyo3_adapter import (
     Pyo3Adapter,
@@ -54,7 +55,7 @@ class DebugReversalExtreme(TrailingStrategy):
             timeperiod=C.bbands_period,
             nbdevup=C.bbands_std,
             nbdevdn=C.bbands_std,
-            matype=0,
+            matype=MA_Type.SMA,
         )
         self.bbands_upper = self.I(lambda: bbands[0])
         self.bbands_middle = self.I(lambda: bbands[1])
@@ -120,6 +121,7 @@ def main():
 
     assert pyo3_adapter.result is not None
     assert pyo3_adapter.runner is not None
+    assert pyo3_adapter.runner.data_dict is not None
 
     # 获取 OHLCV 数据
     base_key = f"ohlcv_{config.timeframe}"

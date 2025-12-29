@@ -21,6 +21,7 @@ class CommonConfig:
     timeframe: str
     start_time: int
     allow_gaps: bool
+    equity_cutoff_ratio: float
 
 
 def build_config_from_strategy(strategy_name: str, **overrides) -> CommonConfig:
@@ -54,6 +55,7 @@ def build_config_from_strategy(strategy_name: str, **overrides) -> CommonConfig:
         ),
         start_time=overrides.get("start_time", data_cfg.start_time or 1735689600000),
         allow_gaps=overrides.get("allow_gaps", getattr(data_cfg, "allow_gaps", False)),
+        equity_cutoff_ratio=overrides.get("equity_cutoff_ratio", 0.20),
     )
 
     return config

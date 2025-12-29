@@ -154,10 +154,9 @@ def combine_and(*conditions: pl.Series) -> pl.Series:
     返回：
         所有条件都满足的布尔Series
     """
-    result = conditions[0]
-    for cond in conditions[1:]:
-        result = result & cond
-    return result
+    from functools import reduce
+
+    return reduce(lambda a, b: a & b, conditions)
 
 
 def combine_or(*conditions: pl.Series) -> pl.Series:
@@ -170,7 +169,6 @@ def combine_or(*conditions: pl.Series) -> pl.Series:
     返回：
         任一条件满足的布尔Series
     """
-    result = conditions[0]
-    for cond in conditions[1:]:
-        result = result | cond
-    return result
+    from functools import reduce
+
+    return reduce(lambda a, b: a | b, conditions)

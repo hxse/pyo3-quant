@@ -35,6 +35,8 @@ class StrategyConfig:
     tp_anchor_mode: bool = False
     tsl_anchor_mode: bool = False
 
+    equity_cutoff_ratio: float = 0.10  # 10% equity cutoff for correlation test
+
 
 # 默认配置实例
 CONFIG = StrategyConfig()

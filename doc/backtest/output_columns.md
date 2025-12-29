@@ -26,7 +26,7 @@
 | `exit_short_price` | `float64` | 空头离场价格 (NaN 表示无操作)。 |
 | `risk_in_bar_direction` | `int8` | **风控离场标志**。<br>`0`: 无 In-Bar 风控离场。<br>`1`: 多头 In-Bar 风控触发。<br>`-1`: 空头 In-Bar 风控触发。 |
 | `first_entry_side` | `int8` | **首次进场方向**。<br>`0`: 非进场 bar。<br>`1`: 多头首次进场。<br>`-1`: 空头首次进场。 |
-| `has_leading_nan` | `bool` | **无效数据标记**。由信号生成器生成，表示该位置数据是否处于预热期或存在缺失。 |
+| `has_leading_nan` | `bool` | **无效数据标记**。⚠️ 此列由**信号生成器**生成，回测引擎从输入 DataFrame 中透传。表示该位置数据是否处于预热期或存在缺失。 |
 
 > [!TIP]
 > **如何识别持仓状态？**
@@ -37,7 +37,19 @@
 
 ## 2. 可选列 (Optional Columns)
 
-这些列仅在对应的参数有效时才会出现在 DataFrame 中。
+这些列仅在对应的参数有效时才会出现在 DataFrame 中。可选列的生成逻辑定义在 `OutputBuffers::new()` 中。
+
+### 判断逻辑
+
+| 条件 | 输出列 |
+|------|--------|
+| `is_sl_pct_param_valid()` = true | `sl_pct_price_long`, `sl_pct_price_short` |
+| `is_tp_pct_param_valid()` = true | `tp_pct_price_long`, `tp_pct_price_short` |
+| `is_tsl_pct_param_valid()` = true | `tsl_pct_price_long`, `tsl_pct_price_short` |
+| `is_sl_atr_param_valid()` = true | `sl_atr_price_long`, `sl_atr_price_short` |
+| `is_tp_atr_param_valid()` = true | `tp_atr_price_long`, `tp_atr_price_short` |
+| `is_tsl_atr_param_valid()` = true | `tsl_atr_price_long`, `tsl_atr_price_short` |
+| `is_tsl_psar_param_valid()` = true | `tsl_psar_price_long`, `tsl_psar_price_short` |
 
 ### 百分比风控列
 - `sl_pct_price_long`, `sl_pct_price_short`
@@ -45,7 +57,7 @@
 - `tsl_pct_price_long`, `tsl_pct_price_short`
 
 ### ATR 风控列
-- `atr` (ATR 指标值)
+- `atr` (ATR 指标值，仅当有任一 ATR 参数有效时输出)
 - `sl_atr_price_long`, `sl_atr_price_short`
 - `tp_atr_price_long`, `tp_atr_price_short`
 - `tsl_atr_price_long`, `tsl_atr_price_short`
@@ -55,3 +67,24 @@
 
 > [!NOTE]
 > 可选列通常用于调试和可视化，验证风控线是否按预期计算和移动。在生产环境如果不关心风控线轨迹，可以忽略这些列。
+
+---
+
+## 3. 列值约定
+
+### 价格列的 NaN 含义
+
+| 列 | 值为 NaN 的含义 |
+|----|----------------|
+| `entry_long_price` | 当前 bar 无多头持仓 |
+| `exit_long_price` | 当前 bar 未平多头仓位 |
+| 风控价格列 (如 `sl_pct_price_long`) | 当前 bar 无对应方向持仓 |
+
+### 状态推断组合
+
+| 场景 | 判断条件 |
+|------|----------|
+| 持有多头 | `entry_long_price` 非 NaN 且 `exit_long_price` 为 NaN |
+| 多头首次进场 bar | `first_entry_side == 1` |
+| 多头被风控平仓 | `risk_in_bar_direction == 1` |
+| 多头秒杀（进即出） | `first_entry_side == 1` 且 `risk_in_bar_direction == 1` |

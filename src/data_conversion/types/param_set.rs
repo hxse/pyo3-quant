@@ -129,10 +129,15 @@ pub struct BacktestParams {
     pub tsl_atr_tight: bool,
 
     // === 离场方式 ===
-    /// 离场时机选择。
+    /// sl 离场时机选择。
     /// `true` 表示在当前K线内部触发条件时立即离场。
     /// `false` 表示延迟到下一根K线的开盘价离场。
-    pub exit_in_bar: bool,
+    pub sl_exit_in_bar: bool,
+
+    /// tp 离场时机选择。
+    /// `true` 表示在当前K线内部触发条件时立即离场。
+    /// `false` 表示延迟到下一根K线的开盘价离场。
+    pub tp_exit_in_bar: bool,
 
     // === 触发模式 (trigger_mode) ===
     // 控制用什么价格检测止损止盈是否触发
@@ -309,6 +314,27 @@ impl BacktestParams {
                 param_name: "fee_pct".to_string(),
                 value: self.fee_pct.to_string(),
                 reason: "百分比手续费不能为负".to_string(),
+            });
+        }
+
+        // 3. 验证触发模式和 exit_in_bar 的组合
+        // 如果 sl_exit_in_bar 为 true，则 sl_trigger_mode 不能为 false (Close 模式)
+        if self.sl_exit_in_bar && !self.sl_trigger_mode {
+            return Err(BacktestError::InvalidParameter {
+                param_name: "sl_exit_in_bar".to_string(),
+                value: "true".to_string(),
+                reason: "sl_exit_in_bar 不能在 sl_trigger_mode 为 false (Close 模式) 时启用"
+                    .to_string(),
+            });
+        }
+
+        // 如果 tp_exit_in_bar 为 true，则 tp_trigger_mode 不能为 false (Close 模式)
+        if self.tp_exit_in_bar && !self.tp_trigger_mode {
+            return Err(BacktestError::InvalidParameter {
+                param_name: "tp_exit_in_bar".to_string(),
+                value: "true".to_string(),
+                reason: "tp_exit_in_bar 不能在 tp_trigger_mode 为 false (Close 模式) 时启用"
+                    .to_string(),
             });
         }
 

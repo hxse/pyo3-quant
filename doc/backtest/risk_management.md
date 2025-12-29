@@ -14,25 +14,25 @@
 
 ### 1.2 风控类型分类
 
-| 类型 | 离场时机 | 受 `exit_in_bar` 影响 | 备注 |
+| 类型 | 离场时机 | 受 `sl/tp_exit_in_bar` 影响 | 备注 |
 |------|---------|---------------------|------|
-| **SL (止损)** | sl_pct, sl_atr | ✅ 是 | In-Bar 可当根离场 |
-| **TP (止盈)** | tp_pct, tp_atr | ✅ 是 | In-Bar 可当根离场 |
+| **SL (止损)** | sl_pct, sl_atr | ✅ 是 (sl_exit_in_bar) | In-Bar 可当根离场 |
+| **TP (止盈)** | tp_pct, tp_atr | ✅ 是 (tp_exit_in_bar) | In-Bar 可当根离场 |
 | **TSL (跟踪止损)** | tsl_pct, tsl_atr | ❌ 否 | 始终 Next-Bar 离场 |
 | **PSAR (抛物线跟踪)** | tsl_psar_* | ❌ 否 | 始终 Next-Bar 离场 |
 
 > [!IMPORTANT]
-> **`exit_in_bar` 只影响 SL/TP**，不影响 TSL 和 PSAR。TSL/PSAR 始终在下一根 K 线开盘价离场。
+> **`sl_exit_in_bar` / `tp_exit_in_bar`** 分别独立控制 SL 和 TP 的离场行为。TSL/PSAR 始终在下一根 K 线开盘价离场。
 
 ---
 
 ## 2. 关键参数详解
 
-### 2.1 `exit_in_bar` - 离场时机
+### 2.1 `sl_exit_in_bar` / `tp_exit_in_bar` - 离场时机
 
-**作用范围**：仅影响 **SL (止损)** 和 **TP (止盈)**
+**作用范围**：分别控制 **SL (止损)** 和 **TP (止盈)**
 
-| 值 | SL/TP 行为 | TSL/PSAR 行为 |
+| 值 | 对应 SL/TP 行为 | TSL/PSAR 行为 |
 |----|-----------|--------------|
 | `True` | 当根 K 线内触发即离场，使用触发价格 | 不受影响，始终 Next-Bar 开盘价离场 |
 | `False` | 延迟到下一根 K 线开盘离场 | 不受影响，始终 Next-Bar 开盘价离场 |
@@ -40,7 +40,7 @@
 **标志位**：`risk_in_bar_direction`
 - `1` = 多头 In-Bar 离场
 - `-1` = 空头 In-Bar 离场
-- `0` = Next-Bar 离场（策略信号离场 / TSL 触发 / `exit_in_bar=False`）
+- `0` = Next-Bar 离场（策略信号离场 / TSL 触发 / `sl/tp_exit_in_bar=False`）
 
 ### 2.2 触发模式 (Trigger Mode)
 
@@ -117,25 +117,25 @@
 
 当一根 K 线内**同时触发多个风控条件**时，需要选择一个离场价格。
 
-### 3.1 In-Bar 模式 (`exit_in_bar=True`)
+### 3.1 In-Bar 模式 (`sl/tp_exit_in_bar=True`)
 
-**只有 SL/TP 参与悲观取值**（因为只有它们支持 In-Bar 离场）：
+**只有配置了 In-Bar 的 SL/TP 参与悲观取值**：
 
 - **多头**：选择触发价格中**最小的**（亏损最大）
 - **空头**：选择触发价格中**最大的**（亏损最大）
 
 **示例**：多头持仓，同时触发：
-- `sl_pct_price` = 9.5
-- `sl_atr_price` = 9.3
+- `sl_pct_price` = 9.5 (In-Bar)
+- `sl_atr_price` = 9.3 (In-Bar)
 
 → 选择 9.3（更低，亏更多）
 
 > [!NOTE]
-> TSL/PSAR 不参与 In-Bar 悲观取值，因为它们始终用 Next-Bar 开盘价离场。
+> TSL/PSAR 或 配置为 Next-Bar 的 SL/TP 不参与 In-Bar 悲观取值。
 
 ### 3.2 Next-Bar 模式
 
-当 `exit_in_bar=False`，或者只有 TSL/PSAR 触发时：
+当所有触发的风控都配置为 `False` (Next-Bar)，或者只有 TSL/PSAR 触发时：
 
 - **离场价格** = 下一根 K 线开盘价（统一的）
 - **无需悲观取值**（反正都是同一个价格）

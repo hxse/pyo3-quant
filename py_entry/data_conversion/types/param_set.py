@@ -48,10 +48,15 @@ class BacktestParams:
     fee_pct: float
 
     # === 离场方式 ===
-    # 离场时机选择。
-    # `true` 表示在当前K线内部触发条件时立即离场。
-    # `false` 表示延迟到下一根K线的开盘价离场。
-    exit_in_bar: bool
+    # sl 离场时机选择。
+    # `True` 表示在当前K线内部触发条件时立即离场。
+    # `False` 表示延迟到下一根K线的开盘价离场。
+    sl_exit_in_bar: bool
+
+    # tp 离场时机选择。
+    # `True` 表示在当前K线内部触发条件时立即离场。
+    # `False` 表示延迟到下一根K线的开盘价离场。
+    tp_exit_in_bar: bool
 
     # === 触发模式 (trigger_mode) ===
     # 控制用什么价格检测止损止盈是否触发

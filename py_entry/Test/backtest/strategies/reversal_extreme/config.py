@@ -24,11 +24,12 @@ class StrategyConfig:
 
     # ========== 风控参数 ==========
     sl_pct: float = 0.02  # 2% 止损
-    tp_atr: float = 4.0  # 4×ATR 止盈
+    tp_atr: float = 3.0  # 4×ATR 止盈
     tsl_atr: float = 2.0  # 2.0×ATR 跟踪止损 (Relaxed for correlation stability)
 
     # ========== 引擎特性 (pyo3) ==========
-    exit_in_bar: bool = True  # SL/TP 当根 K 线离场
+    sl_exit_in_bar: bool = True  # SL 当根 K 线离场
+    tp_exit_in_bar: bool = True  # TP 当根 K 线离场
 
     # 触发模式: True=high/low, False=close
     sl_trigger_mode: bool = True

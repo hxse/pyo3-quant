@@ -17,10 +17,19 @@ impl<'a> BacktestState<'a> {
             Direction::Long => true,
             Direction::Short => false,
         };
-        let (price_for_sl, price_for_tp) = if params.exit_in_bar {
-            switch_prices_in_bar(&self.current_bar, is_long)
+        let (sl_in_bar, tp_in_bar) = switch_prices_in_bar(&self.current_bar, is_long);
+        let (sl_next_bar, tp_next_bar) = switch_prices_next_bar(&self.current_bar, params, is_long);
+
+        let price_for_sl = if params.sl_exit_in_bar {
+            sl_in_bar
         } else {
-            switch_prices_next_bar(&self.current_bar, params, is_long)
+            sl_next_bar
+        };
+
+        let price_for_tp = if params.tp_exit_in_bar {
+            tp_in_bar
+        } else {
+            tp_next_bar
         };
 
         let sl_pct_price = self.risk_state.sl_pct_price(direction);

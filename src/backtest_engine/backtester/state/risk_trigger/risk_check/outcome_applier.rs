@@ -66,14 +66,22 @@ impl<'a> BacktestState<'a> {
             };
 
             // 判断是否为 In-Bar 模式触发 (仅 SL/TP 受 exit_in_bar 影响)
-            let is_in_bar_exit =
-                params.exit_in_bar && (result.sl_triggered() || result.tp_triggered());
+            let is_in_bar_exit = (result.sl_triggered() && params.sl_exit_in_bar)
+                || (result.tp_triggered() && params.tp_exit_in_bar);
 
             let exit_price = if is_in_bar_exit {
                 // 1. In-Bar 模式：只包含触发的 SL/TP 价格。
                 // TSL/PSAR 始终为 Next-Bar，不参与 In-Bar 的悲观结算价格计算。
+                // 如果某一边(SL或TP)配置为Next-Bar，即使触发了(Next-Bar触发)，也不应该参与In-Bar的结算。
                 calculate_risk_price(
-                    sl_pct_eff, sl_atr_eff, tp_pct_eff, tp_atr_eff, None, None, None, is_long,
+                    sl_pct_eff.filter(|_| params.sl_exit_in_bar),
+                    sl_atr_eff.filter(|_| params.sl_exit_in_bar),
+                    tp_pct_eff.filter(|_| params.tp_exit_in_bar),
+                    tp_atr_eff.filter(|_| params.tp_exit_in_bar),
+                    None,
+                    None,
+                    None,
+                    is_long,
                 )
             } else {
                 // 2. Next-Bar 模式：包含所有触发的价格（SL/TP/TSL/PSAR）

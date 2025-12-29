@@ -224,7 +224,7 @@ flowchart LR
 
 #### 风控类型与离场模式
 
-| 类型 | 受 `exit_in_bar` 影响 | 可能的离场模式 |
+| 类型 | 受 `sl_exit_in_bar` / `tp_exit_in_bar` 影响 | 可能的离场模式 |
 |---------|:-------------------:|--------------|
 | **策略信号** (entry_long, exit_long, entry_short, exit_short) | ❌ 否 | 仅 Next-Bar |
 | **SL/TP** (sl_pct, sl_atr, tp_pct, tp_atr) | ✅ 是 | In-Bar 或 Next-Bar |
@@ -232,7 +232,7 @@ flowchart LR
 | **PSAR** (tsl_psar) | ❌ 否 | 仅 Next-Bar |
 
 > [!IMPORTANT]
-> `exit_in_bar` 参数**只影响 SL/TP**。策略信号、TSL 和 PSAR 始终使用 Next-Bar 模式。
+> `sl_exit_in_bar` / `tp_exit_in_bar` 参数**只影响 SL/TP**。策略信号、TSL 和 PSAR 始终使用 Next-Bar 模式。
 
 #### 触发模式 (Trigger Mode)
 
@@ -262,8 +262,8 @@ flowchart LR
 
 | 模式 | 适用风控 | 离场价格 | 状态标记 |
 |-----|---------|---------|---------|
-| **In-Bar** | SL/TP（当 `exit_in_bar=true`） | 触发价（SL/TP 价格） | `in_bar_direction = 1/-1` |
-| **Next-Bar** | TSL/PSAR，或 SL/TP（当 `exit_in_bar=false`） | `next_bar.open` | `in_bar_direction = 0` |
+| **In-Bar** | SL/TP（当 `sl_exit_in_bar`/`tp_exit_in_bar`=true） | 触发价（SL/TP 价格） | `in_bar_direction = 1/-1` |
+| **Next-Bar** | TSL/PSAR，或 SL/TP（当 ...=false） | `next_bar.open` | `in_bar_direction = 0` |
 
 #### `in_bar_direction` 字段
 - **类型**: `i8`

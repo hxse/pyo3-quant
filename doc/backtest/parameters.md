@@ -45,7 +45,8 @@ PSAR (Parabolic SAR) 是一种特殊的跟踪止损算法。以下三个参数**
 
 | 参数名 | 类型 | 默认值 | 说明 |
 |--------|------|:----:|------|
-| `exit_in_bar` | `bool` | `False` | **离场时机选择**。<br>`True`: 允许在 K 线内部（In-Bar）立即离场（以触发价成交）。<br>`False`: 延迟到下一根 K 线开盘（Next-Bar）离场。 |
+| `sl_exit_in_bar` | `bool` | `False` | **SL 离场时机**。<br>`True`: In-Bar（当根K线内）离场。<br>`False`: Next-Bar（下根K线开盘）离场。 |
+| `tp_exit_in_bar` | `bool` | `False` | **TP 离场时机**。<br>`True`: In-Bar（当根K线内）离场。<br>`False`: Next-Bar（下根K线开盘）离场。 |
 | `tsl_atr_tight` | `bool` | `False` | **ATR 跟踪止损更新模式**。<br>`True`: 每根 K 线都尝试收紧止损线。<br>`False`: 仅当创新高/新低时才收紧止损线。 |
 
 ### 3.1 触发模式 (Trigger Mode)
@@ -76,7 +77,7 @@ PSAR (Parabolic SAR) 是一种特殊的跟踪止损算法。以下三个参数**
 > **多头**：SL 用 low，TP/TSL 用 high 作为锚点。
 > **空头**：SL 用 high，TP/TSL 用 low 作为锚点。
 
-### `exit_in_bar` 的影响
+### `sl_exit_in_bar` / `tp_exit_in_bar` 的影响
 
 - **In-Bar (True)**: 更灵敏，减少滑点风险，但通过 `risk_in_bar_direction` 标记。
 - **Next-Bar (False)**: 更保守，总是以次日开盘价成交。

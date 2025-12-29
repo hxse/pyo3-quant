@@ -52,7 +52,8 @@ def get_config() -> StrategyConfig:
         initial_capital=10000.0,
         fee_fixed=1,
         fee_pct=0.001,
-        exit_in_bar=False,  # PSAR 不支持 in_bar
+        sl_exit_in_bar=False,  # PSAR 不支持 in_bar
+        tp_exit_in_bar=False,
         sl_trigger_mode=False,
         tp_trigger_mode=False,
         tsl_trigger_mode=False,

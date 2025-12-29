@@ -27,7 +27,8 @@ class StrategyConfig:
     fee_pct: float = 0.001
 
     # ========== 执行参数 ==========
-    exit_in_bar: bool = False
+    sl_exit_in_bar: bool = False
+    tp_exit_in_bar: bool = False
     sl_trigger_mode: bool = False
     tp_trigger_mode: bool = False
     tsl_trigger_mode: bool = False

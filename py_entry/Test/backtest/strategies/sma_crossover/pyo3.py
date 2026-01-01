@@ -8,8 +8,8 @@
 - 离场: 反向交叉
 """
 
-from py_entry.data_conversion.data_generator import DataGenerationParams
-from py_entry.data_conversion.types import (
+from py_entry.data_generator import DataGenerationParams
+from py_entry.types import (
     BacktestParams,
     Param,
     LogicOp,
@@ -35,7 +35,7 @@ def get_config() -> StrategyConfig:
         start_time=C.start_time,
         num_bars=C.num_bars,
         fixed_seed=C.fixed_seed,
-        BaseDataKey=f"ohlcv_{C.timeframe}",
+        base_data_key=f"ohlcv_{C.timeframe}",
         allow_gaps=C.allow_gaps,  # 使用统一配置
     )
 

@@ -63,7 +63,7 @@ class TestAtrRiskPriceCalculation:
             pytest.skip("回测结果无 sl_atr_price_long 列")
 
         # 获取基础数据计算参考 ATR
-        base_key = data_dict.BaseDataKey
+        base_key = data_dict.base_data_key
         base_data = data_dict.source[base_key]
         ref_atr = _calculate_reference_atr(
             base_data["close"], base_data["high"], base_data["low"], atr_period
@@ -140,7 +140,7 @@ class TestAtrRiskPriceCalculation:
         if "sl_atr_price_short" not in df.columns:
             pytest.skip("回测结果无 sl_atr_price_short 列")
 
-        base_key = data_dict.BaseDataKey
+        base_key = data_dict.base_data_key
         base_data = data_dict.source[base_key]
         ref_atr = _calculate_reference_atr(
             base_data["close"], base_data["high"], base_data["low"], atr_period
@@ -216,7 +216,7 @@ class TestAtrRiskPriceCalculation:
         if "tp_atr_price_long" not in df.columns:
             pytest.skip("回测结果无 tp_atr_price_long 列")
 
-        base_key = data_dict.BaseDataKey
+        base_key = data_dict.base_data_key
         base_data = data_dict.source[base_key]
         ref_atr = _calculate_reference_atr(
             base_data["close"], base_data["high"], base_data["low"], atr_period
@@ -292,7 +292,7 @@ class TestAtrRiskPriceCalculation:
         if "tp_atr_price_short" not in df.columns:
             pytest.skip("回测结果无 tp_atr_price_short 列")
 
-        base_key = data_dict.BaseDataKey
+        base_key = data_dict.base_data_key
         base_data = data_dict.source[base_key]
         ref_atr = _calculate_reference_atr(
             base_data["close"], base_data["high"], base_data["low"], atr_period

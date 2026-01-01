@@ -6,7 +6,7 @@ mod trigger_checker;
 
 use super::risk_price_calc::Direction;
 use crate::backtest_engine::backtester::state::backtest_state::BacktestState;
-use crate::data_conversion::BacktestParams;
+use crate::types::BacktestParams;
 
 /// 风控触发状态详细结果
 #[derive(Debug, Clone, Copy, Default)]

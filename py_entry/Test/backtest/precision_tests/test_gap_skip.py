@@ -1,6 +1,6 @@
 import pytest
 import polars as pl
-from py_entry.data_conversion.types import BacktestParams, Param
+from py_entry.types import BacktestParams, Param
 
 
 class TestGapSkip:

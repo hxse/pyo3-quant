@@ -6,6 +6,9 @@ use super::backtest_error::py_interface::{
 use super::indicator_error::py_interface::{
     convert_indicator_error, register_py_module as register_indicator_errors,
 };
+use super::optimizer_error::py_interface::{
+    convert_optimizer_error, register_py_module as register_optimizer_errors,
+};
 use super::quant_error::QuantError;
 use super::signal_error::py_interface::{
     convert_signal_error, register_py_module as register_signal_errors,
@@ -19,6 +22,7 @@ impl From<QuantError> for PyErr {
             QuantError::Signal(e) => convert_signal_error(e),
             QuantError::Indicator(e) => convert_indicator_error(e),
             QuantError::Backtest(e) => convert_backtest_error(e),
+            QuantError::Optimizer(e) => convert_optimizer_error(e),
             QuantError::PyO3(e) => e,
             QuantError::Polars(e) => PyQuantError::new_err(e.to_string()),
             QuantError::InfrastructureError(s) => PyQuantError::new_err(s),
@@ -31,5 +35,6 @@ pub fn register_py_exceptions(m: &Bound<'_, PyModule>) -> PyResult<()> {
     register_backtest_errors(m)?;
     register_indicator_errors(m)?;
     register_signal_errors(m)?;
+    register_optimizer_errors(m)?;
     Ok(())
 }

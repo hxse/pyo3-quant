@@ -9,7 +9,7 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Optional
 
-from py_entry.data_conversion.backtest_runner import BacktestRunner
+from py_entry.runner import BacktestRunner
 from py_entry.Test.backtest.strategies import get_strategy
 from py_entry.Test.backtest.correlation_analysis.config import CommonConfig
 
@@ -50,7 +50,7 @@ class Pyo3Adapter:
         strategy.data_config.fixed_seed = self.config.seed
         strategy.data_config.start_time = self.config.start_time
         strategy.data_config.timeframes = [self.config.timeframe]
-        strategy.data_config.BaseDataKey = f"ohlcv_{self.config.timeframe}"
+        strategy.data_config.base_data_key = f"ohlcv_{self.config.timeframe}"
 
         # 覆盖回测参数
         strategy.backtest_params.initial_capital = self.config.initial_capital

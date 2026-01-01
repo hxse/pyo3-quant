@@ -3,7 +3,7 @@
 测试多个条件的 AND 逻辑组合
 """
 
-from py_entry.data_conversion.types import (
+from py_entry.types import (
     SignalTemplate,
     SignalGroup,
     LogicOp,

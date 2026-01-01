@@ -3,7 +3,7 @@
 测试信号生成器对参数引用 ($param_name) 的支持
 """
 
-from py_entry.data_conversion.types import (
+from py_entry.types import (
     SignalTemplate,
     SignalGroup,
     LogicOp,

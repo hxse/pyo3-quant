@@ -3,7 +3,7 @@
 //! 将可选列按类型组(PCT/ATR/PSAR)和功能组(SL/TP/TSL)分层，
 //! 减少主循环中的分支检查次数。
 
-use crate::data_conversion::BacktestParams;
+use crate::types::BacktestParams;
 
 /// 功能组标志位
 ///

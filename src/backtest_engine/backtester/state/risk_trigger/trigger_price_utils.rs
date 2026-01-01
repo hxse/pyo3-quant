@@ -1,5 +1,5 @@
 use super::super::current_bar_data::CurrentBarData;
-use crate::data_conversion::BacktestParams;
+use crate::types::BacktestParams;
 
 /// 计算离场价格的工具函数
 ///

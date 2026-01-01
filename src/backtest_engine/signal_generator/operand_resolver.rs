@@ -1,10 +1,10 @@
 use crate::error::{QuantError, SignalError};
 
 use super::types::{OffsetType, ParamOperand, SignalDataOperand, SignalRightOperand};
-use crate::data_conversion::types::param_set::SignalParams;
+use crate::types::SignalParams;
 
-use crate::data_conversion::types::backtest_summary::IndicatorResults;
-use crate::data_conversion::types::{DataContainer, DataSource};
+use crate::types::IndicatorResults;
+use crate::types::{DataContainer, DataSource};
 use polars::prelude::*;
 
 /// 辅助函数：尝试从给定的数据源中解析 &Series

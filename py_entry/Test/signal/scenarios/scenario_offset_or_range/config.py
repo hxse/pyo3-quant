@@ -4,7 +4,7 @@
 语法：|0-2 表示 offset 0, 1, 2 中任一满足条件即可
 """
 
-from py_entry.data_conversion.types import (
+from py_entry.types import (
     IndicatorsParams,
     SignalParams,
     SignalTemplate,

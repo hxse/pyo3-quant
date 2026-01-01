@@ -21,10 +21,10 @@ def calculate_entry_long(
 ) -> pl.Series:
     """
     entry_long: close > sma_10
-    Implies: close, ohlcv_15m, 0 > sma_10, ohlcv_15m, 0 (assuming BaseDataKey is ohlcv_15m)
+    Implies: close, ohlcv_15m, 0 > sma_10, ohlcv_15m, 0 (assuming base_data_key is ohlcv_15m)
     """
-    # BaseDataKey is usually ohlcv_15m in tests
-    base_key = data_container.BaseDataKey
+    # base_data_key is usually ohlcv_15m in tests
+    base_key = data_container.base_data_key
 
     close = get_mapped_ohlcv(mapped_data_container, base_key, "close")
     sma = get_mapped_indicator(mapped_backtest_summary, base_key, "sma_10")
@@ -43,7 +43,7 @@ def calculate_exit_long(
     exit_long: close, , > sma_10, ,
     Implies: close, ohlcv_15m, 0 > sma_10, ohlcv_15m, 0
     """
-    base_key = data_container.BaseDataKey
+    base_key = data_container.base_data_key
 
     close = get_mapped_ohlcv(mapped_data_container, base_key, "close")
     sma = get_mapped_indicator(mapped_backtest_summary, base_key, "sma_10")
@@ -62,7 +62,7 @@ def calculate_entry_short(
     entry_short: close, , 1 > sma_10
     Implies: close, ohlcv_15m, 1 > sma_10, ohlcv_15m, 0
     """
-    base_key = data_container.BaseDataKey
+    base_key = data_container.base_data_key
 
     close = get_mapped_ohlcv(mapped_data_container, base_key, "close")
     sma = get_mapped_indicator(mapped_backtest_summary, base_key, "sma_10")
@@ -81,7 +81,7 @@ def calculate_exit_short(
     exit_short: close > sma_10, , 1
     Implies: close, ohlcv_15m, 0 > sma_10, ohlcv_15m, 1
     """
-    base_key = data_container.BaseDataKey
+    base_key = data_container.base_data_key
 
     close = get_mapped_ohlcv(mapped_data_container, base_key, "close")
     sma = get_mapped_indicator(mapped_backtest_summary, base_key, "sma_10")

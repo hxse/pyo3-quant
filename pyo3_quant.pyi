@@ -2,7 +2,7 @@ import polars
 from typing import Any, Dict, List, Optional
 
 # 导入项目中已有的类型定义
-from py_entry.data_conversion.types import (
+from py_entry.types import (
     DataContainer,
     ParamContainer,
     TemplateContainer,

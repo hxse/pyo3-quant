@@ -11,7 +11,7 @@
 5. 出场条件：趋势转向 + 动量超买 + 价格跌破布林带中轨
 """
 
-from py_entry.data_conversion.types import (
+from py_entry.types import (
     IndicatorsParams,
     SignalParams,
     SignalTemplate,

@@ -1,6 +1,6 @@
 import pandas_ta as ta
 
-from py_entry.data_conversion.data_generator import (
+from py_entry.data_generator import (
     generate_data_dict,
     DataGenerationParams,
 )
@@ -16,7 +16,7 @@ def main():
         start_time=1609459200000,
         num_bars=3000,
         fixed_seed=42,
-        BaseDataKey="ohlcv_15m",
+        base_data_key="ohlcv_15m",
     )
     data_dict = generate_data_dict(data_source=simulated_data_config)
 

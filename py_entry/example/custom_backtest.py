@@ -1,11 +1,12 @@
 import time
 from loguru import logger
 import json
+from pathlib import Path
 
 # 项目导入
 
-from py_entry.data_conversion.backtest_runner import BacktestRunner
-from py_entry.data_conversion.types import (
+from py_entry.runner import BacktestRunner
+from py_entry.types import (
     BacktestParams,
     Param,
     PerformanceParams,
@@ -17,9 +18,9 @@ from py_entry.data_conversion.types import (
     ExecutionStage,
 )
 
-from py_entry.data_conversion.data_generator import DataGenerationParams
+from py_entry.data_generator import DataGenerationParams
 
-from py_entry.data_conversion.file_utils import (
+from py_entry.io import (
     SaveConfig,
     UploadConfig,
     RequestConfig,
@@ -32,7 +33,7 @@ simulated_data_config = DataGenerationParams(
     start_time=1735689600000,
     num_bars=10000,
     fixed_seed=42,
-    BaseDataKey="ohlcv_15m",
+    base_data_key="ohlcv_15m",
 )
 
 # 构建指标参数
@@ -95,11 +96,11 @@ backtest_params = BacktestParams(
 # 自定义性能参数
 performance_params = PerformanceParams(
     metrics=[
-        PerformanceMetric.TOTAL_RETURN,
-        PerformanceMetric.MAX_DRAWDOWN,
-        PerformanceMetric.CALMAR_RATIO,
-        PerformanceMetric.ANNUALIZATION_FACTOR,
-        PerformanceMetric.HAS_LEADING_NAN_COUNT,
+        PerformanceMetric.TotalReturn,
+        PerformanceMetric.MaxDrawdown,
+        PerformanceMetric.CalmarRatio,
+        PerformanceMetric.AnnualizationFactor,
+        PerformanceMetric.HasLeadingNanCount,
     ],
     leverage_safety_factor=0.8,
 )
@@ -134,7 +135,11 @@ engine_settings = SettingContainer(
     return_only_final=False,
 )
 
-if __name__ == "__main__":
+
+def run_custom_backtest():
+    """
+    运行自定义回测流程
+    """
     # 配置logger
 
     start_time = time.perf_counter()
@@ -146,43 +151,74 @@ if __name__ == "__main__":
     logger.info("开始执行回测流程")
 
     # 读取配置文件
-    with open("data/config.json", "r") as f:
-        json_config = json.load(f)
+    # 尝试查找配置文件，适应不同的运行目录
+    config_path = "data/config.json"
+    if not Path(config_path).exists():
+        # 尝试相对于当前文件的路径
+        current_file_path = Path(__file__).resolve().parent
+        config_path = current_file_path / "data/config.json"
 
-    request_cfg = RequestConfig.create(
-        username=json_config["username"],
-        password=json_config["password"],
-        server_url=json_config["server_url"],
-    )
+    if Path(config_path).exists():
+        with open(config_path, "r") as f:
+            json_config = json.load(f)
 
-    # 完整的链式调用：配置 -> 运行 -> 添加索引 -> 保存 -> 上传
-    br.setup(
-        data_source=simulated_data_config,
-        indicators_params=indicators_params,
-        signal_params=signal_params,
-        backtest_params=backtest_params,
-        performance_params=performance_params,
-        signal_template=signal_template,
-        engine_settings=engine_settings,
-    ).run().format_results_for_export(
-        export_index=0, dataframe_format="csv"
-    ).save_results(
-        SaveConfig(
-            output_dir="my_strategy",
+        request_cfg = RequestConfig.create(
+            username=json_config["username"],
+            password=json_config["password"],
+            server_url=json_config["server_url"],
         )
-    ).upload_results(
-        UploadConfig(
-            request_config=request_cfg,
-            server_dir="my_strategy",
-            zip_name="results.zip",
+
+        # 完整的链式调用：配置 -> 运行 -> 添加索引 -> 保存 -> 上传
+        br.setup(
+            data_source=simulated_data_config,
+            indicators_params=indicators_params,
+            signal_params=signal_params,
+            backtest_params=backtest_params,
+            performance_params=performance_params,
+            signal_template=signal_template,
+            engine_settings=engine_settings,
+        ).run().format_results_for_export(
+            export_index=0, dataframe_format="csv"
+        ).save_results(
+            SaveConfig(
+                output_dir="my_strategy",
+            )
+        ).upload_results(
+            UploadConfig(
+                request_config=request_cfg,
+                server_dir="my_strategy",
+                zip_name="results.zip",
+            )
         )
-    )
+    else:
+        logger.warning(f"Config file not found at {config_path}, skipping upload.")
+        # 如果没有配置文件，仅运行回测不上传
+        br.setup(
+            data_source=simulated_data_config,
+            indicators_params=indicators_params,
+            signal_params=signal_params,
+            backtest_params=backtest_params,
+            performance_params=performance_params,
+            signal_template=signal_template,
+            engine_settings=engine_settings,
+        ).run().format_results_for_export(
+            export_index=0, dataframe_format="csv"
+        ).save_results(
+            SaveConfig(
+                output_dir="my_strategy",
+            )
+        )
 
     # 获取结果用于打印
     backtest_result = br.results
 
-    print(backtest_result)
     if backtest_result:
         logger.info(f"performance: {backtest_result[0].performance}")
 
     logger.info(f"总耗时 {time.perf_counter() - start_time:.4f}秒")
+
+    return br
+
+
+if __name__ == "__main__":
+    run_custom_backtest()

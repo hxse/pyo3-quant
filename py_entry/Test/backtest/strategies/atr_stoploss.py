@@ -10,8 +10,8 @@ ATR 止损止盈策略
 使用 reversal_extreme 的信号模板来覆盖更多状态机状态
 """
 
-from py_entry.data_conversion.data_generator import DataGenerationParams
-from py_entry.data_conversion.types import (
+from py_entry.data_generator import DataGenerationParams
+from py_entry.types import (
     BacktestParams,
     Param,
     LogicOp,
@@ -34,7 +34,7 @@ def get_config() -> StrategyConfig:
         start_time=1735689600000,
         num_bars=10000,
         fixed_seed=123,
-        BaseDataKey="ohlcv_15m",
+        base_data_key="ohlcv_15m",
     )
 
     # 使用 reversal_extreme 的指标配置

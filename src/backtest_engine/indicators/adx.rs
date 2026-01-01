@@ -4,7 +4,7 @@
 //!
 use super::{registry::Indicator, utils::null_to_nan_expr};
 use crate::backtest_engine::indicators::tr::{tr_expr, TRConfig};
-use crate::data_conversion::types::param::Param;
+use crate::types::Param;
 use crate::error::{IndicatorError, QuantError};
 use polars::lazy::dsl::{col, lit, when};
 use polars::prelude::*;

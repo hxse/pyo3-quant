@@ -1,12 +1,12 @@
 use crate::backtest_engine::{
     backtester, indicators, performance_analyzer, signal_generator, utils,
 };
-use crate::data_conversion::types::backtest_summary::{
+use crate::types::{
     BacktestSummary, IndicatorResults, PerformanceMetrics,
 };
-use crate::data_conversion::types::settings::ExecutionStage;
-use crate::data_conversion::types::templates::SignalTemplate;
-use crate::data_conversion::{
+use crate::types::ExecutionStage;
+use crate::types::SignalTemplate;
+use crate::types::{
     BacktestParams, DataContainer, IndicatorsParams, PerformanceParams, SignalParams,
 };
 use crate::error::QuantError;

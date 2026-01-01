@@ -84,7 +84,7 @@ def prepare_mapped_data(data_container, backtest_summary):
         - mapped_data_container: 映射后的DataContainer（所有source数据已映射到基准周期）
         - mapped_backtest_summary: 映射后的BacktestSummary（所有indicators已映射到基准周期）
     """
-    from py_entry.data_conversion.types import DataContainer, BacktestSummary
+    from py_entry.types import DataContainer, BacktestSummary
 
     # 1. 映射 indicators（在 backtest_summary 中）
     mapped_indicators = {}
@@ -108,7 +108,7 @@ def prepare_mapped_data(data_container, backtest_summary):
         skip_mask=data_container.skip_mask,
         skip_mapping=data_container.skip_mapping,
         source=mapped_source,
-        BaseDataKey=data_container.BaseDataKey,
+        base_data_key=data_container.base_data_key,
     )
 
     # 4. 构造新的 BacktestSummary（映射后的）

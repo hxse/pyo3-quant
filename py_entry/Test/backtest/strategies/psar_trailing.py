@@ -9,8 +9,8 @@ PSAR 追踪止损策略
 注意：PSAR 不支持 in_bar 模式
 """
 
-from py_entry.data_conversion.data_generator import DataGenerationParams
-from py_entry.data_conversion.types import (
+from py_entry.data_generator import DataGenerationParams
+from py_entry.types import (
     BacktestParams,
     Param,
     LogicOp,
@@ -33,7 +33,7 @@ def get_config() -> StrategyConfig:
         start_time=1735689600000,
         num_bars=10000,
         fixed_seed=456,
-        BaseDataKey="ohlcv_15m",
+        base_data_key="ohlcv_15m",
     )
 
     # 使用 reversal_extreme 的指标配置

@@ -1,6 +1,6 @@
-from py_entry.data_conversion.data_generator import DataGenerationParams
-from py_entry.data_conversion.backtest_runner import BacktestRunner
-from py_entry.data_conversion.types import (
+from py_entry.data_generator import DataGenerationParams
+from py_entry.runner import BacktestRunner
+from py_entry.types import (
     SettingContainer,
     ExecutionStage,
     Param,
@@ -23,7 +23,7 @@ def test_leading_nan_tracking():
         start_time=None,
         num_bars=num_bars,
         fixed_seed=42,
-        BaseDataKey="ohlcv_15m",
+        base_data_key="ohlcv_15m",
     )
 
     # 2. 构建指标参数

@@ -1,7 +1,7 @@
 // src/backtest_engine/indicators/rma.rs
 use super::registry::Indicator;
 use super::utils::null_to_nan_expr;
-use crate::data_conversion::types::param::Param;
+use crate::types::Param;
 use crate::error::{IndicatorError, QuantError};
 use polars::lazy::dsl::col;
 use polars::prelude::*;

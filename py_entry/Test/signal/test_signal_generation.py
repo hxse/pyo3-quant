@@ -17,9 +17,9 @@
 import pytest
 from polars.testing import assert_frame_equal
 
-from py_entry.data_conversion.data_generator import DataGenerationParams, OtherParams
-from py_entry.data_conversion.backtest_runner import BacktestRunner
-from py_entry.data_conversion.types import SettingContainer, ExecutionStage
+from py_entry.data_generator import DataGenerationParams, OtherParams
+from py_entry.runner import BacktestRunner
+from py_entry.types import SettingContainer, ExecutionStage
 
 from py_entry.Test.signal.scenarios import get_all_scenarios
 from py_entry.Test.signal.utils import (
@@ -61,7 +61,7 @@ def test_signal_scenario(scenario, setting_container):
         start_time=None,  # 使用默认时间
         num_bars=10000,  # 生成10000根K线
         fixed_seed=42,  # 使用固定种子保证可重现
-        BaseDataKey="ohlcv_15m",  # 基础数据键
+        base_data_key="ohlcv_15m",  # 基础数据键
     )
     other_params = OtherParams(
         ha_timeframes=["15m", "1h", "4h"],

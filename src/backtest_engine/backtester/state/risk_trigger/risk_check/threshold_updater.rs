@@ -4,7 +4,7 @@ use super::super::risk_price_calc::{
 };
 use super::super::tsl_psar::{update_tsl_psar, TslPsarParams};
 use crate::backtest_engine::backtester::state::backtest_state::BacktestState;
-use crate::data_conversion::BacktestParams;
+use crate::types::BacktestParams;
 
 impl<'a> BacktestState<'a> {
     /// 更新 Risk 阈值（仅更新 TSL，SL/TP 在 gap_check 中已初始化）

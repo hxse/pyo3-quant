@@ -1,6 +1,6 @@
 use super::backtest_state::BacktestState;
 use super::risk_trigger;
-use crate::data_conversion::BacktestParams;
+use crate::types::BacktestParams;
 
 impl<'a> BacktestState<'a> {
     pub fn reset_position_on_skip(&mut self) {

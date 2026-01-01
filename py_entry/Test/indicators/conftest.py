@@ -1,10 +1,10 @@
 import pytest
 
-from py_entry.data_conversion.data_generator import (
+from py_entry.data_generator import (
     DataGenerationParams,
 )
-from py_entry.data_conversion.backtest_runner import BacktestRunner
-from py_entry.data_conversion.types import (
+from py_entry.runner import BacktestRunner
+from py_entry.types import (
     SettingContainer,
     ExecutionStage,
     IndicatorsParams,
@@ -56,5 +56,5 @@ def data_dict():
         start_time=1735689600000,
         num_bars=5000,
         fixed_seed=42,
-        BaseDataKey="ohlcv_15m",
+        base_data_key="ohlcv_15m",
     )

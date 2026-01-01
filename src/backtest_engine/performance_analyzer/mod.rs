@@ -2,12 +2,9 @@ mod metrics;
 mod stats;
 
 use crate::backtest_engine::utils::get_ohlcv_dataframe;
-use crate::data_conversion::types::{
-    backtest_summary::PerformanceMetrics,
-    param_set::{PerformanceMetric, PerformanceParams},
-};
-use crate::data_conversion::DataContainer;
 use crate::error::QuantError;
+use crate::types::DataContainer;
+use crate::types::{PerformanceMetric, PerformanceMetrics, PerformanceParams};
 use polars::prelude::*;
 use pyo3::prelude::*;
 use pyo3_polars::PyDataFrame;
@@ -95,16 +92,20 @@ pub fn analyze_performance(
             PerformanceMetric::MaxDrawdown => current_drawdown.max().unwrap_or(0.0),
             PerformanceMetric::MaxDrawdownDuration => dur_stats.max_drawdown_duration,
 
-            // 风险调整收益指标
+            // 风险调整收益指标（年化和非年化）
             PerformanceMetric::SharpeRatio
             | PerformanceMetric::SortinoRatio
-            | PerformanceMetric::CalmarRatio => metrics::calculate_risk_metrics(
+            | PerformanceMetric::CalmarRatio
+            | PerformanceMetric::SharpeRatioRaw
+            | PerformanceMetric::SortinoRatioRaw
+            | PerformanceMetric::CalmarRatioRaw => metrics::calculate_risk_metrics(
                 metric,
                 annualization_factor,
                 rf,
                 mean_ret,
                 std_ret,
                 annualized_return,
+                total_return_pct,
                 returns,
                 current_drawdown,
             ),
@@ -149,7 +150,7 @@ pub fn py_analyze_performance(
     data_dict: DataContainer,
     backtest_df_py: PyDataFrame,
     performance_params: PerformanceParams,
-) -> PyResult<PerformanceMetrics> {
+) -> PyResult<HashMap<String, f64>> {
     // 1. 将 Python 对象转换为 Rust 类型
     let backtest_df: DataFrame = backtest_df_py.into();
 

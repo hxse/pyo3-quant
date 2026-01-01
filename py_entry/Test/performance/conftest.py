@@ -1,7 +1,7 @@
 import pytest
-from py_entry.data_conversion.backtest_runner import BacktestRunner
-from py_entry.data_conversion.data_generator import DataGenerationParams
-from py_entry.data_conversion.types import (
+from py_entry.runner import BacktestRunner
+from py_entry.data_generator import DataGenerationParams
+from py_entry.types import (
     BacktestParams,
     Param,
     PerformanceParams,
@@ -25,7 +25,7 @@ def full_performance_result():
         start_time=1735689600000,
         num_bars=1000,
         fixed_seed=42,
-        BaseDataKey="ohlcv_15m",
+        base_data_key="ohlcv_15m",
     )
 
     indicators_params = {
@@ -72,22 +72,22 @@ def full_performance_result():
 
     performance_params = PerformanceParams(
         metrics=[
-            PerformanceMetric.TOTAL_RETURN,
-            PerformanceMetric.MAX_DRAWDOWN,
-            PerformanceMetric.MAX_DRAWDOWN_DURATION,
-            PerformanceMetric.SHARPE_RATIO,
-            PerformanceMetric.SORTINO_RATIO,
-            PerformanceMetric.CALMAR_RATIO,
-            PerformanceMetric.TOTAL_TRADES,
-            PerformanceMetric.AVG_DAILY_TRADES,
-            PerformanceMetric.WIN_RATE,
-            PerformanceMetric.PROFIT_LOSS_RATIO,
-            PerformanceMetric.AVG_HOLDING_DURATION,
-            PerformanceMetric.MAX_HOLDING_DURATION,
-            PerformanceMetric.AVG_EMPTY_DURATION,
-            PerformanceMetric.MAX_EMPTY_DURATION,
-            PerformanceMetric.MAX_SAFE_LEVERAGE,
-            PerformanceMetric.ANNUALIZATION_FACTOR,
+            PerformanceMetric.TotalReturn,
+            PerformanceMetric.MaxDrawdown,
+            PerformanceMetric.MaxDrawdownDuration,
+            PerformanceMetric.SharpeRatio,
+            PerformanceMetric.SortinoRatio,
+            PerformanceMetric.CalmarRatio,
+            PerformanceMetric.TotalTrades,
+            PerformanceMetric.AvgDailyTrades,
+            PerformanceMetric.WinRate,
+            PerformanceMetric.ProfitLossRatio,
+            PerformanceMetric.AvgHoldingDuration,
+            PerformanceMetric.MaxHoldingDuration,
+            PerformanceMetric.AvgEmptyDuration,
+            PerformanceMetric.MaxEmptyDuration,
+            PerformanceMetric.MaxSafeLeverage,
+            PerformanceMetric.AnnualizationFactor,
         ],
         risk_free_rate=0.0,
         leverage_safety_factor=0.8,

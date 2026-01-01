@@ -4,7 +4,7 @@ use super::super::risk_price_calc::{
 use super::super::trigger_price_utils::{switch_prices_in_bar, switch_prices_next_bar};
 use super::RiskTriggerResult;
 use crate::backtest_engine::backtester::state::backtest_state::BacktestState;
-use crate::data_conversion::BacktestParams;
+use crate::types::BacktestParams;
 
 impl<'a> BacktestState<'a> {
     /// 检查触发条件

@@ -15,10 +15,7 @@ pub mod extended;
 
 pub mod registry;
 use self::registry::get_indicator_registry;
-use crate::data_conversion::{
-    types::{backtest_summary::IndicatorResults, param::Param, param_set::IndicatorsParams},
-    DataContainer,
-};
+use crate::types::{DataContainer, IndicatorResults, IndicatorsParams, Param};
 
 use crate::error::{IndicatorError, QuantError};
 use polars::prelude::*;
@@ -62,9 +59,12 @@ pub fn calculate_indicators(
     let mut all_indicators: IndicatorResults = HashMap::new();
 
     for (source_name, mtf_indicator_params) in indicators_params.iter() {
-        let source_data = processed_data.source.get(source_name).ok_or_else(|| {
-            QuantError::Indicator(IndicatorError::DataSourceNotFound(source_name.to_string()))
-        })?;
+        let source_data = processed_data
+            .source
+            .get(source_name.as_str())
+            .ok_or_else(|| {
+                QuantError::Indicator(IndicatorError::DataSourceNotFound(source_name.to_string()))
+            })?;
 
         let indicators_df = calculate_single_period_indicators(source_data, mtf_indicator_params)?;
         all_indicators.insert(source_name.clone(), indicators_df);

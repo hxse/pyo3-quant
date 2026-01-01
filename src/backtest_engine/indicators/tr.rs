@@ -1,6 +1,6 @@
 use super::registry::Indicator;
 use super::utils::{null_to_nan_expr, null_when_expr};
-use crate::data_conversion::types::param::Param;
+use crate::types::Param;
 use crate::error::QuantError;
 use polars::lazy::dsl::{col, lit, max_horizontal};
 use polars::prelude::*;

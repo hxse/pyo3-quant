@@ -2,7 +2,7 @@ use super::super::risk_price_calc::Direction;
 use super::super::trigger_price_utils::calculate_risk_price;
 use super::RiskTriggerResult;
 use crate::backtest_engine::backtester::state::backtest_state::BacktestState;
-use crate::data_conversion::BacktestParams;
+use crate::types::BacktestParams;
 
 impl<'a> BacktestState<'a> {
     /// 应用 Risk 结果

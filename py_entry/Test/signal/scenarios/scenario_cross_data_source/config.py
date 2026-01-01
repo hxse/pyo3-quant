@@ -7,7 +7,7 @@
 - Renko 15m SMA vs HA 1h Close
 """
 
-from py_entry.data_conversion.types import (
+from py_entry.types import (
     IndicatorsParams,
     SignalParams,
     SignalTemplate,

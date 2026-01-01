@@ -5,7 +5,7 @@ OHLCV 数据生成工具
 """
 
 import pandas as pd
-from py_entry.data_conversion.data_generator import (
+from py_entry.data_generator import (
     DataGenerationParams,
     generate_data_dict,
 )
@@ -30,7 +30,7 @@ def generate_ohlcv_for_backtestingpy(
         start_time=config.start_time,
         num_bars=config.bars,
         fixed_seed=config.seed,
-        BaseDataKey=f"ohlcv_{config.timeframe}",
+        base_data_key=f"ohlcv_{config.timeframe}",
         allow_gaps=config.allow_gaps,  # 使用统一配置
     )
 

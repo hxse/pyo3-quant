@@ -5,7 +5,7 @@
 import pytest
 
 
-from py_entry.data_conversion.data_generator import is_natural_sequence
+from py_entry.data_generator import is_natural_sequence
 
 
 class TestIsNaturalSequence:

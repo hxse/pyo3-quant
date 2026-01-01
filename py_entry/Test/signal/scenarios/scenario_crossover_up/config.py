@@ -4,7 +4,7 @@
 语法：x> 表示向上突破（前值不满足，当前值满足）
 """
 
-from py_entry.data_conversion.types import (
+from py_entry.types import (
     IndicatorsParams,
     SignalParams,
     SignalTemplate,

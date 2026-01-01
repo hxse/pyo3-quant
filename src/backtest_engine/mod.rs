@@ -49,17 +49,19 @@ use rayon::prelude::*;
 // 子模块声明
 pub mod backtester;
 pub mod indicators;
+pub mod optimizer;
 mod performance_analyzer;
 pub mod signal_generator;
 mod utils;
+pub mod walk_forward;
 
 // 重新导出常用类型
-pub use crate::data_conversion::types::backtest_summary::BacktestSummary;
+pub use crate::types::BacktestSummary;
 
-use crate::data_conversion::{
-    DataContainer, ParamContainer, SettingContainer, SingleParam, TemplateContainer,
-};
 use crate::error::QuantError;
+use crate::types::{
+    DataContainer, ParamContainer, SettingContainer, SingleParamSet, TemplateContainer,
+};
 
 /// 纯 Rust 回测引擎主函数
 ///
@@ -84,7 +86,7 @@ use crate::error::QuantError;
 /// 函数会记录并输出总执行时间，便于性能监控和优化
 pub fn run_backtest_engine(
     processed_data: &DataContainer,
-    processed_params: &Vec<SingleParam>,
+    processed_params: &Vec<SingleParamSet>,
     processed_template: &TemplateContainer,
     processed_settings: &SettingContainer,
     input_backtest_df: Option<BacktestSummary>,
@@ -155,7 +157,7 @@ pub fn run_backtest_engine(
 /// * `input_backtest_df` - 可选的已有回测结果
 fn execute_single_backtest(
     processed_data: &DataContainer,
-    single_param: &SingleParam,
+    single_param: &SingleParamSet,
     processed_template: &TemplateContainer,
     processed_settings: &SettingContainer,
     input_backtest_df: Option<BacktestSummary>,
@@ -259,6 +261,20 @@ pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
         performance_analyzer::py_analyze_performance,
         m
     )?)?;
+
+    // 注册优化器子模块
+    let optimizer_submodule = PyModule::new(m.py(), "optimizer")?;
+
+    optimizer_submodule.add_function(wrap_pyfunction!(
+        optimizer::runner::py_run_optimizer,
+        &optimizer_submodule
+    )?)?;
+    m.add_submodule(&optimizer_submodule)?;
+
+    // 注册向前滚动优化子模块
+    let wf_submodule = PyModule::new(m.py(), "walk_forward")?;
+    walk_forward::register_py_module(&wf_submodule)?;
+    m.add_submodule(&wf_submodule)?;
 
     Ok(())
 }

@@ -10,7 +10,7 @@
 4. 出场条件：短期指标 < 长期指标 (多时间周期)
 """
 
-from py_entry.data_conversion.types import (
+from py_entry.types import (
     IndicatorsParams,
     SignalParams,
     SignalTemplate,

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 
-from py_entry.data_conversion.data_generator import (
+from py_entry.data_generator import (
     DataGenerationParams,
 )
 

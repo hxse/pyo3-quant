@@ -3,7 +3,7 @@
 """
 
 import pytest
-from py_entry.data_conversion.data_generator import (
+from py_entry.data_generator import (
     generate_data_dict,
     DataGenerationParams,
 )
@@ -19,10 +19,10 @@ class TestGenerateDataDictIntegration:
         assert hasattr(data_container, "mapping")
         assert hasattr(data_container, "skip_mapping")
         assert hasattr(data_container, "source")
-        assert hasattr(data_container, "BaseDataKey")
+        assert hasattr(data_container, "base_data_key")
 
         # 获取基准键 (通常是第一个时间周期)
-        base_key = data_container.BaseDataKey
+        base_key = data_container.base_data_key
         assert base_key in data_container.source
 
         # 验证基准列被正确跳过
@@ -51,7 +51,7 @@ class TestGenerateDataDictIntegration:
         ohlcv_keys = [k for k in data_container.source.keys() if "ohlcv" in k]
         assert len(ohlcv_keys) > 0
 
-        base_key = data_container.BaseDataKey
+        base_key = data_container.base_data_key
         assert base_key in data_container.skip_mapping
         assert data_container.skip_mapping[base_key] is True
         assert base_key not in data_container.mapping.columns
@@ -67,7 +67,7 @@ class TestGenerateDataDictIntegration:
             timeframes=timeframes,
             start_time=basic_start_time,
             num_bars=num_bars,
-            BaseDataKey="ohlcv_15m",
+            base_data_key="ohlcv_15m",
         )
 
         # 调用函数
@@ -84,7 +84,7 @@ class TestGenerateDataDictIntegration:
 
     def test_generate_data_dict_with_ha_renko(self, basic_start_time):
         """测试 generate_data_dict 函数 - 生成 HA 和 Renko 数据"""
-        from py_entry.data_conversion.data_generator import OtherParams
+        from py_entry.data_generator import OtherParams
 
         timeframes = ["15m", "1h"]
         num_bars = 10
@@ -93,7 +93,7 @@ class TestGenerateDataDictIntegration:
             timeframes=timeframes,
             start_time=basic_start_time,
             num_bars=num_bars,
-            BaseDataKey="ohlcv_15m",
+            base_data_key="ohlcv_15m",
         )
 
         other_params = OtherParams(
@@ -116,7 +116,7 @@ class TestGenerateDataDictIntegration:
 
     def test_generate_data_dict_invalid_timeframe(self, basic_start_time):
         """测试 generate_data_dict 函数 - 无效的时间周期"""
-        from py_entry.data_conversion.data_generator import OtherParams
+        from py_entry.data_generator import OtherParams
 
         timeframes = ["15m"]
         num_bars = 10
@@ -125,7 +125,7 @@ class TestGenerateDataDictIntegration:
             timeframes=timeframes,
             start_time=basic_start_time,
             num_bars=num_bars,
-            BaseDataKey="ohlcv_15m",
+            base_data_key="ohlcv_15m",
         )
 
         # 请求不存在的 timeframe

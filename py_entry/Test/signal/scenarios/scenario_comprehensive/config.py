@@ -3,7 +3,7 @@
 综合测试：多时间周期、多种指标、复杂逻辑组合、参数引用
 """
 
-from py_entry.data_conversion.types import (
+from py_entry.types import (
     SignalTemplate,
     SignalGroup,
     LogicOp,

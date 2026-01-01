@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import polars as pl
-from py_entry.data_conversion.data_generator import (
+from py_entry.data_generator import (
     generate_data_dict,
     DataGenerationParams,
     generate_multi_timeframe_ohlcv,
@@ -33,7 +33,7 @@ def data_generation_params(basic_timeframes, basic_start_time, basic_num_bars):
         timeframes=basic_timeframes,
         start_time=basic_start_time,
         num_bars=basic_num_bars,
-        BaseDataKey="ohlcv_15m",
+        base_data_key="ohlcv_15m",
     )
 
 

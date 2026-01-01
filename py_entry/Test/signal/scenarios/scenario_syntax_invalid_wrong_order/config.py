@@ -4,7 +4,7 @@
 预期：应该抛出解析错误或数据源未找到错误
 """
 
-from py_entry.data_conversion.types import (
+from py_entry.types import (
     IndicatorsParams,
     SignalParams,
     SignalTemplate,

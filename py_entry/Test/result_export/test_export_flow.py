@@ -1,6 +1,6 @@
 from pathlib import Path
 from unittest.mock import patch
-from py_entry.data_conversion.file_utils import SaveConfig
+from py_entry.io import SaveConfig
 
 
 def test_export_flow(runner_with_results, tmp_path):
@@ -37,9 +37,8 @@ def test_export_flow(runner_with_results, tmp_path):
     print(f"Saving results to {output_path}...")
     save_config = SaveConfig(output_dir=str(output_path))
 
-    # Mock validate_output_path to allow saving to tmp_path (outside data/output)
     with patch(
-        "py_entry.data_conversion.file_utils.result_export.validate_output_path",
+        "py_entry.io.result_export.validate_output_path",
         side_effect=lambda x: Path(x),
     ) as _:
         runner.save_results(save_config)

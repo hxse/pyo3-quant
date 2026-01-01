@@ -1,7 +1,7 @@
-use crate::data_conversion::types::backtest_summary::{
+use crate::types::{
     BacktestSummary, IndicatorResults, PerformanceMetrics,
 };
-use crate::data_conversion::types::settings::ExecutionStage;
+use crate::types::ExecutionStage;
 use polars::prelude::DataFrame;
 
 /// 在return_only_final模式下，信号计算完成后释放指标数据

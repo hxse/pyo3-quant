@@ -7,8 +7,8 @@ RSI 均值回归策略
 - 离场: RSI 回归中性区域
 """
 
-from py_entry.data_conversion.data_generator import DataGenerationParams
-from py_entry.data_conversion.types import (
+from py_entry.data_generator import DataGenerationParams
+from py_entry.types import (
     BacktestParams,
     Param,
     LogicOp,
@@ -32,7 +32,7 @@ def get_config() -> StrategyConfig:
         start_time=1735689600000,
         num_bars=10000,
         fixed_seed=42,
-        BaseDataKey="ohlcv_15m",
+        base_data_key="ohlcv_15m",
     )
 
     # 指标参数

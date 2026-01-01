@@ -6,7 +6,7 @@
 
 import pytest
 
-from py_entry.data_conversion.backtest_runner import BacktestRunner
+from py_entry.runner import BacktestRunner
 from py_entry.Test.backtest.strategies import get_all_strategies
 from py_entry.Test.backtest.strategies.base import StrategyConfig
 
@@ -52,7 +52,7 @@ def backtest_df(backtest_with_config):
 
     # 从 data_dict.source 中获取 close 价格并添加到 df
     if data_dict is not None:
-        base_key = data_dict.BaseDataKey
+        base_key = data_dict.base_data_key
         if base_key and base_key in data_dict.source:
             base_data = data_dict.source[base_key]
             if "close" in base_data.columns:

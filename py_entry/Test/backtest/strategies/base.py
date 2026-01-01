@@ -7,8 +7,8 @@
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, Type
 
-from py_entry.data_conversion.data_generator import DataGenerationParams
-from py_entry.data_conversion.types import (
+from py_entry.data_generator import DataGenerationParams
+from py_entry.types import (
     BacktestParams,
     SignalTemplate,
     SettingContainer,

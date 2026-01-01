@@ -6,7 +6,7 @@ import pytest
 import polars as pl
 import numpy as np
 
-from py_entry.data_conversion.data_generator import process_dataframe_mapping
+from py_entry.data_generator import process_dataframe_mapping
 
 
 class TestProcessDataframeMapping:

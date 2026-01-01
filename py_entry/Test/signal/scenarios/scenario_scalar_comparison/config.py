@@ -3,7 +3,7 @@
 测试信号生成器对数值字面量 (Scalar) 的支持
 """
 
-from py_entry.data_conversion.types import (
+from py_entry.types import (
     SignalTemplate,
     SignalGroup,
     LogicOp,

@@ -1,7 +1,7 @@
 use super::super::data_preparer::PreparedData;
 use super::risk_trigger::risk_state::RiskState;
 use super::{action::Action, capital_state::CapitalState, current_bar_data::CurrentBarData};
-use crate::data_conversion::BacktestParams;
+use crate::types::BacktestParams;
 
 /// 回测状态管理结构体
 /// 用于跟踪回测过程中的动态状态，包括资金、仓位、交易状态等

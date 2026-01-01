@@ -4,10 +4,10 @@ import json
 # 项目导入
 import pyo3_quant
 
-from py_entry.data_conversion.backtest_runner import BacktestRunner
-from py_entry.data_conversion.types import Param
-from py_entry.data_conversion.data_generator import DataGenerationParams
-from py_entry.data_conversion.file_utils import RequestConfig
+from py_entry.runner import BacktestRunner
+from py_entry.types import Param
+from py_entry.data_generator import DataGenerationParams
+from py_entry.io import RequestConfig
 
 
 # 创建 DataGenerationParams 对象
@@ -16,7 +16,7 @@ simulated_data_config = DataGenerationParams(
     start_time=1735689600000,
     num_bars=10000,
     fixed_seed=42,
-    BaseDataKey="ohlcv_15m",
+    base_data_key="ohlcv_15m",
 )
 
 # 构建指标参数

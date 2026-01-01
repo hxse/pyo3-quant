@@ -2,7 +2,7 @@ import zipfile
 import json
 import io
 
-from py_entry.data_conversion.types.chart_config import ChartConfig
+from py_entry.types import ChartConfig
 
 
 def test_chart_config_generation(runner_with_results):

@@ -5,7 +5,7 @@ use super::risk_price_calc::{
 };
 use super::tsl_psar::{init_tsl_psar, TslPsarParams};
 use super::Direction;
-use crate::data_conversion::BacktestParams;
+use crate::types::BacktestParams;
 
 impl<'a> BacktestState<'a> {
     /// 检查价格是否跳空穿过阈值，如果安全则存储

@@ -4,7 +4,7 @@ import pandas as pd
 import pandas_ta as ta
 import polars as pl
 
-from py_entry.data_conversion.types import Param
+from py_entry.types import Param
 from py_entry.Test.indicators.indicator_test_template import (
     IndicatorTestConfig,
     validate_indicator_accuracy,

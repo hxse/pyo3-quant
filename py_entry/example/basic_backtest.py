@@ -1,6 +1,6 @@
 import time
 from loguru import logger
-from py_entry.data_conversion.backtest_runner import BacktestRunner
+from py_entry.runner import BacktestRunner
 
 if __name__ == "__main__":
     start_time = time.perf_counter()

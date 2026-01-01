@@ -3,7 +3,7 @@
 测试信号生成器对简化语法的支持
 """
 
-from py_entry.data_conversion.types import (
+from py_entry.types import (
     SignalTemplate,
     SignalGroup,
     LogicOp,

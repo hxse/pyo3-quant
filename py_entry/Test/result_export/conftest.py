@@ -1,6 +1,6 @@
 import pytest
-from py_entry.data_conversion.backtest_runner import BacktestRunner
-from py_entry.data_conversion.types import (
+from py_entry.runner import BacktestRunner
+from py_entry.types import (
     BacktestParams,
     LogicOp,
     Param,
@@ -9,7 +9,7 @@ from py_entry.data_conversion.types import (
     SettingContainer,
     ExecutionStage,
 )
-from py_entry.data_conversion.data_generator import DataGenerationParams
+from py_entry.data_generator import DataGenerationParams
 
 
 @pytest.fixture(scope="function")
@@ -25,7 +25,7 @@ def runner_with_results():
         start_time=1735689600000,
         num_bars=1000,  # 测试用 1000 根 BAR 足够
         fixed_seed=42,
-        BaseDataKey="ohlcv_15m",
+        base_data_key="ohlcv_15m",
     )
 
     # 2. 构建指标参数

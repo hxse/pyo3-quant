@@ -4,7 +4,7 @@
 预期：应该抛出 InvalidOffset 错误
 """
 
-from py_entry.data_conversion.types import (
+from py_entry.types import (
     IndicatorsParams,
     SignalParams,
     SignalTemplate,

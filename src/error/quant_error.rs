@@ -1,5 +1,6 @@
 use super::backtest_error::BacktestError;
 use super::indicator_error::IndicatorError;
+use super::optimizer_error::OptimizerError;
 use super::signal_error::SignalError;
 use polars::prelude::PolarsError;
 use pyo3::PyErr;
@@ -21,6 +22,9 @@ pub enum QuantError {
 
     #[error("Backtest error: {0}")]
     Backtest(#[from] BacktestError),
+
+    #[error("Optimizer error: {0}")]
+    Optimizer(#[from] OptimizerError),
 
     #[error("Infrastructure error: {0}")]
     InfrastructureError(String),

@@ -79,7 +79,7 @@ def get_data_length(mapped_data_container) -> int:
     返回：
         数据长度
     """
-    base_key = mapped_data_container.BaseDataKey
+    base_key = mapped_data_container.base_data_key
     if base_key not in mapped_data_container.source:
         raise KeyError(f"Base data key '{base_key}' not found in data_container")
 

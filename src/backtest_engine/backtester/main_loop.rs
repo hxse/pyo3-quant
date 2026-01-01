@@ -3,7 +3,7 @@ use super::state::{
     WriteConfig,
 };
 use super::{buffer_slices::extract_slices, data_preparer::PreparedData, output::OutputBuffers};
-use crate::data_conversion::BacktestParams;
+use crate::types::BacktestParams;
 use crate::error::backtest_error::BacktestError;
 
 /// 运行回测主循环

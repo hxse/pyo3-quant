@@ -1,5 +1,5 @@
 use super::backtest_state::BacktestState;
-use crate::data_conversion::BacktestParams;
+use crate::types::BacktestParams;
 
 impl<'a> BacktestState<'a> {
     pub fn should_skip_current_bar(&mut self) -> bool {

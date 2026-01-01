@@ -6,7 +6,7 @@
 
 import pytest
 
-from py_entry.data_conversion.backtest_runner import BacktestRunner
+from py_entry.runner import BacktestRunner
 from py_entry.Test.backtest.strategies import get_all_strategies
 from py_entry.Test.backtest.strategies.base import StrategyConfig
 

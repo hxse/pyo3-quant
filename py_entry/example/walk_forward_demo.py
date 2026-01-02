@@ -1,6 +1,6 @@
 import time
 from loguru import logger
-from py_entry.runner import BacktestRunner
+from py_entry.runner import BacktestRunner, SetupConfig
 from py_entry.types import (
     BacktestParams,
     Param,
@@ -118,15 +118,18 @@ def main():
     )
 
     # 7. 配置 Runner
-    br = BacktestRunner(enable_timing=True)
+    br = BacktestRunner()
+
     br.setup(
-        data_source=simulated_data_config,
-        indicators_params=indicators_params,
-        backtest_params=backtest_params,
-        performance_params=performance_params,
-        signal_template=signal_template,
-        engine_settings=engine_settings,
-        param_set_size=1,
+        SetupConfig(
+            enable_timing=True,
+            data_source=simulated_data_config,
+            indicators=indicators_params,
+            backtest=backtest_params,
+            performance=performance_params,
+            signal_template=signal_template,
+            engine_settings=engine_settings,
+        )
     )
 
     # 8. 配置 Walk Forward
@@ -149,7 +152,7 @@ def main():
     logger.info("开始执行 Walk Forward Optimization...")
     start_time = time.time()
 
-    wf_result = br.walk_forward(config=wf_config)
+    wf_result = br.walk_forward(wf_config)
 
     elapsed = time.time() - start_time
     logger.info(f"Walk Forward 完成，总耗时: {elapsed:.2f}秒")

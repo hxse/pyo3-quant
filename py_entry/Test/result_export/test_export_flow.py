@@ -1,6 +1,7 @@
 from pathlib import Path
 from unittest.mock import patch
 from py_entry.io import SaveConfig
+from py_entry.runner import FormatResultsConfig
 
 
 def test_export_flow(runner_with_results, tmp_path):
@@ -11,8 +12,9 @@ def test_export_flow(runner_with_results, tmp_path):
 
     # --- 1. Verify format_results_for_export ---
     print("Formatting results for export...")
+
     runner.format_results_for_export(
-        export_index=0, dataframe_format="csv", add_index=True
+        FormatResultsConfig(export_index=0, dataframe_format="csv")
     )
 
     # Assertions

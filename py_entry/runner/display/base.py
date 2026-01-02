@@ -3,6 +3,7 @@
 import json
 import time
 import random
+from typing import Dict, Any
 
 
 def generate_unique_container_id() -> str:
@@ -16,11 +17,11 @@ def generate_unique_container_id() -> str:
     return f"chart-dashboard-container-{unique_timestamp}-{random_part}"
 
 
-def escape_json_for_js(data) -> str:
-    """将 Python 字典或对象转换为可安全嵌入 JavaScript 单引号字符串中的 JSON
+def escape_json_for_js(data: Dict[str, Any]) -> str:
+    """将 Python 字典转换为可安全嵌入 JavaScript 单引号字符串中的 JSON
 
     Args:
-        data: 要转换的字典或对象
+        data: 要转换的字典
 
     Returns:
         转义后的 JSON 字符串，可安全嵌入到 JavaScript 的单引号字符串中

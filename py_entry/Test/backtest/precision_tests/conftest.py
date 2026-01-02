@@ -6,7 +6,7 @@
 
 import pytest
 
-from py_entry.runner import BacktestRunner
+from py_entry.runner import BacktestRunner, SetupConfig
 from py_entry.Test.backtest.strategies import get_all_strategies
 from py_entry.Test.backtest.strategies.base import StrategyConfig
 
@@ -16,13 +16,15 @@ def _run_backtest(strategy: StrategyConfig):
     br = BacktestRunner()
 
     br.setup(
-        data_source=strategy.data_config,
-        indicators_params=strategy.indicators_params,
-        signal_params=strategy.signal_params,
-        backtest_params=strategy.backtest_params,
-        signal_template=strategy.signal_template,
-        engine_settings=strategy.engine_settings,
-        performance_params=strategy.performance_params,
+        SetupConfig(
+            data_source=strategy.data_config,
+            indicators=strategy.indicators_params,
+            signal=strategy.signal_params,
+            backtest=strategy.backtest_params,
+            signal_template=strategy.signal_template,
+            engine_settings=strategy.engine_settings,
+            performance=strategy.performance_params,
+        )
     )
 
     br.run()

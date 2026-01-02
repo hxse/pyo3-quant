@@ -6,6 +6,7 @@ ChartDashboardWidget - 使用 anywidget 实现的图表仪表盘组件
 
 import anywidget
 import traitlets
+from typing import Dict, Any
 from pathlib import Path
 
 
@@ -44,3 +45,30 @@ class ChartDashboardWidget(anywidget.AnyWidget):
 
     # CSS 样式
     _css = Path(__file__).parent / "chart_widget.css"
+
+    def __init__(
+        self,
+        *,
+        zip_data: bytes,
+        config: Dict[str, Any],
+        width: str = "100%",
+        aspect_ratio: str = "16/9",
+        lib_path: str = "",
+        css_path: str = "",
+        embed_files: bool = True,
+        js_content: str = "",
+        css_content: str = "",
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            zip_data=zip_data,
+            config=config,
+            width=width,
+            aspect_ratio=aspect_ratio,
+            lib_path=lib_path,
+            css_path=css_path,
+            embed_files=embed_files,
+            js_content=js_content,
+            css_content=css_content,
+            **kwargs,
+        )

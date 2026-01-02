@@ -44,7 +44,9 @@ def render_as_html(runner: "BacktestRunner", config: DisplayConfig) -> HTML:
     zip_base64 = base64.b64encode(zip_data).decode("utf-8")
 
     # 3. 转义配置 JSON
-    config_str = escape_json_for_js(config.override or {})
+    config_str = escape_json_for_js(
+        config.override.to_dict() if config.override else {}
+    )
 
     # 4. 生成或使用容器 ID
     container_id = config.container_id or generate_unique_container_id()

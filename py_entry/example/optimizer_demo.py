@@ -1,6 +1,6 @@
 import time
 from loguru import logger
-from py_entry.runner import BacktestRunner
+from py_entry.runner import BacktestRunner, SetupConfig
 from py_entry.types import (
     BacktestParams,
     Param,
@@ -113,18 +113,21 @@ def main():
     )
 
     # 初始化 Runner
-    br = BacktestRunner(enable_timing=True)
+    br = BacktestRunner()
 
     # --- 第一阶段: 基准回测 ---
     logger.info("执行基准回测 (使用初始参数)...")
     br.setup(
-        data_source=simulated_data_config,
-        indicators_params=indicators_params,
-        signal_params=signal_params,
-        backtest_params=backtest_params,
-        performance_params=performance_params,
-        signal_template=signal_template,
-        engine_settings=engine_settings,
+        SetupConfig(
+            enable_timing=True,
+            data_source=simulated_data_config,
+            indicators=indicators_params,
+            signal=signal_params,
+            backtest=backtest_params,
+            performance=performance_params,
+            signal_template=signal_template,
+            engine_settings=engine_settings,
+        )
     ).run()
 
     baseline_perf = br.results[0].performance if br.results else {}
@@ -139,7 +142,7 @@ def main():
         stop_patience=10,
     )
 
-    opt_result = br.optimize(config=opt_config)
+    opt_result = br.optimize(opt_config)
 
     metrics_map = {
         "总回报率": "total_return",
@@ -178,13 +181,15 @@ def main():
                 p_obj.value = val
 
     br.setup(
-        data_source=simulated_data_config,
-        indicators_params=final_indicators,
-        signal_params=signal_params,  # 演示中未涉及信号参数优化
-        backtest_params=final_backtest,
-        performance_params=performance_params,
-        signal_template=signal_template,
-        engine_settings=engine_settings,
+        SetupConfig(
+            data_source=simulated_data_config,
+            indicators=final_indicators,
+            signal=signal_params,
+            backtest=final_backtest,
+            performance=performance_params,
+            signal_template=signal_template,
+            engine_settings=engine_settings,
+        )
     ).run()
 
     # --- 第三阶段: 结果对比打印 ---

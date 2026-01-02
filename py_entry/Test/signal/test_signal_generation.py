@@ -18,7 +18,7 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from py_entry.data_generator import DataGenerationParams, OtherParams
-from py_entry.runner import BacktestRunner
+from py_entry.runner import BacktestRunner, SetupConfig
 from py_entry.types import SettingContainer, ExecutionStage
 
 from py_entry.Test.signal.scenarios import get_all_scenarios
@@ -74,13 +74,16 @@ def test_signal_scenario(scenario, setting_container):
     # 2. 根据是否有预期异常来决定测试逻辑
     if scenario.expected_exception is None:
         # 预期成功的场景
+
         runner.setup(
-            data_source=data_gen_params,
-            other_params=other_params,
-            indicators_params=scenario.indicators_params,
-            signal_params=scenario.signal_params,
-            signal_template=scenario.signal_template,
-            engine_settings=setting_container,
+            SetupConfig(
+                data_source=data_gen_params,
+                other_params=other_params,
+                indicators=scenario.indicators_params,
+                signal=scenario.signal_params,
+                signal_template=scenario.signal_template,
+                engine_settings=setting_container,
+            )
         )
 
         runner.run()
@@ -134,12 +137,15 @@ def test_signal_scenario(scenario, setting_container):
             raise
     else:
         # 预期报错的场景
+
         runner.setup(
-            data_source=data_gen_params,
-            indicators_params=scenario.indicators_params,
-            signal_params=scenario.signal_params,
-            signal_template=scenario.signal_template,
-            engine_settings=setting_container,
+            SetupConfig(
+                data_source=data_gen_params,
+                indicators=scenario.indicators_params,
+                signal=scenario.signal_params,
+                signal_template=scenario.signal_template,
+                engine_settings=setting_container,
+            )
         )
 
         # 3. 运行回测，预期会报错

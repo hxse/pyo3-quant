@@ -18,10 +18,10 @@ repos:
     hooks:
       - id: trailing-whitespace
         name: 删除行尾空格
-        exclude: \.ipynb$  # 排除 notebook 文件，因为 nbstripout 会处理
+        exclude: \.(ipynb|json|csv|tsv|txt|xml|svg|parquet)$  # 排除 notebook 和常见数据文件
       - id: end-of-file-fixer
         name: 确保文件以换行符结尾
-        exclude: \.ipynb$
+        exclude: \.(ipynb|json|csv|tsv|txt|xml|svg|parquet)$
       - id: check-yaml
         name: 检查 YAML 语法
       - id: check-added-large-files

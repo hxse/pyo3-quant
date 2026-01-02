@@ -1,12 +1,8 @@
-"""结果导出相关的配置数据结构"""
-
 from pathlib import Path
-from typing import Optional
-from dataclasses import dataclass
+from typing import Optional, Literal
+from pydantic import BaseModel, ConfigDict, model_validator
 from .types import RequestConfig
 from py_entry.types import DashboardOverride
-
-from typing import Literal
 
 ParquetCompression = Literal[
     "lz4", "uncompressed", "snappy", "gzip", "lzo", "brotli", "zstd"
@@ -37,24 +33,23 @@ def _find_project_root() -> Optional[Path]:
     return None
 
 
-@dataclass
-class SaveConfig:
+class SaveConfig(BaseModel):
     """保存结果的配置"""
 
     output_dir: str | Path  # 相对于 data/output 的路径
 
 
-@dataclass
-class UploadConfig:
+class UploadConfig(BaseModel):
     """上传结果的配置"""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     request_config: RequestConfig
     server_dir: str | None = None
     zip_name: str | None = None
 
 
-@dataclass
-class DisplayConfig:
+class DisplayConfig(BaseModel):
     """显示仪表盘的配置
 
     推荐配置组合：
@@ -66,6 +61,8 @@ class DisplayConfig:
     - 相对路径会自动转换为基于项目根目录的绝对路径
     - 这样可以确保在 VS Code Jupyter 和浏览器 Jupyter 中行为一致
     """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     # 仪表盘覆盖配置
     override: Optional[DashboardOverride] = None
@@ -97,7 +94,8 @@ class DisplayConfig:
     # 图表容器的宽高比，例如 "16/9" 或 "4/3"
     aspect_ratio: str = "16/9"
 
-    def __post_init__(self):
+    @model_validator(mode="after")
+    def _post_init(self) -> "DisplayConfig":
         """初始化后处理：将相对路径转换为绝对路径，并设置默认 override"""
         # 设置默认的 override 配置
         if self.override is None:
@@ -117,3 +115,5 @@ class DisplayConfig:
             if not css_path_obj.is_absolute():
                 self.css_path = str(project_root / self.css_path)
         # 如果找不到项目根目录，保持原路径不变（可能用户提供了绝对路径或相对路径）
+
+        return self

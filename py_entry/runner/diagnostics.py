@@ -12,9 +12,10 @@ import polars as pl
 
 if TYPE_CHECKING:
     from .runner import BacktestRunner
+    from .params import DiagnoseStatesConfig
 
 # 11 种合法状态白名单
-# 格式: (entry_long, exit_long, entry_short, exit_short, in_bar_direction)
+# ... (保持不变)
 VALID_STATES = [
     (False, False, False, False, 0, "no_position"),
     (True, False, False, False, 0, "hold_long"),
@@ -30,22 +31,19 @@ VALID_STATES = [
 ]
 
 
-def analyze_state_distribution(runner: "BacktestRunner", result_index: int = 0) -> dict:
+def analyze_state_distribution(
+    runner: "BacktestRunner",
+    config: "DiagnoseStatesConfig",
+) -> dict:
     """
-    分析回测结果的状态机分布
+    分析回测结果的状态机分布。
 
     Args:
         runner: BacktestRunner 实例（已执行 run()）
-        result_index: 回测结果索引（多参数集时使用）
-
-    Returns:
-        dict: 包含状态分布信息的字典，包括：
-            - found_states: 找到的状态列表
-            - missing_states: 缺失的状态列表
-            - distribution: 各状态的计数
-            - coverage: 覆盖比例 (found/11)
-            - is_complete: 是否覆盖全部 11 种状态
+        config: DiagnoseStatesConfig
     """
+    result_index = config.result_index
+
     if runner.results is None:
         raise ValueError("请先执行 run() 方法")
 
@@ -100,29 +98,31 @@ def analyze_state_distribution(runner: "BacktestRunner", result_index: int = 0) 
     }
 
 
-def print_state_summary(runner: "BacktestRunner", result_index: int = 0) -> None:
+def perform_diagnose(
+    runner: "BacktestRunner",
+    config: "DiagnoseStatesConfig",
+) -> dict:
     """
-    打印状态机覆盖摘要
-
-    Args:
-        runner: BacktestRunner 实例
-        result_index: 回测结果索引
+    诊断回测结果的状态机覆盖情况。
     """
-    result = analyze_state_distribution(runner, result_index)
+    if config.print_summary:
+        result = analyze_state_distribution(runner, config)
+        print(
+            f"\n📊 状态机覆盖: {len(result['found_states'])}/11 ({result['coverage']:.0%})"
+        )
+        print("=" * 50)
 
-    print(
-        f"\n📊 状态机覆盖: {len(result['found_states'])}/11 ({result['coverage']:.0%})"
-    )
-    print("=" * 50)
+        if result["is_complete"]:
+            print("✅ 完整覆盖全部 11 种状态")
+        else:
+            print(f"⚠️ 缺失 {len(result['missing_states'])} 种状态:")
+            for name in result["missing_states"]:
+                print(f"   - {name}")
 
-    if result["is_complete"]:
-        print("✅ 完整覆盖全部 11 种状态")
-    else:
-        print(f"⚠️ 缺失 {len(result['missing_states'])} 种状态:")
-        for name in result["missing_states"]:
-            print(f"   - {name}")
+        print("\n📈 状态分布:")
+        for name, count in sorted(result["distribution"].items(), key=lambda x: -x[1]):
+            bar = "█" * min(count // 50, 20)  # 简单的条形图
+            print(f"   {name:30s} {count:6d} {bar}")
+        return result
 
-    print("\n📈 状态分布:")
-    for name, count in sorted(result["distribution"].items(), key=lambda x: -x[1]):
-        bar = "█" * min(count // 50, 20)  # 简单的条形图
-        print(f"   {name:30s} {count:6d} {bar}")
+    return analyze_state_distribution(runner, config)

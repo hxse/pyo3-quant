@@ -1,5 +1,5 @@
 import pytest
-from py_entry.runner import BacktestRunner
+from py_entry.runner import BacktestRunner, SetupConfig
 from py_entry.data_generator import DataGenerationParams
 from py_entry.types import (
     BacktestParams,
@@ -99,13 +99,15 @@ def full_performance_result():
     )
 
     br.setup(
-        data_source=simulated_data_config,
-        indicators_params=indicators_params,
-        signal_params={},
-        backtest_params=backtest_params,
-        performance_params=performance_params,
-        signal_template=signal_template,
-        engine_settings=engine_settings,
+        SetupConfig(
+            data_source=simulated_data_config,
+            indicators=indicators_params,
+            signal={},
+            backtest=backtest_params,
+            performance=performance_params,
+            signal_template=signal_template,
+            engine_settings=engine_settings,
+        )
     )
 
     br.run()

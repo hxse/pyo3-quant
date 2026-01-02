@@ -53,7 +53,7 @@ def render_as_widget(runner: "BacktestRunner", config: DisplayConfig):
     # 创建 widget
     widget = ChartDashboardWidget(
         zip_data=runner.export_zip_buffer,  # 直接传递 bytes，无需 base64 编码
-        config=config.override or {},
+        config=config.override.to_dict() if config.override else {},
         width=config.width,
         aspect_ratio=config.aspect_ratio,
         lib_path=config.lib_path,

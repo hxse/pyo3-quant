@@ -3,7 +3,7 @@ import pytest
 from py_entry.data_generator import (
     DataGenerationParams,
 )
-from py_entry.runner import BacktestRunner
+from py_entry.runner import BacktestRunner, SetupConfig
 from py_entry.types import (
     SettingContainer,
     ExecutionStage,
@@ -27,13 +27,16 @@ def run_indicator_backtest(
         (backtest_results, data_container) 元组
     """
     runner = BacktestRunner()
+
     runner.setup(
-        data_source=data_params,
-        indicators_params=indicators_params,
-        engine_settings=SettingContainer(
-            execution_stage=ExecutionStage.INDICATOR,
-            return_only_final=True,
-        ),
+        SetupConfig(
+            data_source=data_params,
+            indicators=indicators_params,
+            engine_settings=SettingContainer(
+                execution_stage=ExecutionStage.INDICATOR,
+                return_only_final=True,
+            ),
+        )
     )
     runner.run()
     backtest_results = runner.results

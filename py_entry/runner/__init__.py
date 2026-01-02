@@ -1,4 +1,9 @@
 from .runner import BacktestRunner
+from .params import (
+    SetupConfig,
+    FormatResultsConfig,
+    DiagnoseStatesConfig,
+)
 from .setup_utils import (
     build_data,
     build_indicators_params,
@@ -9,9 +14,11 @@ from .setup_utils import (
     build_engine_settings,
 )
 
-
 __all__ = [
     "BacktestRunner",
+    "SetupConfig",
+    "FormatResultsConfig",
+    "DiagnoseStatesConfig",
     "build_data",
     "build_indicators_params",
     "build_signal_params",

@@ -1,5 +1,5 @@
 import pytest
-from py_entry.runner import BacktestRunner
+from py_entry.runner import BacktestRunner, SetupConfig
 from py_entry.types import (
     BacktestParams,
     LogicOp,
@@ -106,13 +106,14 @@ def runner_with_results():
     runner = BacktestRunner()
 
     runner.setup(
-        data_source=simulated_data_config,
-        indicators_params=indicators_params,
-        signal_params=signal_params,
-        backtest_params=backtest_params,
-        signal_template=signal_template,
-        engine_settings=engine_settings,
-        param_set_size=1,
+        SetupConfig(
+            data_source=simulated_data_config,
+            indicators=indicators_params,
+            signal=signal_params,
+            backtest=backtest_params,
+            signal_template=signal_template,
+            engine_settings=engine_settings,
+        )
     )
 
     runner.run()

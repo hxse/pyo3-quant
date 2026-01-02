@@ -3,6 +3,7 @@ import json
 import io
 
 from py_entry.types import ChartConfig
+from py_entry.runner import FormatResultsConfig
 
 
 def test_chart_config_generation(runner_with_results):
@@ -13,8 +14,9 @@ def test_chart_config_generation(runner_with_results):
         f"DEBUG: Before generate, data={runner.data_dict is not None}, results={len(runner.results) if runner.results else 0}"
     )
     # Using unified export method which generates chart config internally
+
     runner.format_results_for_export(
-        export_index=0, dataframe_format="csv", add_index=True
+        FormatResultsConfig(export_index=0, dataframe_format="csv", add_index=True)
     )
     print(f"DEBUG: After generate, config={runner.chart_config}")
 

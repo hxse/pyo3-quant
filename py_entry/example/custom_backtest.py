@@ -5,7 +5,11 @@ from pathlib import Path
 
 # 项目导入
 
-from py_entry.runner import BacktestRunner
+from py_entry.runner import (
+    BacktestRunner,
+    SetupConfig,
+    FormatResultsConfig,
+)
 from py_entry.types import (
     BacktestParams,
     Param,
@@ -136,7 +140,7 @@ engine_settings = SettingContainer(
 )
 
 
-def run_custom_backtest():
+def run_custom_backtest() -> BacktestRunner:
     """
     运行自定义回测流程
     """
@@ -144,14 +148,33 @@ def run_custom_backtest():
 
     start_time = time.perf_counter()
 
-    # 创建启用时间测量的 BacktestRunner
-    br = BacktestRunner(enable_timing=True)
+    # 创建 BacktestRunner
+    br = BacktestRunner()
 
     # 使用链式调用执行完整的回测流程
     logger.info("开始执行回测流程")
 
-    # 读取配置文件
-    # 尝试查找配置文件，适应不同的运行目录
+    # 完整的链式调用：配置 -> 运行 -> 格式化 -> 保存
+    br.setup(
+        SetupConfig(
+            enable_timing=True,
+            data_source=simulated_data_config,
+            indicators=indicators_params,
+            signal=signal_params,
+            backtest=backtest_params,
+            performance=performance_params,
+            signal_template=signal_template,
+            engine_settings=engine_settings,
+        )
+    ).run().format_results_for_export(
+        FormatResultsConfig(export_index=0, dataframe_format="csv")
+    ).save_results(
+        SaveConfig(
+            output_dir="my_strategy",
+        )
+    )
+
+    # 尝试读取配置文件并上传
     config_path = "data/config.json"
     if not Path(config_path).exists():
         # 尝试相对于当前文件的路径
@@ -168,22 +191,8 @@ def run_custom_backtest():
             server_url=json_config["server_url"],
         )
 
-        # 完整的链式调用：配置 -> 运行 -> 添加索引 -> 保存 -> 上传
-        br.setup(
-            data_source=simulated_data_config,
-            indicators_params=indicators_params,
-            signal_params=signal_params,
-            backtest_params=backtest_params,
-            performance_params=performance_params,
-            signal_template=signal_template,
-            engine_settings=engine_settings,
-        ).run().format_results_for_export(
-            export_index=0, dataframe_format="csv"
-        ).save_results(
-            SaveConfig(
-                output_dir="my_strategy",
-            )
-        ).upload_results(
+        logger.info("正在上传结果...")
+        br.upload_results(
             UploadConfig(
                 request_config=request_cfg,
                 server_dir="my_strategy",
@@ -191,23 +200,7 @@ def run_custom_backtest():
             )
         )
     else:
-        logger.warning(f"Config file not found at {config_path}, skipping upload.")
-        # 如果没有配置文件，仅运行回测不上传
-        br.setup(
-            data_source=simulated_data_config,
-            indicators_params=indicators_params,
-            signal_params=signal_params,
-            backtest_params=backtest_params,
-            performance_params=performance_params,
-            signal_template=signal_template,
-            engine_settings=engine_settings,
-        ).run().format_results_for_export(
-            export_index=0, dataframe_format="csv"
-        ).save_results(
-            SaveConfig(
-                output_dir="my_strategy",
-            )
-        )
+        logger.warning(f"跳过上传：未找到配置文件 {config_path}")
 
     # 获取结果用于打印
     backtest_result = br.results

@@ -1,16 +1,17 @@
 import time
 from loguru import logger
-from py_entry.runner import BacktestRunner
+from py_entry.runner import BacktestRunner, SetupConfig
 
 if __name__ == "__main__":
     start_time = time.perf_counter()
 
-    # 创建启用时间测量的 BacktestRunner
-    br = BacktestRunner(enable_timing=True)
+    # 创建 BacktestRunner
+    br = BacktestRunner()
 
     # 使用链式调用配置和执行回测
     logger.info("开始执行基础回测")
-    br.setup().run()
+
+    br.setup(SetupConfig(enable_timing=True)).run()
 
     print(br.results)
 

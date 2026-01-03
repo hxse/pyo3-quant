@@ -9,8 +9,8 @@ use crate::types::RoundSummary;
 pub struct SamplePoint {
     /// 各维度的参数值
     pub values: Vec<f64>,
-    /// 该参数组合的 Calmar 比率
-    pub calmar: f64,
+    /// 该参数组合的目标指标值（由 optimize_metric 指定）
+    pub metric_value: f64,
 }
 
 /// 优化器配置验证结果
@@ -109,10 +109,10 @@ pub fn merge_top_k(
     let mut combined: Vec<SamplePoint> = existing_top_k.iter().cloned().collect();
     combined.extend(new_samples.iter().cloned());
 
-    // 按 Calmar 降序排序
+    // 按指标值降序排序
     combined.sort_by(|a, b| {
-        b.calmar
-            .partial_cmp(&a.calmar)
+        b.metric_value
+            .partial_cmp(&a.metric_value)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 

@@ -117,7 +117,6 @@ class Backtest:
             _to_rust_param(target_params),
             self.template_config,
             self.engine_settings,
-            None,
         )
 
         # 直接解析结果
@@ -150,7 +149,6 @@ class Backtest:
             [_to_rust_param(p) for p in param_list],
             self.template_config,
             self.engine_settings,
-            None,
         )
 
         summaries = [BacktestSummary.model_validate(r) for r in raw_results]

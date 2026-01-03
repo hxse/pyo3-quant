@@ -1,15 +1,13 @@
 use crate::backtest_engine::{
     backtester, indicators, performance_analyzer, signal_generator, utils,
 };
-use crate::types::{
-    BacktestSummary, IndicatorResults, PerformanceMetrics,
-};
+use crate::error::QuantError;
 use crate::types::ExecutionStage;
 use crate::types::SignalTemplate;
 use crate::types::{
     BacktestParams, DataContainer, IndicatorsParams, PerformanceParams, SignalParams,
 };
-use crate::error::QuantError;
+use crate::types::{BacktestSummary, IndicatorResults, PerformanceMetrics};
 use polars::prelude::DataFrame;
 
 /// 回测执行上下文：持有所有阶段的中间结果
@@ -22,21 +20,13 @@ pub struct BacktestContext {
 }
 
 impl BacktestContext {
-    /// 从已有的 BacktestSummary 初始化（支持增量计算/缓存）
-    pub fn from_cache(input: Option<BacktestSummary>) -> Self {
-        match input {
-            Some(input) => Self {
-                indicator_dfs: input.indicators,
-                signals_df: input.signals,
-                backtest_df: input.backtest,
-                performance: input.performance,
-            },
-            None => Self {
-                indicator_dfs: None,
-                signals_df: None,
-                backtest_df: None,
-                performance: None,
-            },
+    /// 创建空的回测上下文
+    pub fn new() -> Self {
+        Self {
+            indicator_dfs: None,
+            signals_df: None,
+            backtest_df: None,
+            performance: None,
         }
     }
 
@@ -47,7 +37,7 @@ impl BacktestContext {
         data: &DataContainer,
         params: &IndicatorsParams,
     ) -> Result<(), QuantError> {
-        if target_stage >= ExecutionStage::Indicator && self.indicator_dfs.is_none() {
+        if target_stage >= ExecutionStage::Indicator {
             self.indicator_dfs = Some(indicators::calculate_indicators(data, params)?);
         }
         Ok(())
@@ -63,21 +53,16 @@ impl BacktestContext {
         signal_template: &SignalTemplate,
     ) -> Result<(), QuantError> {
         if target_stage >= ExecutionStage::Signals {
-            if self.signals_df.is_none() {
-                if let Some(ref ind_dfs) = self.indicator_dfs {
-                    let df = signal_generator::generate_signals(
-                        data,
-                        ind_dfs,
-                        signal_params,
-                        signal_template,
-                    )?;
-                    self.signals_df = Some(df);
+            if let Some(ref ind_dfs) = self.indicator_dfs {
+                let df = signal_generator::generate_signals(
+                    data,
+                    ind_dfs,
+                    signal_params,
+                    signal_template,
+                )?;
+                self.signals_df = Some(df);
 
-                    // 在 return_only_final 模式下，信号计算完成后释放指标数据
-                    utils::maybe_release_indicators(return_only_final, &mut self.indicator_dfs);
-                }
-            } else {
-                // 如果信号已存在（从缓存读取），也需要根据 return_only_final 决定是否释放指标
+                // 在 return_only_final 模式下，信号计算完成后释放指标数据
                 utils::maybe_release_indicators(return_only_final, &mut self.indicator_dfs);
             }
         }
@@ -93,16 +78,11 @@ impl BacktestContext {
         backtest_params: &BacktestParams,
     ) -> Result<(), QuantError> {
         if target_stage >= ExecutionStage::Backtest {
-            if self.backtest_df.is_none() {
-                if let Some(ref sig_df) = self.signals_df {
-                    let df = backtester::run_backtest(data, sig_df, backtest_params)?;
-                    self.backtest_df = Some(df);
+            if let Some(ref sig_df) = self.signals_df {
+                let df = backtester::run_backtest(data, sig_df, backtest_params)?;
+                self.backtest_df = Some(df);
 
-                    // 在 return_only_final 模式下，回测完成后释放信号数据
-                    utils::maybe_release_signals(return_only_final, &mut self.signals_df);
-                }
-            } else {
-                // 如果已经有回测结果（从缓存读取），也需要根据 return_only_final 决定是否释放信号
+                // 在 return_only_final 模式下，回测完成后释放信号数据
                 utils::maybe_release_signals(return_only_final, &mut self.signals_df);
             }
         }
@@ -118,17 +98,12 @@ impl BacktestContext {
         performance_params: &PerformanceParams,
     ) -> Result<(), QuantError> {
         if target_stage >= ExecutionStage::Performance {
-            if self.performance.is_none() {
-                if let Some(ref bt_df) = self.backtest_df {
-                    let metrics =
-                        performance_analyzer::analyze_performance(data, bt_df, performance_params)?;
-                    self.performance = Some(metrics);
+            if let Some(ref bt_df) = self.backtest_df {
+                let metrics =
+                    performance_analyzer::analyze_performance(data, bt_df, performance_params)?;
+                self.performance = Some(metrics);
 
-                    // 在 return_only_final 模式下，绩效分析完成后释放回测结果
-                    utils::maybe_release_backtest(return_only_final, &mut self.backtest_df);
-                }
-            } else {
-                // 如果绩效已存在（从缓存读取），也需要根据 return_only_final 决定是否释放回测数据
+                // 在 return_only_final 模式下，绩效分析完成后释放回测结果
                 utils::maybe_release_backtest(return_only_final, &mut self.backtest_df);
             }
         }

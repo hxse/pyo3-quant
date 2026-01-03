@@ -88,9 +88,11 @@ pub fn weighted_gaussian_sample(
         r -= w;
     }
 
-    // 正态分布采样
-    let normal =
-        Normal::new(selected_center, sigma).unwrap_or(Normal::new(selected_center, 0.01).unwrap());
+    // 如果 sigma 无效，使用范围的 1% 作为 fallback
+    let fallback_sigma = (s_max - s_min).abs() * 0.01;
+    let safe_sigma = if sigma > 0.0 { sigma } else { fallback_sigma };
+    let normal = Normal::new(selected_center, safe_sigma)
+        .unwrap_or_else(|_| Normal::new(selected_center, fallback_sigma.max(1e-6)).unwrap());
     let mut sample_raw = normal.sample(rng);
 
     // 裁剪到边界

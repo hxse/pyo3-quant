@@ -225,8 +225,7 @@ pub fn run_optimization(
                 apply_values_to_param(&mut current_set, &flat_params, &vals);
 
                 // 执行实际回测
-                let summary =
-                    execute_single_backtest(data_dict, &current_set, template, settings, None)?;
+                let summary = execute_single_backtest(data_dict, &current_set, template, settings)?;
 
                 // 使用配置的优化指标
                 let metric_value = summary
@@ -237,23 +236,14 @@ pub fn run_optimization(
                     .unwrap_or(0.0);
                 Ok(SamplePoint {
                     values: vals,
-                    calmar: metric_value, // 字段名暂保持calmar，但实际存储的是optimize_metric的值
+                    metric_value: metric_value,
                 })
             })
             .collect();
 
-        // 收集成功的结果
-        let mut successful_samples = Vec::new();
-        let mut _error_count = 0;
-        for res in round_results {
-            match res {
-                Ok(s) => successful_samples.push(s),
-                Err(_e) => {
-                    _error_count += 1;
-                    // 可以在此记录日志
-                }
-            }
-        }
+        // 收集结果，任何错误直接传播
+        let successful_samples: Vec<SamplePoint> =
+            round_results.into_iter().collect::<Result<Vec<_>, _>>()?;
 
         if successful_samples.is_empty() {
             return Err(
@@ -264,23 +254,24 @@ pub fn run_optimization(
         total_samples += successful_samples.len();
 
         // 排序
+        let mut successful_samples = successful_samples;
         successful_samples.sort_by(|a, b| {
-            b.calmar
-                .partial_cmp(&a.calmar)
+            b.metric_value
+                .partial_cmp(&a.metric_value)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        let round_best = successful_samples[0].calmar;
-        let round_median = successful_samples[successful_samples.len() / 2].calmar;
+        let round_best = successful_samples[0].metric_value;
+        let round_median = successful_samples[successful_samples.len() / 2].metric_value;
 
         // 合并 TopK（累积历史最优）
-        let k = (n_samples as f64 * config.top_k_ratio) as usize;
+        let k = ((n_samples as f64 * config.top_k_ratio) as usize).max(1);
         top_k_samples = merge_top_k(&top_k_samples, &successful_samples, k);
 
         // 更新全局最优
         if best_all_time
             .as_ref()
-            .map_or(true, |b| round_best > b.calmar)
+            .map_or(true, |b| round_best > b.metric_value)
         {
             best_all_time = Some(successful_samples[0].clone());
         }
@@ -317,7 +308,7 @@ pub fn run_optimization(
         best_params: best_indicators_map,
         best_signal_params: best_signal_map,
         best_backtest_params: best_backtest_map,
-        best_calmar: best.calmar,
+        best_calmar: best.metric_value,
         total_samples,
         rounds: history.len(),
         history,

@@ -75,7 +75,6 @@ use crate::types::{
 /// * `processed_params` - 预处理后的回测参数集合
 /// * `processed_template` - 预处理后的信号模板
 /// * `processed_settings` - 预处理后的引擎设置
-/// * `input_backtest_df` - 可选的输入回测结果，用于增量计算
 ///
 /// # 返回值
 ///
@@ -89,7 +88,6 @@ pub fn run_backtest_engine(
     processed_params: &Vec<SingleParamSet>,
     processed_template: &TemplateContainer,
     processed_settings: &SettingContainer,
-    input_backtest_df: Option<BacktestSummary>,
 ) -> Result<Vec<BacktestSummary>, QuantError> {
     // 根据任务数选择执行策略
     let total_tasks = processed_params.len();
@@ -105,8 +103,6 @@ pub fn run_backtest_engine(
                     single_param,
                     processed_template,
                     processed_settings,
-                    // 注意：Polars 的 clone() 是浅拷贝，只增加引用计数，性能开销很小
-                    input_backtest_df.clone(),
                 )
             })
             .collect::<Result<Vec<_>, QuantError>>()?
@@ -122,8 +118,6 @@ pub fn run_backtest_engine(
                         single_param,
                         processed_template,
                         processed_settings,
-                        // 注意：Polars 的 clone() 是浅拷贝，只增加引用计数，性能开销很小
-                        input_backtest_df.clone(),
                     )
                 })
             })
@@ -154,16 +148,14 @@ pub fn run_backtest_engine(
 /// * `single_param` - 单个回测参数集
 /// * `processed_template` - 信号模板
 /// * `processed_settings` - 引擎设置
-/// * `input_backtest_df` - 可选的已有回测结果
 fn execute_single_backtest(
     processed_data: &DataContainer,
     single_param: &SingleParamSet,
     processed_template: &TemplateContainer,
     processed_settings: &SettingContainer,
-    input_backtest_df: Option<BacktestSummary>,
 ) -> Result<BacktestSummary, QuantError> {
-    // 1. 初始化执行上下文（支持增量计算）
-    let mut ctx = utils::BacktestContext::from_cache(input_backtest_df);
+    // 1. 初始化执行上下文
+    let mut ctx = utils::BacktestContext::new();
     let stage = processed_settings.execution_stage;
     let return_only_final = processed_settings.return_only_final;
 
@@ -210,7 +202,6 @@ fn execute_single_backtest(
 /// * `param_set` - 回测参数集合
 /// * `template` - 信号生成模板
 /// * `engine_settings` - 引擎配置设置
-/// * `input_backtest_df` - 可选的已有回测结果
 ///
 /// # 返回值
 ///
@@ -221,16 +212,9 @@ pub fn py_run_backtest_engine(
     param_set: ParamContainer,
     template: TemplateContainer,
     engine_settings: SettingContainer,
-    input_backtest_df: Option<BacktestSummary>,
 ) -> PyResult<Vec<BacktestSummary>> {
     // 1. 调用纯 Rust 函数执行回测
-    let results = run_backtest_engine(
-        &data_dict,
-        &param_set,
-        &template,
-        &engine_settings,
-        input_backtest_df,
-    )?;
+    let results = run_backtest_engine(&data_dict, &param_set, &template, &engine_settings)?;
 
     Ok(results)
 }
@@ -245,7 +229,6 @@ pub fn py_run_backtest_engine(
 /// * `param` - 单个回测参数集
 /// * `template` - 信号生成模板
 /// * `engine_settings` - 引擎配置设置
-/// * `input_backtest_df` - 可选的已有回测结果
 ///
 /// # 返回值
 ///
@@ -256,16 +239,9 @@ pub fn py_run_single_backtest(
     param: SingleParamSet,
     template: TemplateContainer,
     engine_settings: SettingContainer,
-    input_backtest_df: Option<BacktestSummary>,
 ) -> PyResult<BacktestSummary> {
     // 调用内部纯 Rust 函数执行单次回测
-    let result = execute_single_backtest(
-        &data_dict,
-        &param,
-        &template,
-        &engine_settings,
-        input_backtest_df,
-    )?;
+    let result = execute_single_backtest(&data_dict, &param, &template, &engine_settings)?;
 
     Ok(result)
 }

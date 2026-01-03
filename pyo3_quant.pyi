@@ -69,7 +69,6 @@ class backtest_engine:
         param_set: ParamContainer,
         template: TemplateContainer,
         engine_settings: SettingContainer,
-        input_backtest_df: Optional[BacktestSummary] = None,
     ) -> List[Dict[str, Any]]:
         """运行回测引擎
 
@@ -84,7 +83,6 @@ class backtest_engine:
         param: Any,  # 传入 SimpleNamespace 或符合结构的字典
         template: TemplateContainer,
         engine_settings: SettingContainer,
-        input_backtest_df: Optional[BacktestSummary] = None,
     ) -> Dict[str, Any]:
         """运行单次回测"""
         ...

@@ -73,8 +73,16 @@ pub fn extract_optimizable_params(single_param: &SingleParamSet) -> Vec<Flattene
                         type_idx: 0,
                         group: format!("{}:{}", timeframe, group_name),
                         name: param_name.clone(),
-                        min: param.min,
-                        max: param.max,
+                        min: if param.min == 0.0 && param.initial_min != 0.0 {
+                            param.initial_min
+                        } else {
+                            param.min
+                        },
+                        max: if param.max == 0.0 && param.initial_max != 0.0 {
+                            param.initial_max
+                        } else {
+                            param.max
+                        },
                         log_scale: param.log_scale,
                         dtype: param.dtype,
                         step: param.step,
@@ -91,8 +99,16 @@ pub fn extract_optimizable_params(single_param: &SingleParamSet) -> Vec<Flattene
                 type_idx: 1,
                 group: String::new(),
                 name: param_name.clone(),
-                min: param.min,
-                max: param.max,
+                min: if param.min == 0.0 && param.initial_min != 0.0 {
+                    param.initial_min
+                } else {
+                    param.min
+                },
+                max: if param.max == 0.0 && param.initial_max != 0.0 {
+                    param.initial_max
+                } else {
+                    param.max
+                },
                 log_scale: param.log_scale,
                 dtype: param.dtype,
                 step: param.step,
@@ -109,8 +125,16 @@ pub fn extract_optimizable_params(single_param: &SingleParamSet) -> Vec<Flattene
                         type_idx: 2,
                         group: String::new(),
                         name: $name.into(),
-                        min: p.min,
-                        max: p.max,
+                        min: if p.min == 0.0 && p.initial_min != 0.0 {
+                            p.initial_min
+                        } else {
+                            p.min
+                        },
+                        max: if p.max == 0.0 && p.initial_max != 0.0 {
+                            p.initial_max
+                        } else {
+                            p.max
+                        },
                         log_scale: p.log_scale,
                         dtype: p.dtype,
                         step: p.step,

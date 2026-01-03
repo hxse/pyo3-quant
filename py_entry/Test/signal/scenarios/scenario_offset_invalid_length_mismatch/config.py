@@ -19,14 +19,14 @@ EXPECTED_EXCEPTION = pyo3_quant.errors.PyInvalidOffsetError
 
 DESCRIPTION = "测试无效的长度不匹配偏移：左右操作数offset长度不匹配应该报错"
 
-INDICATORS_PARAMS: IndicatorsParams = {
+INDICATORS_PARAMS = {
     "ohlcv_15m": {
         "sma_0": {"period": Param.create(20)},
         "sma_1": {"period": Param.create(30)},
     },
 }
 
-SIGNAL_PARAMS: SignalParams = {}
+SIGNAL_PARAMS = {}
 
 # entry_long: 左边有3个offset(&0-2)，右边有2个offset(&1-2)，长度不匹配
 SIGNAL_TEMPLATE = SignalTemplate(

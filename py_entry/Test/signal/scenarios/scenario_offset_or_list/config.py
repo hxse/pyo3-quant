@@ -15,13 +15,13 @@ from py_entry.types import (
 
 DESCRIPTION = "测试OR列表偏移：|0/1/5 表示指定的K线中至少有一根满足条件"
 
-INDICATORS_PARAMS: IndicatorsParams = {
+INDICATORS_PARAMS = {
     "ohlcv_15m": {
         "sma_0": {"period": Param.create(20)},
     },
 }
 
-SIGNAL_PARAMS: SignalParams = {}
+SIGNAL_PARAMS = {}
 
 # entry_long: K线0、1、5中至少有一根收盘价大于SMA
 SIGNAL_TEMPLATE = SignalTemplate(

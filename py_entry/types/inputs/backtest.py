@@ -1,10 +1,57 @@
 from enum import Enum
 from typing import Dict, List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 from .params_base import Param
 
-IndicatorsParams = Dict[str, Dict[str, Dict[str, Param]]]
-SignalParams = Dict[str, Param]
+
+class SignalParams(RootModel[Dict[str, Param]]):
+    """信号参数配置"""
+
+    def __getitem__(self, key: str) -> Param:
+        return self.root[key]
+
+    def items(self):
+        return self.root.items()
+
+    def keys(self):
+        return self.root.keys()
+
+    def values(self):
+        return self.root.values()
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.root
+
+    def __iter__(self):
+        return iter(self.root)
+
+    def get(self, key, default=None):
+        return self.root.get(key, default)
+
+
+class IndicatorsParams(RootModel[Dict[str, Dict[str, Dict[str, Param]]]]):
+    """指标参数配置 (timeframe -> indicator_name -> param_name -> Param)"""
+
+    def __getitem__(self, key: str) -> Dict[str, Dict[str, Param]]:
+        return self.root[key]
+
+    def items(self):
+        return self.root.items()
+
+    def keys(self):
+        return self.root.keys()
+
+    def values(self):
+        return self.root.values()
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.root
+
+    def __iter__(self):
+        return iter(self.root)
+
+    def get(self, key, default=None):
+        return self.root.get(key, default)
 
 
 class PerformanceMetric(str, Enum):

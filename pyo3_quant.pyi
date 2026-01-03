@@ -79,6 +79,17 @@ class backtest_engine:
         ...
 
     @staticmethod
+    def run_single_backtest(
+        data_dict: DataContainer,
+        param: Any,  # 传入 SimpleNamespace 或符合结构的字典
+        template: TemplateContainer,
+        engine_settings: SettingContainer,
+        input_backtest_df: Optional[BacktestSummary] = None,
+    ) -> Dict[str, Any]:
+        """运行单次回测"""
+        ...
+
+    @staticmethod
     def calculate_indicators(
         processed_data: DataContainer, indicators_params: IndicatorsParams
     ) -> Dict[str, polars.DataFrame]:
@@ -112,3 +123,27 @@ class backtest_engine:
     ) -> Dict[str, float]:
         """分析回测绩效"""
         ...
+
+    class optimizer:
+        @staticmethod
+        def py_run_optimizer(
+            data_dict: DataContainer,
+            param: Any,
+            template: TemplateContainer,
+            engine_settings: SettingContainer,
+            optimizer_config: Any,
+        ) -> Dict[str, Any]:
+            """运行参数优化"""
+            ...
+
+    class walk_forward:
+        @staticmethod
+        def py_run_walk_forward(
+            data_dict: DataContainer,
+            param: Any,
+            template: TemplateContainer,
+            engine_settings: SettingContainer,
+            config: Any,
+        ) -> Dict[str, Any]:
+            """运行向前滚动优化"""
+            ...

@@ -21,7 +21,7 @@ from py_entry.types import (
 
 DESCRIPTION = "多时间周期指标比较：测试不同周期指标之间的交叉比较"
 
-INDICATORS_PARAMS: IndicatorsParams = {
+INDICATORS_PARAMS = {
     "ohlcv_15m": {
         # 短期趋势指标
         "ema_0": {"period": Param.create(21, 10, 50, 5)},  # 15分钟EMA
@@ -52,7 +52,7 @@ INDICATORS_PARAMS: IndicatorsParams = {
     },
 }
 
-SIGNAL_PARAMS: SignalParams = {
+SIGNAL_PARAMS = {
     # RSI阈值
     "rsi_midline": Param.create(50.0, 40.0, 60.0, 5.0),
 }

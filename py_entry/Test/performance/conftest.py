@@ -1,5 +1,5 @@
 import pytest
-from py_entry.runner import BacktestRunner, SetupConfig
+from py_entry.runner import Backtest
 from py_entry.data_generator import DataGenerationParams
 from py_entry.types import (
     BacktestParams,
@@ -17,7 +17,7 @@ from py_entry.types import (
 @pytest.fixture(scope="module")
 def full_performance_result():
     """运行一个包含所有指标的完整回测"""
-    br = BacktestRunner()
+    # br = BacktestRunner() # Removed
 
     # 1000根15m K线，约10.4天
     simulated_data_config = DataGenerationParams(
@@ -98,18 +98,17 @@ def full_performance_result():
         return_only_final=False,
     )
 
-    br.setup(
-        SetupConfig(
-            data_source=simulated_data_config,
-            indicators=indicators_params,
-            signal={},
-            backtest=backtest_params,
-            performance=performance_params,
-            signal_template=signal_template,
-            engine_settings=engine_settings,
-        )
+    # 7. 创建并运行 Backtest
+    bt = Backtest(
+        data_source=simulated_data_config,
+        indicators=indicators_params,
+        signal={},
+        backtest=backtest_params,
+        performance=performance_params,
+        signal_template=signal_template,
+        engine_settings=engine_settings,
     )
 
-    br.run()
-    assert br.results is not None
-    return br.results[0]
+    result = bt.run()
+    assert result.summary is not None
+    return result.summary

@@ -15,8 +15,8 @@ def test_chart_config_generation(runner_with_results):
     )
     # Using unified export method which generates chart config internally
 
-    runner.format_results_for_export(
-        FormatResultsConfig(export_index=0, dataframe_format="csv", add_index=True)
+    runner.format_for_export(
+        FormatResultsConfig(dataframe_format="csv", add_index=True)
     )
     print(f"DEBUG: After generate, config={runner.chart_config}")
 

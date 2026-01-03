@@ -6,29 +6,25 @@
 
 import pytest
 
-from py_entry.runner import BacktestRunner, SetupConfig
+from py_entry.runner import Backtest
 from py_entry.Test.backtest.strategies import get_all_strategies
 from py_entry.Test.backtest.strategies.base import StrategyConfig
 
 
 def _run_backtest(strategy: StrategyConfig):
     """执行回测并返回结果"""
-    br = BacktestRunner()
-
-    br.setup(
-        SetupConfig(
-            data_source=strategy.data_config,
-            indicators=strategy.indicators_params,
-            signal=strategy.signal_params,
-            backtest=strategy.backtest_params,
-            signal_template=strategy.signal_template,
-            engine_settings=strategy.engine_settings,
-            performance=strategy.performance_params,
-        )
+    bt = Backtest(
+        data_source=strategy.data_config,
+        indicators=strategy.indicators_params,
+        signal=strategy.signal_params,
+        backtest=strategy.backtest_params,
+        signal_template=strategy.signal_template,
+        engine_settings=strategy.engine_settings,
+        performance=strategy.performance_params,
     )
 
-    br.run()
-    return br.results
+    result = bt.run()
+    return result.results
 
 
 @pytest.fixture(scope="class", params=get_all_strategies(), ids=lambda s: s.name)

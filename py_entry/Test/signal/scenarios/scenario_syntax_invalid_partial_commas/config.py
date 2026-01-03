@@ -20,13 +20,13 @@ EXPECTED_EXCEPTION = pyo3_quant.errors.PyParseError
 
 DESCRIPTION = "测试无效的语法：省略部分逗号（只有1个逗号）应该报错"
 
-INDICATORS_PARAMS: IndicatorsParams = {
+INDICATORS_PARAMS = {
     "ohlcv_15m": {
         "sma_0": {"period": Param.create(20)},
     },
 }
 
-SIGNAL_PARAMS: SignalParams = {}
+SIGNAL_PARAMS = {}
 
 # entry_long: 只有1个逗号，应该报错
 # 错误写法: "close, ohlcv_15m > sma_0"

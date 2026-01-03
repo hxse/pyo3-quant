@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
+from typing import TYPE_CHECKING, Optional, Union
 from py_entry.types import (
     IndicatorsParams,
     SignalParams,
@@ -36,7 +36,6 @@ class FormatResultsConfig(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    export_index: int
     dataframe_format: str = "csv"
     compress_level: int = 1
     parquet_compression: ParquetCompression = "zstd"

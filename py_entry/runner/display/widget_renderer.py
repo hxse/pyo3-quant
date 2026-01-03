@@ -7,17 +7,17 @@ Widget 渲染器 - embed_data=False 模式
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..runner import BacktestRunner
+    from ..results.run_result import RunResult
 
 from py_entry.io import DisplayConfig
 from .chart_widget import ChartDashboardWidget
 
 
-def render_as_widget(runner: "BacktestRunner", config: DisplayConfig):
+def render_as_widget(runner: "RunResult", config: DisplayConfig):
     """使用 anywidget 渲染图表仪表盘
 
     Args:
-        runner: BacktestRunner 实例
+        runner: RunResult 实例
         config: DisplayConfig 配置对象
 
     Returns:
@@ -65,8 +65,6 @@ def render_as_widget(runner: "BacktestRunner", config: DisplayConfig):
 
     if runner.enable_timing and start_time is not None:
         elapsed = time.perf_counter() - start_time
-        logger.info(
-            f"BacktestRunner.display_dashboard() [Widget模式] 耗时: {elapsed:.4f}秒"
-        )
+        logger.info(f"RunResult.display() [Widget模式] 耗时: {elapsed:.4f}秒")
 
     return widget

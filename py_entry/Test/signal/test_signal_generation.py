@@ -18,7 +18,7 @@ import pytest
 from polars.testing import assert_frame_equal
 
 from py_entry.data_generator import DataGenerationParams, OtherParams
-from py_entry.runner import BacktestRunner, SetupConfig
+from py_entry.runner import Backtest
 from py_entry.types import SettingContainer, ExecutionStage
 
 from py_entry.Test.signal.scenarios import get_all_scenarios
@@ -69,26 +69,24 @@ def test_signal_scenario(scenario, setting_container):
     )
 
     # 1. 创建回测运行器
-    runner = BacktestRunner()
+    # 1. (已移除提前创建 runner)
 
     # 2. 根据是否有预期异常来决定测试逻辑
     if scenario.expected_exception is None:
         # 预期成功的场景
 
-        runner.setup(
-            SetupConfig(
-                data_source=data_gen_params,
-                other_params=other_params,
-                indicators=scenario.indicators_params,
-                signal=scenario.signal_params,
-                signal_template=scenario.signal_template,
-                engine_settings=setting_container,
-            )
+        runner = Backtest(
+            data_source=data_gen_params,
+            other_params=other_params,
+            indicators=scenario.indicators_params,
+            signal=scenario.signal_params,
+            signal_template=scenario.signal_template,
+            engine_settings=setting_container,
         )
 
-        runner.run()
-        assert runner.results is not None, "回测结果不应为空"
-        backtest_summary = runner.results[0]
+        result = runner.run()
+        assert result.summary is not None, "回测结果不应为空"
+        backtest_summary = result.summary
 
         # 2. 验证结果结构
         assert backtest_summary.signals is not None, "回测结果应包含signals数据"
@@ -99,7 +97,7 @@ def test_signal_scenario(scenario, setting_container):
 
         # 4. 准备映射后的数据（所有数据已映射到基准周期）
 
-        data_container = runner.data_dict
+        data_container = result.data_dict
         assert data_container is not None, "data_container 不应为空"
 
         # 准备原始和映射后的两组数据
@@ -138,19 +136,15 @@ def test_signal_scenario(scenario, setting_container):
     else:
         # 预期报错的场景
 
-        runner.setup(
-            SetupConfig(
+        # 3. 运行回测，预期会报错
+        with pytest.raises(scenario.expected_exception) as exc_info:
+            runner = Backtest(
                 data_source=data_gen_params,
                 indicators=scenario.indicators_params,
                 signal=scenario.signal_params,
                 signal_template=scenario.signal_template,
                 engine_settings=setting_container,
             )
-        )
-
-        # 3. 运行回测，预期会报错
-
-        with pytest.raises(scenario.expected_exception) as exc_info:
             runner.run()
 
         # 4. 验证错误信息包含相关关键词

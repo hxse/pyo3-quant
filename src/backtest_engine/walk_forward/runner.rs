@@ -3,14 +3,14 @@ use crate::backtest_engine::walk_forward::data_splitter::generate_windows;
 use crate::error::QuantError;
 use crate::types::OptimizerConfig;
 use crate::types::WalkForwardConfig;
-use crate::types::{DataContainer, ParamContainer, SettingContainer, TemplateContainer};
+use crate::types::{DataContainer, SettingContainer, SingleParamSet, TemplateContainer};
 use crate::types::{WalkForwardResult, WindowResult};
 use pyo3::prelude::*;
 
 /// 运行向前滚动优化
 pub fn run_walk_forward(
     data_dict: &DataContainer,
-    param_set: &ParamContainer,
+    param: &SingleParamSet,
     template: &TemplateContainer,
     settings: &SettingContainer,
     config: &WalkForwardConfig,
@@ -52,8 +52,7 @@ pub fn run_walk_forward(
 
         // 3.3 运行训练集优化
         // 使用 slice 后的 train_data
-        let train_result =
-            run_optimization(&train_data, param_set, template, settings, &opt_config)?;
+        let train_result = run_optimization(&train_data, param, template, settings, &opt_config)?;
 
         // 3.4 准备测试集回测
         let test_len = window.test_range.1 - window.test_range.0;
@@ -73,7 +72,7 @@ pub fn run_walk_forward(
             test_opt_config.samples_per_round = 1;
 
             let test_run_res =
-                run_optimization(&test_data, param_set, template, settings, &test_opt_config)?;
+                run_optimization(&test_data, param, template, settings, &test_opt_config)?;
 
             test_calmar = test_run_res.best_calmar;
             test_return = 0.0;
@@ -155,11 +154,10 @@ fn slice_data_container(data: &DataContainer, start: usize, len: usize) -> DataC
 #[pyfunction]
 pub fn py_run_walk_forward(
     data_dict: DataContainer,
-    param_set: ParamContainer,
+    param: SingleParamSet,
     template: TemplateContainer,
     engine_settings: SettingContainer,
     config: WalkForwardConfig,
 ) -> PyResult<WalkForwardResult> {
-    run_walk_forward(&data_dict, &param_set, &template, &engine_settings, &config)
-        .map_err(|e| e.into())
+    run_walk_forward(&data_dict, &param, &template, &engine_settings, &config).map_err(|e| e.into())
 }

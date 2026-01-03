@@ -14,7 +14,7 @@ use crate::backtest_engine::optimizer::sampler::{
 };
 use crate::error::{OptimizerError, QuantError};
 use crate::types::OptimizerConfig;
-use crate::types::{DataContainer, ParamContainer, SettingContainer, TemplateContainer};
+use crate::types::{DataContainer, SettingContainer, SingleParamSet, TemplateContainer};
 use crate::types::{OptimizationResult, RoundSummary};
 use pyo3::prelude::*;
 use rand::rngs::StdRng;
@@ -151,15 +151,11 @@ fn build_best_params_map(
 /// 优化结果或错误
 pub fn run_optimization(
     data_dict: &DataContainer,
-    param_set: &ParamContainer,
+    param: &SingleParamSet,
     template: &TemplateContainer,
     settings: &SettingContainer,
     config: &OptimizerConfig,
 ) -> Result<OptimizationResult, QuantError> {
-    if param_set.is_empty() {
-        return Err(OptimizerError::InvalidConfig("Param set is empty".into()).into());
-    }
-
     // 验证配置
     let validation = validate_config(
         config.explore_ratio,
@@ -178,8 +174,7 @@ pub fn run_optimization(
     let mut rng = StdRng::from_os_rng();
 
     // 1. 提取所有需要优化的参数并平铺
-    let first_set = &param_set[0];
-    let flat_params = extract_optimizable_params(first_set);
+    let flat_params = extract_optimizable_params(param);
 
     if flat_params.is_empty() {
         return Err(
@@ -226,7 +221,7 @@ pub fn run_optimization(
         let round_results: Vec<Result<SamplePoint, QuantError>> = next_round_vals
             .into_par_iter()
             .map(|vals| {
-                let mut current_set = first_set.clone();
+                let mut current_set = param.clone();
                 apply_values_to_param(&mut current_set, &flat_params, &vals);
 
                 // 执行实际回测
@@ -334,14 +329,14 @@ pub fn run_optimization(
 #[pyfunction]
 pub fn py_run_optimizer(
     data_dict: DataContainer,
-    param_set: ParamContainer,
+    param: SingleParamSet,
     template: TemplateContainer,
     engine_settings: SettingContainer,
     optimizer_config: OptimizerConfig,
 ) -> PyResult<OptimizationResult> {
     run_optimization(
         &data_dict,
-        &param_set,
+        &param,
         &template,
         &engine_settings,
         &optimizer_config,

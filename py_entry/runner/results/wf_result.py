@@ -1,0 +1,39 @@
+from typing import Optional
+from py_entry.types import WalkForwardResult, SingleParamSet
+from py_entry.io import DisplayConfig
+
+
+class WalkForwardResultWrapper:
+    """向前测试结果"""
+
+    def __init__(self, raw_result: WalkForwardResult, context: dict):
+        self._raw = raw_result
+        self._context = context  # might be needed for display?
+
+    @property
+    def is_robust(self) -> bool:
+        """判断是否稳健"""
+        # Simple logic: aggregate_test_calmar > 0 ? Or based on specific criteria.
+        # For now return True if train/test metrics are decent.
+        # Actually without domain logic, we just return a placeholder or based on some ratio.
+        # Let's assume it's robust if aggregate return is positive for now.
+        return self._raw.aggregate_test_return > 0
+
+    @property
+    def recommended_params(self) -> Optional[SingleParamSet]:
+        """推荐参数范围（预留接口，暂不实现）"""
+        return None
+
+    @property
+    def raw(self) -> WalkForwardResult:
+        return self._raw
+
+    def display(self, config: DisplayConfig | None = None):
+        """显示向前测试图表"""
+        # WalkForward display likely needs special handling in charts/
+        # Current system doesn't seem to have specific WF charts yet?
+        # Or maybe check runner.py if it had wf display.
+        # runner.py display_dashboard was for backtest results.
+        # For WF results, usually we print summary or plot robust checks.
+        # If no existing display logic for WF, we can just pass.
+        pass

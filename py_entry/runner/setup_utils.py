@@ -55,7 +55,7 @@ def build_data(
 
 
 def build_indicators_params(
-    indicators_params: IndicatorsParams | None = None,
+    indicators_params: IndicatorsParams | dict | None = None,
 ) -> IndicatorsParams:
     """构建指标参数
 
@@ -67,24 +67,29 @@ def build_indicators_params(
     """
     # 如果参数不为None，直接返回提供的参数
     if indicators_params is not None:
+        if isinstance(indicators_params, dict):
+            return IndicatorsParams(indicators_params)
         return indicators_params
 
     # 否则返回默认值
-    return {
-        "ohlcv_15m": {
-            "sma_0": {"period": Param.create(14, 5, 50, 1)},
-            "sma_1": {
-                "period": Param.create(200, 100, 300, 10),
+    # 否则返回默认值
+    return IndicatorsParams(
+        {
+            "ohlcv_15m": {
+                "sma_0": {"period": Param.create(14, 5, 50, 1)},
+                "sma_1": {
+                    "period": Param.create(200, 100, 300, 10),
+                },
             },
-        },
-        "ohlcv_1h": {
-            "sma_0": {"period": Param.create(14, 5, 50, 1)},
-        },
-    }
+            "ohlcv_1h": {
+                "sma_0": {"period": Param.create(14, 5, 50, 1)},
+            },
+        }
+    )
 
 
 def build_signal_params(
-    signal_params: SignalParams | None = None,
+    signal_params: SignalParams | dict | None = None,
 ) -> SignalParams:
     """构建信号参数
 
@@ -96,10 +101,12 @@ def build_signal_params(
     """
     # 如果参数不为None，直接返回提供的参数
     if signal_params is not None:
+        if isinstance(signal_params, dict):
+            return SignalParams(signal_params)
         return signal_params
 
     # 否则返回默认值
-    return {"rsi_midline": Param.create(20, 10, 90, 5)}
+    return SignalParams({"rsi_midline": Param.create(20, 10, 90, 5)})
 
 
 def build_backtest_params(

@@ -1,29 +1,23 @@
-from .runner import BacktestRunner
+from .backtest import Backtest
 from .params import (
     SetupConfig,
     FormatResultsConfig,
     DiagnoseStatesConfig,
 )
-from .setup_utils import (
-    build_data,
-    build_indicators_params,
-    build_signal_params,
-    build_backtest_params,
-    build_performance_params,
-    build_signal_template,
-    build_engine_settings,
+from .results import (
+    RunResult,
+    BatchResult,
+    OptimizeResult,
+    WalkForwardResultWrapper,
 )
 
 __all__ = [
-    "BacktestRunner",
+    "Backtest",
     "SetupConfig",
     "FormatResultsConfig",
     "DiagnoseStatesConfig",
-    "build_data",
-    "build_indicators_params",
-    "build_signal_params",
-    "build_backtest_params",
-    "build_performance_params",
-    "build_signal_template",
-    "build_engine_settings",
+    "RunResult",
+    "BatchResult",
+    "OptimizeResult",
+    "WalkForwardResultWrapper",
 ]

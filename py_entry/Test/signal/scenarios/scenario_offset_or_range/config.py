@@ -15,13 +15,13 @@ from py_entry.types import (
 
 DESCRIPTION = "测试OR范围偏移：|0-2 表示最近3根K线中至少有一根满足条件"
 
-INDICATORS_PARAMS: IndicatorsParams = {
+INDICATORS_PARAMS = {
     "ohlcv_15m": {
         "sma_0": {"period": Param.create(20)},
     },
 }
 
-SIGNAL_PARAMS: SignalParams = {}
+SIGNAL_PARAMS = {}
 
 # entry_long: 最近3根K线中至少有一根收盘价大于SMA
 SIGNAL_TEMPLATE = SignalTemplate(

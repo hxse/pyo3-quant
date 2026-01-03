@@ -19,13 +19,13 @@ EXPECTED_EXCEPTION = pyo3_quant.errors.PyParseError
 
 DESCRIPTION = "测试无效的语法：省略第一个参数name应该报错"
 
-INDICATORS_PARAMS: IndicatorsParams = {
+INDICATORS_PARAMS = {
     "ohlcv_15m": {
         "sma_0": {"period": Param.create(20)},
     },
 }
 
-SIGNAL_PARAMS: SignalParams = {}
+SIGNAL_PARAMS = {}
 
 # entry_long: 省略第一个参数name，应该报错
 # 错误写法: ", ohlcv_15m, 0 > sma_0, ohlcv_15m, 0"

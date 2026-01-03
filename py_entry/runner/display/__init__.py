@@ -12,20 +12,20 @@ from IPython.display import HTML
 from py_entry.io import DisplayConfig
 
 if TYPE_CHECKING:
-    from ..runner import BacktestRunner
+    from ..results.run_result import RunResult
     from .chart_widget import ChartDashboardWidget
 from .html_renderer import render_as_html
 from .widget_renderer import render_as_widget
 
 
 def display_dashboard(
-    runner: "BacktestRunner",
+    runner: "RunResult",
     config: Optional[DisplayConfig] = None,
 ) -> Union[HTML, "ChartDashboardWidget"]:
     """显示图表仪表盘（支持两种模式）
 
     Args:
-        runner: BacktestRunner 实例
+        runner: RunResult 实例
         config: DisplayConfig 包含配置对象
     """
     config = config or DisplayConfig()

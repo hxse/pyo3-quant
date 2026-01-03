@@ -15,13 +15,13 @@ from py_entry.types import (
 
 DESCRIPTION = "测试向下交叉：x< 表示收盘价向下跌破SMA（前一根 >= SMA，当前 < SMA）"
 
-INDICATORS_PARAMS: IndicatorsParams = {
+INDICATORS_PARAMS = {
     "ohlcv_15m": {
         "sma_0": {"period": Param.create(20)},
     },
 }
 
-SIGNAL_PARAMS: SignalParams = {}
+SIGNAL_PARAMS = {}
 
 # entry_short: 收盘价向下跌破SMA
 SIGNAL_TEMPLATE = SignalTemplate(

@@ -9,7 +9,7 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Optional
 
-from py_entry.runner import BacktestRunner, SetupConfig
+from py_entry.runner import Backtest
 from py_entry.Test.backtest.strategies import get_strategy
 from py_entry.Test.backtest.correlation_analysis.config import CommonConfig
 
@@ -29,7 +29,7 @@ class Pyo3Adapter:
 
     def __init__(self, config: CommonConfig):
         self.config = config
-        self.runner: Optional[BacktestRunner] = None
+        self.runner: Optional[Backtest] = None
         self.result: Optional[Pyo3BacktestResult] = None
 
     def run(self, strategy_name: str) -> "Pyo3Adapter":
@@ -56,23 +56,21 @@ class Pyo3Adapter:
         strategy.backtest_params.initial_capital = self.config.initial_capital
         strategy.backtest_params.fee_pct = self.config.commission
 
-        # 创建 BacktestRunner 并执行
-        self.runner = BacktestRunner()
-        self.runner.setup(
-            SetupConfig(
-                data_source=strategy.data_config,
-                indicators=strategy.indicators_params,
-                signal=strategy.signal_params,
-                backtest=strategy.backtest_params,
-                signal_template=strategy.signal_template,
-                engine_settings=strategy.engine_settings,
-                performance=strategy.performance_params,
-            )
-        ).run()
+        # 创建 Backtest 并执行
+        self.runner = Backtest(
+            data_source=strategy.data_config,
+            indicators=strategy.indicators_params,
+            signal=strategy.signal_params,
+            backtest=strategy.backtest_params,
+            signal_template=strategy.signal_template,
+            engine_settings=strategy.engine_settings,
+            performance=strategy.performance_params,
+        )
+        result = self.runner.run()
 
         # 提取结果
-        assert self.runner.results is not None, "回测结果为空"
-        summary = self.runner.results[0]
+        assert result.summary is not None, "回测结果为空"
+        summary = result.summary
         backtest_df = summary.backtest_result
 
         assert backtest_df is not None, "回测结果 DataFrame 为空"

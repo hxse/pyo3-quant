@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 from py_entry.Test.backtest.strategies import get_strategy
-from py_entry.runner import BacktestRunner, SetupConfig
+from py_entry.runner import Backtest
 
 
 @pytest.fixture(scope="module")
@@ -19,21 +19,17 @@ def backtest_result():
     """使用 reversal_extreme 策略执行回测"""
     strategy = get_strategy("reversal_extreme")
 
-    br = (
-        BacktestRunner()
-        .setup(
-            SetupConfig(
-                data_source=strategy.data_config,
-                indicators=strategy.indicators_params,
-                signal=strategy.signal_params,
-                backtest=strategy.backtest_params,
-                signal_template=strategy.signal_template,
-                engine_settings=strategy.engine_settings,
-            )
-        )
-        .run()
+    runner = Backtest(
+        data_source=strategy.data_config,
+        indicators=strategy.indicators_params,
+        signal=strategy.signal_params,
+        backtest=strategy.backtest_params,
+        signal_template=strategy.signal_template,
+        engine_settings=strategy.engine_settings,
     )
-    return br.results
+    result = runner.run()
+    assert result.summary is not None, "回测结果不应为空"
+    return result.summary
 
 
 def test_performance_matches_baseline(backtest_result):
@@ -56,7 +52,7 @@ def test_performance_matches_baseline(backtest_result):
         baseline = json.load(f)
 
     # 3. 获取当前结果
-    current = backtest_result[0].performance
+    current = backtest_result.performance
 
     # 4. 逐项比较
     mismatches = []

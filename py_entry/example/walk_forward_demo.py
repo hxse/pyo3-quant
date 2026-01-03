@@ -1,6 +1,6 @@
 import time
 from loguru import logger
-from py_entry.runner import BacktestRunner, SetupConfig
+from py_entry.runner import Backtest
 from py_entry.types import (
     BacktestParams,
     Param,
@@ -117,19 +117,21 @@ def main():
         return_only_final=True,
     )
 
-    # 7. 配置 Runner
-    br = BacktestRunner()
-
-    br.setup(
-        SetupConfig(
-            enable_timing=True,
-            data_source=simulated_data_config,
-            indicators=indicators_params,
-            backtest=backtest_params,
-            performance=performance_params,
-            signal_template=signal_template,
-            engine_settings=engine_settings,
-        )
+    # 7. 配置 Backtest
+    bt = Backtest(
+        enable_timing=True,
+        data_source=simulated_data_config,
+        indicators=indicators_params,
+        backtest=backtest_params,
+        performance=performance_params,
+        signal_template=signal_template,
+        engine_settings=engine_settings,
+        signal={},  # Added dummy signal to match Init signature if needed (Backtest init expects signal param if not optional? Wait, check Backtest signature)
+        # Backtest init: signal: Optional[SignalParams] = None
+        # So it's optional.
+        # But setup logic required it?
+        # Let's check logic. Backtest(..., signal=None) -> build_signal_params(None) -> returns SignalParams(params={}) (empty).
+        # So it works.
     )
 
     # 8. 配置 Walk Forward
@@ -152,15 +154,15 @@ def main():
     logger.info("开始执行 Walk Forward Optimization...")
     start_time = time.time()
 
-    wf_result = br.walk_forward(wf_config)
+    wf_result = bt.walk_forward(wf_config)
 
     elapsed = time.time() - start_time
     logger.info(f"Walk Forward 完成，总耗时: {elapsed:.2f}秒")
 
     print("\n================= Walk Forward 结果 =================")
-    print(f"总体测试集平均 Calmar: {wf_result.aggregate_test_calmar:.4f}")
+    print(f"总体测试集平均 Calmar: {wf_result.raw.aggregate_test_calmar:.4f}")
     print("-----------------------------------------------------")
-    for w in wf_result.windows:
+    for w in wf_result.raw.windows:
         print(f"Window {w.window_id}:")
         print(f"  Range: Train={w.train_range}, Test={w.test_range}")
         print(f"  Train Calmar: {w.train_calmar:.4f}")

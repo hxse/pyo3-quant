@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import polars as pl
 
 if TYPE_CHECKING:
-    from .runner import BacktestRunner
+    from .results.run_result import RunResult
     from .params import DiagnoseStatesConfig
 
 # 11 种合法状态白名单
@@ -32,29 +32,20 @@ VALID_STATES = [
 
 
 def analyze_state_distribution(
-    runner: "BacktestRunner",
+    runner: "RunResult",
     config: "DiagnoseStatesConfig",
 ) -> dict:
     """
     分析回测结果的状态机分布。
 
     Args:
-        runner: BacktestRunner 实例（已执行 run()）
+        runner: RunResult 实例
         config: DiagnoseStatesConfig
     """
-    result_index = config.result_index
-
-    if runner.results is None:
-        raise ValueError("请先执行 run() 方法")
-
-    if result_index >= len(runner.results):
-        raise IndexError(
-            f"结果索引 {result_index} 超出范围 (共 {len(runner.results)} 个)"
-        )
-
-    df = runner.results[result_index].backtest_result
+    # RunResult 只包含一个 summary
+    df = runner.summary.backtest_result
     if df is None:
-        raise ValueError(f"回测结果索引 {result_index} 不包含 backtest_result 数据")
+        raise ValueError("回测结果不包含 backtest_result 数据")
 
     # 转换为布尔列
     df = df.with_columns(
@@ -99,7 +90,7 @@ def analyze_state_distribution(
 
 
 def perform_diagnose(
-    runner: "BacktestRunner",
+    runner: "RunResult",
     config: "DiagnoseStatesConfig",
 ) -> dict:
     """

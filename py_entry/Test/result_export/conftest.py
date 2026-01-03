@@ -1,5 +1,5 @@
 import pytest
-from py_entry.runner import BacktestRunner, SetupConfig
+from py_entry.runner import Backtest
 from py_entry.types import (
     BacktestParams,
     LogicOp,
@@ -15,7 +15,7 @@ from py_entry.data_generator import DataGenerationParams
 @pytest.fixture(scope="function")
 def runner_with_results():
     """
-    运行一个实际的 BacktestRunner 并返回它（已包含 results）。
+    运行一个实际的 Backtest 并返回 RunResult。
     配置完全参考 custom_backtest.py
     """
 
@@ -102,20 +102,16 @@ def runner_with_results():
         return_only_final=False,  # 测试需要指标数据来生成图表配置
     )
 
-    # 7. 创建并运行 Runner
-    runner = BacktestRunner()
-
-    runner.setup(
-        SetupConfig(
-            data_source=simulated_data_config,
-            indicators=indicators_params,
-            signal=signal_params,
-            backtest=backtest_params,
-            signal_template=signal_template,
-            engine_settings=engine_settings,
-        )
+    # 7. 创建并运行 Backtest
+    bt = Backtest(
+        data_source=simulated_data_config,
+        indicators=indicators_params,
+        signal=signal_params,
+        backtest=backtest_params,
+        signal_template=signal_template,
+        engine_settings=engine_settings,
     )
 
-    runner.run()
+    result = bt.run()
 
-    return runner
+    return result

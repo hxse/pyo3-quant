@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from py_entry.Test.backtest.strategies import get_strategy
-from py_entry.runner import BacktestRunner, SetupConfig
+from py_entry.runner import Backtest
 
 
 def regenerate_baseline():
@@ -9,26 +9,21 @@ def regenerate_baseline():
 
     strategy = get_strategy("reversal_extreme")
 
-    br = (
-        BacktestRunner()
-        .setup(
-            SetupConfig(
-                data_source=strategy.data_config,
-                indicators=strategy.indicators_params,
-                signal=strategy.signal_params,
-                backtest=strategy.backtest_params,
-                signal_template=strategy.signal_template,
-                engine_settings=strategy.engine_settings,
-            )
-        )
-        .run()
+    runner = Backtest(
+        data_source=strategy.data_config,
+        indicators=strategy.indicators_params,
+        signal=strategy.signal_params,
+        backtest=strategy.backtest_params,
+        signal_template=strategy.signal_template,
+        engine_settings=strategy.engine_settings,
     )
+    result = runner.run()
 
-    if not br.results:
+    if not result.summary:
         print("Error: No backtest results generated.")
         return
 
-    current_performance = br.results[0].performance
+    current_performance = result.summary.performance
 
     # Path to performance.json
     json_path = Path(

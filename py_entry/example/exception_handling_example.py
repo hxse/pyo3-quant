@@ -4,7 +4,7 @@ import json
 # 项目导入
 import pyo3_quant
 
-from py_entry.runner import BacktestRunner, SetupConfig
+from py_entry.runner import Backtest
 from py_entry.types import Param
 from py_entry.data_generator import DataGenerationParams
 from py_entry.io import RequestConfig
@@ -36,7 +36,7 @@ indicators_params = {
 if __name__ == "__main__":
     # 配置logger
     # 创建 BacktestRunner
-    br = BacktestRunner()
+    # 创建 Backtest
 
     # 使用链式调用执行完整的回测流程
     logger.info("开始执行回测流程")
@@ -53,12 +53,11 @@ if __name__ == "__main__":
 
     try:
         # 完整的链式调用：配置 -> 运行 -> 保存 -> 上传
-        br.setup(
-            SetupConfig(
-                enable_timing=False,
-                data_source=simulated_data_config,
-                indicators=indicators_params,
-            )
+        # 完整的链式调用：配置 -> 运行 -> 保存 -> 上传
+        Backtest(
+            enable_timing=False,
+            data_source=simulated_data_config,
+            indicators=indicators_params,
         ).run()
     except pyo3_quant.errors.PyDataSourceNotFoundError as e:
         logger.info(f"成功捕获异常: {e}")

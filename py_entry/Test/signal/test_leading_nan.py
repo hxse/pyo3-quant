@@ -1,5 +1,5 @@
 from py_entry.data_generator import DataGenerationParams
-from py_entry.runner import BacktestRunner, SetupConfig
+from py_entry.runner import Backtest
 from py_entry.types import (
     SettingContainer,
     ExecutionStage,
@@ -64,23 +64,18 @@ def test_leading_nan_tracking():
     )
 
     # 4. 运行回测引擎
-    runner = BacktestRunner()
-
-    runner.setup(
-        SetupConfig(
-            data_source=data_gen_params,
-            indicators=indicators_params,
-            signal_template=signal_template,
-            engine_settings=SettingContainer(
-                execution_stage=ExecutionStage.PERFORMANCE
-            ),
-        )
+    # 4. 运行回测引擎
+    runner = Backtest(
+        data_source=data_gen_params,
+        indicators=indicators_params,
+        signal_template=signal_template,
+        engine_settings=SettingContainer(execution_stage=ExecutionStage.PERFORMANCE),
     )
-    runner.run()
+    result = runner.run()
 
     # 5. 验证结果
-    assert runner.results is not None, "回测结果不应为空"
-    backtest_summary = runner.results[0]
+    assert result.summary is not None, "回测结果不应为空"
+    backtest_summary = result.summary
 
     signals = backtest_summary.signals
     indicators = backtest_summary.indicators

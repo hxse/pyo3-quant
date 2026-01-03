@@ -19,13 +19,13 @@ EXPECTED_EXCEPTION = pyo3_quant.errors.PyInvalidOffsetError
 
 DESCRIPTION = "测试无效的混合逻辑偏移：&和|混用应该报错"
 
-INDICATORS_PARAMS: IndicatorsParams = {
+INDICATORS_PARAMS = {
     "ohlcv_15m": {
         "sma_0": {"period": Param.create(20)},
     },
 }
 
-SIGNAL_PARAMS: SignalParams = {}
+SIGNAL_PARAMS = {}
 
 # entry_long: 混合使用AND和OR逻辑，应该报错
 # 左边使用AND逻辑(&0-2)，右边使用OR逻辑(|1-3)

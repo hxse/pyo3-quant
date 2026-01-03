@@ -19,7 +19,7 @@ from py_entry.types import (
 DESCRIPTION = "测试跨数据源和周期的指标对比：ohlcv vs ha vs renko"
 
 # 为不同数据源配置指标
-INDICATORS_PARAMS: IndicatorsParams = {
+INDICATORS_PARAMS = {
     # OHLCV数据源
     "ohlcv_15m": {
         "sma_0": {"period": Param.create(20)},
@@ -37,7 +37,7 @@ INDICATORS_PARAMS: IndicatorsParams = {
     # "renko_1h": {},  # 只用close
 }
 
-SIGNAL_PARAMS: SignalParams = {}
+SIGNAL_PARAMS = {}
 
 # 测试策略：
 # Enter Long:

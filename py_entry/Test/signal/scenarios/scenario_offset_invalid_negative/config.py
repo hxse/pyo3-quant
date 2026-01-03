@@ -19,13 +19,13 @@ EXPECTED_EXCEPTION = pyo3_quant.errors.PyParseError
 
 DESCRIPTION = "测试无效的负数偏移：offset不能是负数，应该报错"
 
-INDICATORS_PARAMS: IndicatorsParams = {
+INDICATORS_PARAMS = {
     "ohlcv_15m": {
         "sma_0": {"period": Param.create(20)},
     },
 }
 
-SIGNAL_PARAMS: SignalParams = {}
+SIGNAL_PARAMS = {}
 
 # entry_long: 使用负数offset，应该报错
 SIGNAL_TEMPLATE = SignalTemplate(

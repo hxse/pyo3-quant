@@ -13,9 +13,7 @@ def test_export_flow(runner_with_results, tmp_path):
     # --- 1. Verify format_results_for_export ---
     print("Formatting results for export...")
 
-    runner.format_results_for_export(
-        FormatResultsConfig(export_index=0, dataframe_format="csv")
-    )
+    runner.format_for_export(FormatResultsConfig(dataframe_format="csv"))
 
     # Assertions
     assert runner.export_buffers is not None, "export_buffers should be populated"
@@ -43,7 +41,7 @@ def test_export_flow(runner_with_results, tmp_path):
         "py_entry.io.result_export.validate_output_path",
         side_effect=lambda x: Path(x),
     ) as _:
-        runner.save_results(save_config)
+        runner.save(save_config)
 
     assert output_path.exists(), "Output directory should exist"
     assert (output_path / "chartConfig.json").exists(), (

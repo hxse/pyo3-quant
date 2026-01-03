@@ -22,7 +22,7 @@ from py_entry.types import (
 
 DESCRIPTION = "复杂嵌套TA策略：结合趋势、动量和波动率指标的多层次交易策略"
 
-INDICATORS_PARAMS: IndicatorsParams = {
+INDICATORS_PARAMS = {
     "ohlcv_15m": {
         # 趋势指标
         "ema_0": {"period": Param.create(21, 10, 50, 5)},  # 短期EMA
@@ -38,7 +38,7 @@ INDICATORS_PARAMS: IndicatorsParams = {
     },
 }
 
-SIGNAL_PARAMS: SignalParams = {
+SIGNAL_PARAMS = {
     # RSI阈值
     "rsi_oversold": Param.create(30, 20, 40, 5),
     "rsi_overbought": Param.create(70, 60, 80, 5),

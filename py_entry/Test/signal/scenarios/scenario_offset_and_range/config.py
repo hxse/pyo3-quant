@@ -17,14 +17,14 @@ from py_entry.types import (
 DESCRIPTION = "测试AND范围偏移：&0-2 表示最近3根K线(offset 0,1,2)都必须满足条件"
 
 # 指标参数
-INDICATORS_PARAMS: IndicatorsParams = {
+INDICATORS_PARAMS = {
     "ohlcv_15m": {
         "sma_0": {"period": Param.create(20)},
     },
 }
 
 # 信号参数（本场景不需要）
-SIGNAL_PARAMS: SignalParams = {}
+SIGNAL_PARAMS = {}
 
 # 信号模板
 # entry_long: 最近3根K线的收盘价都大于当前SMA

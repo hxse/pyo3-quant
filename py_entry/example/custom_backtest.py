@@ -6,8 +6,8 @@ from pathlib import Path
 # 项目导入
 
 from py_entry.runner import (
-    BacktestRunner,
-    SetupConfig,
+    Backtest,
+    RunResult,
     FormatResultsConfig,
 )
 from py_entry.types import (
@@ -140,7 +140,7 @@ engine_settings = SettingContainer(
 )
 
 
-def run_custom_backtest() -> BacktestRunner:
+def run_custom_backtest() -> RunResult:
     """
     运行自定义回测流程
     """
@@ -148,27 +148,25 @@ def run_custom_backtest() -> BacktestRunner:
 
     start_time = time.perf_counter()
 
-    # 创建 BacktestRunner
-    br = BacktestRunner()
-
     # 使用链式调用执行完整的回测流程
     logger.info("开始执行回测流程")
 
-    # 完整的链式调用：配置 -> 运行 -> 格式化 -> 保存
-    br.setup(
-        SetupConfig(
-            enable_timing=True,
-            data_source=simulated_data_config,
-            indicators=indicators_params,
-            signal=signal_params,
-            backtest=backtest_params,
-            performance=performance_params,
-            signal_template=signal_template,
-            engine_settings=engine_settings,
-        )
-    ).run().format_results_for_export(
-        FormatResultsConfig(export_index=0, dataframe_format="csv")
-    ).save_results(
+    # 创建 Backtest
+    bt = Backtest(
+        enable_timing=True,
+        data_source=simulated_data_config,
+        indicators=indicators_params,
+        signal=signal_params,
+        backtest=backtest_params,
+        performance=performance_params,
+        signal_template=signal_template,
+        engine_settings=engine_settings,
+    )
+
+    # 运行 -> 格式化 -> 保存
+    result = bt.run()
+
+    result.format_for_export(FormatResultsConfig(dataframe_format="csv")).save(
         SaveConfig(
             output_dir="my_strategy",
         )
@@ -192,7 +190,7 @@ def run_custom_backtest() -> BacktestRunner:
         )
 
         logger.info("正在上传结果...")
-        br.upload_results(
+        result.upload(
             UploadConfig(
                 request_config=request_cfg,
                 server_dir="my_strategy",
@@ -203,14 +201,13 @@ def run_custom_backtest() -> BacktestRunner:
         logger.warning(f"跳过上传：未找到配置文件 {config_path}")
 
     # 获取结果用于打印
-    backtest_result = br.results
-
-    if backtest_result:
-        logger.info(f"performance: {backtest_result[0].performance}")
+    # RunResult.summary contains the summary
+    if result.summary:
+        logger.info(f"performance: {result.summary.performance}")
 
     logger.info(f"总耗时 {time.perf_counter() - start_time:.4f}秒")
 
-    return br
+    return result
 
 
 if __name__ == "__main__":

@@ -235,6 +235,41 @@ pub fn py_run_backtest_engine(
     Ok(results)
 }
 
+/// PyO3 接口函数：运行单个回测
+///
+/// 这是 Python 端调用的入口函数，直接执行单次回测而无需包装成列表。
+///
+/// # PyO3 参数说明
+///
+/// * `data_dict` - 市场数据字典
+/// * `param` - 单个回测参数集
+/// * `template` - 信号生成模板
+/// * `engine_settings` - 引擎配置设置
+/// * `input_backtest_df` - 可选的已有回测结果
+///
+/// # 返回值
+///
+/// 返回 Python 字典（摘要结果）
+#[pyfunction(name = "run_single_backtest")]
+pub fn py_run_single_backtest(
+    data_dict: DataContainer,
+    param: SingleParamSet,
+    template: TemplateContainer,
+    engine_settings: SettingContainer,
+    input_backtest_df: Option<BacktestSummary>,
+) -> PyResult<BacktestSummary> {
+    // 调用内部纯 Rust 函数执行单次回测
+    let result = execute_single_backtest(
+        &data_dict,
+        &param,
+        &template,
+        &engine_settings,
+        input_backtest_df,
+    )?;
+
+    Ok(result)
+}
+
 /// 注册 PyO3 模块的所有函数
 ///
 /// 这个函数将回测引擎的所有公共接口暴露给 Python 端，
@@ -252,6 +287,7 @@ pub fn py_run_backtest_engine(
 pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // 注册主回测引擎函数
     m.add_function(wrap_pyfunction!(py_run_backtest_engine, m)?)?;
+    m.add_function(wrap_pyfunction!(py_run_single_backtest, m)?)?;
 
     // 注册各个子模块的函数
     m.add_function(wrap_pyfunction!(indicators::py_calculate_indicators, m)?)?;

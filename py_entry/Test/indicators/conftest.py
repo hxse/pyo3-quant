@@ -3,7 +3,7 @@ import pytest
 from py_entry.data_generator import (
     DataGenerationParams,
 )
-from py_entry.runner import BacktestRunner, SetupConfig
+from py_entry.runner import Backtest
 from py_entry.types import (
     SettingContainer,
     ExecutionStage,
@@ -15,7 +15,7 @@ from py_entry.types import (
 
 def run_indicator_backtest(
     data_params: DataGenerationParams,
-    indicators_params: IndicatorsParams,
+    indicators_params: IndicatorsParams | dict,
 ) -> tuple[list[BacktestSummary], DataContainer]:
     """运行指标回测并返回结果和数据容器
 
@@ -26,21 +26,17 @@ def run_indicator_backtest(
     Returns:
         (backtest_results, data_container) 元组
     """
-    runner = BacktestRunner()
-
-    runner.setup(
-        SetupConfig(
-            data_source=data_params,
-            indicators=indicators_params,
-            engine_settings=SettingContainer(
-                execution_stage=ExecutionStage.INDICATOR,
-                return_only_final=True,
-            ),
-        )
+    bt = Backtest(
+        data_source=data_params,
+        indicators=indicators_params,
+        engine_settings=SettingContainer(
+            execution_stage=ExecutionStage.INDICATOR,
+            return_only_final=True,
+        ),
     )
-    runner.run()
-    backtest_results = runner.results
-    data_container = runner.data_dict
+    result = bt.run()
+    backtest_results = result.results
+    data_container = result.data_dict
 
     if data_container is None:
         raise ValueError("data_container 不能为 None")

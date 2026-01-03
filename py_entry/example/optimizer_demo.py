@@ -1,6 +1,5 @@
-import time
 from loguru import logger
-from py_entry.runner import BacktestRunner, SetupConfig
+from py_entry.runner import Backtest
 from py_entry.types import (
     BacktestParams,
     Param,
@@ -112,25 +111,25 @@ def main():
         return_only_final=True,
     )
 
-    # 初始化 Runner
-    br = BacktestRunner()
-
     # --- 第一阶段: 基准回测 ---
     logger.info("执行基准回测 (使用初始参数)...")
-    br.setup(
-        SetupConfig(
-            enable_timing=True,
-            data_source=simulated_data_config,
-            indicators=indicators_params,
-            signal=signal_params,
-            backtest=backtest_params,
-            performance=performance_params,
-            signal_template=signal_template,
-            engine_settings=engine_settings,
-        )
-    ).run()
+    bt = Backtest(
+        enable_timing=True,
+        data_source=simulated_data_config,
+        indicators=indicators_params,
+        signal=signal_params,
+        backtest=backtest_params,
+        performance=performance_params,
+        signal_template=signal_template,
+        engine_settings=engine_settings,
+    )
+    result = bt.run()
 
-    baseline_perf = br.results[0].performance if br.results else {}
+    baseline_perf = (
+        result.summary.performance
+        if result.summary and result.summary.performance
+        else {}
+    )
 
     # --- 第二阶段: 参数优化 ---
     logger.info("启动参数优化...")
@@ -142,7 +141,7 @@ def main():
         stop_patience=10,
     )
 
-    opt_result = br.optimize(opt_config)
+    opt_result = bt.optimize(opt_config)
 
     metrics_map = {
         "总回报率": "total_return",
@@ -180,24 +179,28 @@ def main():
             if isinstance(p_obj, Param):
                 p_obj.value = val
 
-    br.setup(
-        SetupConfig(
-            data_source=simulated_data_config,
-            indicators=final_indicators,
-            signal=signal_params,
-            backtest=final_backtest,
-            performance=performance_params,
-            signal_template=signal_template,
-            engine_settings=engine_settings,
-        )
-    ).run()
+    bt_final = Backtest(
+        enable_timing=True,
+        data_source=simulated_data_config,
+        indicators=final_indicators,
+        signal=signal_params,
+        backtest=final_backtest,
+        performance=performance_params,
+        signal_template=signal_template,
+        engine_settings=engine_settings,
+    )
+    result_final = bt_final.run()
 
     # --- 第三阶段: 结果对比打印 ---
     print("\n" + "=" * 50)
     print(f"{'指标':<15} | {'基准 (Baseline)':<18} | {'优化后 (Optimized)':<18}")
     print("-" * 50)
 
-    optimized_perf = br.results[0].performance if br.results else {}
+    optimized_perf = (
+        result_final.summary.performance
+        if result_final.summary and result_final.summary.performance
+        else {}
+    )
 
     for label, key in metrics_map.items():
         base_val = baseline_perf.get(key, 0)

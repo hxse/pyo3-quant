@@ -11,10 +11,12 @@ from py_entry.types import (
     TemplateContainer,
     SettingContainer,
     OptimizerConfig,
+    OptunaConfig,
     WalkForwardConfig,
     OptimizationResult,
     WalkForwardResult,
 )
+from py_entry.runner.results.optuna_result import OptunaOptResult
 
 
 from py_entry.data_generator import DataSourceConfig, OtherParams
@@ -198,6 +200,17 @@ class Backtest:
             logger.info(f"Backtest.optimize() 耗时: {elapsed:.4f}秒")
 
         return result
+
+    def optimize_with_optuna(
+        self,
+        config: Optional[OptunaConfig] = None,
+        params_override: Optional[SingleParamSet] = None,
+    ) -> OptunaOptResult:
+        """使用 Optuna 进行参数优化"""
+        from py_entry.runner.optuna_optimizer import run_optuna_optimization
+
+        config = config or OptunaConfig()
+        return run_optuna_optimization(self, config, params_override)
 
     def walk_forward(
         self,

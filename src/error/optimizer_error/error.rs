@@ -14,4 +14,13 @@ pub enum OptimizerError {
 
     #[error("Backtest error during optimization: {0}")]
     Backtest(#[from] BacktestError),
+
+    #[error("No data in container")]
+    NoData,
+
+    #[error("No optimizable parameters found")]
+    NoOptimizableParams,
+
+    #[error("Walk-forward window generation failed: {0}")]
+    WindowGenerationFailed(String),
 }

@@ -1,4 +1,5 @@
 mod backtest;
+pub mod into_py;
 mod optimizer;
 mod walk_forward;
 

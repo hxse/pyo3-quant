@@ -278,9 +278,14 @@ pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     let optimizer_submodule = PyModule::new(m.py(), "optimizer")?;
 
     optimizer_submodule.add_function(wrap_pyfunction!(
-        optimizer::runner::py_run_optimizer,
+        optimizer::py_run_optimizer,
         &optimizer_submodule
     )?)?;
+    optimizer_submodule.add_function(wrap_pyfunction!(
+        optimizer::py_run_optimizer_benchmark,
+        &optimizer_submodule
+    )?)?;
+    optimizer_submodule.add_class::<optimizer::BenchmarkFunction>()?;
     m.add_submodule(&optimizer_submodule)?;
 
     // 注册向前滚动优化子模块

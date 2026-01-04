@@ -78,8 +78,10 @@ pub struct OptimizerConfig {
     pub stop_patience: usize,
     /// 优化目标指标
     pub optimize_metric: OptimizeMetric,
-    /// 初始采样点（用于继承先验）
+    /// 初始采样点（用于热启动）
     pub init_samples: Option<Vec<Vec<f64>>>,
+    /// 返回 Top K 参数集数量 (0 = 不返回)
+    pub return_top_k: usize,
 }
 
 // 移除 #[pymethods] impl OptimizerConfig
@@ -87,9 +89,9 @@ pub struct OptimizerConfig {
 impl Default for OptimizerConfig {
     fn default() -> Self {
         Self {
-            explore_ratio: 0.30,
-            sigma_ratio: 0.15,
-            weight_decay: 0.10,
+            explore_ratio: 0.20,
+            sigma_ratio: 0.10,
+            weight_decay: 0.15,
             top_k_ratio: 0.70,
             samples_per_round: 100,
             max_samples: 10000,
@@ -98,6 +100,7 @@ impl Default for OptimizerConfig {
             stop_patience: 10,
             optimize_metric: OptimizeMetric::CalmarRatioRaw,
             init_samples: None,
+            return_top_k: 10,
         }
     }
 }

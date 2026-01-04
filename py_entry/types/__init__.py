@@ -9,6 +9,7 @@ from .inputs.backtest import (
 )
 from .inputs.data import DataContainer, DataSource
 from .inputs.optimizer import OptimizeMetric, OptimizerConfig
+from .inputs.optuna_config import OptunaConfig
 from .inputs.params_base import Param, ParamType
 from .inputs.settings import ExecutionStage, SettingContainer
 from .inputs.signals import LogicOp, SignalGroup, SignalTemplate, TemplateContainer

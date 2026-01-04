@@ -1,5 +1,10 @@
 from typing import Dict, Any
-from py_entry.types import OptimizationResult
+from py_entry.types import (
+    OptimizationResult,
+    OptimizeMetric,
+    SingleParamSet,
+    BacktestParams,
+)
 # To convert dict params to SingleParamSet, we might need helper builders
 # But SingleParamSet expects Pydantic models.
 # OptimizationResult.best_params is a dict.
@@ -17,8 +22,8 @@ class OptimizeResult:
         self._raw = raw_result
 
     @property
-    def best_params(self) -> Dict[str, Any]:
-        """获取最优参数集 (Dict format currently)"""
+    def best_params(self) -> SingleParamSet:
+        """获取最优参数集"""
         return self._raw.best_params
 
     @property
@@ -32,8 +37,9 @@ class OptimizeResult:
         return self._raw
 
     @property
-    def best_backtest_params(self) -> Dict[str, Any]:
-        return self._raw.best_backtest_params
+    def best_backtest_params(self) -> BacktestParams:
+        # Backtest params are now within best_params.backtest
+        return self._raw.best_params.backtest
 
     @property
     def total_samples(self) -> int:
@@ -44,5 +50,17 @@ class OptimizeResult:
         return self._raw.rounds
 
     @property
-    def best_calmar(self) -> float:
-        return self._raw.best_calmar
+    def best_metrics(self) -> Dict[str, float]:
+        """获取所有已计算的性能指标"""
+        return self._raw.metrics
+
+    @property
+    def optimize_metric(self) -> OptimizeMetric:
+        """优化目标指标类型"""
+        # Convert string back to Enum
+        return OptimizeMetric(self._raw.optimize_metric)
+
+    @property
+    def optimize_value(self) -> float:
+        """优化目标最优值"""
+        return self._raw.optimize_value

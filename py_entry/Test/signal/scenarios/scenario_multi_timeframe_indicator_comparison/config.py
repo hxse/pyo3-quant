@@ -24,37 +24,37 @@ DESCRIPTION = "多时间周期指标比较：测试不同周期指标之间的�
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
         # 短期趋势指标
-        "ema_0": {"period": Param.create(21, 10, 50, 5)},  # 15分钟EMA
+        "ema_0": {"period": Param.create(21, min=10, max=50, step=5)},  # 15分钟EMA
         # 短期动量指标
-        "rsi_0": {"period": Param.create(14, 5, 30, 1)},
+        "rsi_0": {"period": Param.create(14, min=5, max=30, step=1)},
         # 短期波动率指标
         "bbands_0": {
-            "period": Param.create(20, 10, 30, 5),
-            "std": Param.create(2.0, 1.5, 3.0, 0.5),
+            "period": Param.create(20, min=10, max=30, step=5),
+            "std": Param.create(2.0, min=1.5, max=3.0, step=0.5),
         },
     },
     "ohlcv_1h": {
         # 中期趋势指标
-        "ema_0": {"period": Param.create(21, 10, 50, 5)},  # 1小时EMA
+        "ema_0": {"period": Param.create(21, min=10, max=50, step=5)},  # 1小时EMA
         # 中期动量指标
-        "rsi_0": {"period": Param.create(14, 5, 30, 1)},
+        "rsi_0": {"period": Param.create(14, min=5, max=30, step=1)},
         # 中期波动率指标
         "bbands_0": {
-            "period": Param.create(20, 10, 30, 5),
-            "std": Param.create(2.0, 1.5, 3.0, 0.5),
+            "period": Param.create(20, min=10, max=30, step=5),
+            "std": Param.create(2.0, min=1.5, max=3.0, step=0.5),
         },
     },
     "ohlcv_4h": {
         # 长期趋势指标
-        "ema_0": {"period": Param.create(21, 10, 50, 5)},  # 4小时EMA
+        "ema_0": {"period": Param.create(21, min=10, max=50, step=5)},  # 4小时EMA
         # 长期动量指标
-        "rsi_0": {"period": Param.create(14, 5, 30, 1)},
+        "rsi_0": {"period": Param.create(14, min=5, max=30, step=1)},
     },
 }
 
 SIGNAL_PARAMS = {
     # RSI阈值
-    "rsi_midline": Param.create(50.0, 40.0, 60.0, 5.0),
+    "rsi_midline": Param.create(50.0, min=40.0, max=60.0, step=5.0),
 }
 
 # 多时间周期指标比较信号模板

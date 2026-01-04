@@ -26,4 +26,5 @@ class OptimizerConfig(BaseModel):
     max_rounds: int = 200
     stop_patience: int = 10
     optimize_metric: OptimizeMetric = OptimizeMetric.CalmarRatioRaw
+    return_top_k: int = 5
     init_samples: Optional[List[List[float]]] = None

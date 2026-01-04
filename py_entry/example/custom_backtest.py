@@ -66,7 +66,7 @@ indicators_params = {
 # 自定义信号参数
 signal_params = {
     # "rsi_upper": Param.create(70, 60, 80, 5),
-    "rsi_center": Param.create(50, 40, 60, 5),
+    "rsi_center": Param.create(50, min=40, max=60, step=5),
     # "rsi_lower": Param.create(30, 20, 40, 5),
 }
 

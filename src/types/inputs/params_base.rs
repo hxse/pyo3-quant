@@ -26,16 +26,10 @@ impl<'py> FromPyObject<'py> for ParamType {
 pub struct Param {
     /// 当前参数值
     pub value: f64,
-    /// 参数初始值，用于重置或恢复默认配置
-    pub initial_value: f64,
     /// 参数最小值限制
     pub min: f64,
-    /// 参数初始最小值，用于重置或恢复默认配置
-    pub initial_min: f64,
     /// 参数最大值限制
     pub max: f64,
-    /// 参数初始最大值，用于重置或恢复默认配置
-    pub initial_max: f64,
     /// 参数类型
     pub dtype: ParamType,
     /// 是否开启参数优化，在参数优化过程中使用
@@ -50,11 +44,8 @@ impl<'source> FromPyObject<'source> for Param {
     fn extract_bound(ob: &Bound<'source, PyAny>) -> PyResult<Self> {
         Ok(Self {
             value: ob.getattr("value")?.extract()?,
-            initial_value: ob.getattr("initial_value")?.extract()?,
             min: ob.getattr("min")?.extract()?,
-            initial_min: ob.getattr("initial_min")?.extract()?,
             max: ob.getattr("max")?.extract()?,
-            initial_max: ob.getattr("initial_max")?.extract()?,
             dtype: ob.getattr("dtype")?.extract()?,
             optimize: ob.getattr("optimize")?.extract()?,
             log_scale: ob.getattr("log_scale")?.extract()?,

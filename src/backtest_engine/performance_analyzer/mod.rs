@@ -108,6 +108,7 @@ pub fn analyze_performance(
                 total_return_pct,
                 returns,
                 current_drawdown,
+                trade_stats.total_trades,
             ),
 
             // 交易统计

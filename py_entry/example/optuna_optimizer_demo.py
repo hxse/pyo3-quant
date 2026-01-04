@@ -11,31 +11,35 @@ from py_entry.types import (
     SettingContainer,
     ExecutionStage,
     ParamType,
-    OptimizerConfig,
+    OptunaConfig,
+    OptimizeMetric,
 )
 from py_entry.data_generator import DataGenerationParams
 
+import time
+
 
 def main():
-    logger.info("启动增强型优化器演示...")
+    logger.info("启动 Optuna 优化器演示...")
 
     # 1. 模拟数据配置
     simulated_data_config = DataGenerationParams(
         timeframes=["15m"],
         start_time=1735689600000,
-        num_bars=10000,
+        num_bars=5000,
         fixed_seed=42,
         base_data_key="ohlcv_15m",
     )
 
     # 2. 构建指标参数 (双均线策略)
+    # 相比 optimizer_demo.py，这里演示如何显式配置优化属性
     indicators_params = {
         "ohlcv_15m": {
             "sma_fast": {
                 "period": Param.create(
                     20,
-                    min=10,
-                    max=40,
+                    min=5,  # 优化下界
+                    max=50,  # 优化上界
                     step=1.0,
                     optimize=True,
                     dtype=ParamType.INTEGER,
@@ -44,8 +48,8 @@ def main():
             "sma_slow": {
                 "period": Param.create(
                     60,
-                    min=50,
-                    max=100,
+                    min=51,
+                    max=200,
                     step=1.0,
                     optimize=True,
                     dtype=ParamType.INTEGER,
@@ -71,9 +75,8 @@ def main():
         tp_anchor_mode=False,
         tsl_anchor_mode=False,
         tsl_atr_tight=True,
-        sl_atr=Param.create(2.5, min=1.0, max=3.0, step=0.1, optimize=True),
-        tp_atr=Param.create(2.0, min=1.0, max=3.0, step=0.1, optimize=True),
-        tsl_atr=Param.create(2.0, min=1.0, max=3.0, step=0.1, optimize=True),
+        sl_atr=Param.create(2.5, min=1.0, max=5.0, step=0.1, optimize=True),
+        tsl_atr=Param.create(2.0, min=1.0, max=5.0, step=0.1, optimize=True),
         atr_period=Param.create(14),
     )
 
@@ -128,63 +131,43 @@ def main():
         else {}
     )
 
-    # --- 第二阶段: 参数优化 ---
-    logger.info("启动参数优化...")
-    opt_config = OptimizerConfig(
-        samples_per_round=50,
-        min_samples=1000,
-        max_samples=2000,
-        explore_ratio=0.4,
-        stop_patience=10,
+    # --- 第二阶段: Optuna 参数优化 ---
+    logger.info("启动 Optuna 参数优化 (1000次)...")
+    opt_config = OptunaConfig(
+        n_trials=1000,  # 总共尝试 1000 次
+        batch_size=50,  # 每批并发 50 个
+        metric=OptimizeMetric.CalmarRatioRaw,
+        direction="maximize",
+        sampler="TPE",  # 使用 TPE 采样器
+        seed=42,  # 固定种子以便复现
+        show_progress_bar=False,  # 隐藏详细进度条
     )
 
-    opt_result = bt.optimize(opt_config)
+    start_time = time.perf_counter()
+    opt_result = bt.optimize_with_optuna(opt_config)
+    elapsed = time.perf_counter() - start_time
+    logger.info(
+        f"Optuna 优化耗时: {elapsed:.4f}s (平均 {elapsed / 1000 * 1000:.2f}ms/trial)"
+    )
 
-    metrics_map = {
-        "总回报率": "total_return",
-        "最大回撤": "max_drawdown",
-        "卡尔玛比率": "calmar_ratio",
-    }
+    # 同样需要再次运行最优参数以获得完整指标
+    logger.info("使用 Optuna 最优参数进行最终验证...")
 
-    for label, key in metrics_map.items():
-        base_val = baseline_perf.get(key, 0)
-        opt_val = (
-            opt_result.best_metrics.get("calmar_ratio", 0.0)
-            if key == "calmar_ratio"
-            else 0
-        )
-        # 注意: OptimizationResult 目前只直接暴露了 best_calmar。
-        # 如果需要获取其他指标，通常需要用最优参数再跑一次 run()。
-        # 为了演示，我们先跑一次最优参数的 run。
-        pass
-
-    # 获取最优参数再跑一次以获取完整性能指标
-    logger.info("使用最优参数进行最终回测以获取完整指标...")
-    # 这里简单处理：将 opt_result 的参数应用回 indicators_params 等
-    # 我们可以通过 br.setup 重新配置
-
+    # 构建最优参数集
     final_indicators = indicators_params.copy()
-    # 合并指标参数
-    # 合并指标参数
-    # best_params is SingleParamSet
-    for tf, groups in opt_result.best_params.indicators.items():
+    # 1. 应用指标参数
+    for tf, groups in opt_result.best_params.items():
         for group, params in groups.items():
-            for p_name, param in params.items():
-                final_indicators[tf][group][p_name].value = param.value
+            for p_name, val in params.items():
+                final_indicators[tf][group][p_name].value = val
 
-    # 合并回测参数
+    # 2. 应用回测参数
     final_backtest = backtest_params
-    # 合并回测参数
-    final_backtest = backtest_params
-    # opt_result.best_backtest_params is BacktestParams object
-    best_bt = opt_result.best_backtest_params
-    # We can iterate over fields or copy common fields
-    # Since BacktestParams is a model, we can iterate
-    for p_name, p_val in best_bt:
-        if isinstance(p_val, Param) and hasattr(final_backtest, p_name):
+    for p_name, val in opt_result.best_backtest_params.items():
+        if hasattr(final_backtest, p_name):
             p_obj = getattr(final_backtest, p_name)
             if isinstance(p_obj, Param):
-                p_obj.value = p_val.value
+                p_obj.value = val
 
     bt_final = Backtest(
         enable_timing=True,
@@ -199,15 +182,21 @@ def main():
     result_final = bt_final.run()
 
     # --- 第三阶段: 结果对比打印 ---
-    print("\n" + "=" * 50)
-    print(f"{'指标':<15} | {'基准 (Baseline)':<18} | {'优化后 (Optimized)':<18}")
-    print("-" * 50)
+    metrics_map = {
+        "总回报率": "total_return",
+        "最大回撤": "max_drawdown",
+        "卡尔玛比率": "calmar_ratio",
+    }
 
     optimized_perf = (
         result_final.summary.performance
         if result_final.summary and result_final.summary.performance
         else {}
     )
+
+    print("\n" + "=" * 60)
+    print(f"{'指标':<15} | {'基准 (Baseline)':<18} | {'Optuna 优化后':<18}")
+    print("-" * 60)
 
     for label, key in metrics_map.items():
         base_val = baseline_perf.get(key, 0)
@@ -219,25 +208,14 @@ def main():
 
         print(f"{label:<15} | {base_val:18.4f}{pref} | {opt_val:18.4f}{pref}")
 
-    print("=" * 50)
-    print("\n--- 最佳参数详情 ---")
-    # Access via indicators
-    print(
-        f"SMA Fast Period: {opt_result.best_params.indicators['ohlcv_15m']['sma_fast']['period']}"
-    )
-    print(
-        f"SMA Slow Period: {opt_result.best_params.indicators['ohlcv_15m']['sma_slow']['period']}"
-    )
-
-    sl_atr = opt_result.best_backtest_params.sl_atr
-    print(f"SL ATR Multiplier: {sl_atr.value if sl_atr else 'N/A'}")
-
-    tsl_atr = opt_result.best_backtest_params.tsl_atr
-    print(f"TSL ATR Multiplier: {tsl_atr.value if tsl_atr else 'N/A'}")
-    print(f"总采样次数: {opt_result.total_samples} | 迭代轮数: {opt_result.rounds}")
-    print(
-        f"优化目标: {opt_result.optimize_metric.value} | 最优值: {opt_result.optimize_value:.4f}"
-    )
+    print("=" * 60)
+    print("\n--- Optuna 最优参数 ---")
+    print(f"SMA Fast: {opt_result.best_params['ohlcv_15m']['sma_fast']['period']}")
+    print(f"SMA Slow: {opt_result.best_params['ohlcv_15m']['sma_slow']['period']}")
+    print(f"SL ATR: {opt_result.best_backtest_params.get('sl_atr', 'N/A')}")
+    print(f"TSL ATR: {opt_result.best_backtest_params.get('tsl_atr', 'N/A')}")
+    print(f"Total Trials: {opt_result.n_trials}")
+    print(f"Best Value: {opt_result.best_value:.4f} (CalmarRatioRaw)")
 
 
 if __name__ == "__main__":

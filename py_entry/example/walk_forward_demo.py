@@ -36,8 +36,8 @@ def main():
             "sma_fast": {
                 "period": Param.create(
                     20,
-                    initial_min=10,
-                    initial_max=50,
+                    min=10,
+                    max=40,
                     step=5.0,
                     optimize=True,
                     dtype=ParamType.INTEGER,
@@ -46,8 +46,8 @@ def main():
             "sma_slow": {
                 "period": Param.create(
                     100,
-                    initial_min=60,
-                    initial_max=200,
+                    min=60,
+                    max=200,
                     step=10.0,
                     optimize=True,
                     dtype=ParamType.INTEGER,
@@ -77,8 +77,8 @@ def main():
         initial_capital=10000.0,
         fee_fixed=1.0,
         fee_pct=0.0005,
-        sl_pct=Param.create(0.01, initial_min=0.005, initial_max=0.05, optimize=True),
-        tp_pct=Param.create(0.02, initial_min=0.005, initial_max=0.08, optimize=True),
+        sl_pct=Param.create(0.01, min=0.005, max=0.05, optimize=True),
+        tp_pct=Param.create(0.02, min=0.005, max=0.08, optimize=True),
         tsl_pct=None,
         # Default flags required by API
         sl_exit_in_bar=True,
@@ -160,13 +160,16 @@ def main():
     logger.info(f"Walk Forward 完成，总耗时: {elapsed:.2f}秒")
 
     print("\n================= Walk Forward 结果 =================")
-    print(f"总体测试集平均 Calmar: {wf_result.raw.aggregate_test_calmar:.4f}")
+    print(
+        f"\nAvg Test Calmar: {wf_result.aggregate_test_metrics.get('calmar_ratio', 0.0):.4f}"
+    )
+    print(f"Optimization Metric: {wf_result.optimize_metric.value}")
     print("-----------------------------------------------------")
     for w in wf_result.raw.windows:
         print(f"Window {w.window_id}:")
         print(f"  Range: Train={w.train_range}, Test={w.test_range}")
-        print(f"  Train Calmar: {w.train_calmar:.4f}")
-        print(f"  Test Calmar:  {w.test_calmar:.4f}")
+        print(f"  Train Calmar: {w.train_metrics.get('calmar_ratio', 0.0):.4f}")
+        print(f"  Test Calmar:  {w.test_metrics.get('calmar_ratio', 0.0):.4f}")
         print(f"  Best Params:  {w.best_params}")
     print("=====================================================")
 

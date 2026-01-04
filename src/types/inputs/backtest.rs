@@ -188,6 +188,7 @@ pub struct BacktestParams {
     /// 必须 >= 0.0。
     pub fee_pct: f64,
 }
+
 impl BacktestParams {
     /// 检查sl_pct参数是否有效（不验证其他参数）。
     /// 当 `sl_pct` 存在且其值大于 0.0 时，返回 true。
@@ -274,6 +275,54 @@ impl BacktestParams {
         // 如果有ATR参数且atr_period有效，则ATR相关参数视为有效
         Ok(has_any_atr_param)
     }
+
+    /// 获取可优化参数的不可变引用
+    pub fn get_optimizable_param(&self, name: &str) -> Option<&Param> {
+        match name {
+            "sl_pct" => self.sl_pct.as_ref(),
+            "tp_pct" => self.tp_pct.as_ref(),
+            "tsl_pct" => self.tsl_pct.as_ref(),
+            "sl_atr" => self.sl_atr.as_ref(),
+            "tp_atr" => self.tp_atr.as_ref(),
+            "tsl_atr" => self.tsl_atr.as_ref(),
+            "atr_period" => self.atr_period.as_ref(),
+            "tsl_psar_af0" => self.tsl_psar_af0.as_ref(),
+            "tsl_psar_af_step" => self.tsl_psar_af_step.as_ref(),
+            "tsl_psar_max_af" => self.tsl_psar_max_af.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// 获取可优化参数的可变引用
+    pub fn get_optimizable_param_mut(&mut self, name: &str) -> Option<&mut Param> {
+        match name {
+            "sl_pct" => self.sl_pct.as_mut(),
+            "tp_pct" => self.tp_pct.as_mut(),
+            "tsl_pct" => self.tsl_pct.as_mut(),
+            "sl_atr" => self.sl_atr.as_mut(),
+            "tp_atr" => self.tp_atr.as_mut(),
+            "tsl_atr" => self.tsl_atr.as_mut(),
+            "atr_period" => self.atr_period.as_mut(),
+            "tsl_psar_af0" => self.tsl_psar_af0.as_mut(),
+            "tsl_psar_af_step" => self.tsl_psar_af_step.as_mut(),
+            "tsl_psar_max_af" => self.tsl_psar_max_af.as_mut(),
+            _ => None,
+        }
+    }
+
+    /// 获取所有可优化参数名称
+    pub const OPTIMIZABLE_PARAMS: &'static [&'static str] = &[
+        "sl_pct",
+        "tp_pct",
+        "tsl_pct",
+        "sl_atr",
+        "tp_atr",
+        "tsl_atr",
+        "atr_period",
+        "tsl_psar_af0",
+        "tsl_psar_af_step",
+        "tsl_psar_max_af",
+    ];
 
     /// 验证所有参数的有效性。
     /// 返回 `Ok(())` 如果所有参数有效，否则返回详细的错误信息 `BacktestError::InvalidParameter`。
@@ -392,10 +441,63 @@ impl<'source> FromPyObject<'source> for PerformanceParams {
     }
 }
 
-#[derive(Debug, Clone, FromPyObject)]
+// The following FromPyObject impl for SingleParamSet is provided by the user.
+// It replaces the #[derive(FromPyObject)] for SingleParamSet.
+// It also uses HashMap<String, Param> for indicators, signal, backtest,
+// which implies a different structure than the original `IndicatorsParams`, `SignalParams`, `BacktestParams`.
+// Assuming the user intends to change the internal representation for Python interaction.
+use pyo3::types::PyDict;
+// removed duplicate std::collections::HashMap import
+// removed crate::types::param::Param import, stick to super::params_base::Param which is available
+
+impl<'source> FromPyObject<'source> for SingleParamSet {
+    fn extract_bound(ob: &Bound<'source, PyAny>) -> PyResult<Self> {
+        let indicators_dict: Bound<PyDict> = ob.getattr("indicators")?.extract()?;
+        let mut indicators = HashMap::new();
+
+        for (tf_key, tf_val) in indicators_dict {
+            let group_dict: Bound<PyDict> = tf_val.extract()?;
+            let mut groups = HashMap::new();
+
+            for (group_key, group_val) in group_dict {
+                let params_dict: Bound<PyDict> = group_val.extract()?;
+                let mut params = HashMap::new();
+
+                for (p_key, p_val) in params_dict {
+                    let param: Param = p_val.extract()?;
+                    params.insert(p_key.extract()?, param);
+                }
+                groups.insert(group_key.extract()?, params);
+            }
+            indicators.insert(tf_key.extract()?, groups);
+        }
+
+        let signal: HashMap<String, Param> = ob.getattr("signal")?.extract()?;
+        let backtest: BacktestParams = ob.getattr("backtest")?.extract()?;
+
+        // performance 参数通过 PerformanceParams::default() 初始化，
+        // 或者从 Python 端传入（如果 Python 端有对应结构）。
+        // 目前 Python SingleParamSet 似乎没有 performance 字段对应 Rust 的 PerformanceParams。
+        // Rust 的 SingleParamSet 有 performance: PerformanceParams。
+        // 查看 Rust SingleParamSet 定义:
+        // pub struct SingleParamSet { ..., pub performance: PerformanceParams }
+        // Python SingleParamSet 也有 performance: PerformanceParams。
+        // 所以应该提取。
+        let performance: PerformanceParams = ob.getattr("performance")?.extract()?;
+
+        Ok(SingleParamSet {
+            indicators,
+            signal,
+            backtest,
+            performance,
+        })
+    }
+}
+
+#[derive(Debug, Clone)] // Removed FromPyObject derive as it's manually implemented above
 pub struct SingleParamSet {
-    pub indicators: IndicatorsParams,
-    pub signal: SignalParams,
+    pub indicators: HashMap<String, HashMap<String, HashMap<String, Param>>>, // Changed type to match FromPyObject impl
+    pub signal: HashMap<String, Param>, // Changed type to match FromPyObject impl
     pub backtest: BacktestParams,
     pub performance: PerformanceParams,
 }

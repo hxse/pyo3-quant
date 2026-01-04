@@ -1,5 +1,5 @@
 from typing import Optional
-from py_entry.types import WalkForwardResult, SingleParamSet
+from py_entry.types import WalkForwardResult, SingleParamSet, OptimizeMetric
 from py_entry.io import DisplayConfig
 
 
@@ -17,12 +17,22 @@ class WalkForwardResultWrapper:
         # For now return True if train/test metrics are decent.
         # Actually without domain logic, we just return a placeholder or based on some ratio.
         # Let's assume it's robust if aggregate return is positive for now.
-        return self._raw.aggregate_test_return > 0
+        return self._raw.aggregate_test_metrics.get("total_return", 0.0) > 0
 
     @property
     def recommended_params(self) -> Optional[SingleParamSet]:
         """推荐参数范围（预留接口，暂不实现）"""
         return None
+
+    @property
+    def aggregate_test_metrics(self) -> dict:
+        """测试集聚合指标"""
+        return self._raw.aggregate_test_metrics
+
+    @property
+    def optimize_metric(self) -> OptimizeMetric:
+        """优化目标指标类型"""
+        return OptimizeMetric(self._raw.optimize_metric)
 
     @property
     def raw(self) -> WalkForwardResult:

@@ -14,6 +14,7 @@ from py_entry.types import (
     SignalGroup,
     SettingContainer,
     ExecutionStage,
+    PerformanceMetric,
 )
 
 from py_entry.data_generator import (
@@ -76,13 +77,13 @@ def build_indicators_params(
     return IndicatorsParams(
         {
             "ohlcv_15m": {
-                "sma_0": {"period": Param.create(14, 5, 50, 1)},
+                "sma_0": {"period": Param.create(14, min=5, max=50, step=1)},
                 "sma_1": {
-                    "period": Param.create(200, 100, 300, 10),
+                    "period": Param.create(200, min=100, max=300, step=10),
                 },
             },
             "ohlcv_1h": {
-                "sma_0": {"period": Param.create(14, 5, 50, 1)},
+                "sma_0": {"period": Param.create(14, min=5, max=50, step=1)},
             },
         }
     )
@@ -106,7 +107,7 @@ def build_signal_params(
         return signal_params
 
     # 否则返回默认值
-    return SignalParams({"rsi_midline": Param.create(20, 10, 90, 5)})
+    return SignalParams({"rsi_midline": Param.create(20, min=10, max=90, step=5)})
 
 
 def build_backtest_params(
@@ -137,13 +138,13 @@ def build_backtest_params(
         sl_anchor_mode=False,
         tp_anchor_mode=False,
         tsl_anchor_mode=False,
-        sl_pct=Param.create(2, 0.5, 5, 0.1),
-        tp_pct=Param.create(2, 0.5, 5, 0.1),
-        tsl_pct=Param.create(1, 0.5, 3, 0.1),
-        sl_atr=Param.create(2, 1, 5, 0.5),
-        tp_atr=Param.create(3, 1, 5, 0.5),
-        tsl_atr=Param.create(2, 1, 4, 0.5),
-        atr_period=Param.create(14, 7, 21, 1),
+        sl_pct=Param.create(2, min=0.5, max=5, step=0.1),
+        tp_pct=Param.create(2, min=0.5, max=5, step=0.1),
+        tsl_pct=Param.create(1, min=0.5, max=3, step=0.1),
+        sl_atr=Param.create(2, min=1, max=5, step=0.5),
+        tp_atr=Param.create(3, min=1, max=5, step=0.5),
+        tsl_atr=Param.create(2, min=1, max=4, step=0.5),
+        atr_period=Param.create(14, min=7, max=21, step=1),
     )
 
 
@@ -162,10 +163,15 @@ def build_performance_params(
     if performance_params is not None:
         return performance_params
 
-    # 否则返回默认值
-    from py_entry.types import PerformanceMetric
-
-    return PerformanceParams(metrics=[PerformanceMetric.TotalReturn])
+    return PerformanceParams(
+        metrics=[
+            PerformanceMetric.TotalReturn,
+            PerformanceMetric.CalmarRatio,
+            PerformanceMetric.CalmarRatioRaw,
+            PerformanceMetric.TotalTrades,
+            PerformanceMetric.MaxDrawdown,
+        ]
+    )
 
 
 def build_signal_template(

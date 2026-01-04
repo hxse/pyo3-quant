@@ -32,7 +32,14 @@ pub fn calculate_risk_metrics(
     total_return_pct: f64,
     returns: &ChunkedArray<Float64Type>,
     current_drawdown: &ChunkedArray<Float64Type>,
+    total_trades: f64,
 ) -> f64 {
+    // 如果没有交易，任何风险指标都应给予惩罚分，防止优化器选择"空仓"作为最优策略
+    // 尤其是在其他参数组合主要产生亏损时。
+    if total_trades == 0.0 {
+        return -100.0;
+    }
+
     match metric {
         // === 年化版本 ===
         PerformanceMetric::SharpeRatio => {

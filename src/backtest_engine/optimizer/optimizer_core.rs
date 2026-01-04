@@ -3,6 +3,7 @@
 //! 包含优化状态管理、停止条件检测、TopK维护等核心功能
 
 use crate::types::RoundSummary;
+use std::collections::HashMap;
 
 /// 采样点结构
 #[derive(Clone, Debug)]
@@ -11,6 +12,8 @@ pub struct SamplePoint {
     pub values: Vec<f64>,
     /// 该参数组合的目标指标值（由 optimize_metric 指定）
     pub metric_value: f64,
+    /// 所有已计算的性能指标
+    pub all_metrics: HashMap<String, f64>,
 }
 
 /// 优化器配置验证结果
@@ -82,11 +85,11 @@ pub fn should_stop_patience(history: &[RoundSummary], patience: usize) -> bool {
     }
 
     // 获取当前（最后一轮）的累积最佳
-    let current_best = history.last().unwrap().best_calmar;
+    let current_best = history.last().unwrap().best_value;
 
     // 获取 patience 轮之前的累积最佳
     let prev_idx = history.len() - 1 - patience;
-    let prev_best = history[prev_idx].best_calmar;
+    let prev_best = history[prev_idx].best_value;
 
     // 如果 current_best <= prev_best，说明这 patience 轮里没有任何一轮创新高
     current_best <= prev_best

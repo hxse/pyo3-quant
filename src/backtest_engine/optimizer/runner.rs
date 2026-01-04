@@ -7,7 +7,8 @@ use crate::backtest_engine::optimizer::optimizer_core::{
     merge_top_k, should_stop_patience, validate_config, SamplePoint,
 };
 use crate::backtest_engine::optimizer::param_extractor::{
-    apply_values_to_param, extract_optimizable_params, quantize_value, FlattenedParam,
+    apply_values_to_param, extract_optimizable_params, quantize_value, set_param_value,
+    FlattenedParam,
 };
 use crate::backtest_engine::optimizer::sampler::{
     lhs_sample, transform_sample, weighted_gaussian_sample,
@@ -16,11 +17,24 @@ use crate::error::{OptimizerError, QuantError};
 use crate::types::OptimizerConfig;
 use crate::types::{DataContainer, SettingContainer, SingleParamSet, TemplateContainer};
 use crate::types::{OptimizationResult, RoundSummary};
-use pyo3::prelude::*;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rayon::prelude::*;
 use std::collections::HashMap;
+
+use super::benchmark::BenchmarkFunction;
+
+/// 评估模式枚举
+pub enum EvalMode<'a> {
+    /// 回测模式
+    Backtest {
+        data_dict: &'a DataContainer,
+        template: &'a TemplateContainer,
+        settings: &'a SettingContainer,
+    },
+    /// 基准函数模式
+    BenchmarkFunction { function: BenchmarkFunction },
+}
 
 /// 生成一批采样点的参数值
 ///
@@ -43,9 +57,18 @@ fn generate_samples(
     top_k_samples: &[SamplePoint],
     config: &OptimizerConfig,
     rng: &mut StdRng,
+    current_round: usize,
 ) -> Vec<Vec<f64>> {
     let exploitation_count = n_samples - explore_count;
     let mut next_round_vals = Vec::with_capacity(n_samples);
+
+    // Sigma Decay: 随着轮数增加，搜索半径减小
+    // 使用 1/sqrt(round) 衰减，或者 1/round
+    // 初始 round=1. decay=1.0. round=10, decay=0.3. round=100, decay=0.1.
+    // round=1 -> decay=1.0
+    // round=4 -> decay=0.5
+    let decay = 1.0 / (current_round as f64).sqrt();
+    let current_sigma_ratio = config.sigma_ratio * decay;
 
     // 探索部分：LHS
     if explore_count > 0 {
@@ -54,8 +77,8 @@ fn generate_samples(
             let mut vals = Vec::new();
             for (dim, &u) in u_row.iter().enumerate() {
                 let p = &flat_params[dim];
-                let val = transform_sample(u, p.min, p.max, p.log_scale);
-                vals.push(quantize_value(val, p.step, p.dtype));
+                let val = transform_sample(u, p.param.min, p.param.max, p.param.log_scale);
+                vals.push(quantize_value(val, p.param.step, p.param.dtype));
             }
             next_round_vals.push(vals);
         }
@@ -77,13 +100,13 @@ fn generate_samples(
 
                 let val = weighted_gaussian_sample(
                     &centers,
-                    p.min,
-                    p.max,
-                    config.sigma_ratio,
-                    p.log_scale,
+                    p.param.min,
+                    p.param.max,
+                    current_sigma_ratio,
+                    p.param.log_scale,
                     rng,
                 );
-                vals.push(quantize_value(val, p.step, p.dtype));
+                vals.push(quantize_value(val, p.param.step, p.param.dtype));
             }
             next_round_vals.push(vals);
         }
@@ -92,68 +115,27 @@ fn generate_samples(
     next_round_vals
 }
 
-/// 构建最佳参数的结构化映射
-fn build_best_params_map(
-    best_values: &[f64],
+/// 根据最优值重建参数集
+fn rebuild_param_set(
+    original: &SingleParamSet,
     flat_params: &[FlattenedParam],
-) -> (
-    HashMap<String, HashMap<String, HashMap<String, f64>>>,
-    HashMap<String, f64>,
-    HashMap<String, f64>,
-) {
-    let mut best_indicators_map: HashMap<String, HashMap<String, HashMap<String, f64>>> =
-        HashMap::new();
-    let mut best_signal_map = HashMap::new();
-    let mut best_backtest_map = HashMap::new();
+    best_values: &[f64],
+) -> SingleParamSet {
+    let mut new_param_set = original.clone();
 
     for (dim, &val) in best_values.iter().enumerate() {
-        let p = &flat_params[dim];
-        let final_val = quantize_value(val, p.step, p.dtype);
-
-        match p.type_idx {
-            0 => {
-                // Indicator
-                let parts: Vec<&str> = p.group.split(':').collect();
-                if parts.len() == 2 {
-                    best_indicators_map
-                        .entry(parts[0].to_string())
-                        .or_default()
-                        .entry(parts[1].to_string())
-                        .or_default()
-                        .insert(p.name.clone(), final_val);
-                }
-            }
-            1 => {
-                // Signal
-                best_signal_map.insert(p.name.clone(), final_val);
-            }
-            2 => {
-                // Backtest
-                best_backtest_map.insert(p.name.clone(), final_val);
-            }
-            _ => {}
+        if dim < flat_params.len() {
+            set_param_value(&mut new_param_set, &flat_params[dim], val);
         }
     }
 
-    (best_indicators_map, best_signal_map, best_backtest_map)
+    new_param_set
 }
 
-/// 运行参数优化
-///
-/// # 参数
-/// * `data_dict` - 数据容器
-/// * `param_set` - 参数集容器
-/// * `template` - 模板容器
-/// * `settings` - 设置容器
-/// * `config` - 优化器配置
-///
-/// # 返回
-/// 优化结果或错误
-pub fn run_optimization(
-    data_dict: &DataContainer,
+/// 运行参数优化 (通用版本)
+pub fn run_optimization_generic(
+    eval_mode: EvalMode,
     param: &SingleParamSet,
-    template: &TemplateContainer,
-    settings: &SettingContainer,
     config: &OptimizerConfig,
 ) -> Result<OptimizationResult, QuantError> {
     // 验证配置
@@ -215,6 +197,7 @@ pub fn run_optimization(
             &top_k_samples,
             config,
             &mut rng,
+            round,
         );
 
         // 并行回测执行
@@ -224,19 +207,43 @@ pub fn run_optimization(
                 let mut current_set = param.clone();
                 apply_values_to_param(&mut current_set, &flat_params, &vals);
 
-                // 执行实际回测
-                let summary = execute_single_backtest(data_dict, &current_set, template, settings)?;
+                // 执行实际回测 或 基准函数评估
+                let (metric_value, all_metrics) = match &eval_mode {
+                    EvalMode::Backtest {
+                        data_dict,
+                        template,
+                        settings,
+                    } => {
+                        let summary =
+                            execute_single_backtest(data_dict, &current_set, template, settings)?;
+                        let val = summary
+                            .performance
+                            .as_ref()
+                            .and_then(|p| p.get(optimize_metric))
+                            .cloned()
+                            .unwrap_or(0.0);
 
-                // 使用配置的优化指标
-                let metric_value = summary
-                    .performance
-                    .as_ref()
-                    .and_then(|p| p.get(optimize_metric))
-                    .cloned()
-                    .unwrap_or(0.0);
+                        // 提取所有已计算的指标
+                        let mut metrics = HashMap::new();
+                        if let Some(perf) = &summary.performance {
+                            for (k, v) in perf {
+                                metrics.insert(k.clone(), *v);
+                            }
+                        }
+                        (val, metrics)
+                    }
+                    EvalMode::BenchmarkFunction { function } => {
+                        // 基准函数是求最小值，优化器默认是求最大值
+                        // 因此这取负值，将其转换为最大化问题
+                        let val = function.evaluate(&vals);
+                        (-val, HashMap::new())
+                    }
+                };
+
                 Ok(SamplePoint {
                     values: vals,
                     metric_value: metric_value,
+                    all_metrics: all_metrics,
                 })
             })
             .collect();
@@ -284,8 +291,8 @@ pub fn run_optimization(
         // 记录历史（存储累积最佳，而非当前轮最佳，用于停止条件计算）
         history.push(RoundSummary {
             round,
-            best_calmar: max_seen, // 累积最佳，用于停止条件
-            median_calmar: round_median,
+            best_value: max_seen, // 累积最佳，用于停止条件
+            median_value: round_median,
             sample_count: successful_samples.len(),
         });
 
@@ -301,36 +308,48 @@ pub fn run_optimization(
     let best = best_all_time
         .ok_or_else(|| OptimizerError::SamplingFailed("No samples succeeded".into()))?;
 
-    let (best_indicators_map, best_signal_map, best_backtest_map) =
-        build_best_params_map(&best.values, &flat_params);
+    // 重建完整的最优参数集
+    let best_param_set = rebuild_param_set(param, &flat_params, &best.values);
+
+    // 构建 Top K 参数集
+    let top_k_params: Vec<SingleParamSet> = top_k_samples
+        .iter()
+        .take(if config.return_top_k > 0 {
+            config.return_top_k
+        } else {
+            0
+        })
+        .map(|s| rebuild_param_set(param, &flat_params, &s.values))
+        .collect();
 
     Ok(OptimizationResult {
-        best_params: best_indicators_map,
-        best_signal_params: best_signal_map,
-        best_backtest_params: best_backtest_map,
-        best_calmar: best.metric_value,
+        best_params: best_param_set,
+        optimize_metric: config.optimize_metric.as_str().to_string(),
+        optimize_value: best.metric_value,
+        metrics: best.all_metrics.clone(),
         total_samples,
         rounds: history.len(),
         history,
-        best_sample_values: Some(best.values.clone()),
+        top_k_params,
         top_k_samples,
     })
 }
 
-#[pyfunction]
-pub fn py_run_optimizer(
-    data_dict: DataContainer,
-    param: SingleParamSet,
-    template: TemplateContainer,
-    engine_settings: SettingContainer,
-    optimizer_config: OptimizerConfig,
-) -> PyResult<OptimizationResult> {
-    run_optimization(
-        &data_dict,
-        &param,
-        &template,
-        &engine_settings,
-        &optimizer_config,
+/// 运行参数优化 (Backtest Wrapper)
+pub fn run_optimization(
+    data_dict: &DataContainer,
+    param: &SingleParamSet,
+    template: &TemplateContainer,
+    settings: &SettingContainer,
+    config: &OptimizerConfig,
+) -> Result<OptimizationResult, QuantError> {
+    run_optimization_generic(
+        EvalMode::Backtest {
+            data_dict,
+            template,
+            settings,
+        },
+        param,
+        config,
     )
-    .map_err(|e| e.into())
 }

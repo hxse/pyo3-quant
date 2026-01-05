@@ -4,6 +4,7 @@
 """
 
 from dataclasses import dataclass
+from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 
 
 @dataclass
@@ -12,7 +13,7 @@ class StrategyConfig:
 
     # ========== 数据配置 ==========
     timeframe: str = "15m"
-    start_time: int = 1735689600000
+    start_time: int = get_utc_timestamp_ms("2025-01-01 00:00:00")
     num_bars: int = 10000
     fixed_seed: int = 42
     allow_gaps: bool = True  # 测试：禁用跳空

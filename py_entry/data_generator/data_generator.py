@@ -88,12 +88,17 @@ def generate_data_dict(
             # 为每个时间周期创建单独的配置对象
             single_ohlcv_config = OhlcvDataConfig(
                 config=ohlcv_data_config.config,
-                exchange_name="binance",  # 默认值，可以从配置中获取
-                symbol="BTC/USDT",  # 默认值，可以从配置中获取
+                exchange_name=ohlcv_data_config.exchange_name,
+                symbol=ohlcv_data_config.symbol,
                 period=timeframe,
                 start_time=ohlcv_data_config.start_time,
                 count=ohlcv_data_config.count,
                 enable_cache=ohlcv_data_config.enable_cache,
+                enable_test=ohlcv_data_config.enable_test,
+                sandbox=ohlcv_data_config.sandbox,
+                file_type=ohlcv_data_config.file_type,
+                cache_size=ohlcv_data_config.cache_size,
+                page_size=ohlcv_data_config.page_size,
             )
             result = get_ohlcv_data(single_ohlcv_config)
             ohlcv_df = convert_to_ohlcv_dataframe(result)

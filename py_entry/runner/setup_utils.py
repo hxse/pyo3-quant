@@ -23,6 +23,7 @@ from py_entry.data_generator import (
     OtherParams,
     DataSourceConfig,
 )
+from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 
 
 def build_data(
@@ -46,7 +47,7 @@ def build_data(
     if data_source is None:
         data_source = DataGenerationParams(
             timeframes=["15m", "1h"],
-            start_time=1735689600000,
+            start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
             num_bars=3000,
             fixed_seed=42,
             base_data_key="ohlcv_15m",

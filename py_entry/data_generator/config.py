@@ -37,10 +37,17 @@ class OhlcvDataFetchConfig(BaseModel):
     """OHLCV数据获取配置类"""
 
     config: RequestConfig
+    exchange_name: str = "binance"
+    symbol: str = "BTC/USDT"
     timeframes: list[str]
     start_time: int
     count: int
     enable_cache: bool
+    enable_test: bool = False
+    sandbox: bool = False
+    file_type: str = ".parquet"
+    cache_size: int = 1000
+    page_size: int = 1500
     base_data_key: str
 
 

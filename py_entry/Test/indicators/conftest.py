@@ -3,6 +3,7 @@ import pytest
 from py_entry.data_generator import (
     DataGenerationParams,
 )
+from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 from py_entry.runner import Backtest
 from py_entry.types import (
     SettingContainer,
@@ -52,7 +53,7 @@ def data_dict():
     timeframes = ["15m", "1h"]
     return DataGenerationParams(
         timeframes=timeframes,
-        start_time=1735689600000,
+        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
         num_bars=5000,
         fixed_seed=42,
         base_data_key="ohlcv_15m",

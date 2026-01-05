@@ -22,6 +22,7 @@ from py_entry.types import (
     LogicOp,
 )
 from py_entry.data_generator import DataGenerationParams
+from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 
 
 @dataclass
@@ -38,7 +39,7 @@ def create_backtest(seed: int):
     """创建回测实例"""
     data_config = DataGenerationParams(
         timeframes=["15m"],
-        start_time=1735689600000,
+        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
         num_bars=6000,
         fixed_seed=seed,
         base_data_key="ohlcv_15m",

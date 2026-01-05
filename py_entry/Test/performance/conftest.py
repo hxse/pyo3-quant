@@ -1,6 +1,7 @@
 import pytest
 from py_entry.runner import Backtest
 from py_entry.data_generator import DataGenerationParams
+from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 from py_entry.types import (
     BacktestParams,
     Param,
@@ -22,7 +23,7 @@ def full_performance_result():
     # 1000根15m K线，约10.4天
     simulated_data_config = DataGenerationParams(
         timeframes=["15m"],
-        start_time=1735689600000,
+        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
         num_bars=1000,
         fixed_seed=42,
         base_data_key="ohlcv_15m",

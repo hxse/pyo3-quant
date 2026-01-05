@@ -19,6 +19,7 @@ from py_entry.Test.backtest.correlation_analysis.data_utils import (
 )
 from py_entry.Test.backtest.strategies.reversal_extreme.btp import ReversalExtremeBtp
 from py_entry.Test.backtest.strategies.reversal_extreme.config import CONFIG as C
+from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 
 
 def run_lifecycle_analysis():
@@ -28,7 +29,7 @@ def run_lifecycle_analysis():
         initial_capital=10000.0,
         commission=0.001,
         timeframe="15m",
-        start_time=1735689600000,
+        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
         allow_gaps=True,
         equity_cutoff_ratio=0.20,
     )

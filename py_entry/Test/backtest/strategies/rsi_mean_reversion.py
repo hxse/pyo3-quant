@@ -8,6 +8,7 @@ RSI 均值回归策略
 """
 
 from py_entry.data_generator import DataGenerationParams
+from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 from py_entry.types import (
     BacktestParams,
     Param,
@@ -29,7 +30,7 @@ def get_config() -> StrategyConfig:
     # 数据配置
     data_config = DataGenerationParams(
         timeframes=["15m", "1h", "4h"],
-        start_time=1735689600000,
+        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
         num_bars=10000,
         fixed_seed=42,
         base_data_key="ohlcv_15m",

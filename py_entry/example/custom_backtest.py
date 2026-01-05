@@ -1,7 +1,5 @@
 import time
 from loguru import logger
-import json
-from pathlib import Path
 
 # 项目导入
 
@@ -23,18 +21,18 @@ from py_entry.types import (
 )
 
 from py_entry.data_generator import DataGenerationParams
+from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 
 from py_entry.io import (
     SaveConfig,
     UploadConfig,
-    RequestConfig,
 )
 
 
 # 创建 DataGenerationParams 对象
 simulated_data_config = DataGenerationParams(
     timeframes=["15m", "1h", "4h"],
-    start_time=1735689600000,
+    start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
     num_bars=10000,
     fixed_seed=42,
     base_data_key="ohlcv_15m",
@@ -173,21 +171,10 @@ def run_custom_backtest() -> RunResult:
     )
 
     # 尝试读取配置文件并上传
-    config_path = "data/config.json"
-    if not Path(config_path).exists():
-        # 尝试相对于当前文件的路径
-        current_file_path = Path(__file__).resolve().parent
-        config_path = current_file_path / "data/config.json"
+    try:
+        from py_entry.io import load_local_config
 
-    if Path(config_path).exists():
-        with open(config_path, "r") as f:
-            json_config = json.load(f)
-
-        request_cfg = RequestConfig.create(
-            username=json_config["username"],
-            password=json_config["password"],
-            server_url=json_config["server_url"],
-        )
+        request_cfg = load_local_config()
 
         logger.info("正在上传结果...")
         result.upload(
@@ -197,8 +184,10 @@ def run_custom_backtest() -> RunResult:
                 zip_name="results.zip",
             )
         )
-    else:
-        logger.warning(f"跳过上传：未找到配置文件 {config_path}")
+    except FileNotFoundError:
+        logger.warning("跳过上传：未找到配置文件 config.json")
+    except Exception as e:
+        logger.error(f"上传失败: {e}")
 
     # 获取结果用于打印
     # RunResult.summary contains the summary

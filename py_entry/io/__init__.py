@@ -28,6 +28,7 @@ from .converters import (
     convert_backtest_data_to_buffers,
     ParquetCompression,
 )
+from .config_loader import load_local_config
 from .path_utils import clear_directory
 from .savers import save_buffers_to_disk
 from .result_export import (
@@ -65,4 +66,5 @@ __all__ = [
     "save_backtest_results",
     "upload_backtest_results",
     "clear_directory",
+    "load_local_config",
 ]

@@ -24,6 +24,7 @@ from py_entry.types import (
     LogicOp,
 )
 from py_entry.data_generator import DataGenerationParams
+from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 
 
 def run_benchmark():
@@ -39,7 +40,7 @@ def run_benchmark():
     # 2. Data Setup
     data_config = DataGenerationParams(
         timeframes=["15m"],
-        start_time=1735689600000,
+        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
         num_bars=N_BARS,
         fixed_seed=SEED,
         base_data_key="ohlcv_15m",

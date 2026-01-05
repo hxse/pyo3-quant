@@ -2,8 +2,19 @@
 时间处理工具模块
 """
 
+from datetime import datetime, timezone
+
 time_format = "%Y-%m-%dT%H:%M:%S%.3f%Z"
 fixed_cols = ["time", "date"]
+
+
+def get_utc_timestamp_ms(time_str: str) -> int:
+    """
+    将 ISO 时间字符串转换为 UTC 毫秒时间戳
+    例如: "2025-01-01T00:00:00" -> 1735689600000
+    """
+    ts = datetime.fromisoformat(time_str).replace(tzinfo=timezone.utc).timestamp()
+    return int(ts * 1000)
 
 
 def parse_timeframe(tf: str) -> int:

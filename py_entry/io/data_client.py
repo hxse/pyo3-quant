@@ -21,6 +21,11 @@ class OhlcvDataConfig:
     start_time: int
     count: int = 10
     enable_cache: bool = True
+    enable_test: bool = False
+    sandbox: bool = False
+    file_type: str = ".parquet"
+    cache_size: int = 1000
+    page_size: int = 1500
 
 
 def get_ohlcv_data(
@@ -46,6 +51,11 @@ def get_ohlcv_data(
             "start_time": ohlcv_config.start_time,
             "count": ohlcv_config.count,
             "enable_cache": ohlcv_config.enable_cache,
+            "enable_test": ohlcv_config.enable_test,
+            "sandbox": ohlcv_config.sandbox,
+            "file_type": ohlcv_config.file_type,
+            "cache_size": ohlcv_config.cache_size,
+            "page_size": ohlcv_config.page_size,
         }
 
         response = client.get(

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 
 if TYPE_CHECKING:
     from py_entry.Test.backtest.strategies import StrategyConfig
@@ -53,7 +54,10 @@ def build_config_from_strategy(strategy_name: str, **overrides) -> CommonConfig:
         timeframe=overrides.get(
             "timeframe", data_cfg.timeframes[0] if data_cfg.timeframes else "15m"
         ),
-        start_time=overrides.get("start_time", data_cfg.start_time or 1735689600000),
+        start_time=overrides.get(
+            "start_time",
+            data_cfg.start_time or get_utc_timestamp_ms("2025-01-01 00:00:00"),
+        ),
         allow_gaps=overrides.get("allow_gaps", getattr(data_cfg, "allow_gaps", False)),
         equity_cutoff_ratio=overrides.get("equity_cutoff_ratio", 0.20),
     )

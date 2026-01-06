@@ -13,6 +13,7 @@ use crate::backtest_engine::optimizer::param_extractor::{
 use crate::backtest_engine::optimizer::sampler::{
     lhs_sample, transform_sample, weighted_gaussian_sample,
 };
+use crate::backtest_engine::utils;
 use crate::error::{OptimizerError, QuantError};
 use crate::types::OptimizerConfig;
 use crate::types::{DataContainer, SettingContainer, SingleParamSet, TemplateContainer};
@@ -214,8 +215,10 @@ pub fn run_optimization_generic(
                         template,
                         settings,
                     } => {
-                        let summary =
-                            execute_single_backtest(data_dict, &current_set, template, settings)?;
+                        // 使用 process_param_in_single_thread 包装，避免 Rayon + Polars 双重并行冲突
+                        let summary = utils::process_param_in_single_thread(|| {
+                            execute_single_backtest(data_dict, &current_set, template, settings)
+                        })?;
                         let val = summary
                             .performance
                             .as_ref()

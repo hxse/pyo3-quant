@@ -40,14 +40,13 @@ def run_real_data_backtest() -> RunResult | None:
     real_data_config = OhlcvDataFetchConfig(
         config=request_config,
         exchange_name="binance",
+        market="future",
         symbol="BTC/USDT",
         timeframes=["15m", "1h", "4h"],
         start_time=get_utc_timestamp_ms("2025-12-01 00:00:00"),
         count=5000,  # 只需要少量数据做演示
         enable_cache=True,
-        # 可选参数示例
-        # enable_test=False,
-        # file_type=".parquet",
+        mode="sandbox",
         base_data_key="ohlcv_15m",
     )
 

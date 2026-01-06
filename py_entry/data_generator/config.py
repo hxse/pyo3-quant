@@ -1,11 +1,12 @@
-"""
-数据生成器配置类
-"""
+from dataclasses import dataclass
+from typing import Dict, Literal, Optional
 
-from typing import Dict, Optional
 from pydantic import BaseModel, ConfigDict
 import polars as pl
 from py_entry.io.types import RequestConfig
+
+MarketType = Literal["future", "spot"]
+ModeType = Literal["sandbox", "live"]
 
 
 class DataGenerationParams(BaseModel):
@@ -34,21 +35,35 @@ class DataGenerationParams(BaseModel):
 
 
 class OhlcvDataFetchConfig(BaseModel):
-    """OHLCV数据获取配置类"""
+    """OHLCV数据获取配置类（用户层，支持多周期）"""
 
     config: RequestConfig
     exchange_name: str = "binance"
+    market: MarketType = "future"
     symbol: str = "BTC/USDT"
     timeframes: list[str]
-    start_time: int
-    count: int
-    enable_cache: bool
+    start_time: int | None = None
+    count: int | None = None
+    enable_cache: bool = True
     enable_test: bool = False
-    sandbox: bool = False
-    file_type: str = ".parquet"
-    cache_size: int = 1000
-    page_size: int = 1500
+    mode: ModeType = "sandbox"
     base_data_key: str
+
+
+@dataclass
+class OhlcvRequestParams:
+    """OHLCV单次请求参数（内部使用，由 OhlcvDataFetchConfig 转换而来）"""
+
+    config: RequestConfig
+    exchange_name: str
+    market: MarketType
+    symbol: str
+    period: str  # 注意：这里是单周期，从 timeframes 展开
+    start_time: int | None = None
+    count: int | None = None
+    enable_cache: bool = True
+    enable_test: bool = False
+    mode: ModeType = "sandbox"
 
 
 class DirectDataConfig(BaseModel):

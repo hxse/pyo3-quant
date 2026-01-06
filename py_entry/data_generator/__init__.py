@@ -7,6 +7,7 @@ from .config import (
     DataGenerationParams,
     OtherParams,
     OhlcvDataFetchConfig,
+    OhlcvRequestParams,
     DirectDataConfig,
 )
 
@@ -45,6 +46,7 @@ __all__ = [
     "DataGenerationParams",
     "OtherParams",
     "OhlcvDataFetchConfig",
+    "OhlcvRequestParams",
     "DirectDataConfig",
     "DataSourceConfig",
     "is_simulated_data",

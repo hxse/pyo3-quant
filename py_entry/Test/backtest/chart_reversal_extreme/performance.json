@@ -1,3 +1,7 @@
 {
-  "total_return": -0.962801765582279
+  "calmar_ratio": -1.0307514857264906,
+  "calmar_ratio_raw": -0.9924189858121336,
+  "max_drawdown": 0.9701565360464989,
+  "total_return": -0.962801765582279,
+  "total_trades": 1185.0
 }

@@ -7,13 +7,17 @@ import numpy as np
 from datetime import datetime
 from typing import cast
 
-from .config import DataGenerationParams, OhlcvDataFetchConfig, OtherParams
+from .config import (
+    DataGenerationParams,
+    OhlcvDataFetchConfig,
+    OhlcvRequestParams,
+    OtherParams,
+)
 from .type_guards import (
     DataSourceConfig,
     is_simulated_data,
     is_fetched_data,
     is_predefined_data,
-    DirectDataConfig,
 )
 from .time_utils import parse_timeframe
 from .ohlcv_generator import generate_multi_timeframe_ohlcv
@@ -24,7 +28,6 @@ from py_entry.types import DataContainer
 from py_entry.io import (
     get_ohlcv_data,
     convert_to_ohlcv_dataframe,
-    OhlcvDataConfig,
 )
 
 
@@ -86,19 +89,17 @@ def generate_data_dict(
 
         for timeframe in ohlcv_data_config.timeframes:
             # 为每个时间周期创建单独的配置对象
-            single_ohlcv_config = OhlcvDataConfig(
+            single_ohlcv_config = OhlcvRequestParams(
                 config=ohlcv_data_config.config,
                 exchange_name=ohlcv_data_config.exchange_name,
+                market=ohlcv_data_config.market,
                 symbol=ohlcv_data_config.symbol,
                 period=timeframe,
                 start_time=ohlcv_data_config.start_time,
                 count=ohlcv_data_config.count,
                 enable_cache=ohlcv_data_config.enable_cache,
                 enable_test=ohlcv_data_config.enable_test,
-                sandbox=ohlcv_data_config.sandbox,
-                file_type=ohlcv_data_config.file_type,
-                cache_size=ohlcv_data_config.cache_size,
-                page_size=ohlcv_data_config.page_size,
+                mode=ohlcv_data_config.mode,
             )
             result = get_ohlcv_data(single_ohlcv_config)
             ohlcv_df = convert_to_ohlcv_dataframe(result)
@@ -111,7 +112,7 @@ def generate_data_dict(
 
     elif is_predefined_data(data_source):
         # 使用预定义的OHLCV数据
-        config = cast(DirectDataConfig, data_source)  # 类型断言
+        config = data_source
         source_dict = config.data
         base_data_key = config.base_data_key
     else:

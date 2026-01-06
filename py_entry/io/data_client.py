@@ -1,7 +1,8 @@
 # 所有导入必须在 sys.path 修改之后立即进行
+from __future__ import annotations
+
 import json
-from dataclasses import dataclass
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import httpx
 import polars as pl
@@ -9,27 +10,12 @@ import polars as pl
 from py_entry.io.common import make_authenticated_request
 from py_entry.io.types import RequestConfig
 
-
-@dataclass
-class OhlcvDataConfig:
-    """OHLCV数据获取配置类"""
-
-    config: RequestConfig
-    exchange_name: str
-    symbol: str
-    period: str
-    start_time: int
-    count: int = 10
-    enable_cache: bool = True
-    enable_test: bool = False
-    sandbox: bool = False
-    file_type: str = ".parquet"
-    cache_size: int = 1000
-    page_size: int = 1500
+if TYPE_CHECKING:
+    from py_entry.data_generator.config import OhlcvRequestParams
 
 
 def get_ohlcv_data(
-    ohlcv_config: OhlcvDataConfig,
+    ohlcv_config: OhlcvRequestParams,
 ) -> dict[str, Any] | None:
     """
     从服务器获取 OHLCV 数据。
@@ -46,16 +32,14 @@ def get_ohlcv_data(
     ) -> dict[str, Any]:
         params: dict[str, Any] = {
             "exchange_name": ohlcv_config.exchange_name,
+            "market": ohlcv_config.market,
+            "mode": ohlcv_config.mode,
             "symbol": ohlcv_config.symbol,
             "period": ohlcv_config.period,
             "start_time": ohlcv_config.start_time,
             "count": ohlcv_config.count,
             "enable_cache": ohlcv_config.enable_cache,
             "enable_test": ohlcv_config.enable_test,
-            "sandbox": ohlcv_config.sandbox,
-            "file_type": ohlcv_config.file_type,
-            "cache_size": ohlcv_config.cache_size,
-            "page_size": ohlcv_config.page_size,
         }
 
         response = client.get(
@@ -94,24 +78,11 @@ def convert_to_ohlcv_dataframe(result: Any) -> pl.DataFrame | None:
         if not data or len(data) == 0:
             return None
 
-        # 创建 Polars DataFrame，明确指定数据类型
-        df = pl.DataFrame(
-            {
-                "time": [item[0] for item in data],
-                "open": [float(item[1]) for item in data],
-                "high": [float(item[2]) for item in data],
-                "low": [float(item[3]) for item in data],
-                "close": [float(item[4]) for item in data],
-                "volume": [float(item[5]) for item in data],
-            },
-            schema={
-                "time": pl.Int64,
-                "open": pl.Float64,
-                "high": pl.Float64,
-                "low": pl.Float64,
-                "close": pl.Float64,
-                "volume": pl.Float64,
-            },
+        # 使用 Polars 原生方法高效创建 DataFrame
+        columns = ["time", "open", "high", "low", "close", "volume"]
+        df = pl.DataFrame(data, schema=columns, orient="row").select(
+            pl.col("time").cast(pl.Int64),
+            pl.col("open", "high", "low", "close", "volume").cast(pl.Float64),
         )
 
         return df
@@ -132,9 +103,10 @@ if __name__ == "__main__":
     )
 
     # 调用 get_ohlcv_data 函数
-    ohlcv_config = OhlcvDataConfig(
+    ohlcv_config = OhlcvRequestParams(
         config=config,
         exchange_name="binance",
+        market="future",
         symbol="BTC/USDT",
         period="15m",
         start_time=1740787200000,

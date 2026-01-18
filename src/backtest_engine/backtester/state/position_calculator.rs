@@ -5,6 +5,8 @@ use crate::types::BacktestParams;
 impl<'a> BacktestState<'a> {
     pub fn reset_position_on_skip(&mut self) {
         self.action.reset_prices();
+        // 重置首次进场标记，避免跳过的 bar 保留旧值
+        self.action.first_entry_side = 0;
 
         self.risk_state.reset_all();
     }

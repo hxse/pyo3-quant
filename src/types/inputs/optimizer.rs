@@ -82,6 +82,8 @@ pub struct OptimizerConfig {
     pub init_samples: Option<Vec<Vec<f64>>>,
     /// 返回 Top K 参数集数量 (0 = 不返回)
     pub return_top_k: usize,
+    /// 随机种子（None 表示使用系统随机源）
+    pub seed: Option<u64>,
 }
 
 // 移除 #[pymethods] impl OptimizerConfig
@@ -101,6 +103,7 @@ impl Default for OptimizerConfig {
             optimize_metric: OptimizeMetric::CalmarRatioRaw,
             init_samples: None,
             return_top_k: 10,
+            seed: None,
         }
     }
 }

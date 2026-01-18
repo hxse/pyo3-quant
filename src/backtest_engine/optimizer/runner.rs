@@ -154,7 +154,10 @@ pub fn run_optimization_generic(
         .into());
     }
 
-    let mut rng = StdRng::from_os_rng();
+    let mut rng = match config.seed {
+        Some(s) => StdRng::seed_from_u64(s),
+        None => StdRng::from_os_rng(),
+    };
 
     // 1. 提取所有需要优化的参数并平铺
     let flat_params = extract_optimizable_params(param);

@@ -5,42 +5,68 @@ use super::risk_price_calc::{
 };
 use super::tsl_psar::{init_tsl_psar, TslPsarParams};
 use super::Direction;
+use crate::backtest_engine::indicators::psar::psar_core::PsarState;
 use crate::types::BacktestParams;
 
+#[derive(Default)]
+struct GapCheckResult {
+    sl_pct_price: Option<f64>,
+    sl_atr_price: Option<f64>,
+    tp_pct_price: Option<f64>,
+    tp_atr_price: Option<f64>,
+    tsl_pct_price: Option<f64>,
+    tsl_pct_anchor: Option<f64>,
+    tsl_atr_price: Option<f64>,
+    tsl_atr_anchor: Option<f64>,
+    tsl_psar_price: Option<f64>,
+    tsl_psar_state: Option<PsarState>,
+}
+
+/// 检查价格是否跳空穿过阈值
+///
+/// # 返回
+/// * `true` - 检查通过（安全）
+/// * `false` - 检查失败（跳空穿过）
+fn check_gap(open: f64, price: f64, direction: Direction, is_stop_loss: bool) -> bool {
+    match (direction, is_stop_loss) {
+        (Direction::Long, true) => open > price, // 多头止损：开盘 > 止损价
+        (Direction::Long, false) => open < price, // 多头止盈：开盘 < 止盈价
+        (Direction::Short, true) => open < price, // 空头止损：开盘 < 止损价
+        (Direction::Short, false) => open > price, // 空头止盈：开盘 > 止盈价
+    }
+}
+
 impl<'a> BacktestState<'a> {
-    /// 检查价格是否跳空穿过阈值，如果安全则存储
-    ///
-    /// # 参数
-    /// * `price` - 计算出的风控价格
-    /// * `direction` - 持仓方向
-    /// * `is_stop_loss` - true=止损/跟踪止损, false=止盈
-    /// * `setter` - 用于存储价格的函数
-    ///
-    /// # 返回
-    /// * `true` - 检查通过（安全）
-    /// * `false` - 检查失败（跳空穿过）
-    fn check_gap_and_store(
-        &mut self,
-        price: f64,
-        direction: Direction,
-        is_stop_loss: bool,
-        setter: impl FnOnce(&mut Self, Direction, Option<f64>),
-    ) -> bool {
-        let open = self.current_bar.open;
-
-        // 检查是否跳空穿过
-        let is_safe = match (direction, is_stop_loss) {
-            (Direction::Long, true) => open >= price, // 多头止损：开盘 >= 止损价
-            (Direction::Long, false) => open <= price, // 多头止盈：开盘 <= 止盈价
-            (Direction::Short, true) => open <= price, // 空头止损：开盘 <= 止损价
-            (Direction::Short, false) => open >= price, // 空头止盈：开盘 >= 止盈价
-        };
-
-        if is_safe {
-            setter(self, direction, Some(price));
+    /// 应用检查结果到 risk_state
+    fn apply_gap_check_result(&mut self, direction: Direction, result: GapCheckResult) {
+        if let Some(price) = result.sl_pct_price {
+            self.risk_state.set_sl_pct_price(direction, Some(price));
         }
-
-        is_safe
+        if let Some(price) = result.sl_atr_price {
+            self.risk_state.set_sl_atr_price(direction, Some(price));
+        }
+        if let Some(price) = result.tp_pct_price {
+            self.risk_state.set_tp_pct_price(direction, Some(price));
+        }
+        if let Some(price) = result.tp_atr_price {
+            self.risk_state.set_tp_atr_price(direction, Some(price));
+        }
+        if let Some(price) = result.tsl_pct_price {
+            self.risk_state.set_tsl_pct_price(direction, Some(price));
+            self.risk_state
+                .set_anchor_since_entry(direction, result.tsl_pct_anchor);
+        }
+        if let Some(price) = result.tsl_atr_price {
+            self.risk_state.set_tsl_atr_price(direction, Some(price));
+            self.risk_state
+                .set_anchor_since_entry(direction, result.tsl_atr_anchor);
+        }
+        if let Some(price) = result.tsl_psar_price {
+            self.risk_state.set_tsl_psar_price(direction, Some(price));
+        }
+        if let Some(state) = result.tsl_psar_state {
+            self.risk_state.set_tsl_psar_state(direction, Some(state));
+        }
     }
 
     /// [Gap Protection] 检查进场安全性并初始化风控价格
@@ -53,6 +79,9 @@ impl<'a> BacktestState<'a> {
         params: &BacktestParams,
         direction: Direction,
     ) -> bool {
+        let mut result = GapCheckResult::default();
+        let open = self.current_bar.open;
+
         // 1. 检查 SL PCT
         if params.is_sl_pct_param_valid() {
             let sl_pct = params.sl_pct.as_ref().unwrap().value;
@@ -63,15 +92,12 @@ impl<'a> BacktestState<'a> {
                 params.sl_anchor_mode,
                 direction,
             );
-            let sl_price = calc_sl_pct_price(anchor, sl_pct, direction);
+            let price = calc_sl_pct_price(anchor, sl_pct, direction);
 
-            let is_safe =
-                self.check_gap_and_store(sl_price, direction, true, |state, dir, price| {
-                    state.risk_state.set_sl_pct_price(dir, price);
-                });
-            if !is_safe {
+            if !check_gap(open, price, direction, true) {
                 return false;
             }
+            result.sl_pct_price = Some(price);
         }
 
         // 2. 检查 SL ATR
@@ -85,15 +111,12 @@ impl<'a> BacktestState<'a> {
                     params.sl_anchor_mode,
                     direction,
                 );
-                let sl_price = calc_sl_atr_price(anchor, atr, sl_atr_k, direction);
+                let price = calc_sl_atr_price(anchor, atr, sl_atr_k, direction);
 
-                let is_safe =
-                    self.check_gap_and_store(sl_price, direction, true, |state, dir, price| {
-                        state.risk_state.set_sl_atr_price(dir, price);
-                    });
-                if !is_safe {
+                if !check_gap(open, price, direction, true) {
                     return false;
                 }
+                result.sl_atr_price = Some(price);
             }
         }
 
@@ -107,15 +130,12 @@ impl<'a> BacktestState<'a> {
                 params.tp_anchor_mode,
                 direction,
             );
-            let tp_price = calc_tp_pct_price(anchor, tp_pct, direction);
+            let price = calc_tp_pct_price(anchor, tp_pct, direction);
 
-            let is_safe =
-                self.check_gap_and_store(tp_price, direction, false, |state, dir, price| {
-                    state.risk_state.set_tp_pct_price(dir, price);
-                });
-            if !is_safe {
+            if !check_gap(open, price, direction, false) {
                 return false;
             }
+            result.tp_pct_price = Some(price);
         }
 
         // 4. 检查 TP ATR
@@ -129,15 +149,12 @@ impl<'a> BacktestState<'a> {
                     params.tp_anchor_mode,
                     direction,
                 );
-                let tp_price = calc_tp_atr_price(anchor, atr, tp_atr_k, direction);
+                let price = calc_tp_atr_price(anchor, atr, tp_atr_k, direction);
 
-                let is_safe =
-                    self.check_gap_and_store(tp_price, direction, false, |state, dir, price| {
-                        state.risk_state.set_tp_atr_price(dir, price);
-                    });
-                if !is_safe {
+                if !check_gap(open, price, direction, false) {
                     return false;
                 }
+                result.tp_atr_price = Some(price);
             }
         }
 
@@ -151,17 +168,13 @@ impl<'a> BacktestState<'a> {
                 params.tsl_anchor_mode,
                 direction,
             );
-            let tsl_price = calc_tsl_pct_price(anchor, tsl_pct, direction);
+            let price = calc_tsl_pct_price(anchor, tsl_pct, direction);
 
-            let is_safe =
-                self.check_gap_and_store(tsl_price, direction, true, |state, dir, price| {
-                    state.risk_state.set_tsl_pct_price(dir, price);
-                    // 用 anchor 初始化（仅首次）
-                    state.risk_state.set_anchor_since_entry(dir, Some(anchor));
-                });
-            if !is_safe {
+            if !check_gap(open, price, direction, true) {
                 return false;
             }
+            result.tsl_pct_price = Some(price);
+            result.tsl_pct_anchor = Some(anchor);
         }
 
         // 6. 检查 TSL ATR
@@ -175,17 +188,13 @@ impl<'a> BacktestState<'a> {
                     params.tsl_anchor_mode,
                     direction,
                 );
-                let tsl_price = calc_tsl_atr_price(anchor, atr, tsl_atr_k, direction);
+                let price = calc_tsl_atr_price(anchor, atr, tsl_atr_k, direction);
 
-                let is_safe =
-                    self.check_gap_and_store(tsl_price, direction, true, |state, dir, price| {
-                        state.risk_state.set_tsl_atr_price(dir, price);
-                        // 用 anchor 初始化（仅首次）
-                        state.risk_state.set_anchor_since_entry(dir, Some(anchor));
-                    });
-                if !is_safe {
+                if !check_gap(open, price, direction, true) {
                     return false;
                 }
+                result.tsl_atr_price = Some(price);
+                result.tsl_atr_anchor = Some(anchor);
             }
         }
 
@@ -212,26 +221,24 @@ impl<'a> BacktestState<'a> {
 
                 match direction {
                     Direction::Long => {
-                        if self.current_bar.open < psar_price {
+                        if open < psar_price {
                             return false;
                         }
                     }
                     Direction::Short => {
-                        if self.current_bar.open > psar_price {
+                        if open > psar_price {
                             return false;
                         }
                     }
                 }
 
-                // ✅ 检查通过，存储价格和状态
-                self.risk_state
-                    .set_tsl_psar_price(direction, Some(psar_price));
-                self.risk_state
-                    .set_tsl_psar_state(direction, Some(psar_state));
+                result.tsl_psar_price = Some(psar_price);
+                result.tsl_psar_state = Some(psar_state);
             }
         }
 
-        // ✅ 所有检查通过
+        // ✅ 所有检查通过，统一存储
+        self.apply_gap_check_result(direction, result);
         true
     }
 }

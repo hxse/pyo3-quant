@@ -28,3 +28,4 @@ class OptimizerConfig(BaseModel):
     optimize_metric: OptimizeMetric = OptimizeMetric.CalmarRatioRaw
     return_top_k: int = 5
     init_samples: Optional[List[List[float]]] = None
+    seed: Optional[int] = None

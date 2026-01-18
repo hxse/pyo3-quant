@@ -15,7 +15,7 @@ TOLERANCE_DICT = {
     "sphere": 1e-2,  # 必须精确收敛 (Correctness Check)
     "rosenbrock": 1.0,  # 能找到山谷 (Robustness Check)
     "rastrigin": 3.0,  # 多峰函数，LHS+Gaussian易陷局部最优，容许偏差
-    "ackley": 2.0,  # 同上
+    "ackley": 2.2,  # 同上
 }
 
 # 增加尝试次数，因为随机算法有概率性

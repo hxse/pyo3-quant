@@ -388,7 +388,12 @@ src/backtest_engine/backtester/
 ├── signal_preprocessor.rs    # 信号预处理（R1-R5 冲突解决、屏蔽规则）
 ├── atr_calculator.rs         # ATR 指标计算
 ├── buffer_slices.rs          # 缓冲区切片工具
-├── output.rs                 # OutputBuffers 结构体定义（固定列与可选列）
+├── output/                   # 输出缓冲区模块
+│   ├── mod.rs                    # 模块导出
+│   ├── output_struct.rs          # OutputBuffers 结构体定义（固定列与可选列）
+│   ├── output_init.rs            # 缓冲区初始化逻辑
+│   ├── output_convert.rs         # 转换为 DataFrame
+│   └── output_validate.rs        # 数组长度验证
 └── state/
     ├── mod.rs                    # 模块导出
     ├── backtest_state.rs         # BacktestState 核心状态机

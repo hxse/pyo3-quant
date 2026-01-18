@@ -24,6 +24,9 @@
 > [!IMPORTANT]
 > **`sl_exit_in_bar` / `tp_exit_in_bar`** 分别独立控制 SL 和 TP 的离场行为。TSL/PSAR 始终在下一根 K 线开盘价离场。
 
+> [!NOTE]
+> **所有风控类型都是独立判断的**，无论是 SL/TP/TSL，还是 pct/atr/psar，只要配置了就会计算并参与触发检测，不互斥。
+
 ---
 
 ## 2. 关键参数详解

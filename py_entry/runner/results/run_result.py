@@ -196,4 +196,4 @@ class RunResult:
         # But to be safe and clean, we should probably refactor display or make RunResult compatible.
         # I added properties .results and .param_set to mimic BacktestRunner.
 
-        return _display.display_dashboard(self, config)  # type: ignore
+        return _display.display_dashboard(self, config)

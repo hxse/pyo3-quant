@@ -149,10 +149,10 @@
 
 **白名单中的每个状态都是可达的。**
 
-- 状态 1-3：初始状态或持仓状态
-- 状态 4-7：策略或风控触发的离场
-- 状态 8-9：反手进场
-- 状态 10-11：反手后同 bar 风控离场
+- 状态 1-5：无仓位或持仓状态（no_position、hold_long/short、hold_long/short_first）
+- 状态 6-11：离场（策略离场、风控离场、秒杀离场）
+- 状态 12-13：反手进场（reversal_L_to_S、reversal_S_to_L）
+- 状态 14-15：反手后同 bar 风控离场（reversal_to_L/S_risk）
 
 ---
 
@@ -211,4 +211,21 @@
 └─────────────────┘     └─────────────────┘     └─────────────────┘
 ```
 
-**结论**：约束体系是状态机设计的基石。没有约束，就没有可靠的状态推断。
+
+## 7. 测试覆盖
+
+15 种状态均有对应的自动化测试验证其合法性。
+
+### 测试文件
+
+| 文件 | 说明 |
+|-----|------|
+| [test_state_whitelist.py](file:///home/hxse/pyo3-quant/py_entry/Test/backtest/common_tests/test_state_whitelist.py) | 白名单验证：检测每行状态是否在 15 种合法状态中 |
+| [test_price_driven_state.py](file:///home/hxse/pyo3-quant/py_entry/Test/backtest/common_tests/test_price_driven_state.py) | 价格驱动状态推断逻辑测试 |
+
+### 运行测试
+
+```bash
+just test py_entry/Test/backtest/common_tests/test_state_whitelist.py
+just test py_entry/Test/backtest/common_tests/test_price_driven_state.py
+```

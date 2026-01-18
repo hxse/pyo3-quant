@@ -19,6 +19,7 @@ dependencies = [
     "polars",
     "pyarrow",
     "pydantic>=2.0",
+    "shortuuid>=1.0.13",
 ]
 [tool.maturin]
 features = ["pyo3/extension-module"]

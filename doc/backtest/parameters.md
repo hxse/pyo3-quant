@@ -47,7 +47,7 @@ PSAR (Parabolic SAR) 是一种特殊的跟踪止损算法。以下三个参数**
 |--------|------|:----:|------|
 | `sl_exit_in_bar` | `bool` | `False` | **SL 离场时机**。<br>`True`: In-Bar（当根K线内）离场。<br>`False`: Next-Bar（下根K线开盘）离场。 |
 | `tp_exit_in_bar` | `bool` | `False` | **TP 离场时机**。<br>`True`: In-Bar（当根K线内）离场。<br>`False`: Next-Bar（下根K线开盘）离场。 |
-| `tsl_atr_tight` | `bool` | `False` | **ATR 跟踪止损更新模式**。<br>`True`: 每根 K 线都尝试收紧止损线。<br>`False`: 仅当创新高/新低时才收紧止损线。 |
+| `tsl_atr_tight` | `bool` | `False` | **ATR 跟踪止损更新模式**。<br>`True`: 每根 K 线都尝试更新 TSL 价格（更紧密跟踪）。<br>`False`: 仅当创新高/新低时才更新 TSL 价格。 |
 
 ### 3.1 触发模式 (Trigger Mode)
 

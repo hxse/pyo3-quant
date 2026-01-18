@@ -124,13 +124,13 @@ class TestLayer2Financial:
             )
 
             # Rust 优化器
-            # 注意: OptimizerConfig 不支持 seed, Rust 内部可能使用 thread_rng
             # 数据的一致性通过 data_config.fixed_seed 控制
             # 恢复使用 CalmarRatioRaw
             rust_config = OptimizerConfig(
                 samples_per_round=self.SAMPLES_PER_ROUND,
                 max_rounds=self.N_ROUNDS_RUST,
                 optimize_metric=OptimizeMetric.CalmarRatioRaw,
+                seed=seed + 1000,
             )
 
             t0 = time.perf_counter()

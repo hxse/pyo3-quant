@@ -48,6 +48,14 @@ run-basic:
 run-custom:
     PYTHONPATH=. uv run --no-sync python py_entry/example/custom_backtest.py
 
+# 运行性能基准测试 (pyo3-quant vs VectorBT)
+benchmark:
+    PYTHONPATH=. uv run --no-sync --with vectorbt python -m py_entry.benchmark.run_benchmark
+
+# 运行复杂度仿真测试 (Numba Complexity Test)
+benchmark-check:
+    PYTHONPATH=. uv run --no-sync --with vectorbt python -m py_entry.benchmark.numba_complexity_test
+
 # 计时运行基础回测
 run-time path:
     PYTHONPATH=. /usr/bin/time -f "\n执行时间: %e 秒" uv run --no-sync python {{ path }}

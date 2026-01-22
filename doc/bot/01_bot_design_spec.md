@@ -43,6 +43,7 @@
 | `loop_interval_sec` | `float` | `1.0` | 检查循环间隔（秒） |
 | `log_level` | `str` | `"INFO"` | loguru 日志级别 |
 | `entry_order_type` | `str` | `"limit"` | 进场订单类型 (`limit`/`market`) |
+| `settlement_currency` | `str` | `"USDT"` | 结算币种 (如 USDT, BTC, USDC) |
 
 | `enable_aggregation` | `bool` | `False` | 启用多策略聚合（当前版本不支持，预留字段） |
 
@@ -99,7 +100,8 @@
 3. 记录上次核心运算时间（UTC），避免同一周期内重复执行
 4. 每秒的检查永不停歇
 
-**周期基准**：使用回测引擎 `DataSourceConfig` 的 `base_data_key` 字段（由 `get_strategy_params` 回调返回）确定策略的基准周期。
+**周期基准**：使用回测引擎 `DataSourceConfig` 的 `base_data_key` 字段（由来 `get_strategy_params` 回调返回）。
+- **解析逻辑**：提取 `_` 后的最后一部分作为周期（例如 `ohlcv_15m` -> `15m`, `trade_1h` -> `1h`），支持更灵活的命名格式。
 
 ### 3.2 每周期执行流程
 
@@ -215,3 +217,11 @@ flowchart TD
 >
 > - 本地：完全增量更新，回测引擎开发和机器人调试无缝衔接
 > - 服务器：下载 Git Action 编译的二进制即可，纯 Python 部分直接运行
+
+---
+
+## 6. 更新日志 (Changelog)
+
+### v1.1.0 (2026-01-20)
+- **Feature**: 支持自定义结算币种 (`settlement_currency`)，不再强制绑定 USDT。
+- **Optimization**: 优化周期解析逻辑，不再依赖 `ohlcv_` 前缀，增强兼容性。

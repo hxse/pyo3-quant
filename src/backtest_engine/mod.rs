@@ -47,6 +47,7 @@ use pyo3::prelude::*;
 use rayon::prelude::*;
 
 // 子模块声明
+pub mod action_resolver;
 pub mod backtester;
 pub mod indicators;
 pub mod optimizer;
@@ -292,6 +293,11 @@ pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     let wf_submodule = PyModule::new(m.py(), "walk_forward")?;
     walk_forward::register_py_module(&wf_submodule)?;
     m.add_submodule(&wf_submodule)?;
+
+    // 注册 action_resolver 子模块
+    let action_resolver_submodule = PyModule::new(m.py(), "action_resolver")?;
+    action_resolver::register_py_module(&action_resolver_submodule)?;
+    m.add_submodule(&action_resolver_submodule)?;
 
     Ok(())
 }

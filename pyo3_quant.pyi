@@ -145,3 +145,14 @@ class backtest_engine:
         ) -> Dict[str, Any]:
             """运行向前滚动优化"""
             ...
+
+    class action_resolver:
+        @staticmethod
+        def resolve_actions(
+            row_dict: Dict[str, Any],
+            symbol: str,
+            sl_exit_in_bar: bool,
+            tp_exit_in_bar: bool,
+        ) -> Dict[str, Any]:
+            """解析交易动作"""
+            ...

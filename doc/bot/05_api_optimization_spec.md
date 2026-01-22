@@ -1,176 +1,147 @@
-# API 调用优化（缓存与去重）
+# API 调用优化（Scoped Proxy 模式）
 
 本文档描述交易机器人 API 调用的优化设计，旨在减少每个执行周期内对交易所 API 的冗余请求。
 
 > [!NOTE]
-> 这是一个**可选**的高级功能，初始版本可以暂不实现，不影响机器人的核心交易逻辑。
+> 这是一个**可选**的高级功能，但强烈建议实现以提高运行效率并节省 API 权重。
 
 ---
 
-## 1. 设计前提与理念
+## 1. 设计理念：代理模式 (Proxy Pattern)
 
-### 1.1 设计前提
+### 1.1 核心思想
 
-- 回测引擎是**单品种单策略单仓位**（One Strategy Per Symbol）。
-- 交易机器人支持**多品种**，但遵循**每个品种对应唯一策略**的原则。
-- **不支持策略聚合和仓位聚合**：每个 Symbol 的交易逻辑和仓位管理是完全独立的。
-- 主循环按 Symbol 遍历，每个 Symbol 在同一周期内独立处理。
+为了保证**业务逻辑的代码纯净性**（不混杂缓存逻辑）和**零侵入性**（不需要修改现有函数签名），采用 **Scoped Callbacks Proxy（作用域回调代理）** 模式。
 
-### 1.2 问题场景
+- **零侵入**：`RuntimeChecks` 和 `Executor` 不需要知道缓存的存在，它们调用的仍然是标准的 `Callbacks` 接口。
+- **作用域隔离**：每次主循环处理一个 Symbol 时，创建一个临时的代理对象 `OptimizationCallbacks`，生命周期仅限于该 Symbol 的处理过程。
+- **自动管理**：缓存的命中、失效和去重逻辑全部封装在代理类内部。
+
+> [!IMPORTANT]
+> **严格的作用域限制 (Strict Scope)**
+> 本缓存机制**严格限制**在：
+> - **同一周期 (Same Cycle)**
+> - **同一品种 (Same Symbol)**
+> - **同一策略 (Same Strategy)**
+> 的执行上下文内部。
+>
+> **跨周期、跨品种、跨策略**的请求**绝不**共享缓存。每次循环开始时都会创建一个全新的空白代理对象，确保状态完全隔离。
+
+### 1.2 解决的问题
 
 在一个周期循环内，同一个 Symbol 可能因不同逻辑多次调用同一个 API：
 
-- **`fetch_positions`**：
-  - 孤儿订单检查（Orphan Check）会调用。
-  - 开仓前的重复开仓检查（Checking Duplicate）也会调用。
-  - 如果中间没有成交，第二次查询是冗余的。
+1.  **`fetch_positions`**：
+    - 孤儿订单检查（Orphan Check）会调用。
+    - 重复开仓检查（Duplicate Check）会调用。
+    - **优化**：第一次调用后缓存结果，后续调用直接返回缓存。
 
-- **`cancel_all_orders`**：
-  - 信号解析器可能生成 `cancel_all_orders` 动作（如反手或离场时）。
-  - 孤儿订单检查逻辑也可能触发 `cancel_all_orders`。
-  - 如果一秒内连续发送两次取消请求，虽然安全，但浪费 API 权重。
+2.  **`cancel_all_orders`**：
+    - 信号解析器可能生成取消动作。
+    - 孤儿订单检查也可能触发取消。
+    - **优化**：如果已经执行过一次成功取消，后续重复调用直接返回成功（不再发网络请求）。
 
-### 1.3 核心规则
-
-优化逻辑遵循以下核心规则：
-
-1. **有副作用则重置**：如果两次调用之间发生了**订单操作**（开仓/平仓/挂单），状态发生改变，缓存必须失效，下次必须重新执行 API 调用。
-2. **无副作用则复用**：如果两次调用之间**无订单操作**，则可以：
-   - 复用上次 `fetch_positions` 的结果（Cache）。
-   - 跳过重复的 `cancel_all_orders` 请求（Deduplication）。
+3.  **缓存失效（Invalidation）**：
+    - 当执行了**写操作**（下单、平仓）后，持仓状态已改变，之前的缓存必须失效。
 
 ---
 
-## 2. 解决方案：SymbolContext
+## 2. 详细设计：OptimizationCallbacks
 
-利用 Python `for` 循环的特性，在每次遍历 Symbol 时创建一个独立的**上下文对象**，无需维护全局状态。
+`OptimizationCallbacks` 是 `Callbacks` 协议的一个包装器（Wrapper）。
 
-### 2.1 状态对象设计
-
-`SymbolContext` 负责维护单次循环内的缓存和去重标记。
+### 2.1 类结构
 
 ```python
-from typing import Optional
-
-class SymbolContext:
+class OptimizationCallbacks:
     """
-    单个 symbol 的执行上下文。
-    每个 for 循环迭代创建新实例，循环结束自动销毁。
+    作用域内的 API 优化代理。
+    生命周期：仅限于单次 Loop 的单个 Symbol 处理过程。
     """
 
-    def __init__(self, symbol: str):
-        self.symbol = symbol
+    def __init__(self, inner: Callbacks, symbol: str):
+        self._inner = inner
+        self._symbol = symbol
+
+        # 状态存储
         self._positions_cache: Optional[PositionsResponse] = None
-        self._cancelled: bool = False
+        self._cancelled_all: bool = False
 
-    # ===== fetch_positions 缓存 =====
-    def get_positions_cache(self) -> Optional[PositionsResponse]:
-        """获取缓存的持仓数据，如果没有返回 None"""
-        return self._positions_cache
-
-    def set_positions_cache(self, data: PositionsResponse):
-        """设置持仓缓存"""
-        self._positions_cache = data
-
-    # ===== cancel_all_orders 去重 =====
-    def is_cancelled(self) -> bool:
-        """本周期是否已对该 symbol 执行过取消操作"""
-        return self._cancelled
-
-    def mark_cancelled(self):
-        """标记已执行过取消"""
-        self._cancelled = True
-
-    # ===== 订单操作后调用 =====
-    def invalidate(self):
-        """
-        订单成交类操作（开仓/平仓/挂单）后调用，使状态失效。
-        注意：cancel_all_orders 不算订单成交，不需要调用此方法。
-        """
-        self._positions_cache = None
-        self._cancelled = False
+    def __getattr__(self, name):
+        # 对于未显式定义的方法，直接透传给内部 callbacks
+        return getattr(self._inner, name)
 ```
+
+### 2.2 读请求优化 (Caching)
+
+**`fetch_positions`**:
+
+1.  **检查缓存**：如果请求的 `symbols` 列表仅包含当前 `_symbol` 且 `_positions_cache` 存在，直接返回缓存数据。
+2.  **透传请求**：否则调用 `_inner.fetch_positions`。
+3.  **更新缓存**：如果请求成功且针对的是当前 `_symbol`，将结果存入 `_positions_cache`。
+
+### 2.3 写请求失效 (Invalidation)
+
+**以下写操作必须触发缓存失效**（即置 `_positions_cache = None`）：
+
+- `create_limit_order`
+- `create_market_order`
+- `create_stop_market_order`
+- `create_take_profit_market_order`
+- `close_position`
 
 > [!IMPORTANT]
-> **invalidate() 调用规则**：
-> - **必须调用**：`create_limit_order`, `create_market_order`, `close_position`, `create_stop_market_order`, `create_take_profit_market_order`
-> - **不需要调用**：`cancel_all_orders` (仅取消挂单不改变持仓，且 _cancelled 标记应该保留)
+> **失效原则**：任何可能改变持仓状态的操作都必须清除持仓缓存，确保下一次读取获取到最新状态（或者迫使程序重新拉取）。
 
-> [!NOTE]
-> **职责分离**：状态对象只管缓存和标记，**不包含回调函数**。
-> 这样更易测试、更灵活，回调由外部辅助函数调用。
+### 2.4 重复请求去重 (Deduplication)
 
----
+**`cancel_all_orders`**:
 
-## 3. 辅助函数设计
+1.  **检查标记**：如果 `_cancelled_all` 为 `True`，直接返回成功（模拟响应），不再调用底层 API。
+2.  **透传请求**：否则调用 `_inner.cancel_all_orders`。
+3.  **设置标记**：如果请求成功，设置 `_cancelled_all = True`。
 
-辅助函数负责封装缓存/去重逻辑，并调用具体的回调函数。
-
-### 3.1 `fetch_positions_cached`
-
-```python
-from typing import Tuple, Optional
-
-def fetch_positions_cached(
-    ctx: SymbolContext,
-    callbacks: Callbacks
-) -> Tuple[bool, Optional[CallbackResult[PositionsResponse]]]:
-    """
-    带缓存的 fetch_positions。
-
-    返回: (executed, result)
-        - executed=False, result=None: 复用缓存，未执行回调
-        - executed=True, result=CallbackResult: 执行了回调
-    """
-    cached = ctx.get_positions_cache()
-    if cached is not None:
-        return (False, None)  # 复用缓存
-
-    result = callbacks.fetch_positions([ctx.symbol])
-    if result.success:
-        ctx.set_positions_cache(result.data)
-    return (True, result)
-```
-
-### 3.2 `cancel_all_orders_dedup`
-
-```python
-def cancel_all_orders_dedup(
-    ctx: SymbolContext,
-    callbacks: Callbacks
-) -> Tuple[bool, Optional[CallbackResult[None]]]:
-    """
-    去重的 cancel_all_orders。
-
-    返回: (executed, result)
-        - executed=False, result=None: 跳过，未执行回调
-        - executed=True, result=CallbackResult: 执行了回调
-    """
-    if ctx.is_cancelled():
-        return (False, None)  # 跳过
-
-    result = callbacks.cancel_all_orders(ctx.symbol)
-    if result.success:
-        ctx.mark_cancelled()
-    return (True, result)
-```
-
-> [!TIP]
-> **调用方职责**：根据 `executed` 判断是否需要检查 `result.success`。辅助函数不处理错误，不破坏工作流控制。
+> [!IMPORTANT]
+> **严谨性修正**：`_cancelled_all` 标记在任何**创建订单**的操作发生后**必须重置为 False**。
+>
+> 具体包括以下方法：
+> - `create_limit_order`
+> - `create_stop_market_order`
+> - `create_take_profit_market_order`
+>
+> **原因**：一旦创建了新订单，“当前没有挂单”这一状态即被打破。如果后续逻辑再次请求 `cancel_all_orders`（例如复杂的反手流程，或者下单后发现某些极端条件需要立即撤单），必须真实发送撤单请求。
+> **原则**：优化层不能假设上层逻辑的调用顺序，必须保证状态的绝对正确性。新订单生成 = `_cancelled_all` 失效。
 
 ---
 
-## 4. 状态流转示例
+## 3. 集成方式
 
-以下是一个典型周期内的状态变化流程：
+在 `TradingBot` 的主循环 `_process_symbol` 中：
 
-| 步骤 | 操作 | `_positions_cache` | `_cancelled` | 说明 |
-|------|------|--------------------|--------------|------|
-| 1. 初始 | `SymbolContext(symbol)` | `None` | `False` | 新周期开始 |
-| 2. 孤儿检查 | `fetch_positions_cached` | **缓存数据** | `False` | 实际调用 API |
-| 3. 孤儿检查 | `cancel_all_orders_dedup` | 缓存数据 | **`True`** | 实际调用 API，标记已取消 |
-| 4. 执行平仓 | `close_position` | ... | ... | 执行订单操作 |
-| 5. 状态失效 | `invalidate()` | **`None`** | **`False`** | 重置状态 |
-| 6. 信号动作 | `cancel_all_orders_dedup` | `None` | **`True`** | 再次调用 API（因为之前已重置） |
-| 7. 开仓前检查 | `fetch_positions_cached` | **缓存数据** | `True` | 再次调用 API（因为之前已重置） |
-| 8. 另一处检查 | `fetch_positions_cached` | **缓存数据** | `True` | **复用缓存**（不再调用 API） |
+```python
+async def _process_symbol(self, params: StrategyParams) -> StepResult:
+    # 1. 创建代理 (Scope 开始)
+    scoped_callbacks = OptimizationCallbacks(self.callbacks, params.symbol)
+
+    # 2. 注入代理
+    # RuntimeChecks 和 Executor 接收的是 scoped_callbacks
+    # 它们内部调用的 fetch_positions 等方法会被自动拦截
+    scoped_runtime_checks = RuntimeChecks(scoped_callbacks)
+    scoped_executor = ActionExecutor(scoped_callbacks, scoped_runtime_checks)
+
+    # 3. 执行逻辑 (完全无感)
+    # ...
+    # 传递 scoped_runtime_checks 和 scoped_executor 给执行函数
+    return self._execute_signal(..., scoped_runtime_checks, scoped_executor)
+```
+
+---
+
+## 4. 优势总结
+
+| 维度 | 说明 |
+|------|------|
+| **代码整洁** | 业务逻辑层（Checks/Executor）不需要任何修改，不需要到处传 `ctx`。 |
+| **安全性** | 缓存失效逻辑封装在代理内部，只要调了下单就会失效，不会遗漏。 |
+| **可测试性** | 可以单独为 `OptimizationCallbacks` 编写单元测试，验证缓存命中和失效逻辑。 |
+| **灵活性** | 如果未来想全局禁用优化，只需在创建时直接传 `self.callbacks` 即可，零成本切换。 |

@@ -138,8 +138,9 @@ Bot 在执行开仓动作前，必须计算下单数量。
 
 **逻辑描述**：
 
-1. **获取账户余额**：调用 `fetch_balance` 获取可用资金（如 USDT）。
+1. **获取账户余额**：调用 `fetch_balance` 获取可用资金（根据 `params.settlement_currency`，默认 USDT）。
 2. **获取市场信息**：调用 `fetch_market_info` 获取 `precision_amount`（数量精度）。
+   - **Fail-Fast**：如果回调失败或返回数据为空，直接报错终止。
 3. **计算名义仓位价值**：
    $$
    \text{Position Value} = \text{Available Balance} \times \text{Position Size \%} \times \text{Leverage}
@@ -148,21 +149,17 @@ Bot 在执行开仓动作前，必须计算下单数量。
    $$
    \text{Raw Amount} = \frac{\text{Position Value}}{\text{Entry Price}}
    $$
-5. **精度截断**：将 `Raw Amount` 向下取整（Floor）至 `precision_amount` 指定的小数位，得到最终的 `Amount`。
+5. **精度截断**：
+   - **Step Size 模式 (Float)**：`Amount = floor(Raw / StepSize) * StepSize`
 
-**示例**：
-- 余额: 1000 USDT, 仓位: 10%, 杠杆: 5x → 目标仓位价值: 500 USDT
-- 价格: 50 USDT
-- 数量: 10.12345
-- 精度: 3位小数 → 最终数量: 10.123
+### 4.3 精度处理规则 (`precision_amount`)
 
-### 4.3 精度处理规则
+| 类型 | 说明 | 处理逻辑 |
+|------|------|----------|
+| **Step Size (Float)** | 如 `0.001`, `1.0`, `5.0` | 唯一支持的模式。计算时按步长向下取整。 |
 
-| 规则 | 说明 |
-|------|------|
-| **向下取整** | 避免因精度问题导致余额不足 |
-| **使用交易所精度** | 通过 `fetch_market_info` 获取 `precision_amount` |
-| **价格精度** | 限价单价格也需要类似处理，使用 `precision_price` |
+> [!IMPORTANT]
+> 本系统仅支持 Step Size 模式。如果交易所返回的是小数位数（如 `3`），将被视为步长 `3.0`。请务必让后端进行转换。
 
 ### 4.4 相关策略参数
 
@@ -180,7 +177,7 @@ Bot 在执行开仓动作前，必须计算下单数量。
 
 ### 5.1 定义
 
-交易所对每笔订单有**最小数量**或**最小金额**限制。如果计算出的下单数量/金额低于限制，订单会被交易所拒绝。
+交易所对每笔订单有**最小数量**限制。如果计算出的下单数量低于限制，订单会被交易所拒绝。
 
 ### 5.2 触发条件
 
@@ -192,13 +189,11 @@ Bot 在执行开仓动作前，必须计算下单数量。
 
 1. **确定最小数量限制 (`Limit_Amount`)**：
    - 从 `fetch_market_info` 获取 `min_amount`。
-   - 如果 `min_amount` 为 0 或不存在，则使用 `precision_amount` 对应的最小精度单位作为限制（例如精度为 3，则最小限制为 `0.001`）。
-2. **计算订单名义价值**：$\text{Order Value} = \text{Price} \times \text{Amount}$
+   - 如果 `min_amount` 为 0 或不存在，则直接使用 `precision_amount`（步长）作为限制（例如 `precision_amount` 为 `0.001`，则最小限制为 `0.001`）。
 3. **检查限制**：
    - **最小数量检查**：检查 $\text{Amount} \ge \text{Limit\_Amount}$
-   - **最小金额检查**：如果 `min_cost` 存在，检查 $\text{Order Value} \ge \text{min\_cost}$
 4. **结果判定**：
-   - 任意一项不满足，则视为**检查失败**。
+   - 若不满足，则视为**检查失败**。
 
 ### 5.4 检查失败处理
 

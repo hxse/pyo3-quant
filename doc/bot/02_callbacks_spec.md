@@ -49,7 +49,7 @@
 
 | 回调 | 签名 | 用途 |
 |------|------|------|
-| `get_strategy_params` | `List[Callable[[], CallbackResult[StrategyParams]]]` | 返回策略参数（数组形式，每个元素对应一个策略） |
+| `get_strategy_params` | `() → CallbackResult[List[StrategyParams]]` | 返回策略参数（数组形式，每个元素对应一个策略） |
 | `run_backtest` | `(StrategyParams, DataFrame) → CallbackResult[BacktestData]` | 运行回测获取信号 |
 | `parse_signal` | `(df: DataFrame, params: StrategyParams, index: int = -1) → CallbackResult[SignalState]` | 解析回测结果，支持指定行索引（默认 -1） |
 
@@ -57,7 +57,7 @@
 
 | 回调 | 签名 | 用途 |
 |------|------|------|
-| `fetch_market_info` | `(symbol) → CallbackResult[MarketInfoResponse]` | 获取精度、最小量、合约类型等 |
+| `fetch_market_info` | `(symbol) → CallbackResult[MarketInfoResponse]` | 获取精度（支持 Step Size 或 Decimals）、最小量、合约类型等 |
 | `fetch_balance` | `() → CallbackResult[BalanceResponse]` | 查询可用余额（计算下单数量） |
 | `fetch_tickers` | `(symbols) → CallbackResult[TickersResponse]` | 获取行情（预留，TODO: 开仓前价格偏离检查） |
 | `fetch_ohlcv` | `(StrategyParams) → CallbackResult[DataFrame]` | 获取 K 线数据 |

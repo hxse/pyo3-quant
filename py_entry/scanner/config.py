@@ -10,7 +10,7 @@ from pydantic import BaseModel, model_validator
 class IndicatorConfig(BaseModel):
     """指标参数配置"""
 
-    ema_period: int = 20
+    ema_period: int = 14
     macd_fast: int = 12
     macd_slow: int = 26
     macd_signal: int = 9
@@ -83,20 +83,12 @@ class ScannerConfig(BaseModel):
                 pass
         return data
 
-    # 方案一：经典四周期 (5m, 1h, 1d, 1w)
-    # timeframes: list[TimeframeConfig] = [
-    #     TimeframeConfig(name="5m", seconds=5 * 60, check_type="crossover"),
-    #     TimeframeConfig(name="1h", seconds=60 * 60, check_type="macd"),
-    #     TimeframeConfig(name="1d", seconds=24 * 3600, check_type="cci"),
-    #     TimeframeConfig(name="1w", seconds=7 * 24 * 3600, check_type="cci"),
-    # ]
-
-    # 方案二：日内偏好 (3m, 15m, 1h, 1d) - 如需切换，请注释掉上方方案并取消下方注释
+    # 方案一：经典四周期 (5m, 1h, 1d, 1w) - 从周线开始，更可靠
     timeframes: list[TimeframeConfig] = [
-        TimeframeConfig(name="3m", seconds=3 * 60, check_type="crossover"),
-        TimeframeConfig(name="15m", seconds=15 * 60, check_type="macd"),
+        TimeframeConfig(name="5m", seconds=5 * 60, check_type="crossover"),
         TimeframeConfig(name="1h", seconds=60 * 60, check_type="macd"),
         TimeframeConfig(name="1d", seconds=24 * 3600, check_type="cci"),
+        TimeframeConfig(name="1w", seconds=7 * 24 * 3600, check_type="cci"),
     ]
 
     # 需要扫描的期货品种（主力合约）

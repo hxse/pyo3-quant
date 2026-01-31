@@ -137,3 +137,17 @@ build:
 # 构建并安装 wheel 包
 build-install:
     maturin build --release && uv pip install target/wheels/*.whl --force-reinstall
+
+# ==================== 扫描器 (独立模块，使用天勤量化) ====================
+
+# 运行趋势共振扫描器（持续运行）
+scanner-run:
+    PYTHONPATH=. uv run --no-sync --with tqsdk python -m py_entry.scanner.main
+
+# 运行扫描器（单次扫描）
+scanner-once:
+    PYTHONPATH=. uv run --no-sync --with tqsdk python -m py_entry.scanner.main --once
+
+# 运行扫描器（Mock 模式，离线测试）
+scanner-mock:
+    PYTHONPATH=. uv run --no-sync --with tqsdk python -m py_entry.scanner.main --once --mock

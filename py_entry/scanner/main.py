@@ -3,7 +3,21 @@
 import argparse
 import time
 import logging
-from typing import TYPE_CHECKING
+
+
+# --- 依赖检查 ---
+try:
+    import tqsdk  # noqa: F401 # type: ignore
+    import pandas  # noqa: F401
+    import pandas_ta  # noqa: F401
+    import httpx  # noqa: F401
+except ImportError as e:
+    raise ImportError(
+        f"缺少依赖: {e.name}。\n"
+        "请先安装依赖: `just scanner-install`\n"
+        "然后运行: `just scanner-run`"
+    ) from e
+
 from .config import ScannerConfig
 from .data_source import DataSourceProtocol, MockDataSource, TqDataSource
 from .resonance import (
@@ -14,8 +28,7 @@ from .resonance import (
 from .notifier import Notifier
 from .throttler import TimeWindowThrottler
 
-if TYPE_CHECKING:
-    from tqsdk import TqAuth  # type: ignore
+from tqsdk import TqAuth  # type: ignore
 
 # 配置日志
 logging.basicConfig(
@@ -108,13 +121,6 @@ def main():
         if args.mock:
             data_source = MockDataSource()
         else:
-            # 动态导入防止无 tqsdk 环境报错
-            try:
-                from tqsdk import TqAuth  # type: ignore
-            except ImportError:
-                # 给个假的或者再次抛出，这里应该有环境
-                pass
-
             auth: "TqAuth | None" = None
             if config.tq_username and config.tq_password:
                 auth = TqAuth(config.tq_username, config.tq_password)

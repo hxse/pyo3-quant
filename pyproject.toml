@@ -39,6 +39,11 @@ dev = [
     "ipykernel>=7.1.0",
     "optuna>=4.6.0",
 ]
+scanner = [
+    "tqsdk",
+    "pandas",
+    "pandas-ta @ git+https://github.com/hxse/pandas-ta.git@development",
+]
 
 [tool.pytest.ini_options]
 norecursedirs = ["source_ref"]

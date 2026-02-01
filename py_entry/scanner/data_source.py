@@ -5,6 +5,8 @@ import numpy as np
 if TYPE_CHECKING:
     from tqsdk import TqAuth  # type: ignore
 
+from tqsdk import TqApi  # type: ignore
+
 
 class DataSourceProtocol(Protocol):
     """数据源接口定义"""
@@ -28,12 +30,6 @@ class TqDataSource:
         Args:
             auth: 天勤账号认证，免费版可传 None 使用游客模式
         """
-        try:
-            from tqsdk import TqApi  # type: ignore
-            # 运行时动态导入 TqApi
-        except ImportError:
-            raise ImportError("请按照说明安装 tqsdk")
-
         self.api = TqApi(auth=auth) if auth else TqApi()
 
     def get_klines(

@@ -10,7 +10,7 @@ from pydantic import BaseModel, model_validator
 class IndicatorConfig(BaseModel):
     """指标参数配置"""
 
-    ema_period: int = 14
+    ema_period: int = 20
     macd_fast: int = 12
     macd_slow: int = 26
     macd_signal: int = 9

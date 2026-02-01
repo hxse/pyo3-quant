@@ -14,7 +14,7 @@ def format_resonance_report(resonances: list[SymbolResonance]) -> str:
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    lines = [f"共振监控报告 (共 {len(resonances)} 个) [{timestamp}]"]
+    lines = [f"趋势共振扫描报告 (共 {len(resonances)} 个) [{timestamp}]"]
 
     for idx, r in enumerate(resonances, 1):
         direction = "做多" if r.direction == "long" else "做空"
@@ -37,6 +37,25 @@ def format_resonance_report(resonances: list[SymbolResonance]) -> str:
         lines.append(item_str)
 
     return "\n".join(lines).strip()
+
+
+def format_heartbeat(
+    total_symbols: int,
+    resonances: list[SymbolResonance],
+) -> str:
+    """格式化心跳消息"""
+    timestamp = datetime.now().strftime("%H:%M")
+    count = len(resonances)
+
+    if count > 0:
+        # 有共振：简报 + 换行 + 详细报告
+        # 注意：详细报告本身包含时间戳，这里主要是为了tg消息预览
+        header = f"🔍 {timestamp} | {total_symbols}品种 | {count}共振 ✅"
+        detail = format_resonance_report(resonances)
+        return f"{header}\n{detail}"
+    else:
+        # 无共振：简短一行, 用咖啡杯表示休息
+        return f"🔍 {timestamp} | {total_symbols}品种 | 0共振 | 垃圾时间 ☕"
 
 
 class Notifier:

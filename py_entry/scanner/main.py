@@ -124,19 +124,27 @@ def scan_and_report(
     # 2. 汇总
     resonances = [r for _, r in results if r is not None]
 
-    # 3. 打印报告
+    # 3. 打印报告到控制台
     print("-" * 30)
-    if resonances:
-        # 使用统一格式化函数打印详情到控制台
-        report = format_resonance_report(resonances)
-        if report:
-            print(report)
+    if config.console_heartbeat_enabled:
+        # 心跳模式：无论是否共振都打印心跳格式
+        from .notifier import format_heartbeat
 
-        # 统一发送通知
-        notifier.notify(resonances)
+        heartbeat_msg = format_heartbeat(len(symbols), resonances)
+        print(heartbeat_msg)
     else:
-        print(f"本次扫描共 {len(results)} 个品种，未发现共振机会。")
+        # 非心跳模式：只在有共振时打印
+        if resonances:
+            report = format_resonance_report(resonances)
+            if report:
+                print(report)
+        else:
+            print(f"本次扫描共 {len(results)} 个品种，未发现共振机会。")
     print("-" * 30)
+
+    # 4. TG 推送：永远只在有共振时发送
+    if resonances:
+        notifier.notify(resonances)
 
     return resonances
 

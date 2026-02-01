@@ -54,6 +54,10 @@ class ScannerConfig(BaseModel):
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 
+    # 心跳推送配置
+    # 是否在控制台打印每次扫描后的心跳 (只有共振机会才会推送到 TG)
+    console_heartbeat_enabled: bool = True
+
     @model_validator(mode="before")
     @classmethod
     def load_from_external_config(cls, data: Any) -> Any:

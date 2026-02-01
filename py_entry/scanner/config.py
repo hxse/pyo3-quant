@@ -16,6 +16,7 @@ class IndicatorConfig(BaseModel):
     macd_signal: int = 9
     cci_period: int = 14
     cci_threshold: float = 80.0
+    adx_period: int = 14
 
 
 class TimeframeConfig(BaseModel):
@@ -34,11 +35,15 @@ class ScannerConfig(BaseModel):
     tq_username: str = ""
     tq_password: str = ""
 
+    # ADX 辅助参考配置
+    adx_warning_threshold: float = 25.0
+    adx_warning_message: str = "⚠️ 周线ADX走弱，下调预期，建议5分钟1:2直接离场，别拿太久"
+
     # 节流配置
     # 是否启用节流模式（True: 仅窗口期活跃; False: 全天候活跃）
     enable_throttler: bool = True
     # 窗口宽度（秒），即在 5分钟整点前后多少秒内为活跃期
-    throttle_window_seconds: int = 10
+    throttle_window_seconds: int = 30
     # 非窗口期维持心跳的调用间隔（秒）
     heartbeat_interval_seconds: int = 10
 

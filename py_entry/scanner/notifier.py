@@ -21,12 +21,19 @@ def format_resonance_report(resonances: list[SymbolResonance]) -> str:
 
         details_parts = []
         for t in r.timeframes:
-            # 显示周期、价格和详情
-            details_parts.append(f"[{t.timeframe} @ {t.price:.1f}] {t.detail}")
+            # 显示周期、价格和详情 (以及额外信息如 ADX)
+            text = t.detail
+            if t.extra_info:
+                text += f" {t.extra_info}"
+            details_parts.append(f"[{t.timeframe} @ {t.price:.1f}] {text}")
 
         details_line = " ".join(details_parts)
 
         item_str = f"{idx}. {r.symbol} {direction}\n  - 详情: {details_line}"
+
+        if r.adx_warning:
+            item_str += f"\n  - {r.adx_warning}"
+
         lines.append(item_str)
 
     return "\n".join(lines).strip()

@@ -23,6 +23,8 @@ from .data_source import DataSourceProtocol, MockDataSource, TqDataSource
 from .resonance import (
     check_timeframe_resonance,
     SymbolResonance,
+    get_base_timeframe_config,
+    process_adx_for_largest_timeframe,
 )
 from .notifier import Notifier, format_resonance_report
 from .throttler import TimeWindowThrottler
@@ -67,20 +69,31 @@ def _scan_symbol(
 
         direction = "long" if is_long else "short"
 
-        # 使用第一个周期（通常是最小周期）的详情作为触发描述
-        trigger = details[0].detail
+        # 找到基础周期对应的共振详情作为触发信号
+        # 注意：details 顺序与 config.timeframes 顺序一致
+        base_tf = get_base_timeframe_config(config.timeframes)
+        trigger = "未知"
+        for d in details:
+            if d.timeframe == base_tf.name:
+                trigger = d.detail
+                break
+
+        # === 处理最大周期的 ADX ===
+        adx_warning = process_adx_for_largest_timeframe(klines_list, details, config)
 
         resonance = SymbolResonance(
             symbol=symbol,
             direction=direction,
             timeframes=details,
             trigger_signal=trigger,
+            adx_warning=adx_warning,
         )
         return resonance
 
     except (
         ConnectionError,
         TimeoutError,
+        OSError,
     ) as e:
         # 只捕获网络IO异常以及预期内的数据计算异常
         # 让其他系统级异常（如 KeyboardInterrupt, SystemExit）冒泡
@@ -151,8 +164,8 @@ def scan_forever(
     # 记录每个品种触发周期（列表第一个周期）的最后更新时间
     last_times = {}
 
-    # 基础周期取列表中的第一个（即触发周期，如 5m 或 3m）
-    base_tf = config.timeframes[0]
+    # 基础周期 (触发周期)
+    base_tf = get_base_timeframe_config(config.timeframes)
 
     # 预先订阅/获取一次数据以建立连接
     for symbol in config.symbols:
@@ -208,8 +221,8 @@ def scan_forever(
 
         except KeyboardInterrupt:
             raise  # 让外层捕获退出
-        except Exception as e:
-            logger.error(f"主循环发生异常，5秒后重试: {e}")
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.error(f"主循环发生网络异常，5秒后重试: {e}")
             time.sleep(5)
 
 

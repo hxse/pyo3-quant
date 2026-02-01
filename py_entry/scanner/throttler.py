@@ -3,11 +3,7 @@
 import time
 import math
 import logging
-from typing import TYPE_CHECKING
 from .data_source import DataSourceProtocol
-
-if TYPE_CHECKING:
-    from .config import ScannerConfig
 
 logger = logging.getLogger("scanner.throttler")
 

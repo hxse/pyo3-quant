@@ -6,7 +6,8 @@ import pandas_ta as ta
 
 def calculate_ema(close: pd.Series, period: int) -> pd.Series:
     """计算 EMA"""
-    return ta.ema(close, length=period)
+    result = ta.ema(close, length=period)
+    return result if result is not None else pd.Series(dtype=float)
 
 
 def calculate_macd(
@@ -37,7 +38,8 @@ def calculate_cci(
     high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14
 ) -> pd.Series:
     """计算 CCI"""
-    return ta.cci(high, low, close, length=period)
+    result = ta.cci(high, low, close, length=period)
+    return result if result is not None else pd.Series(dtype=float)
 
 
 def is_cross_above(series: pd.Series, threshold: float | pd.Series) -> bool:
@@ -58,6 +60,24 @@ def is_cross_above(series: pd.Series, threshold: float | pd.Series) -> bool:
     return curr > thresh_curr and prev <= thresh_prev
 
 
+def is_cross_below(series: pd.Series, threshold: float | pd.Series) -> bool:
+    """判断是否下穿（当前在下方，前一根在上方或相等）"""
+    if len(series) < 2:
+        return False
+    curr = series.iloc[-1]
+    prev = series.iloc[-2]
+
+    if isinstance(threshold, pd.Series):
+        if len(threshold) < 2:
+            return False
+        thresh_curr = threshold.iloc[-1]
+        thresh_prev = threshold.iloc[-2]
+    else:
+        thresh_curr = thresh_prev = threshold
+
+    return curr < thresh_curr and prev >= thresh_prev
+
+
 def is_opening_bar(
     klines: pd.DataFrame, duration_seconds: int, tolerance_factor: float = 2.0
 ) -> bool:
@@ -70,11 +90,20 @@ def is_opening_bar(
 
     # 计算时间间隔
     # 如果 datetime 是整数（天勤时间戳），直接差值；如果是 datetime 对象，需要转换
+    # 计算时间间隔
+    # 如果 datetime 是整数（天勤时间戳），直接差值；如果是 datetime 对象，需要转换
     if hasattr(curr_time, "timestamp"):
         gap = (curr_time - prev_time).total_seconds()
     else:
-        # 假设是纳秒级或秒级时间戳 (int/float)
-        gap = curr_time - prev_time
+        # 如果是 numpy 类型，转换为 python 原生类型
+        if hasattr(curr_time, "item"):
+            curr_time = curr_time.item()
+
+        # 断言：确保是纳秒级时间戳（13-19位整数，区分毫秒/秒级）
+        assert isinstance(curr_time, (int, float)), f"时间戳类型异常: {type(curr_time)}"
+        assert curr_time > 1e12, f"时间戳位数异常（应为纳秒级）: {curr_time}"
+        # 天勤返回纳秒级时间戳，需转换为秒
+        gap = (curr_time - prev_time) / 1e9
 
     # 如果间隔大于周期的 N 倍，说明中间有休市
     return gap > duration_seconds * tolerance_factor

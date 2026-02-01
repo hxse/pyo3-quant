@@ -24,6 +24,7 @@ class TimeframeConfig(BaseModel):
     name: str  # 周期名称，如 "5m", "1h"
     seconds: int  # 秒数
     check_type: Literal["crossover", "macd", "cci"]  # 检查逻辑类型
+    indicator: IndicatorConfig = IndicatorConfig()  # 每个周期独立的指标配置
 
 
 class ScannerConfig(BaseModel):
@@ -78,45 +79,92 @@ class ScannerConfig(BaseModel):
                                 "tg_chat_id", ""
                             )
 
-            except Exception:
-                # 读取失败则忽略
-                pass
+            except Exception as e:
+                raise RuntimeError(f"读取配置文件 {config_path} 失败: {e}") from e
         return data
 
     # 方案一：经典四周期 (5m, 1h, 1d, 1w) - 从周线开始，更可靠
     timeframes: list[TimeframeConfig] = [
         TimeframeConfig(name="5m", seconds=5 * 60, check_type="crossover"),
         TimeframeConfig(name="1h", seconds=60 * 60, check_type="macd"),
-        TimeframeConfig(name="1d", seconds=24 * 3600, check_type="cci"),
-        TimeframeConfig(name="1w", seconds=7 * 24 * 3600, check_type="cci"),
+        TimeframeConfig(
+            name="1d",
+            seconds=24 * 3600,
+            check_type="cci",
+            indicator=IndicatorConfig(cci_threshold=30.0),  # 日线 CCI > 30
+        ),
+        TimeframeConfig(
+            name="1w",
+            seconds=7 * 24 * 3600,
+            check_type="cci",
+            indicator=IndicatorConfig(cci_threshold=80.0),  # 周线 CCI > 80
+        ),
     ]
 
     # 需要扫描的期货品种（主力合约）
     symbols: list[str] = [
-        # --- 黑色建材 ---
+        # ====================
+        #  黑色系 / 建材
+        # ====================
         "KQ.m@SHFE.rb",  # 螺纹钢
+        "KQ.m@SHFE.hc",  # 热卷
+        "KQ.m@CZCE.FG",  # 玻璃
+        # 成本较高或流动性一般：
+        # "KQ.m@DCE.i",    # 铁矿石 (>1w)
+        # "KQ.m@DCE.j",    # 焦炭 (>2w)
+        # "KQ.m@DCE.jm",   # 焦煤 (>1w)
+        # "KQ.m@CZCE.SM",  # 锰硅 (流动性较差)
+        # "KQ.m@CZCE.SF",  # 硅铁 (流动性较差)
+        # ====================
+        #  能源 / 化工
+        # ====================
         "KQ.m@SHFE.bu",  # 沥青
-        # --- 化工 ---
+        "KQ.m@SHFE.fu",  # 燃油
         "KQ.m@CZCE.MA",  # 甲醇
-        "KQ.m@DCE.v",  # PVC
+        "KQ.m@CZCE.UR",  # 尿素
         "KQ.m@CZCE.TA",  # PTA
-        # --- 农产品/油脂 ---
+        "KQ.m@CZCE.SA",  # 纯碱
+        "KQ.m@DCE.eg",  # 乙二醇
+        "KQ.m@DCE.v",  # PVC
+        "KQ.m@DCE.pp",  # 聚丙烯
+        "KQ.m@DCE.l",  # 塑料
+        # 成本较高或流动性一般：
+        # "KQ.m@SHFE.ru",  # 橡胶 (>1w)
+        # "KQ.m@SHFE.sp",  # 纸浆 (接近1w)
+        # "KQ.m@CZCE.PF",  # 短纤 (流动性一般)
+        # ====================
+        #  油脂 / 农产
+        # ====================
         "KQ.m@DCE.p",  # 棕榈油
-        "KQ.m@CZCE.SR",  # 白糖
+        "KQ.m@DCE.y",  # 豆油
+        "KQ.m@CZCE.OI",  # 菜油
         "KQ.m@DCE.m",  # 豆粕
+        "KQ.m@CZCE.RM",  # 菜粕
+        "KQ.m@CZCE.SR",  # 白糖
+        "KQ.m@CZCE.CF",  # 棉花
         "KQ.m@DCE.c",  # 玉米
+        "KQ.m@DCE.cs",  # 淀粉
+        # ====================
+        #  有色 / 贵金属
+        #  (多数成本>1w，暂不关注)
+        # ====================
+        # "KQ.m@SHFE.cu",  # 铜 (>3w)
+        # "KQ.m@SHFE.al",  # 铝 (~1w)
+        # "KQ.m@SHFE.zn",  # 锌 (>1w)
+        # "KQ.m@SHFE.ni",  # 镍 (>2w)
+        # "KQ.m@SHFE.ag",  # 白银 (>1w)
+        # "KQ.m@SHFE.au",  # 黄金 (>5w)
     ]
 
     # 板块指数映射
-    # TODO: 天勤SDK不支持文华商品指数等板块/大盘数据，暂无法实现板块和大盘过滤
-    # 当前策略已退化为"只扫描品种自身多周期共振"
+    # 天勤SDK(免费版/专业版)目前均不直接提供文华商品指数/板块指数等聚合行情数据。
+    # 按照 manual_trading.md 的哲学，理想状态需要进行已"大盘/板块"的共振确认。
+    # 但由于数据源限制，目前不得不移除该功能，只保留"品种自身多周期共振"。
     sector_indices: dict[str, str] = {}
 
     # 品种所属板块
     symbol_sector: dict[str, str] = {}
 
     # 大盘指数
-    # TODO: 同上，因无法获取权威大盘指数，暂不进行大盘环境过滤。
+    # 同上，因无法获取权威大盘指数，暂无法进行大盘环境过滤。
     market_index: str = ""
-
-    indicator: IndicatorConfig = IndicatorConfig()

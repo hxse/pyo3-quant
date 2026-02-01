@@ -3,9 +3,9 @@ import pandas as pd
 import numpy as np
 
 if TYPE_CHECKING:
-    from tqsdk import TqAuth  # type: ignore
+    from tqsdk import TqAuth
 
-from tqsdk import TqApi  # type: ignore
+from tqsdk import TqApi
 
 
 class DataSourceProtocol(Protocol):
@@ -88,29 +88,74 @@ class MockDataSource:
         self, symbol: str, duration_seconds: int, data_length: int = 200
     ) -> pd.DataFrame:
         """生成随机K线数据"""
+        # 1. 固定随机种子：确保每次运行结果一致
+        # 使用 symbol + duration 的 hash 值作为种子
+        seed_value = abs(hash(symbol + str(duration_seconds))) % (2**32)
+        rng = np.random.default_rng(seed_value)
+
         # 生成时间索引
         end_time = pd.Timestamp.now()
         freq = f"{duration_seconds}s"
-        times = pd.date_range(end=end_time, periods=data_length, freq=freq)
+        # 生成 DatetimeIndex 并转换为 int64 (nanoseconds)
+        times = pd.date_range(end=end_time, periods=data_length, freq=freq).astype(
+            "int64"
+        )
 
         # 随机游走生成收盘价
-        # 起始价格根据 symbol hash 稍微变动一下，避免所有品种一样
-        start_price = 1000 + (hash(symbol) % 1000)
-        returns = np.random.normal(0, 0.002, data_length)
+        start_price = 1000 + (seed_value % 1000)
+        returns = rng.normal(0, 0.002, data_length)
         price = start_price * np.exp(np.cumsum(returns))
 
-        # 为了测试“共振”，我们强制让最后一段是上涨趋势
-        # 模拟强劲上涨：最后 20 根K线持续上涨
-        if "au" in symbol or "cu" in symbol:  # 让黄金铜走出共振
-            trend = np.linspace(0, 0.05, 30)  # 最后30根涨5%
-            price[-30:] = price[-30:] * (1 + trend)
+        # --- 2. 注入共振模式 ---
+
+        # 定义做多/做空测试品种（需在 config.py 的 symbols 中存在）
+        bullish_symbols = ["rb", "p"]  # 螺纹钢, 棕榈油 -> 做多
+        bearish_symbols = ["TA"]  # PTA -> 做空
+
+        is_bullish = any(s in symbol for s in bullish_symbols)
+        is_bearish = any(s in symbol for s in bearish_symbols)
+
+        if is_bullish:
+            if duration_seconds == 300:
+                # 5分钟线：制造刚刚 上穿 EMA 的形态
+                # 策略：价格直接设为平盘，最后两根制造穿越
+                # 倒数第二根 < 1000, 倒数第一根 > 1000
+                price[:] = 1000.0
+                price[-2] = 990.0  # 下方
+                price[-1] = 1010.0  # 上方
+            else:
+                # 长周期：制造强劲 上涨 趋势 (CCI > 80)
+                # 线性上涨 10%
+                trend = np.linspace(0, 0.10, 30)
+                price[-30:] = price[-30:] * (1 + trend)
+
+        elif is_bearish:
+            if duration_seconds == 300:
+                # 5分钟线：制造刚刚 下穿 EMA 的形态
+                # 策略：价格直接设为平盘，最后两根制造穿越
+                # 倒数第二根 > 1000, 倒数第一根 < 1000
+                price[:] = 1000.0
+                price[-2] = 1010.0  # 上方
+                price[-1] = 990.0  # 下方
+            else:
+                # 长周期：制造强劲 下跌 趋势 (CCI < -80)
+                # 线性下跌 10%
+                trend = np.linspace(0, 0.10, 30)
+                price[-30:] = price[-30:] * (1 - trend)
 
         close = pd.Series(price, index=times)
 
         # 生成OHLC
-        high = close * (1 + np.abs(np.random.normal(0, 0.001, data_length)))
-        low = close * (1 - np.abs(np.random.normal(0, 0.001, data_length)))
+        # 默认波动
+        high = close * (1 + np.abs(rng.normal(0, 0.001, data_length)))
+        low = close * (1 - np.abs(rng.normal(0, 0.001, data_length)))
+
+        # open 默认 shift(1)
         open_ = close.shift(1).fillna(start_price)
+
+        # 修正 5m 数据的 open/high/low 以匹配人工构造的 price
+        if (is_bullish or is_bearish) and duration_seconds == 300:
+            pass  # 默认逻辑已经能生成合理 candles
 
         # 修正 high/low
         high = pd.concat([high, open_], axis=1).max(axis=1)
@@ -123,8 +168,8 @@ class MockDataSource:
                 "high": high,
                 "low": low,
                 "close": close,
-                "volume": np.random.randint(100, 10000, data_length),
-                "open_interest": np.random.randint(5000, 50000, data_length),
+                "volume": rng.integers(100, 10000, data_length),
+                "open_interest": rng.integers(5000, 50000, data_length),
             }
         )
 

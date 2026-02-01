@@ -2,9 +2,34 @@
 
 import logging
 from datetime import datetime
-from .resonance import SymbolResonance, ResonanceLevel
+from .resonance import SymbolResonance
 
 logger = logging.getLogger("scanner")
+
+
+def format_resonance_report(resonances: list[SymbolResonance]) -> str:
+    """格式化共振报告"""
+    if not resonances:
+        return ""
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    lines = [f"共振监控报告 (共 {len(resonances)} 个) [{timestamp}]"]
+
+    for idx, r in enumerate(resonances, 1):
+        direction = "做多" if r.direction == "long" else "做空"
+
+        details_parts = []
+        for t in r.timeframes:
+            # 显示周期、价格和详情
+            details_parts.append(f"[{t.timeframe} @ {t.price:.1f}] {t.detail}")
+
+        details_line = " ".join(details_parts)
+
+        item_str = f"{idx}. {r.symbol} {direction}\n  - 详情: {details_line}"
+        lines.append(item_str)
+
+    return "\n".join(lines).strip()
 
 
 class Notifier:
@@ -22,33 +47,12 @@ class Notifier:
 
     def notify(self, resonances: list[SymbolResonance]) -> None:
         """发送共振通知（只通知 5星 和 4星）"""
-        # 过滤掉垃圾等级
-        valid = [r for r in resonances if r.level != ResonanceLevel.GARBAGE]
-
-        if not valid:
+        msg = format_resonance_report(resonances)
+        if not msg:
             return
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        for r in valid:
-            stars = "⭐" * r.level.value
-            direction = "📈做多" if r.direction == "long" else "📉做空"
-
-            # 构建详情字符串
-            details_str = "\n".join(
-                [f"  - {t.timeframe}: {t.detail}" for t in r.timeframes]
-            )
-
-            msg = f"""
-[{timestamp}] {stars} 共振信号
-品种: {r.symbol}
-方向: {direction}
-触发: {r.trigger_signal}
-详情:
-{details_str}
-            """
-            logger.info(msg.strip())
-            self._send(msg.strip())
+        logger.info(msg)
+        self._send(msg)
 
     def _send(self, message: str) -> None:
         """推送消息到 Telegram"""
@@ -63,3 +67,8 @@ class Notifier:
             resp.raise_for_status()
         except Exception as e:
             logger.error(f"Telegram 推送失败: {e}")
+
+    def close(self):
+        """关闭 HTTP 客户端"""
+        if self.client:
+            self.client.close()

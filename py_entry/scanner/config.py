@@ -2,21 +2,9 @@
 
 import json
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, model_validator
-
-
-class IndicatorConfig(BaseModel):
-    """指标参数配置"""
-
-    ema_period: int = 20
-    macd_fast: int = 12
-    macd_slow: int = 26
-    macd_signal: int = 9
-    cci_period: int = 14
-    cci_threshold: float = 80.0
-    adx_period: int = 14
 
 
 class TimeframeConfig(BaseModel):
@@ -24,8 +12,6 @@ class TimeframeConfig(BaseModel):
 
     name: str  # 周期名称，如 "5m", "1h"
     seconds: int  # 秒数
-    check_type: Literal["crossover", "macd", "cci"]  # 检查逻辑类型
-    indicator: IndicatorConfig = IndicatorConfig()  # 每个周期独立的指标配置
 
 
 class ScannerConfig(BaseModel):
@@ -35,10 +21,6 @@ class ScannerConfig(BaseModel):
     tq_username: str = ""
     tq_password: str = ""
 
-    # ADX 辅助参考配置
-    adx_warning_threshold: float = 25.0
-    adx_warning_message: str = "⚠️ 周线ADX走弱，下调预期，建议5分钟1:2直接离场，别拿太久"
-
     # 节流配置
     # 是否启用节流模式（True: 仅窗口期活跃; False: 全天候活跃）
     enable_throttler: bool = True
@@ -46,6 +28,9 @@ class ScannerConfig(BaseModel):
     throttle_window_seconds: int = 30
     # 非窗口期维持心跳的调用间隔（秒）
     heartbeat_interval_seconds: int = 10
+
+    # 批量缓冲配置
+    batch_buffer_seconds: float = 2.5  # 批量更新缓冲窗口期（秒）
 
     # K线数据获取数量（默认200，最小建议50，最大8000）
     kline_length: int = 200
@@ -94,20 +79,10 @@ class ScannerConfig(BaseModel):
 
     # 方案一：经典四周期 (5m, 1h, 1d, 1w) - 从周线开始，更可靠
     timeframes: list[TimeframeConfig] = [
-        TimeframeConfig(name="5m", seconds=5 * 60, check_type="crossover"),
-        TimeframeConfig(name="1h", seconds=60 * 60, check_type="macd"),
-        TimeframeConfig(
-            name="1d",
-            seconds=24 * 3600,
-            check_type="cci",
-            indicator=IndicatorConfig(cci_threshold=30.0),  # 日线 CCI > 30
-        ),
-        TimeframeConfig(
-            name="1w",
-            seconds=7 * 24 * 3600,
-            check_type="cci",
-            indicator=IndicatorConfig(cci_threshold=80.0),  # 周线 CCI > 80
-        ),
+        TimeframeConfig(name="5m", seconds=5 * 60),
+        TimeframeConfig(name="1h", seconds=60 * 60),
+        TimeframeConfig(name="1d", seconds=24 * 3600),
+        TimeframeConfig(name="1w", seconds=7 * 24 * 3600),
     ]
 
     # 需要扫描的期货品种（主力合约）

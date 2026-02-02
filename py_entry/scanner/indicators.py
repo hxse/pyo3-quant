@@ -122,6 +122,9 @@ def is_opening_bar(
         if hasattr(prev_time, "item"):
             prev_time = prev_time.item()
 
+        # 纳秒时间戳 sanity check: 应该大于 1e18 (约等于 2001-09-09)
+        assert float(curr_time) > 1e18, f"时间戳似乎不是纳秒级: {curr_time}"
+
         # 安全转换和差值计算
         gap = (float(curr_time) - float(prev_time)) / 1e9
 

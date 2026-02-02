@@ -2,37 +2,33 @@
 
 import logging
 from datetime import datetime
-from .resonance import SymbolResonance
+from .strategies.base import StrategySignal
 
 logger = logging.getLogger("scanner")
 
 
-def format_resonance_report(resonances: list[SymbolResonance]) -> str:
+def format_signal_report(signals: list[StrategySignal]) -> str:
     """格式化共振报告"""
-    if not resonances:
+    if not signals:
         return ""
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    lines = [f"趋势共振扫描报告 (共 {len(resonances)} 个) [{timestamp}]"]
+    lines = [f"趋势共振扫描报告 (共 {len(signals)} 个) [{timestamp}]"]
 
-    for idx, r in enumerate(resonances, 1):
-        direction = "做多" if r.direction == "long" else "做空"
+    for idx, sig in enumerate(signals, 1):
+        direction_map = {"long": "做多", "short": "做空", "none": "观察"}
+        direction_str = direction_map.get(sig.direction, sig.direction)
 
-        details_parts = []
-        for t in r.timeframes:
-            # 显示周期、价格和详情 (以及额外信息如 ADX)
-            text = t.detail
-            if t.extra_info:
-                text += f" {t.extra_info}"
-            details_parts.append(f"[{t.timeframe} @ {t.price:.1f}] {text}")
+        # 详情行拼接
+        details_line = " ".join(sig.detail_lines)
 
-        details_line = " ".join(details_parts)
+        item_str = f"{idx}. {sig.symbol} {sig.strategy_name} {direction_str}\n  - 触发: {sig.trigger}\n  - 详情: {details_line}"
 
-        item_str = f"{idx}. {r.symbol} {direction}\n  - 详情: {details_line}"
-
-        if r.adx_warning:
-            item_str += f"\n  - {r.adx_warning}"
+        if sig.warnings:
+            # 警告信息
+            warn_str = " ".join(sig.warnings)
+            item_str += f"\n  - ⚠️ {warn_str}"
 
         lines.append(item_str)
 
@@ -41,21 +37,20 @@ def format_resonance_report(resonances: list[SymbolResonance]) -> str:
 
 def format_heartbeat(
     total_symbols: int,
-    resonances: list[SymbolResonance],
+    signals: list[StrategySignal],
 ) -> str:
     """格式化心跳消息"""
     timestamp = datetime.now().strftime("%H:%M")
-    count = len(resonances)
+    count = len(signals)
 
     if count > 0:
         # 有共振：简报 + 换行 + 详细报告
-        # 注意：详细报告本身包含时间戳，这里主要是为了tg消息预览
-        header = f"🔍 {timestamp} | {total_symbols}品种 | {count}共振 ✅"
-        detail = format_resonance_report(resonances)
+        header = f"🔍 {timestamp} | {total_symbols}品种 | {count}信号 ✅"
+        detail = format_signal_report(signals)
         return f"{header}\n{detail}"
     else:
         # 无共振：简短一行, 用咖啡杯表示休息
-        return f"🔍 {timestamp} | {total_symbols}品种 | 0共振 | 垃圾时间 ☕"
+        return f"🔍 {timestamp} | {total_symbols}品种 | 0信号 | 垃圾时间 ☕"
 
 
 class Notifier:
@@ -71,28 +66,21 @@ class Notifier:
         else:
             self.client = None
 
-    def notify(self, resonances: list[SymbolResonance]) -> None:
-        """发送共振通知（只通知 5星 和 4星）"""
-        msg = format_resonance_report(resonances)
+    def notify(self, signals: list[StrategySignal]) -> None:
+        """发送共振通知"""
+        msg = format_signal_report(signals)
         if not msg:
             return
 
         logger.info(msg)
-        self._send(msg)
 
-    def _send(self, message: str) -> None:
-        """推送消息到 Telegram"""
-        if not self.client or not self.token or not self.chat_id:
-            return
-
-        url = f"https://api.telegram.org/bot{self.token}/sendMessage"
-        payload = {"chat_id": self.chat_id, "text": message}
-
-        try:
-            resp = self.client.post(url, json=payload)
-            resp.raise_for_status()
-        except Exception as e:
-            logger.error(f"Telegram 推送失败: {e}")
+        if self.client:
+            url = f"https://api.telegram.org/bot{self.token}/sendMessage"
+            data = {"chat_id": self.chat_id, "text": msg}
+            try:
+                self.client.post(url, json=data)
+            except Exception as e:
+                logger.error(f"TG推送失败: {e}")
 
     def close(self):
         """关闭 HTTP 客户端"""

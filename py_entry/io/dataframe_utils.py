@@ -169,7 +169,9 @@ def process_dataframe(
         time_df_source = None
         if source_key and source_key in time_source_provider:
             time_df_source = time_source_provider[source_key]
-        elif data_dict.base_data_key and data_dict.base_data_key in time_source_provider:
+        elif (
+            data_dict.base_data_key and data_dict.base_data_key in time_source_provider
+        ):
             time_df_source = time_source_provider[data_dict.base_data_key]
 
         if time_df_source is not None and "time" in time_df_source.columns:

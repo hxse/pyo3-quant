@@ -1,9 +1,9 @@
-"""趋势共振扫描器主程序"""
+"""趋势共振扫描器主程序 (多策略版)"""
 
 import argparse
 import time
 import logging
-
+from typing import NoReturn
 
 # --- 依赖检查 ---
 try:
@@ -12,22 +12,21 @@ try:
     import pandas_ta  # noqa: F401
     import httpx  # noqa: F401
 except ImportError as e:
-    raise ImportError(
-        f"缺少依赖: {e.name}。\n"
-        "请先安装依赖: `just scanner-install`\n"
-        "然后运行: `just scanner-run`"
-    ) from e
+    print("错误: 缺少必要的依赖库。请运行:")
+    print("uv sync")
+    print(f"详细错误: {e}")
+    exit(1)
 
 from .config import ScannerConfig
-from .data_source import DataSourceProtocol, MockDataSource, TqDataSource
-from .resonance import (
-    check_timeframe_resonance,
-    SymbolResonance,
-    get_base_timeframe_config,
-    process_adx_for_largest_timeframe,
-)
-from .notifier import Notifier, format_resonance_report
-from .throttler import TimeWindowThrottler
+from .data_source import DataSourceProtocol, TqDataSource, MockDataSource
+from .notifier import Notifier, format_heartbeat, format_signal_report
+import traceback
+from .throttler import TimeWindowThrottler, CycleTracker
+from .utils import get_base_timeframe_config
+from .strategies.base import StrategySignal, ScanContext
+from .strategies.registry import StrategyRegistry
+from .batcher import Batcher
+from . import strategies  # noqa: F401 (自动触发策略注册)
 
 from tqsdk import TqAuth
 
@@ -44,64 +43,42 @@ def _scan_symbol(
     symbol: str,
     config: ScannerConfig,
     data_source: DataSourceProtocol,
-) -> SymbolResonance | None:
-    """单独扫描一个品种，返回共振结果"""
+    strategies: list,
+) -> list[StrategySignal]:
+    """单独扫描一个品种，运行所有策略"""
+    signals = []
     try:
-        # 遍历配置的所有周期获取K线
-        klines_list = []
+        # 1. 准备数据上下文 (获取所有需要的周期)
+        # 目前策略主要用: 5m, 1h, 1d, 1w
+        # 这些应该在 ScannerConfig.timeframes 里配置了
+        # 我们遍历 config.timeframes 来获取数据
+        klines_dict = {}
         for tf in config.timeframes:
             # print(f"DEBUG: 获取 K线 {symbol} {tf.name}")
             df = data_source.get_klines(symbol, tf.seconds, config.kline_length)
-            klines_list.append((tf, df))
+            if df is not None and not df.empty:
+                klines_dict[tf.name] = df
 
-        # 检查各周期共振情况
-        details = []
-        for tf, df in klines_list:
-            result = check_timeframe_resonance(df, tf, tf.indicator)
-            details.append(result)
+        ctx = ScanContext(symbol=symbol, klines=klines_dict)
 
-        # 必须所有周期都符合做多或所有周期都符合做空
-        is_long = all(d.is_bullish for d in details)
-        is_short = all(d.is_bearish for d in details)
-
-        if not is_long and not is_short:
-            return None
-
-        direction = "long" if is_long else "short"
-
-        # 找到基础周期对应的共振详情作为触发信号
-        # 注意：details 顺序与 config.timeframes 顺序一致
-        base_tf = get_base_timeframe_config(config.timeframes)
-        trigger = "未知"
-        for d in details:
-            if d.timeframe == base_tf.name:
-                trigger = d.detail
-                break
-
-        # === 处理最大周期的 ADX ===
-        adx_warning = process_adx_for_largest_timeframe(klines_list, details, config)
-
-        resonance = SymbolResonance(
-            symbol=symbol,
-            direction=direction,
-            timeframes=details,
-            trigger_signal=trigger,
-            adx_warning=adx_warning,
-        )
-        return resonance
+        # 2. 运行所有策略
+        for strategy in strategies:
+            try:
+                sig = strategy.scan(ctx)
+                if sig:
+                    signals.append(sig)
+            except Exception as e:
+                logger.error(f"策略 {strategy.name} 扫描 {symbol} 出错: {e}")
 
     except (
         ConnectionError,
         TimeoutError,
         OSError,
     ) as e:
-        # 只捕获网络IO异常以及预期内的数据计算异常
-        # 让其他系统级异常（如 KeyboardInterrupt, SystemExit）冒泡
-        logger.error(f"扫描 {symbol} 时出错: {e}")
-        import traceback
-
+        logger.error(f"扫描 {symbol} 时数据获取出错: {e}")
         traceback.print_exc()
-        return None
+
+    return signals
 
 
 def scan_and_report(
@@ -109,44 +86,38 @@ def scan_and_report(
     config: ScannerConfig,
     data_source: DataSourceProtocol,
     notifier: Notifier,
-) -> list[SymbolResonance]:
-    """通用：扫描指定品种列表，收集结果，统一报告，返回共振列表"""
-    # 1. 扫描与收集
-    results: list[tuple[str, SymbolResonance | None]] = []
+) -> list[StrategySignal]:
+    """通用：扫描指定品种列表，收集结果，统一报告"""
+    # 实例化策略
+    strategies = [cls() for cls in StrategyRegistry.get_all()]
 
-    # 为了更好的用户体验，如果是全量扫描且数据还在预热，可以在这里简单通过 get_klines 预热一下内存
-    # 但由于上层逻辑通常已经通过 wait(1.0) 保证了数据 freshness，这里直接扫描即可
+    all_signals: list[StrategySignal] = []
 
     for symbol in symbols:
-        res = _scan_symbol(symbol, config, data_source)
-        results.append((symbol, res))
+        sigs = _scan_symbol(symbol, config, data_source, strategies)
+        all_signals.extend(sigs)
 
-    # 2. 汇总
-    resonances = [r for _, r in results if r is not None]
-
-    # 3. 打印报告到控制台
+    # 打印报告到控制台
     print("-" * 30)
     if config.console_heartbeat_enabled:
-        # 心跳模式：无论是否共振都打印心跳格式
-        from .notifier import format_heartbeat
-
-        heartbeat_msg = format_heartbeat(len(symbols), resonances)
+        # 心跳模式
+        heartbeat_msg = format_heartbeat(len(symbols), all_signals)
         print(heartbeat_msg)
     else:
-        # 非心跳模式：只在有共振时打印
-        if resonances:
-            report = format_resonance_report(resonances)
+        # 普通模式
+        if all_signals:
+            report = format_signal_report(all_signals)
             if report:
                 print(report)
         else:
-            print(f"本次扫描共 {len(results)} 个品种，未发现共振机会。")
+            print(f"本次扫描共 {len(symbols)} 个品种，未发现机会。")
     print("-" * 30)
 
-    # 4. TG 推送：永远只在有共振时发送
-    if resonances:
-        notifier.notify(resonances)
+    # TG 推送
+    if all_signals:
+        notifier.notify(all_signals)
 
-    return resonances
+    return all_signals
 
 
 def scan_once(
@@ -158,135 +129,151 @@ def scan_once(
         logger.warning("没有配置任何监控品种！")
         return
 
-    # 直接调用通用报告函数
     scan_and_report(config.symbols, config, data_source, notifier)
     print("全量扫描完成。")
 
 
 def scan_forever(
     config: ScannerConfig, data_source: DataSourceProtocol, notifier: Notifier
-):
+) -> NoReturn:
     """执行事件驱动的持续扫描"""
-    logger.info("启动事件驱动扫描 (等待 K 线更新...)")
+    print("启动持续扫描 (事件驱动模式)...")
+    if not config.symbols:
+        logger.error("没有配置监控品种，退出。")
+        exit(1)
 
-    # 记录每个品种触发周期（列表第一个周期）的最后更新时间
-    last_times = {}
-
-    # 基础周期 (触发周期)
+    # 1. 初始化：记录每个品种的最后 K 线时间戳
+    last_times: dict[str, int] = {}
     base_tf = get_base_timeframe_config(config.timeframes)
 
-    # 预先订阅/获取一次数据以建立连接
+    # 预热数据并记录初始时间戳
+    print("正在初始化数据并记录时间戳...")
     for symbol in config.symbols:
         df = data_source.get_klines(symbol, base_tf.seconds, config.kline_length)
-        if not df.empty:
+        if df is not None and not df.empty:
             last_times[symbol] = df.iloc[-1]["datetime"]
 
-    # 初始全量扫描一次
+    # 2. 准备策略
+    strategies = [cls() for cls in StrategyRegistry.get_all()]
+
+    # 3. 初始化节流器
+    throttler = None
+    if config.enable_throttler:
+        throttler = TimeWindowThrottler(
+            period_seconds=base_tf.seconds,
+            window_seconds=config.throttle_window_seconds,
+            heartbeat_interval=config.heartbeat_interval_seconds,
+        )
+        logger.info(
+            f"节流模式已开启: 周期={base_tf.name}({base_tf.seconds}s), 窗口={config.throttle_window_seconds}s"
+        )
+    else:
+        logger.info("节流模式未开启 (全天候运行)")
+
+    # 4. 首次先做一次全量，避免启动时静默
     scan_once(config, data_source, notifier)
 
-    # 初始化节流器
-    base_period = base_tf.seconds
-    throttler = TimeWindowThrottler(
-        period_seconds=base_period,
-        window_seconds=config.throttle_window_seconds,
-        heartbeat_interval=config.heartbeat_interval_seconds,
-    )
-    logger.info(
-        f"节流模式开启: 每 {base_period} 秒整点前后 {config.throttle_window_seconds} 秒活跃。"
-    )
+    # 5. 初始化防抖批处理器
+    batcher = Batcher(buffer_seconds=config.batch_buffer_seconds)
 
-    while True:
-        try:
-            # 1. 节流等待 (仅当配置启用时)
-            if config.enable_throttler:
-                throttler.wait_until_next_window(data_source)
+    # 6. 初始化周期追踪器（用于检测新周期开始）
+    cycle_tracker = CycleTracker(base_tf.seconds)
 
-            # 2. 窗口内活跃 wait (1秒)
+    # 7. 主循环
+    try:
+        while True:
+            # A. 节流控制 + 周期检测
+            if throttler:
+                is_new_cycle = throttler.wait_until_next_window(data_source)
+            else:
+                is_new_cycle = cycle_tracker.is_new_cycle()
+
+            # B. 窗口内等待 1 秒
             data_source.wait(1.0)
 
-            # 醒来后检查是否有 K 线产生新 bar
-            updated_symbols = []
+            # C. 新周期签到
+            if is_new_cycle:
+                batcher.poke()
+
+            # D. 检查是否有 K 线产生新 bar
             for symbol in config.symbols:
                 # 获取最新快照 (基于基础周期)
                 df_base = data_source.get_klines(
                     symbol, base_tf.seconds, config.kline_length
                 )
-                if df_base.empty:
+                if df_base is None or df_base.empty:
                     continue
 
                 curr_time = df_base.iloc[-1]["datetime"]
                 last_time = last_times.get(symbol)
 
-                # 如果时间戳变大，说明新 K 线生成 (收盘确认)
                 if last_time is None or curr_time > last_time:
                     last_times[symbol] = curr_time
-                    updated_symbols.append(symbol)
 
-            # 如果有品种触发更新，统一扫描报告
-            if updated_symbols:
-                print(f"检测到 {len(updated_symbols)} 个品种更新，开始扫描...")
-                scan_and_report(updated_symbols, config, data_source, notifier)
+                    # 有 K 线更新时 poke（刷新计时器，延迟 flush）
+                    batcher.poke()
 
-        except KeyboardInterrupt:
-            raise  # 让外层捕获退出
-        except (ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"主循环发生网络异常，5秒后重试: {e}")
-            time.sleep(5)
+                    # 扫描该品种 (得到一组信号)
+                    sigs = _scan_symbol(symbol, config, data_source, strategies)
+                    for sig in sigs:
+                        batcher.add(sig)
+
+            # E. 检查是否发车
+            if batcher.should_flush():
+                batch_signals = batcher.flush()
+
+                # 处理 IO
+                print(format_heartbeat(len(config.symbols), batch_signals))
+                if batch_signals:
+                    notifier.notify(batch_signals)
+
+    except KeyboardInterrupt:
+        print("\n用户停止扫描。")
+        exit(0)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="趋势共振扫描器")
-    parser.add_argument("--once", action="store_true", help="单次扫描模式")
-    parser.add_argument("--mock", action="store_true", help="使用模拟数据（离线测试）")
+    parser = argparse.ArgumentParser(description="趋势共振扫描器 (Scanner)")
+    parser.add_argument(
+        "--once", action="store_true", help="只运行一次全量扫描 (默认 run forever)"
+    )
+    parser.add_argument(
+        "--mock", action="store_true", help="使用 Mock 数据源 (离线测试)"
+    )
     args = parser.parse_args()
 
+    # 加载配置
     config = ScannerConfig()
-
-    # 打印欢迎语
-    print("启动趋势共振扫描器 (事件驱动模式)")
     if args.mock:
-        print("模式: Mock (离线模拟)")
-    print(f"监控品种: {len(config.symbols)} 个")
+        config.console_heartbeat_enabled = False  # Mock模式下不打心跳，太刷屏
 
-    # 初始化数据源
-    data_source: DataSourceProtocol  # 明确声明类型为 Protocol
-    # print("DEBUG: 正在初始化数据源...")
-    try:
-        if args.mock:
-            data_source = MockDataSource()
-        else:
-            auth: "TqAuth | None" = None
-            if config.tq_username and config.tq_password:
-                auth = TqAuth(config.tq_username, config.tq_password)
-            elif not config.tq_username:
-                logger.error("未配置天勤账号(tq_username)且未使用--mock。")
-                logger.error(
-                    "请在 data/config.json 中配置账号，或使用 --mock 运行离线测试。"
-                )
-                return
-
-            data_source = TqDataSource(auth=auth)
-    except Exception as e:
-        logger.error(f"无法初始化数据源: {e}")
-        return
-    # print("DEBUG: 数据源初始化完成")
-
-    # print("DEBUG: 正在初始化 Notifier...")
+    # 初始化通知器
     notifier = Notifier(
         token=config.telegram_bot_token, chat_id=config.telegram_chat_id
     )
-    # print("DEBUG: Notifier 初始化完成")
+
+    # 初始化数据源
+    if args.mock:
+        print("模式: Mock (离线模拟)")
+        data_source = MockDataSource(symbols=config.symbols)
+    else:
+        print("模式: 实盘数据 (TqSdk)")
+        if not config.tq_username or not config.tq_password:
+            logger.error("未配置 TqSdk 账户，无法连接实盘数据。")
+            exit(1)
+
+        auth = TqAuth(config.tq_username, config.tq_password)
+        data_source = TqDataSource(auth=auth)
+
+    time.sleep(1)  # 给一点时间初始化
+
+    print(f"监控品种: {len(config.symbols)} 个")
 
     try:
         if args.once:
-            # print("DEBUG: 即将执行 scan_once")
             scan_once(config, data_source, notifier)
-            return
-
-        scan_forever(config, data_source, notifier)
-
-    except KeyboardInterrupt:
-        logger.info("用户停止扫描器")
+        else:
+            scan_forever(config, data_source, notifier)
     finally:
         data_source.close()
         notifier.close()

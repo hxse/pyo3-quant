@@ -81,8 +81,10 @@ class TqDataSource:
 class MockDataSource:
     """模拟数据源 - 用于离线测试"""
 
-    def __init__(self):
+    def __init__(self, symbols: list[str] | None = None):
         print("注意: 正在使用 MockDataSource (生成模拟数据)")
+        # symbols 参数仅用于兼容，实际上 mock 生成逻辑内部可能用到
+        self.symbols = symbols if symbols else []
 
     def get_klines(
         self, symbol: str, duration_seconds: int, data_length: int = 200

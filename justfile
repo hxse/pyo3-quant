@@ -155,3 +155,7 @@ scanner-once:
 # 运行扫描器（Mock 模式，离线测试）
 scanner-mock:
     PYTHONPATH=. uv run --no-sync --group scanner python -m py_entry.scanner.main --once --mock
+
+# 运行扫描器单元测试
+scanner-test:
+    PYTHONPATH=. uv run --no-sync --group scanner python -m pytest py_entry/Test/scanner/ -v

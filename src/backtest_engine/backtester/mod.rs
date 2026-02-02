@@ -1,5 +1,5 @@
-use crate::types::{BacktestParams, DataContainer};
 use crate::error::QuantError;
+use crate::types::{BacktestParams, DataContainer};
 use polars::prelude::*;
 use pyo3::prelude::*;
 mod atr_calculator;

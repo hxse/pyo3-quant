@@ -1,12 +1,12 @@
 use super::condition_evaluator::evaluate_parsed_condition;
 use super::parser::parse_condition;
 use crate::backtest_engine::utils::get_data_length;
+use crate::error::QuantError;
+use crate::types::DataContainer;
 use crate::types::IndicatorResults;
-use crate::types::SignalParams;
 use crate::types::LogicOp;
 use crate::types::SignalGroup;
-use crate::types::DataContainer;
-use crate::error::QuantError;
+use crate::types::SignalParams;
 use polars::prelude::*;
 use std::ops::{BitAnd, BitOr};
 

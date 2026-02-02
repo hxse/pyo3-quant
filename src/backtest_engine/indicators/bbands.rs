@@ -7,8 +7,8 @@ use super::{
     sma::{sma_expr, SMAConfig},
     utils::null_to_nan_expr,
 };
-use crate::types::Param;
 use crate::error::{IndicatorError, QuantError};
+use crate::types::Param;
 use std::collections::HashMap;
 
 /// 布林带的配置结构体，将所有输入参数和输出列名抽象化。

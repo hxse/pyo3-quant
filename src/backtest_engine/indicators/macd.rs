@@ -4,8 +4,8 @@ use polars::prelude::*;
 // 從 ema.rs 導入封裝的 EMA 邏輯
 use super::{registry::Indicator, utils::null_to_nan_expr};
 use crate::backtest_engine::indicators::ema::{ema_expr, EMAConfig};
-use crate::types::Param;
 use crate::error::{IndicatorError, QuantError};
+use crate::types::Param;
 use std::collections::HashMap;
 
 /// MACD 的配置結構體

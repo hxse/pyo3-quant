@@ -1,10 +1,10 @@
 use crate::backtest_engine::utils::column_names::ColumnName;
 use crate::backtest_engine::utils::get_data_length;
+use crate::error::QuantError;
+use crate::types::DataContainer;
 use crate::types::IndicatorResults;
 use crate::types::SignalParams;
 use crate::types::{SignalGroup, SignalTemplate};
-use crate::types::DataContainer;
-use crate::error::QuantError;
 
 use pyo3::prelude::*;
 use pyo3_polars::PyDataFrame;

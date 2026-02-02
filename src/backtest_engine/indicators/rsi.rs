@@ -4,8 +4,8 @@ use super::{
     utils::{null_to_nan_expr, null_when_expr},
 };
 use crate::backtest_engine::indicators::rma::{rma_expr, RMAConfig};
-use crate::types::Param;
 use crate::error::{IndicatorError, QuantError};
+use crate::types::Param;
 use polars::lazy::dsl::{col, lit, when};
 use polars::prelude::*;
 use std::collections::HashMap;

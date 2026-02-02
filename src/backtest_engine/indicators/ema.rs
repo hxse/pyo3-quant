@@ -2,8 +2,8 @@ use polars::lazy::dsl::{col, lit, when};
 use polars::prelude::*;
 
 use super::{registry::Indicator, utils::null_to_nan_expr};
-use crate::types::Param;
 use crate::error::{IndicatorError, QuantError};
+use crate::types::Param;
 use std::collections::HashMap;
 
 /// EMA 的配置结构体

@@ -1,7 +1,7 @@
 use super::registry::Indicator;
 use super::utils::null_to_nan_expr;
-use crate::types::Param;
 use crate::error::{IndicatorError, QuantError};
+use crate::types::Param;
 use polars::lazy::dsl::col;
 use polars::prelude::*;
 use std::collections::HashMap;

@@ -3,8 +3,8 @@ use crate::backtest_engine::indicators::{
     sma::{sma_eager, SMAConfig},
     utils::null_to_nan_expr,
 };
-use crate::types::Param;
 use crate::error::{IndicatorError, QuantError};
+use crate::types::Param;
 use polars::lazy::dsl::{col, lit};
 use polars::prelude::*;
 use std::collections::HashMap;

@@ -2,7 +2,9 @@
 pub mod adx;
 pub mod atr;
 pub mod bbands;
+pub mod cci;
 pub mod ema;
+pub mod er;
 pub mod macd;
 pub mod psar;
 pub mod rma;

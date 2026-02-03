@@ -2,7 +2,13 @@
 use super::adx::AdxIndicator;
 use super::atr::AtrIndicator;
 use super::bbands::BbandsIndicator;
+use super::cci::CciIndicator;
 use super::ema::EmaIndicator;
+use super::er::ErIndicator;
+use super::extended::divergence::{
+    CciDivergenceIndicator, MacdDivergenceIndicator, RsiDivergenceIndicator,
+};
+use super::extended::session::OpeningBarIndicator;
 use super::extended::sma_close_pct::SmaClosePctIndicator;
 use super::macd::MacdIndicator;
 use super::psar::PsarIndicator;
@@ -47,6 +53,21 @@ pub fn get_indicator_registry() -> &'static IndicatorRegistry {
         registry.insert("rma".to_string(), Box::new(RmaIndicator));
         registry.insert("rsi".to_string(), Box::new(RsiIndicator));
         registry.insert("tr".to_string(), Box::new(TrIndicator));
+        registry.insert("cci".to_string(), Box::new(CciIndicator));
+        registry.insert("er".to_string(), Box::new(ErIndicator));
+        registry.insert(
+            "cci-divergence".to_string(),
+            Box::new(CciDivergenceIndicator),
+        );
+        registry.insert(
+            "rsi-divergence".to_string(),
+            Box::new(RsiDivergenceIndicator),
+        );
+        registry.insert(
+            "macd-divergence".to_string(),
+            Box::new(MacdDivergenceIndicator),
+        );
+        registry.insert("opening-bar".to_string(), Box::new(OpeningBarIndicator));
         registry.insert("sma-close-pct".to_string(), Box::new(SmaClosePctIndicator));
         registry
     })

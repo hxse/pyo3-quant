@@ -176,9 +176,7 @@ pub fn rsi_lazy(lazy_df: LazyFrame, config: &RSIConfig) -> Result<LazyFrame, Qua
         // 计算最终的 "rsi"
         .with_column(rsi_expr)
         // 将 NULL 转换为 NaN，以与 pandas-ta/TA-Lib 保持一致
-        .with_column(null_to_nan_expr(&config.alias_name))
-        // 删除所有临时列，只保留原始列和最终的 RSI 列
-        .select(&[col(&config.column_name), col(&config.alias_name)]);
+        .with_column(null_to_nan_expr(&config.alias_name));
 
     Ok(result_lazy_df)
 }

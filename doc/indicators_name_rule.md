@@ -71,12 +71,7 @@
   - `period`: 计算周期（整数，必须为正数）
 - 示例：`rma_0`
 
-#### SMA-Close-PCT（收盘价相对于SMA的百分比）
-- 指标键名：`sma-close-pct_{标识符}`
-- 输出列名：`sma-close-pct_{标识符}`
-- 输入参数：
-  - `period`: SMA计算周期（整数，必须为正数）
-- 示例：`sma-close-pct_0`
+
 
 ### 多输出指标
 
@@ -129,6 +124,60 @@
   - `af_step`: 加速因子步长（浮点数）
   - `max_af`: 最大加速因子（浮点数）
 - 示例：`psar_0_long`、`psar_0_short`、`psar_0_af`、`psar_0_reversal`
+
+## 扩展指标（Extended Indicators）
+
+#### SMA-Close-PCT（收盘价相对于SMA的百分比）
+- 指标键名：`sma-close-pct_{标识符}`
+- 输出列名：`sma-close-pct_{标识符}`
+- 输入参数：
+  - `period`: SMA计算周期（整数，必须为正数）
+- 示例：`sma-close-pct_0`
+
+#### CCI-Divergence（CCI背离）
+- 指标键名：`cci-divergence_{标识符}`
+- 输出列名：
+  - `cci-divergence_{标识符}_div`：背离信号（1.0/0.0）
+  - `cci-divergence_{标识符}_cci`：CCI原始数值
+- 输入参数：
+  - `period`: CCI周期（整数，默认14）
+  - `window`: 背离检测窗口（整数，默认10）
+  - `mode`: 模式（0.0为顶背离价格高点，1.0为底背离价格低点，默认0.0）
+  - `idx_gap`: 极值索引差阈值（整数，默认3）
+  - `recency`: 极值新鲜度阈值（整数，默认3）
+
+#### RSI-Divergence（RSI背离）
+- 指标键名：`rsi-divergence_{标识符}`
+- 输出列名：
+  - `rsi-divergence_{标识符}_div`：背离信号（1.0/0.0）
+  - `rsi-divergence_{标识符}_rsi`：RSI原始数值
+- 输入参数：
+  - `period`: RSI周期（整数，默认14）
+  - `window`: 背离检测窗口（整数，默认10）
+  - `mode`: 模式（0.0为顶背离，1.0为底背离）
+  - `idx_gap`: 索引差阈值
+  - `recency`: 新鲜度阈值
+
+#### MACD-Divergence（MACD背离）
+- 指标键名：`macd-divergence_{标识符}`
+- 输出列名：
+  - `macd-divergence_{标识符}_div`：背离信号（1.0/0.0）
+  - `macd-divergence_{标识符}_macd`：MACD快线数值
+- 输入参数：
+  - `fast_period`: 快速EMA周期
+  - `slow_period`: 慢速EMA周期
+  - `signal_period`: 信号线周期
+  - `window`: 背离检测窗口
+  - `mode`: 模式（0.0为顶背离，1.0为底背离）
+  - `idx_gap`: 索引差阈值
+  - `recency`: 新鲜度阈值
+
+#### Opening-Bar（开盘 K 线检测）
+- 指标键名：`opening-bar_{标识符}`
+- 输出列名：`opening-bar_{标识符}`（1.0 为开盘，0.0 为非开盘）
+- 输入参数：
+  - `threshold`: 时间间隙阈值（秒，浮点数，默认 3600.0）。当 `当前 K 线时间 - 前一 K 线时间 > threshold` 时判定为开盘。
+- 示例：`opening-bar_0`
 
 ## 多时间框架指标命名
 

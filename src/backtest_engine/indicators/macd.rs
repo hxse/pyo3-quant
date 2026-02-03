@@ -199,11 +199,9 @@ pub fn macd_lazy(lazy_df: LazyFrame, config: &MACDConfig) -> Result<LazyFrame, Q
                 .cast(DataType::Float64)
                 .alias(hist_alias),
         )
-        // 在蓝图层将所有 MACD 输出的 NULL 转换为 NaN
         .with_column(null_to_nan_expr(macd_alias))
         .with_column(null_to_nan_expr(signal_alias))
-        .with_column(null_to_nan_expr(hist_alias))
-        .select(&[col(macd_alias), col(signal_alias), col(hist_alias)]);
+        .with_column(null_to_nan_expr(hist_alias));
 
     Ok(lazy_df)
 }
@@ -246,6 +244,11 @@ pub fn macd_eager(
 
     // 2. 調用 macd_lazy 並 collect
     let df = macd_lazy(ohlcv_df.clone().lazy(), config)?
+        .select([
+            col(&config.macd_alias),
+            col(&config.signal_alias),
+            col(&config.hist_alias),
+        ])
         .collect()
         .map_err(QuantError::from)?;
 

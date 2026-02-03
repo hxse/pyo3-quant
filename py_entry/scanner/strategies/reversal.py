@@ -11,6 +11,7 @@ from ..indicators import (
     calculate_macd,
 )
 import pandas_ta as ta
+from ..indicators import safe_iloc, get_recent_closed_window
 
 
 class ReversalStrategyConfig(BaseModel):
@@ -20,8 +21,10 @@ class ReversalStrategyConfig(BaseModel):
     cci_period: int = 14
     cci_threshold: float = 80.0
 
-    # 背离检测窗口
-    divergence_window: int = 10
+    # 背离检测参数
+    divergence_window: int = 10  # 检测窗口大小
+    divergence_idx_gap: int = 3  # 价格极值与CCI极值的最小idx差
+    divergence_recency: int = 3  # 价格极值距离当前的最大idx差
 
     # MACD 参数
     macd_fast: int = 12
@@ -86,8 +89,8 @@ class ReversalStrategy(StrategyProtocol):
         if len(w_close) < 3:
             return None
         if not (
-            w_cci.iloc[-2] > self.config.cci_threshold
-            and w_close.iloc[-2] > w_ema.iloc[-2]
+            safe_iloc(w_cci, -2) > self.config.cci_threshold
+            and safe_iloc(w_close, -2) > safe_iloc(w_ema, -2)
         ):
             return None
 
@@ -105,8 +108,8 @@ class ReversalStrategy(StrategyProtocol):
 
         # 基本条件
         if not (
-            d_cci.iloc[-2] > self.config.cci_threshold
-            and d_close.iloc[-2] > d_ema.iloc[-2]
+            safe_iloc(d_cci, -2) > self.config.cci_threshold
+            and safe_iloc(d_close, -2) > safe_iloc(d_ema, -2)
         ):
             return None
 
@@ -114,7 +117,10 @@ class ReversalStrategy(StrategyProtocol):
         is_divergence = self._check_divergence_heuristic(
             prices=df_1d["high"],
             indicator=d_cci,
+            ema=d_ema,
             lookback=self.config.divergence_window,
+            idx_gap_threshold=self.config.divergence_idx_gap,
+            recency_threshold=self.config.divergence_recency,
             mode="high",
         )
 
@@ -132,7 +138,7 @@ class ReversalStrategy(StrategyProtocol):
             self.config.macd_signal,
         )
 
-        if len(h_close) < 3 or h_hist.iloc[-2] >= 0:
+        if len(h_close) < 3 or safe_iloc(h_hist, -2) >= 0:
             return None
 
         h_detail = "[1h] MACD蓝柱 (动能转空)"
@@ -152,17 +158,17 @@ class ReversalStrategy(StrategyProtocol):
             return None
 
         # MACD Trigger: 红转蓝 (上一个 > 0, 当前 < 0) -> 对应 [-3] > 0, [-2] < 0
-        is_trigger = (m_hist.iloc[-3] > 0) and (m_hist.iloc[-2] < 0)
+        is_trigger = (safe_iloc(m_hist, -3) > 0) and (safe_iloc(m_hist, -2) < 0)
 
         if not is_trigger:
             return None
 
         # 价格位置过滤
-        curr_price = m_close.iloc[-2]
+        curr_price = safe_iloc(m_close, -2)
 
         # 需要 5m EMA, 1h EMA, 1d EMA at CURRENT PRICE LEVEL
         # 注意: 跨周期比较需要拿最新的值
-        ma_5m = m_ema.iloc[-2]
+        ma_5m = safe_iloc(m_ema, -2)
         ma_1h = compute_ma_latest(df_1h, self.config.ema_period)  # 工具函数? 或者直接取
         ma_1d = compute_ma_latest(df_1d, self.config.ema_period)
 
@@ -201,8 +207,8 @@ class ReversalStrategy(StrategyProtocol):
         if len(w_close) < 3:
             return None
         if not (
-            w_cci.iloc[-2] < -self.config.cci_threshold
-            and w_close.iloc[-2] < w_ema.iloc[-2]
+            safe_iloc(w_cci, -2) < -self.config.cci_threshold
+            and safe_iloc(w_close, -2) < safe_iloc(w_ema, -2)
         ):
             return None
 
@@ -219,8 +225,8 @@ class ReversalStrategy(StrategyProtocol):
             return None
 
         if not (
-            d_cci.iloc[-2] < -self.config.cci_threshold
-            and d_close.iloc[-2] < d_ema.iloc[-2]
+            safe_iloc(d_cci, -2) < -self.config.cci_threshold
+            and safe_iloc(d_close, -2) < safe_iloc(d_ema, -2)
         ):
             return None
 
@@ -228,7 +234,10 @@ class ReversalStrategy(StrategyProtocol):
         is_divergence = self._check_divergence_heuristic(
             prices=df_1d["low"],
             indicator=d_cci,
+            ema=d_ema,
             lookback=self.config.divergence_window,
+            idx_gap_threshold=self.config.divergence_idx_gap,
+            recency_threshold=self.config.divergence_recency,
             mode="low",
         )
 
@@ -246,7 +255,7 @@ class ReversalStrategy(StrategyProtocol):
             self.config.macd_signal,
         )
 
-        if len(h_close) < 3 or h_hist.iloc[-2] <= 0:
+        if len(h_close) < 3 or safe_iloc(h_hist, -2) <= 0:
             return None
 
         h_detail = "[1h] MACD红柱 (动能转多)"
@@ -265,14 +274,14 @@ class ReversalStrategy(StrategyProtocol):
         if len(m_close) < 3:
             return None
 
-        is_trigger = (m_hist.iloc[-3] < 0) and (m_hist.iloc[-2] > 0)
+        is_trigger = (safe_iloc(m_hist, -3) < 0) and (safe_iloc(m_hist, -2) > 0)
 
         if not is_trigger:
             return None
 
-        curr_price = m_close.iloc[-2]
+        curr_price = safe_iloc(m_close, -2)
 
-        ma_5m = m_ema.iloc[-2]
+        ma_5m = safe_iloc(m_ema, -2)
         ma_1h = compute_ma_latest(df_1h, self.config.ema_period)
         ma_1d = compute_ma_latest(df_1d, self.config.ema_period)
 
@@ -300,49 +309,58 @@ class ReversalStrategy(StrategyProtocol):
         self,
         prices: pd.Series,
         indicator: pd.Series,
+        ema: pd.Series,
         lookback: int,
+        idx_gap_threshold: int,
+        recency_threshold: int,
         mode: str = "high",
     ) -> bool:
         """
-        极简背离检测 heuristic
-        Top Divergence (mode='high'): Price New High + Indicator Not New High
-        Bottom Divergence (mode='low'): Price New Low + Indicator Not New Low
-
-        Args:
-            prices: High or Low price series
-            indicator: Indicator series (e.g. CCI)
-            lookback: lookback window size
-            mode: "high" for top divergence, "low" for bottom divergence
+        极简背离检测 heuristic v2
+        1. 价格极值 idx 距离当前 < recency_threshold (近期见顶)
+        2. 当前价格 > EMA (仍在均线上，未完全破位)
+        3. 价格极值 idx - 指标极值 idx >= idx_gap_threshold (动能滞后/先见顶)
         """
         # slice ending at -1 (excluding current forming bar)
-        # length of slice = lookback.
-        # range: [-(lookback+1) : -1]
-
         if len(prices) < lookback + 2:
             return False
 
-        subset_price = prices.iloc[-(lookback + 1) : -1]
-        subset_ind = indicator.iloc[-(lookback + 1) : -1]
+        subset_price = get_recent_closed_window(prices, lookback)
+        subset_ind = get_recent_closed_window(indicator, lookback)
 
-        curr_price = subset_price.iloc[-1]
-        curr_ind = subset_ind.iloc[-1]
+        # 窗口内最后一根的相对索引
+        curr_idx = len(subset_price) - 1
+
+        # 使用 safe_iloc 获取当前已完成K线的状态 (用于 EMA 确认)
+        curr_price_val = safe_iloc(prices, -2)
+        curr_ema_val = safe_iloc(ema, -2)
 
         if mode == "high":
-            # Price is Highest in window
-            price_is_extreme = curr_price >= subset_price.max()
-            # Indicator is NOT Highest
-            ind_not_extreme = curr_ind < subset_ind.max()
+            # 顶背离
+            price_peak_idx = subset_price.argmax()  # 价格最高点索引
+            ind_peak_idx = subset_ind.argmax()  # 指标最高点索引
+            is_above_ema = curr_price_val > curr_ema_val
         else:
-            # Price is Lowest
-            price_is_extreme = curr_price <= subset_price.min()
-            # Indicator is NOT Lowest
-            # ind_not_extreme = curr_ind > subset_ind.min()
-            # FIXED: Bottom Div logic -> Price Low, Ind Low?
-            # Wait, Standard Bullish Div: Price New Low, Ind Higher Low (NOT New Low).
-            # So Ind > Min. Correct.
-            ind_not_extreme = curr_ind > subset_ind.min()
+            # 底背离
+            price_peak_idx = subset_price.argmin()
+            ind_peak_idx = subset_ind.argmin()
+            is_above_ema = curr_price_val < curr_ema_val  # 底背离要求在均线下
 
-        return price_is_extreme and ind_not_extreme
+        # 条件1: 价格极值距离当前足够近 (避免很久前的背驰现在才报)
+        recency_ok = (curr_idx - price_peak_idx) < recency_threshold
+
+        # 条件2: 当前价格仍在均线上(做空前兆) / 下(做多前兆)
+        # 确保趋势还没完全反转，抓的是"回落初期"
+        ema_ok = is_above_ema
+
+        # 条件3: 价格极值滞后于指标极值 (动能先衰)
+        # 价格 idx > 指标 idx => 价格后见顶
+        idx_gap = price_peak_idx - ind_peak_idx
+        divergence_ok = (price_peak_idx > ind_peak_idx) and (
+            idx_gap >= idx_gap_threshold
+        )
+
+        return recency_ok and ema_ok and divergence_ok
 
 
 def compute_ma_latest(df: pd.DataFrame, period: int) -> float:
@@ -352,4 +370,4 @@ def compute_ma_latest(df: pd.DataFrame, period: int) -> float:
     ema = ta.ema(df["close"], length=period)
     if ema is None or ema.empty:
         return 0.0
-    return ema.iloc[-2]
+    return safe_iloc(ema, -2)

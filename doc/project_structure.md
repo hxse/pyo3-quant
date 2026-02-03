@@ -1,6 +1,12 @@
 # 项目结构说明文档
 
+相关项目连接:
+- <https://github.com/hxse/pyo3-quant>
+- <https://github.com/hxse/ccxt-proxy2>
+- <https://github.com/hxse/lwchart_demo3>
+
 本文档详细展示了 `pyo3-quant` 项目的文件结构与功能说明。本项目是一个混合 Rust/Python 的高性能量化回测与交易系统。
+
 
 ## 1. 目录结构全览
 

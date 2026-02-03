@@ -4,6 +4,96 @@ import pandas as pd
 import pandas_ta as ta
 
 
+# ==============================================================================
+# 安全索引访问器：禁止使用 -1 (未收盘K线)
+# ==============================================================================
+
+
+class UnclosedBarAccessError(Exception):
+    """尝试访问未收盘K线时抛出的异常"""
+
+    pass
+
+
+def safe_iloc(series: pd.Series, idx: int) -> float:
+    """
+    安全的 iloc 访问，禁止使用 -1 索引
+
+    Args:
+        series: pandas Series
+        idx: 索引值（必须 <= -2 或 >= 0）
+
+    Returns:
+        指定位置的值
+
+    Raises:
+        UnclosedBarAccessError: 当 idx == -1 时抛出
+
+    Example:
+        >>> close = df["close"]
+        >>> prev_close = safe_iloc(close, -2)  # OK: 上一根已收盘
+        >>> curr_close = safe_iloc(close, -1)  # ERROR: 禁止访问未收盘K线
+    """
+    if idx == -1:
+        raise UnclosedBarAccessError(
+            "禁止使用 iloc[-1] 访问未收盘K线！请使用 iloc[-2] 获取上一根已完成K线。"
+        )
+    return series.iloc[idx]
+
+
+def safe_at(df: pd.DataFrame, idx: int, column: str) -> float:
+    """
+    安全的 DataFrame 行列访问，禁止使用 -1 索引
+
+    Args:
+        df: pandas DataFrame
+        idx: 行索引值（必须 <= -2 或 >= 0）
+        column: 列名
+
+    Returns:
+        指定位置的值
+
+    Raises:
+        UnclosedBarAccessError: 当 idx == -1 时抛出
+    """
+    if idx == -1:
+        raise UnclosedBarAccessError(
+            f"禁止使用 iloc[-1] 访问未收盘K线的 '{column}' 列！请使用 iloc[-2]。"
+        )
+    return df[column].iloc[idx]
+
+
+def get_recent_closed_window(series: pd.Series, window_size: int) -> pd.Series:
+    """
+    安全获取最近 N 根已收盘 K 线
+
+    Equivalent to: series.iloc[-(window_size + 1) : -1]
+
+    Args:
+        series: 数据序列
+        window_size: 窗口大小 (N)
+
+    Returns:
+        包含 N 个元素的 Series，最后一个元素是 iloc[-2] (上一根已收盘)
+    """
+    # 确保有足够的数据：至少需要 N+1 根 (N根历史 + 1根当前未收盘)
+    if len(series) < window_size + 1:
+        return pd.Series(dtype=float)
+
+    # 计算切片范围
+    # 结束位置: len - 1 (对应原来的 -1 位置，切片不包含)
+    # 开始位置: 结束位置 - window_size
+    # 这样彻底避免了在切片参数里写负数带来的理解歧义
+    end_idx = len(series) - 1
+    start_idx = end_idx - window_size
+
+    # 额外的越界保护 (虽然理论上不会发生)
+    if start_idx < 0:
+        start_idx = 0
+
+    return series.iloc[start_idx:end_idx]
+
+
 def calculate_ema(close: pd.Series, period: int) -> pd.Series:
     """计算 EMA"""
     result = ta.ema(close, length=period)

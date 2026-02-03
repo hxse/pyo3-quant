@@ -12,6 +12,7 @@ from ..indicators import (
     is_opening_bar,
     is_cross_above,
     is_cross_below,
+    safe_iloc,
 )
 
 
@@ -34,7 +35,7 @@ class TrendStrategyConfig(BaseModel):
     # ER (Efficiency Ratio) 参数
     er_period: int = 14
     er_warning_threshold: float = 30.0
-    er_warning_message: str = "⚠️ 大周期ER走弱，下调预期，建议5分钟1:2直接离场，别拿太久"
+    er_warning_message: str = "大周期ER走弱，下调预期，建议5分钟1:2直接离场，别拿太久"
 
 
 @StrategyRegistry.register
@@ -140,17 +141,17 @@ class TrendStrategy(StrategyProtocol):
                 "extra_info": "",
             }
 
-        prev_close = close.iloc[-2]
+        prev_close = safe_iloc(close, -2)
 
         is_bullish_cross = is_cross_above(close, ema)
         is_bearish_cross = is_cross_below(close, ema)
 
         # 开盘特殊处理
         is_opening = is_opening_bar(df, 300)  # 5m = 300s
-        prev_above = prev_close > ema.iloc[-2]
-        prev_below = prev_close < ema.iloc[-2]
-        is_bullish_candle = prev_close > df["open"].iloc[-2]
-        is_bearish_candle = prev_close < df["open"].iloc[-2]
+        prev_above = prev_close > safe_iloc(ema, -2)
+        prev_below = prev_close < safe_iloc(ema, -2)
+        is_bullish_candle = prev_close > safe_iloc(df["open"], -2)
+        is_bearish_candle = prev_close < safe_iloc(df["open"], -2)
 
         is_bullish = is_bullish_cross or (
             is_opening and is_bullish_candle and prev_above
@@ -198,9 +199,9 @@ class TrendStrategy(StrategyProtocol):
                 "extra_info": "",
             }
 
-        prev_close = close.iloc[-2]
-        prev_hist = hist.iloc[-2]
-        prev_ema = ema.iloc[-2]
+        prev_close = safe_iloc(close, -2)
+        prev_hist = safe_iloc(hist, -2)
+        prev_ema = safe_iloc(ema, -2)
 
         is_bullish = (prev_hist > 0) and (prev_close > prev_ema)
         is_bearish = (prev_hist < 0) and (prev_close < prev_ema)
@@ -234,9 +235,9 @@ class TrendStrategy(StrategyProtocol):
                 "extra_info": "",
             }
 
-        prev_close = close.iloc[-2]
-        prev_cci = cci.iloc[-2]
-        prev_ema = ema.iloc[-2]
+        prev_close = safe_iloc(close, -2)
+        prev_cci = safe_iloc(cci, -2)
+        prev_ema = safe_iloc(ema, -2)
 
         is_bullish = (prev_cci > self.config.cci_threshold_daily) and (
             prev_close > prev_ema
@@ -278,9 +279,9 @@ class TrendStrategy(StrategyProtocol):
                 "extra_info": "",
             }
 
-        prev_close = close.iloc[-2]
-        prev_cci = cci.iloc[-2]
-        prev_ema = ema.iloc[-2]
+        prev_close = safe_iloc(close, -2)
+        prev_cci = safe_iloc(cci, -2)
+        prev_ema = safe_iloc(ema, -2)
 
         # 计算ER用于展示 (extra_info)
         er_val = self._calculate_er(df)
@@ -317,7 +318,7 @@ class TrendStrategy(StrategyProtocol):
             er = df.ta.er(length=self.config.er_period)
             if er is None or er.empty:
                 return None
-            return er.iloc[-2] * 100
+            return safe_iloc(er, -2) * 100
         except Exception:
             return None
 

@@ -8,6 +8,7 @@ from .registry import StrategyRegistry
 from ..indicators import (
     calculate_ema,
     calculate_macd,
+    safe_iloc,
 )
 
 
@@ -84,22 +85,20 @@ class MomentumStrategy(StrategyProtocol):
         if w_hist.empty:
             return None
 
-        # 动能转强: (蓝转红 OR 红变长) -> Hist[-2] > 0 and (Hist[-3] < 0 or Hist[-2] > Hist[-3])
-        # 简化: Hist[-2] > Hist[-3] 且 Hist[-2] > 0 (如果是红变红) 或者 Hist[-2] > 0 (如果是蓝转红)
-        # 综合: Hist[-2] > 0 且 Hist[-2] >= Hist[-3] (大致向上)
-        w_hist_curr = w_hist.iloc[-2]
-        w_hist_prev = w_hist.iloc[-3]
-        macd_strong = (w_hist_curr > 0) and (w_hist_curr >= w_hist_prev)
+        # 动能转强: (蓝转红 OR 红变长)
+        # 只要当前是红柱(>0)且比上一根高(或相等)，即视为动能向上
+        # 注: 如果是蓝转红(负转正)，curr > prev 自然成立
+        w_hist_curr = safe_iloc(w_hist, -2)
+        w_hist_prev = safe_iloc(w_hist, -3)
 
+        macd_strong = (w_hist_curr > 0) and (w_hist_curr >= w_hist_prev)
         if not macd_strong:
-            # 兼容 "蓝转红": w_hist_prev < 0 and w_hist_curr > 0
-            if not (w_hist_prev < 0 and w_hist_curr > 0):
-                return None
+            return None
 
         # Price Action: 收阳 + close > close[1]
-        w_open = df_1w["open"].iloc[-2]
-        w_curr = w_close.iloc[-2]
-        w_prev = w_close.iloc[-3]
+        w_open = safe_iloc(df_1w["open"], -2)
+        w_curr = safe_iloc(w_close, -2)
+        w_prev = safe_iloc(w_close, -3)
 
         price_strong = (w_curr > w_open) and (w_curr > w_prev)
 
@@ -120,9 +119,9 @@ class MomentumStrategy(StrategyProtocol):
 
         if len(d_close) < 3:
             return None
-        if d_hist.iloc[-2] <= 0:
+        if safe_iloc(d_hist, -2) <= 0:
             return None
-        if d_close.iloc[-2] <= d_ema.iloc[-2]:
+        if safe_iloc(d_close, -2) <= safe_iloc(d_ema, -2):
             return None
 
         d_detail = "[日线] MACD红 + 均线上"
@@ -139,7 +138,7 @@ class MomentumStrategy(StrategyProtocol):
         if len(h_close) < 3:
             return None
         # 零上: Diff > 0; 红柱: Hist > 0
-        if not (h_diff.iloc[-2] > 0 and h_hist.iloc[-2] > 0):
+        if not (safe_iloc(h_diff, -2) > 0 and safe_iloc(h_hist, -2) > 0):
             return None
 
         h_detail = "[1h] 零上红柱 (空中加油)"
@@ -158,11 +157,11 @@ class MomentumStrategy(StrategyProtocol):
             return None
 
         # 必须在零上
-        if m_diff.iloc[-2] <= 0:
+        if safe_iloc(m_diff, -2) <= 0:
             return None
 
         # 触发: 刚变红 (Hist[-3] <= 0 and Hist[-2] > 0)
-        is_trigger = (m_hist.iloc[-3] <= 0) and (m_hist.iloc[-2] > 0)
+        is_trigger = (safe_iloc(m_hist, -3) <= 0) and (safe_iloc(m_hist, -2) > 0)
 
         if not is_trigger:
             return None
@@ -174,7 +173,7 @@ class MomentumStrategy(StrategyProtocol):
             "is_bullish": True,
             "is_bearish": False,
             "detail": trigger_msg,
-            "price": m_close.iloc[-2],
+            "price": safe_iloc(m_close, -2),
             "extra_info": "",
             "trigger": trigger_msg,
             "details": [w_detail, d_detail, h_detail, f"[5m] {m_detail}"],
@@ -197,19 +196,19 @@ class MomentumStrategy(StrategyProtocol):
         if w_hist.empty:
             return None
 
-        w_hist_curr = w_hist.iloc[-2]
-        w_hist_prev = w_hist.iloc[-3]
+        w_hist_curr = safe_iloc(w_hist, -2)
+        w_hist_prev = safe_iloc(w_hist, -3)
 
-        # 动能转弱: (绿变更长 or 红转绿) -> Hist < 0 and (Hist <= Prev)
+        # 动能转弱: (绿变更长 or 红转绿)
+        # 只要当前是绿柱(<0)且比上一根低(或相等)，即视为动能向下
         macd_weak = (w_hist_curr < 0) and (w_hist_curr <= w_hist_prev)
         if not macd_weak:
-            if not (w_hist_prev > 0 and w_hist_curr < 0):
-                return None
+            return None
 
         # Price: 收阴 + 跌破昨日
-        w_open = df_1w["open"].iloc[-2]
-        w_curr = w_close.iloc[-2]
-        w_prev = w_close.iloc[-3]
+        w_open = safe_iloc(df_1w["open"], -2)
+        w_curr = safe_iloc(w_close, -2)
+        w_prev = safe_iloc(w_close, -3)
         price_weak = (w_curr < w_open) and (w_curr < w_prev)
 
         if not price_weak:
@@ -228,9 +227,9 @@ class MomentumStrategy(StrategyProtocol):
 
         if len(d_close) < 3:
             return None
-        if d_hist.iloc[-2] >= 0:
+        if safe_iloc(d_hist, -2) >= 0:
             return None  # 绿柱
-        if d_close.iloc[-2] >= d_ema.iloc[-2]:
+        if safe_iloc(d_close, -2) >= safe_iloc(d_ema, -2):
             return None  # 均线下
         d_detail = "[日线] MACD绿 + 均线下"
 
@@ -245,7 +244,7 @@ class MomentumStrategy(StrategyProtocol):
 
         if len(h_close) < 3:
             return None
-        if not (h_diff.iloc[-2] < 0 and h_hist.iloc[-2] < 0):
+        if not (safe_iloc(h_diff, -2) < 0 and safe_iloc(h_hist, -2) < 0):
             return None
         h_detail = "[1h] 零下绿柱 (加速下跌)"
 
@@ -260,10 +259,10 @@ class MomentumStrategy(StrategyProtocol):
 
         if len(m_close) < 3:
             return None
-        if m_diff.iloc[-2] >= 0:
+        if safe_iloc(m_diff, -2) >= 0:
             return None
 
-        is_trigger = (m_hist.iloc[-3] >= 0) and (m_hist.iloc[-2] < 0)
+        is_trigger = (safe_iloc(m_hist, -3) >= 0) and (safe_iloc(m_hist, -2) < 0)
 
         if not is_trigger:
             return None
@@ -275,7 +274,7 @@ class MomentumStrategy(StrategyProtocol):
             "is_bullish": False,
             "is_bearish": True,
             "detail": trigger_msg,
-            "price": m_close.iloc[-2],
+            "price": safe_iloc(m_close, -2),
             "extra_info": "",
             "trigger": trigger_msg,
             "details": [w_detail, d_detail, h_detail, f"[5m] {m_detail}"],

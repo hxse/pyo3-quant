@@ -87,7 +87,7 @@ check-rust:
 
 # 运行 Python 类型检查 (ty)
 check-py:
-    uvx ty check
+	uvx ty check --exclude py_entry/scanner/strategies/legacy
 
 check: check-rust check-py
 
@@ -159,3 +159,11 @@ scanner-mock:
 # 运行扫描器单元测试
 scanner-test:
     PYTHONPATH=. uv run --no-sync --group scanner python -m pytest py_entry/Test/scanner/ -v
+
+# 运行趋势共振扫描器（调试模式，包含以 debug_ 开头的测试策略）
+scanner-debug:
+    PYTHONPATH=. uv run --no-sync --group scanner python -m py_entry.scanner.main --debug
+
+# 查看最新行情数据及指标数值 (EMA, CCI, MACD)
+scanner-inspect:
+    PYTHONPATH=. uv run --no-sync --group scanner python py_entry/debug/inspect_scanner_data.py

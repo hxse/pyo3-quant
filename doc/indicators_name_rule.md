@@ -137,40 +137,38 @@
 #### CCI-Divergence（CCI背离）
 - 指标键名：`cci-divergence_{标识符}`
 - 输出列名：
-  - `cci-divergence_{标识符}_div`：背离信号（1.0/0.0）
-  - `cci-divergence_{标识符}_cci`：CCI原始数值
+  - `cci-divergence_{标识符}_top`：顶背离信号（1.0/0.0）
+  - `cci-divergence_{标识符}_bottom`：底背离信号（1.0/0.0）
+  - `cci-divergence_{标识符}_value`：CCI 指标原始数值
 - 输入参数：
-  - `period`: CCI周期（整数，默认14）
-  - `window`: 背离检测窗口（整数，默认10）
-  - `mode`: 模式（0.0为顶背离价格高点，1.0为底背离价格低点，默认0.0）
-  - `idx_gap`: 极值索引差阈值（整数，默认3）
-  - `recency`: 极值新鲜度阈值（整数，默认3）
+  - `period`: CCI 周期（整数，默认14）
+  - `window`: 扫描窗口大小（整数，默认10）
+  - `gap`: 极值索引间距阈值（整数，默认3）
+  - `recency`: 极值新鲜度阈值（整数，离当前K线距离，默认3）
 
 #### RSI-Divergence（RSI背离）
 - 指标键名：`rsi-divergence_{标识符}`
 - 输出列名：
-  - `rsi-divergence_{标识符}_div`：背离信号（1.0/0.0）
-  - `rsi-divergence_{标识符}_rsi`：RSI原始数值
+  - `rsi-divergence_{标识符}_top`
+  - `rsi-divergence_{标识符}_bottom`
+  - `rsi-divergence_{标识符}_value`：RSI 指标数值
 - 输入参数：
-  - `period`: RSI周期（整数，默认14）
-  - `window`: 背离检测窗口（整数，默认10）
-  - `mode`: 模式（0.0为顶背离，1.0为底背离）
-  - `idx_gap`: 索引差阈值
-  - `recency`: 新鲜度阈值
+  - `period`: RSI 周期
+  - `window`: 扫描窗口大小
+  - `gap`: 极值索引间距
+  - `recency`: 极值新鲜度
 
 #### MACD-Divergence（MACD背离）
 - 指标键名：`macd-divergence_{标识符}`
 - 输出列名：
-  - `macd-divergence_{标识符}_div`：背离信号（1.0/0.0）
-  - `macd-divergence_{标识符}_macd`：MACD快线数值
+  - `macd-divergence_{标识符}_top`
+  - `macd-divergence_{标识符}_bottom`
+  - `macd-divergence_{标识符}_value`：MACD 快线(Diff)数值
 - 输入参数：
-  - `fast_period`: 快速EMA周期
-  - `slow_period`: 慢速EMA周期
-  - `signal_period`: 信号线周期
-  - `window`: 背离检测窗口
-  - `mode`: 模式（0.0为顶背离，1.0为底背离）
-  - `idx_gap`: 索引差阈值
-  - `recency`: 新鲜度阈值
+  - `fast_period`, `slow_period`, `signal_period`: MACD 系列参数
+  - `window`: 扫描窗口大小
+  - `gap`: 极值索引间距
+  - `recency`: 极值新鲜度
 
 #### Opening-Bar（开盘 K 线检测）
 - 指标键名：`opening-bar_{标识符}`

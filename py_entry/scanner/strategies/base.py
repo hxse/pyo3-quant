@@ -1,6 +1,9 @@
 from typing import Literal, Protocol, Any, TypedDict, NotRequired
 from pydantic import BaseModel
 import pandas as pd
+import polars as pl
+from py_entry.types import DataContainer
+from py_entry.data_generator import generate_data_dict, DirectDataConfig
 
 
 class StrategySignal(BaseModel):
@@ -70,6 +73,48 @@ class ScanContext:
 
         if missing:
             raise ValueError(f"缺少必要周期数据: {missing}")
+
+    def to_data_container(
+        self, base_tf: str = "ohlcv_15m", lookback: int | None = None
+    ) -> DataContainer:
+        """
+        将当前 K 线上下文转换为 BacktestEngine 所需的 DataContainer
+
+        Args:
+            base_tf: 基准数据键名 (如 "ohlcv_15m")
+            lookback: 可选的回溯长度，仅取最近的 N 根 K 线以提升性能
+
+        Returns:
+            DataContainer 对象
+        """
+        source_dict = {}
+
+        for tf_name, pdf in self.klines.items():
+            # 统一键名格式: 5m -> ohlcv_5m (如果 key 已经是 ohlcv_ 开头则不动)
+            key = tf_name if tf_name.startswith("ohlcv_") else f"ohlcv_{tf_name}"
+
+            # 数据切片 (优化性能)
+            target_df = pdf if lookback is None else pdf.iloc[-lookback:]
+
+            # 转换为 Polars DataFrame
+            # 注意: 这里假设 pdf 已经包含了 time (int64 ms) 列
+            # 如果是 scanner 传进来的，通常是 pandas DataFrame
+            pl_df = pl.from_pandas(target_df)
+            source_dict[key] = pl_df
+
+        # 验证基准数据是否存在
+        if base_tf not in source_dict:
+            # 尝试找一个默认的
+            if source_dict:
+                base_tf = next(iter(source_dict.keys()))
+            else:
+                raise ValueError("ScanContext 为空，无法转换")
+
+        # 构造 DirectDataConfig
+        config = DirectDataConfig(data=source_dict, base_data_key=base_tf)
+
+        # 委托给标准生成器处理 (它会处理 time mapping, skip mask 等)
+        return generate_data_dict(config)
 
 
 class StrategyProtocol(Protocol):

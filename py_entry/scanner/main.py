@@ -1,7 +1,6 @@
 """趋势共振扫描器主程序 (多策略版)"""
 
 import argparse
-import time
 import logging
 from typing import NoReturn
 
@@ -39,11 +38,23 @@ logging.basicConfig(
 logger = logging.getLogger("scanner")
 
 
+def get_active_strategies(include_debug: bool = False) -> list:
+    """获取所有激活的策略实例，根据参数过滤 debug 策略"""
+    all_strategies = StrategyRegistry.get_all()
+    active_strategies = []
+    for cls in all_strategies:
+        strategy_instance = cls()
+        if not include_debug and strategy_instance.name.startswith("debug"):
+            continue
+        active_strategies.append(strategy_instance)
+    return active_strategies
+
+
 def _scan_symbol(
     symbol: str,
     config: ScannerConfig,
     data_source: DataSourceProtocol,
-    strategies: list,
+    strategies_list: list,
 ) -> list[StrategySignal]:
     """单独扫描一个品种，运行所有策略"""
     signals = []
@@ -62,7 +73,7 @@ def _scan_symbol(
         ctx = ScanContext(symbol=symbol, klines=klines_dict)
 
         # 2. 运行所有策略
-        for strategy in strategies:
+        for strategy in strategies_list:
             try:
                 sig = strategy.scan(ctx)
                 if sig:
@@ -86,15 +97,13 @@ def scan_and_report(
     config: ScannerConfig,
     data_source: DataSourceProtocol,
     notifier: Notifier,
+    strategies_list: list,
 ) -> list[StrategySignal]:
     """通用：扫描指定品种列表，收集结果，统一报告"""
-    # 实例化策略
-    strategies = [cls() for cls in StrategyRegistry.get_all()]
-
     all_signals: list[StrategySignal] = []
 
     for symbol in symbols:
-        sigs = _scan_symbol(symbol, config, data_source, strategies)
+        sigs = _scan_symbol(symbol, config, data_source, strategies_list)
         all_signals.extend(sigs)
 
     # 打印报告到控制台
@@ -121,7 +130,10 @@ def scan_and_report(
 
 
 def scan_once(
-    config: ScannerConfig, data_source: DataSourceProtocol, notifier: Notifier
+    config: ScannerConfig,
+    data_source: DataSourceProtocol,
+    notifier: Notifier,
+    strategies_list: list,
 ):
     """执行单次全量扫描"""
     print(f"执行全量扫描... (品种数: {len(config.symbols)})")
@@ -129,12 +141,17 @@ def scan_once(
         logger.warning("没有配置任何监控品种！")
         return
 
-    scan_and_report(config.symbols, config, data_source, notifier)
+    scan_and_report(
+        config.symbols, config, data_source, notifier, strategies_list=strategies_list
+    )
     print("全量扫描完成。")
 
 
 def scan_forever(
-    config: ScannerConfig, data_source: DataSourceProtocol, notifier: Notifier
+    config: ScannerConfig,
+    data_source: DataSourceProtocol,
+    notifier: Notifier,
+    strategies_list: list,
 ) -> NoReturn:
     """执行事件驱动的持续扫描"""
     print("启动持续扫描 (事件驱动模式)...")
@@ -153,10 +170,7 @@ def scan_forever(
         if df is not None and not df.empty:
             last_times[symbol] = df.iloc[-1]["datetime"]
 
-    # 2. 准备策略
-    strategies = [cls() for cls in StrategyRegistry.get_all()]
-
-    # 3. 初始化节流器
+    # 2. 初始化节流器
     throttler = None
     if config.enable_throttler:
         throttler = TimeWindowThrottler(
@@ -170,8 +184,8 @@ def scan_forever(
     else:
         logger.info("节流模式未开启 (全天候运行)")
 
-    # 4. 首次先做一次全量，避免启动时静默
-    scan_once(config, data_source, notifier)
+    # 3. 首次先做一次全量，避免启动时静默
+    scan_once(config, data_source, notifier, strategies_list=strategies_list)
 
     # 5. 初始化防抖批处理器
     batcher = Batcher(buffer_seconds=config.batch_buffer_seconds)
@@ -214,7 +228,7 @@ def scan_forever(
                     batcher.poke()
 
                     # 扫描该品种 (得到一组信号)
-                    sigs = _scan_symbol(symbol, config, data_source, strategies)
+                    sigs = _scan_symbol(symbol, config, data_source, strategies_list)
                     for sig in sigs:
                         batcher.add(sig)
 
@@ -239,6 +253,9 @@ def main():
     )
     parser.add_argument(
         "--mock", action="store_true", help="使用 Mock 数据源 (离线测试)"
+    )
+    parser.add_argument(
+        "--debug", action="store_true", help="包含以 debug_ 开头的调试策略"
     )
     args = parser.parse_args()
 
@@ -265,15 +282,21 @@ def main():
         auth = TqAuth(config.tq_username, config.tq_password)
         data_source = TqDataSource(auth=auth)
 
-    time.sleep(1)  # 给一点时间初始化
-
     print(f"监控品种: {len(config.symbols)} 个")
+
+    # 准备策略
+    strategies_instances = get_active_strategies(include_debug=args.debug)
+    print(f"激活策略: {[s.name for s in strategies_instances]}")
 
     try:
         if args.once:
-            scan_once(config, data_source, notifier)
+            scan_once(
+                config, data_source, notifier, strategies_list=strategies_instances
+            )
         else:
-            scan_forever(config, data_source, notifier)
+            scan_forever(
+                config, data_source, notifier, strategies_list=strategies_instances
+            )
     finally:
         data_source.close()
         notifier.close()

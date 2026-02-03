@@ -4,7 +4,7 @@ from numpy.lib.stride_tricks import sliding_window_view
 from py_entry.Test.indicators.conftest import run_indicator_backtest
 
 
-def numpy_divergence_logic(prices, indicators, window, idx_gap, recency, is_high=True):
+def numpy_divergence_logic(prices, indicators, window, gap, recency, is_high=True):
     """
     用 NumPy 实现的背离检测逻辑参考实现。
     完全对齐 Rust 中 divergence.rs 的逻辑。
@@ -18,10 +18,11 @@ def numpy_divergence_logic(prices, indicators, window, idx_gap, recency, is_high
 
     # 找极值相对索引
     if is_high:
+        # argmax 返回第一个最大值的索引
         p_peaks = np.argmax(p_win, axis=1)
         i_peaks = np.argmax(i_win, axis=1)
     else:
-        # 对底背离求最小值
+        # argmin 返回第一个最小值的索引
         p_peaks = np.argmin(p_win, axis=1)
         i_peaks = np.argmin(i_win, axis=1)
 
@@ -30,7 +31,7 @@ def numpy_divergence_logic(prices, indicators, window, idx_gap, recency, is_high
     recency_ok = (window - 1 - p_peaks) < recency
     # gap: 价格峰值必须晚于指标峰值，且间距足够
     gap_val = p_peaks - i_peaks
-    div_ok = (p_peaks > i_peaks) & (gap_val >= idx_gap)
+    div_ok = (p_peaks > i_peaks) & (gap_val >= gap)
 
     # 组装结果
     res_core = (recency_ok & div_ok & ~has_nan).astype(np.float64)
@@ -42,9 +43,10 @@ def numpy_divergence_logic(prices, indicators, window, idx_gap, recency, is_high
 def test_divergence_logic_alignment(data_dict):
     """
     逻辑对齐测试：验证 Rust 计算出的背离信号与 NumPy 矢量化实现的参考值完全一致。
+    现在背离指标一次性返回 top 和 bottom。
     """
     window = 10
-    idx_gap = 3
+    gap = 3
     recency = 3
 
     indicator_configs = {
@@ -52,15 +54,13 @@ def test_divergence_logic_alignment(data_dict):
             "rsi-divergence_test": {
                 "period": {"value": 14},
                 "window": {"value": window},
-                "mode": {"value": 0.0},  # 顶背离
-                "idx_gap": {"value": idx_gap},
+                "gap": {"value": gap},
                 "recency": {"value": recency},
             },
             "cci-divergence_test": {
                 "period": {"value": 14},
                 "window": {"value": window},
-                "mode": {"value": 1.0},  # 底背离
-                "idx_gap": {"value": idx_gap},
+                "gap": {"value": gap},
                 "recency": {"value": recency},
             },
         }
@@ -72,36 +72,56 @@ def test_divergence_logic_alignment(data_dict):
     indicators_df = indicators_results["ohlcv_15m"]
     ohlcv_df = data_container.source["ohlcv_15m"]
 
-    # 1. 验证 RSI 顶背离
+    # 1. 验证 RSI 背离 (_top 和 _bottom)
     rust_rsi_val = (
-        indicators_df.select("rsi-divergence_test_rsi").to_series().to_numpy()
+        indicators_df.select("rsi-divergence_test_value").to_series().to_numpy()
     )
-    rust_rsi_div = (
-        indicators_df.select("rsi-divergence_test_div").to_series().to_numpy()
+    rust_rsi_top = (
+        indicators_df.select("rsi-divergence_test_top").to_series().to_numpy()
     )
-    price_high = ohlcv_df.select("high").to_series().to_numpy()
+    rust_rsi_bottom = (
+        indicators_df.select("rsi-divergence_test_bottom").to_series().to_numpy()
+    )
 
-    py_rsi_div = numpy_divergence_logic(
-        price_high, rust_rsi_val, window, idx_gap, recency, is_high=True
+    price_high = ohlcv_df.select("high").to_series().to_numpy()
+    price_low = ohlcv_df.select("low").to_series().to_numpy()
+
+    # NumPy 计算参考值
+    py_rsi_top = numpy_divergence_logic(
+        price_high, rust_rsi_val, window, gap, recency, is_high=True
+    )
+    py_rsi_bottom = numpy_divergence_logic(
+        price_low, rust_rsi_val, window, gap, recency, is_high=False
     )
 
     # 断言完全对齐
-    np.testing.assert_allclose(rust_rsi_div, py_rsi_div, err_msg="RSI 顶背离逻辑不一致")
+    np.testing.assert_allclose(rust_rsi_top, py_rsi_top, err_msg="RSI 顶背离逻辑不一致")
+    np.testing.assert_allclose(
+        rust_rsi_bottom, py_rsi_bottom, err_msg="RSI 底背离逻辑不一致"
+    )
 
-    # 2. 验证 CCI 底背离
+    # 2. 验证 CCI 背离
     rust_cci_val = (
-        indicators_df.select("cci-divergence_test_cci").to_series().to_numpy()
+        indicators_df.select("cci-divergence_test_value").to_series().to_numpy()
     )
-    rust_cci_div = (
-        indicators_df.select("cci-divergence_test_div").to_series().to_numpy()
+    rust_cci_top = (
+        indicators_df.select("cci-divergence_test_top").to_series().to_numpy()
     )
-    price_low = ohlcv_df.select("low").to_series().to_numpy()
-
-    py_cci_div = numpy_divergence_logic(
-        price_low, rust_cci_val, window, idx_gap, recency, is_high=False
+    rust_cci_bottom = (
+        indicators_df.select("cci-divergence_test_bottom").to_series().to_numpy()
     )
 
-    np.testing.assert_allclose(rust_cci_div, py_cci_div, err_msg="CCI 底背离逻辑不一致")
+    py_cci_top = numpy_divergence_logic(
+        price_high, rust_cci_val, window, gap, recency, is_high=True
+    )
+    py_cci_bottom = numpy_divergence_logic(
+        price_low, rust_cci_val, window, gap, recency, is_high=False
+    )
+
+    np.testing.assert_allclose(rust_cci_top, py_cci_top, err_msg="CCI 顶背离逻辑不一致")
+    np.testing.assert_allclose(
+        rust_cci_bottom, py_cci_bottom, err_msg="CCI 底背离逻辑不一致"
+    )
 
 
 def test_divergence_column_names(data_dict):
@@ -110,22 +130,19 @@ def test_divergence_column_names(data_dict):
     """
     indicator_configs = {
         "ohlcv_15m": {
-            "cci-divergence_0": {
+            "cci-divergence_0": {  # 使用全称
                 "period": {"value": 14},
                 "window": {"value": 10},
-                "mode": {"value": 0.0},
             },
             "rsi-divergence_debug": {
                 "period": {"value": 14},
                 "window": {"value": 10},
-                "mode": {"value": 0.0},
             },
             "macd-divergence_fast": {
                 "fast_period": {"value": 12},
                 "slow_period": {"value": 26},
                 "signal_period": {"value": 9},
                 "window": {"value": 10},
-                "mode": {"value": 0.0},
             },
         }
     }
@@ -136,9 +153,14 @@ def test_divergence_column_names(data_dict):
     indicators_df = indicators_results["ohlcv_15m"]
     actual_cols = indicators_df.columns
 
-    assert "cci-divergence_0_div" in actual_cols
-    assert "cci-divergence_0_cci" in actual_cols
-    assert "rsi-divergence_debug_div" in actual_cols
-    assert "rsi-divergence_debug_rsi" in actual_cols
-    assert "macd-divergence_fast_div" in actual_cols
-    assert "macd-divergence_fast_macd" in actual_cols
+    assert "cci-divergence_0_top" in actual_cols
+    assert "cci-divergence_0_bottom" in actual_cols
+    assert "cci-divergence_0_value" in actual_cols
+
+    assert "rsi-divergence_debug_top" in actual_cols
+    assert "rsi-divergence_debug_bottom" in actual_cols
+    assert "rsi-divergence_debug_value" in actual_cols
+
+    assert "macd-divergence_fast_top" in actual_cols
+    assert "macd-divergence_fast_bottom" in actual_cols
+    assert "macd-divergence_fast_value" in actual_cols

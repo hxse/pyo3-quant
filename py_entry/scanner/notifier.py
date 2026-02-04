@@ -64,10 +64,27 @@ class Notifier:
         if self.client:
             url = f"https://api.telegram.org/bot{self.token}/sendMessage"
             data = {"chat_id": self.chat_id, "text": msg}
-            try:
-                self.client.post(url, json=data)
-            except Exception as e:
-                logger.error(f"TG推送失败: {e}")
+
+            import time
+
+            # 重试机制：最多重试 3 次
+            max_retries = 3
+            for i in range(max_retries):
+                try:
+                    self.client.post(url, json=data)
+                    if i > 0:
+                        logger.info(f"TG推送在第 {i + 1} 次重试后成功")
+                    break  # 成功则退出循环
+                except Exception as e:
+                    if i < max_retries - 1:
+                        logger.warning(
+                            f"TG推送失败 ({e}), 3秒后尝试第 {i + 2}/{max_retries} 次重试..."
+                        )
+                        time.sleep(3)
+                    else:
+                        logger.error(
+                            f"TG推送彻底失败 (尝试 {max_retries} 次后放弃): {e}"
+                        )
 
     def close(self):
         """关闭 HTTP 客户端"""

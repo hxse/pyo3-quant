@@ -1,23 +1,28 @@
 from typing import Final
+from py_entry.scanner.config import (
+    TF_5M,
+    TF_1H,
+    TF_1D,
+    TF_1W,
+    DK_5M,
+    DK_1H,
+    DK_1D,
+    DK_1W,
+)
 from py_entry.scanner.strategies.base import (
     StrategyProtocol,
     ScanContext,
     StrategySignal,
+    run_scan_backtest,
+    format_timestamp,
 )
 from py_entry.scanner.strategies.registry import StrategyRegistry
-from py_entry.runner import Backtest
-from py_entry.data_generator import DirectDataConfig
 from py_entry.types import (
     SignalTemplate,
-    SettingContainer,
-    ExecutionStage,
     Param,
     SignalGroup,
     LogicOp,
-    BacktestParams,
-    PerformanceParams,
 )
-import polars as pl
 
 
 @StrategyRegistry.register
@@ -29,27 +34,27 @@ class TrendStrategy(StrategyProtocol):
     - 周线: CCI > 80 AND Close > EMA
     - 日线: CCI > 30 AND Close > EMA
     - 1小时: MACD红柱 AND Close > EMA
-    - 5分钟: Close x> EMA (上穿) OR (开盘K线 AND Close > EMA) -- 单均线逻辑
+    - 5分钟: (MACD红柱 AND close x> EMA) OR (close > EMA AND MACD红柱上穿0)
     """
 
     name: Final[str] = "trend"
 
     def scan(self, ctx: ScanContext) -> StrategySignal | None:
         # 0. 检查数据
-        required_tfs = ["5m", "1h", "1d", "1w"]
+        required_tfs = [TF_5M, TF_1H, TF_1D, TF_1W]
         ctx.validate_klines_existence(required_tfs)
 
         # 1. 准备参数
         indicators = {
-            "ohlcv_1w": {
+            DK_1W: {
                 "cci_w": {"period": Param.create(14)},
                 "ema_w": {"period": Param.create(20)},
             },
-            "ohlcv_1d": {
+            DK_1D: {
                 "cci_d": {"period": Param.create(14)},
                 "ema_d": {"period": Param.create(20)},
             },
-            "ohlcv_1h": {
+            DK_1H: {
                 "macd_h": {
                     "fast_period": Param.create(12),
                     "slow_period": Param.create(26),
@@ -57,11 +62,13 @@ class TrendStrategy(StrategyProtocol):
                 },
                 "ema_h": {"period": Param.create(20)},
             },
-            "ohlcv_5m": {
-                # 5分钟仅需 EMA20 和 开盘检测
+            DK_5M: {
+                "macd_m": {
+                    "fast_period": Param.create(12),
+                    "slow_period": Param.create(26),
+                    "signal_period": Param.create(9),
+                },
                 "ema_m": {"period": Param.create(20)},
-                # 3600s = 60min = 1h, 即如果时间间隔 > 1小时则认为是开盘K线
-                "opening-bar_0": {"threshold": Param.create(3600.0)},
             },
         }
 
@@ -71,57 +78,68 @@ class TrendStrategy(StrategyProtocol):
         # --- 共通的大周期过滤条件 ---
         long_filter = [
             # 周线
-            "cci_w,ohlcv_1w,0 > 80",
-            "close,ohlcv_1w,0 > ema_w,ohlcv_1w,0",
+            f"cci_w,{DK_1W},0 > 80",
+            f"close,{DK_1W},0 > ema_w,{DK_1W},0",
             # 日线
-            "cci_d,ohlcv_1d,0 > 30",
-            "close,ohlcv_1d,0 > ema_d,ohlcv_1d,0",
+            f"cci_d,{DK_1D},0 > 30",
+            f"close,{DK_1D},0 > ema_d,{DK_1D},0",
             # 1小时
-            "macd_h_hist,ohlcv_1h,0 > 0",
-            "close,ohlcv_1h,0 > ema_h,ohlcv_1h,0",
+            f"macd_h_hist,{DK_1H},0 > 0",
+            f"close,{DK_1H},0 > ema_h,{DK_1H},0",
         ]
 
         short_filter = [
             # 周线 (做空对称)
-            "cci_w,ohlcv_1w,0 < -80",
-            "close,ohlcv_1w,0 < ema_w,ohlcv_1w,0",
+            f"cci_w,{DK_1W},0 < -80",
+            f"close,{DK_1W},0 < ema_w,{DK_1W},0",
             # 日线
-            "cci_d,ohlcv_1d,0 < -30",
-            "close,ohlcv_1d,0 < ema_d,ohlcv_1d,0",
+            f"cci_d,{DK_1D},0 < -30",
+            f"close,{DK_1D},0 < ema_d,{DK_1D},0",
             # 1小时
-            "macd_h_hist,ohlcv_1h,0 < 0",
-            "close,ohlcv_1h,0 < ema_h,ohlcv_1h,0",
+            f"macd_h_hist,{DK_1H},0 < 0",
+            f"close,{DK_1H},0 < ema_h,{DK_1H},0",
         ]
 
         # --- 5m 触发条件 (OR) ---
-        # 做多触发: 上穿 EMA 或者 (开盘 且 站上 EMA)
+        # 做多触发: (MACD红柱 AND 上穿EMA) OR (站上EMA AND MACD金叉/转红)
         long_trigger_group = SignalGroup(
             logic=LogicOp.OR,
-            comparisons=["close,ohlcv_5m,0 x> ema_m,ohlcv_5m,0"],
             sub_groups=[
-                # 开盘且站上: opening > 0.5 AND close > ema
                 SignalGroup(
                     logic=LogicOp.AND,
                     comparisons=[
-                        "opening-bar_0,ohlcv_5m,0 > 0.5",
-                        "close,ohlcv_5m,0 > ema_m,ohlcv_5m,0",
+                        f"macd_m_hist,{DK_5M},0 > 0",
+                        f"close,{DK_5M},0 x> ema_m,{DK_5M},0",
                     ],
-                )
+                ),
+                SignalGroup(
+                    logic=LogicOp.AND,
+                    comparisons=[
+                        f"close,{DK_5M},0 > ema_m,{DK_5M},0",
+                        f"macd_m_hist,{DK_5M},0 x> 0",
+                    ],
+                ),
             ],
         )
 
-        # 做空触发: 下穿 EMA 或者 (开盘 且 跌破 EMA)
+        # 做空触发: 对称逻辑
         short_trigger_group = SignalGroup(
             logic=LogicOp.OR,
-            comparisons=["close,ohlcv_5m,0 x< ema_m,ohlcv_5m,0"],
             sub_groups=[
                 SignalGroup(
                     logic=LogicOp.AND,
                     comparisons=[
-                        "opening-bar_0,ohlcv_5m,0 > 0.5",
-                        "close,ohlcv_5m,0 < ema_m,ohlcv_5m,0",
+                        f"macd_m_hist,{DK_5M},0 < 0",
+                        f"close,{DK_5M},0 x< ema_m,{DK_5M},0",
                     ],
-                )
+                ),
+                SignalGroup(
+                    logic=LogicOp.AND,
+                    comparisons=[
+                        f"close,{DK_5M},0 < ema_m,{DK_5M},0",
+                        f"macd_m_hist,{DK_5M},0 x< 0",
+                    ],
+                ),
             ],
         )
 
@@ -138,43 +156,22 @@ class TrendStrategy(StrategyProtocol):
             ),
         )
 
-        # 3. 转换数据
-        data = ctx.to_data_container(base_tf="ohlcv_5m")
-
-        settings = SettingContainer(
-            execution_stage=ExecutionStage.SIGNALS,
-            return_only_final=False,
-        )
-
-        bt = Backtest(
-            data_source=DirectDataConfig(
-                data=data.source, base_data_key=data.base_data_key
-            ),
+        # 3. 运行回测 (使用 helper)
+        result = run_scan_backtest(
+            ctx=ctx,
             indicators=indicators,
             signal_template=template,
-            engine_settings=settings,
-            backtest=BacktestParams(
-                initial_capital=10000.0,
-                fee_fixed=1.0,
-                fee_pct=0.0005,
-            ),
-            performance=PerformanceParams(metrics=[]),
+            base_tf=DK_5M,
         )
-
-        result = bt.run()
-
-        # 4. 解析结果
-        if not result.results:
-            return None
-        res_0 = result.results[0]
-        if res_0.signals is None or res_0.signals.height == 0:
+        if result is None:
             return None
 
-        last_row = res_0.signals.tail(1).to_dict(as_series=False)
-        entry_signal = last_row["entry_long"][0]
-        exit_signal = last_row["entry_short"][0]
+        signal_dict, price, timestamp_ms = result
+        entry_signal = signal_dict.get("entry_long", 0.0)
+        exit_signal = signal_dict.get("entry_short", 0.0)
 
-        price = data.source["ohlcv_5m"].select(pl.col("close")).tail(1).item()
+        # 格式化时间
+        ts_str = format_timestamp(timestamp_ms)
 
         if entry_signal > 0.5:
             return StrategySignal(
@@ -182,26 +179,29 @@ class TrendStrategy(StrategyProtocol):
                 symbol=ctx.symbol,
                 direction="long",
                 trigger="Trend 突破进场",
-                summary=f"{ctx.symbol} 强趋势共振突破",
+                summary=f"{ctx.symbol} trend 做多",
                 detail_lines=[
+                    f"时间: {ts_str}",
                     f"价格: {price}",
-                    "条件: 周/日CCI强 + 1H红柱 + 5m突破/站稳EMA",
+                    "条件: 周/日CCI强 + 1H红柱 + 5m红柱/突破EMA共振",
                 ],
-                metadata={"price": price},
+                metadata={"price": price, "time": timestamp_ms},
             )
-
-        if exit_signal > 0.5:
+        elif exit_signal > 0.5:
+            # 注意：Trend 策略目前只定义了 Entry Long，Exit Short 暂未完全对齐
+            # 但为了对称性，这里保留处理，或者根据实际需求修改
             return StrategySignal(
                 strategy_name=self.name,
                 symbol=ctx.symbol,
                 direction="short",
-                trigger="Trend 跌破进场",
-                summary=f"{ctx.symbol} 强趋势共振跌破",
+                trigger="Trend 向下突破",
+                summary=f"{ctx.symbol} trend 做空",
                 detail_lines=[
+                    f"时间: {ts_str}",
                     f"价格: {price}",
-                    "条件: 周/日CCI弱 + 1H绿柱 + 5m跌破/受阻EMA",
+                    "条件: 周/日CCI弱 + 1H绿柱 + 5m绿柱/跌破EMA共振",
                 ],
-                metadata={"price": price},
+                metadata={"price": price, "time": timestamp_ms},
             )
 
         return None

@@ -17,20 +17,7 @@ def format_signal_report(signals: list[StrategySignal]) -> str:
     lines = [f"趋势共振扫描报告 (共 {len(signals)} 个) [{timestamp}]"]
 
     for idx, sig in enumerate(signals, 1):
-        direction_map = {"long": "做多", "short": "做空", "none": "观察"}
-        direction_str = direction_map.get(sig.direction, sig.direction)
-
-        # 详情行拼接
-        details_line = " ".join(sig.detail_lines)
-
-        item_str = f"{idx}. {sig.symbol} {sig.strategy_name} {direction_str}\n  - 触发: {sig.trigger}\n  - 详情: {details_line}"
-
-        if sig.warnings:
-            # 警告信息
-            warn_str = " ".join(sig.warnings)
-            item_str += f"\n  - ⚠️ {warn_str}"
-
-        lines.append(item_str)
+        lines.append(sig.to_display_string(index=idx))
 
     return "\n".join(lines).strip()
 

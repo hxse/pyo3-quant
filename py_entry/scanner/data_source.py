@@ -17,6 +17,8 @@ class DataSourceProtocol(Protocol):
 
     def wait(self, seconds: float) -> None: ...
 
+    def get_underlying_symbol(self, symbol: str) -> str: ...
+
     def close(self) -> None: ...
 
 
@@ -73,6 +75,26 @@ class TqDataSource:
                 logger.error(f"wait_update 发生非预期异常: {e}")
                 raise
 
+    def get_underlying_symbol(self, symbol: str) -> str:
+        """
+        获取主连合约背后的真实主力合约代码
+
+        Args:
+            symbol: 主连合约代码，如 "KQ.m@DCE.i"
+
+        Returns:
+            真实合约代码，如 "DCE.i2505"
+            如果获取失败或本身就是具体合约，则返回原 symbol
+        """
+        try:
+            quote = self.api.get_quote(symbol)
+            underlying = getattr(quote, "underlying_symbol", "")
+            if underlying:
+                return underlying
+            return symbol
+        except Exception:
+            return symbol
+
     def close(self):
         """关闭连接"""
         self.api.close()
@@ -95,7 +117,9 @@ class MockDataSource:
 
         # 1. 确定性随机种子生成
         # 使用 zlib.adler32 替代 hash()，因为 python 的 hash() 是进程随机的
-        symbol_code = zlib.adler32(symbol.encode("utf-8"))
+        # hack: 为了让 mock 模式下 KQ.i 和 KQ.m 的数据看起来像是有相关性的（或者就是同一份），我们去掉 .i/.m
+        seed_symbol = symbol.replace("KQ.i@", "KQ.m@")
+        symbol_code = zlib.adler32(seed_symbol.encode("utf-8"))
         # 组合 base_seed, symbol特征, 周期特征
         local_seed = (self.base_seed + symbol_code + duration_seconds) % (2**32)
 
@@ -145,10 +169,11 @@ class MockDataSource:
                 # 策略：前段微涨保持均线多头，最后两根制造强力突破
                 # 先微涨 5% 垫高均线
                 price[:] = price * np.linspace(1.0, 1.05, data_length)
-                # 最后制造突破
-                base_close = price[-3]
-                price[-2] = base_close * 0.995  # 回踩
-                price[-1] = base_close * 1.020  # 突破 (大阳线)
+                # 最后制造突破 (注意 Scanner 检查的是倒数第二根 -2)
+                base_close = price[-4]
+                price[-3] = base_close * 0.995  # N-3: 回踩
+                price[-2] = base_close * 1.020  # N-2: 突破 (大阳线) -> 信号点
+                price[-1] = price[-2] * 1.001  # N-1: 保持
 
         elif is_bearish:
             if duration_seconds >= 86400:
@@ -166,9 +191,10 @@ class MockDataSource:
             elif duration_seconds == 300:
                 # 5分钟线：制造刚刚 下穿 EMA 的形态
                 price[:] = price * np.linspace(1.0, 0.95, data_length)
-                base_close = price[-3]
-                price[-2] = base_close * 1.005  # 反抽
-                price[-1] = base_close * 0.980  # 破位 (大阴线)
+                base_close = price[-4]
+                price[-3] = base_close * 1.005  # N-3: 反抽
+                price[-2] = base_close * 0.980  # N-2: 破位 (大阴线) -> 信号点
+                price[-1] = price[-2] * 0.999  # N-1: 保持
 
         close = pd.Series(price, index=times)
 
@@ -208,6 +234,15 @@ class MockDataSource:
         import time
 
         time.sleep(seconds)
+
+    def get_underlying_symbol(self, symbol: str) -> str:
+        """Mock 返回虚拟的主力合约"""
+        # 简单的规则：KQ.m@DCE.i -> DCE.i2501 (模拟)
+        parts = symbol.split("@")
+        if len(parts) == 2:
+            exchange_vari = parts[1]  # SHFE.rb
+            return f"{exchange_vari}2505"  # 假装主力是 2505
+        return symbol
 
     def close(self):
         pass

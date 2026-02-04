@@ -1,9 +1,18 @@
+from datetime import datetime
 from typing import Literal, Protocol, Any, TypedDict, NotRequired
 from pydantic import BaseModel
 import pandas as pd
 import polars as pl
-from py_entry.types import DataContainer
+from py_entry.types import (
+    DataContainer,
+    SignalTemplate,
+    SettingContainer,
+    ExecutionStage,
+    BacktestParams,
+    PerformanceParams,
+)
 from py_entry.data_generator import generate_data_dict, DirectDataConfig
+from py_entry.runner import Backtest
 
 
 class StrategySignal(BaseModel):
@@ -11,7 +20,8 @@ class StrategySignal(BaseModel):
 
     # === 核心信号 ===
     strategy_name: str  # 策略名称（如 "trend", "reversal", "momentum"）
-    symbol: str  # 品种代码
+    symbol: str  # 扫描品种代码 (如 KQ.m@DCE.l)
+    real_symbol: str = ""  # 实际主力合约代码 (如 DCE.i2505)，如果为空则未定义
     direction: Literal["long", "short", "none"]  # 方向
 
     # === 信号详情 ===
@@ -27,17 +37,39 @@ class StrategySignal(BaseModel):
     # === 附加数据 (机读用) ===
     metadata: dict[str, Any] = {}  # 附加数据，供程序化处理
 
-    def to_console_message(self) -> str:
-        """生成控制台日志消息"""
-        lines = [self.summary]
-        lines.extend([f"  {line}" for line in self.detail_lines])
-        if self.warnings:
-            lines.extend([f"  {w}" for w in self.warnings])
-        return "\n".join(lines)
+    def to_display_string(self, index: int | None = None) -> str:
+        """
+        生成展示用的多行字符串 (Console/Telegram 通用)
+        Args:
+            index: 如果提供，会在第一行前加序号 (如 "1. ")
+        """
+        # 1. 处理 Symbol (拼接 real_symbol)
+        symbol_display = self.symbol
+        if self.real_symbol and self.real_symbol != self.symbol:
+            symbol_display = f"{self.symbol} | {self.real_symbol}"
 
-    def to_notify_message(self) -> str:
-        """生成通知消息（如 TG）"""
-        return self.to_console_message()
+        # 2. 处理方向中文映射
+        direction_map = {"long": "做多", "short": "做空", "none": "观察"}
+        dir_str = direction_map.get(self.direction, self.direction)
+
+        # 3. 拼接标题行
+        prefix = f"{index}. " if index is not None else ""
+        # 格式: 1. KQ.m@DCE.l | DCE.i2505 | trend | 做多
+        header = f"{prefix}{symbol_display} | {self.strategy_name} | {dir_str}"
+
+        # 4. 拼接详情与警告
+        lines = [header]
+        lines.append(f"  - 触发: {self.trigger}")
+
+        if self.detail_lines:
+            # 详情如果是一行，直接拼；如果是多行，空格连接
+            details_text = " ".join(self.detail_lines)
+            lines.append(f"  - 详情: {details_text}")
+
+        if self.warnings:
+            lines.append(f"  - ⚠️ {' '.join(self.warnings)}")
+
+        return "\n".join(lines)
 
 
 class StrategyCheckResult(TypedDict):
@@ -124,8 +156,6 @@ class ScanContext:
                 ).item()
                 # 动态语义化校验：检查年份是否在 (1970, 当前年份+10) 之间
                 # 这种动态上限彻底解决了固定年份带来的“千年虫”问题
-                from datetime import datetime
-
                 current_year = datetime.now().year
                 assert 1970 <= sample_year <= current_year + 10, (
                     f"时间戳异常: 解析年份 {sample_year} 超出合理范围 "
@@ -160,3 +190,78 @@ class StrategyProtocol(Protocol):
     def scan(self, ctx: ScanContext) -> StrategySignal | None:
         """执行扫描"""
         ...
+
+
+def run_scan_backtest(
+    ctx: ScanContext,
+    indicators: dict,
+    signal_template: SignalTemplate,
+    base_tf: str = "ohlcv_5m",
+) -> tuple[dict[str, float], float, int] | None:
+    """
+    通用回测执行器 helper。
+    功能：
+    1. 将 ctx 转换为回测引擎所需的 data
+    2. 创建 Backtest 实例并运行
+    3. 获取并返回【已完成】的信号（倒数第二根 K 线）
+
+    Args:
+        ctx: 扫描上下文
+        indicators: 指标配置
+        signal_template: 信号模板
+        base_tf: 基准周期 key (默认 ohlcv_5m)
+
+    Returns:
+        (signal_dict, close_price, timestamp) | None
+        如果运行失败、结果为空或不足 2 根 K 线，返回 None。
+        signal_dict 例如: {'entry_long': 1.0, 'entry_short': 0.0}
+        timestamp: K 线时间戳 (毫秒)
+    """
+    # 1. 转换数据
+    data = ctx.to_data_container(base_tf=base_tf)
+
+    # 2. 准备回测配置
+    settings = SettingContainer(
+        execution_stage=ExecutionStage.SIGNALS,
+        return_only_final=False,
+    )
+    bt = Backtest(
+        data_source=DirectDataConfig(
+            data=data.source, base_data_key=data.base_data_key
+        ),
+        indicators=indicators,
+        signal_template=signal_template,
+        engine_settings=settings,
+        backtest=BacktestParams(
+            initial_capital=10000.0,
+            fee_fixed=1.0,
+            fee_pct=0.0005,
+        ),
+        performance=PerformanceParams(metrics=[]),
+    )
+
+    # 3. 运行回测
+    result = bt.run()
+    if not result.results:
+        return None
+    res_0 = result.results[0]
+    if res_0.signals is None or res_0.signals.height < 2:
+        return None
+
+    # 4. 提取【已完成】K线的信号（倒数第二行）
+    last_row = res_0.signals.tail(2).head(1).to_dict(as_series=False)
+    # last_row 是 {'key': [val], ...} 格式，需要解包
+    signal_dict = {k: v[0] for k, v in last_row.items()}
+
+    # 5. 提取对应价格和时间
+    last_candle = data.source[base_tf].select(["close", "time"]).tail(2).head(1)
+    price = last_candle.select(pl.col("close")).item()
+    timestamp = last_candle.select(pl.col("time")).item()
+
+    return signal_dict, price, timestamp
+
+
+def format_timestamp(ts_ms: int) -> str:
+    """将毫秒级时间戳转换为本地时间字符串 (YYYY-MM-DD HH:MM:SS)"""
+    dt = datetime.fromtimestamp(ts_ms / 1000.0)
+    return dt.strftime("%Y-%m-%d %H:%M:%S")

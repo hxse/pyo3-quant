@@ -59,14 +59,24 @@ def _scan_symbol(
     """单独扫描一个品种，运行所有策略"""
     signals = []
     try:
+        # P0: 获取真实交易合约 (Underlying)
+        # 即使是大周期扫描指数，最终交易的载体还是主力合约
+        real_symbol = data_source.get_underlying_symbol(symbol)
+
         # 1. 准备数据上下文 (获取所有需要的周期)
         # 目前策略主要用: 5m, 1h, 1d, 1w
         # 这些应该在 ScannerConfig.timeframes 里配置了
         # 我们遍历 config.timeframes 来获取数据
         klines_dict = {}
         for tf in config.timeframes:
-            # print(f"DEBUG: 获取 K线 {symbol} {tf.name}")
-            df = data_source.get_klines(symbol, tf.seconds, config.kline_length)
+            # 动态切换数据源: 指数 vs 主连
+            target_symbol = symbol
+            if tf.use_index:
+                # 简单替换：把 KQ.m@ 替换为 KQ.i@
+                target_symbol = symbol.replace("KQ.m@", "KQ.i@")
+
+            # print(f"DEBUG: 获取 K线 {target_symbol} {tf.name}")
+            df = data_source.get_klines(target_symbol, tf.seconds, config.kline_length)
             if df is not None and not df.empty:
                 klines_dict[tf.name] = df
 
@@ -77,6 +87,8 @@ def _scan_symbol(
             try:
                 sig = strategy.scan(ctx)
                 if sig:
+                    # 注入真实合约代码
+                    sig.real_symbol = real_symbol
                     signals.append(sig)
             except Exception as e:
                 logger.error(f"策略 {strategy.name} 扫描 {symbol} 出错: {e}")
@@ -185,7 +197,7 @@ def scan_forever(
         logger.info("节流模式未开启 (全天候运行)")
 
     # 3. 首次先做一次全量，避免启动时静默
-    scan_once(config, data_source, notifier, strategies_list=strategies_list)
+    # scan_once(config, data_source, notifier, strategies_list=strategies_list)
 
     # 5. 初始化防抖批处理器
     batcher = Batcher(buffer_seconds=config.batch_buffer_seconds)

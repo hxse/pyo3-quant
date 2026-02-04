@@ -214,8 +214,8 @@ def scan_forever(
     cycle_tracker = CycleTracker(base_tf.seconds)
 
     # 7. 主循环
-    try:
-        while True:
+    while True:
+        try:
             # A. 节流控制 + 周期检测
             if throttler:
                 is_new_cycle = throttler.wait_until_next_window(data_source)
@@ -261,9 +261,20 @@ def scan_forever(
                 if batch_signals:
                     notifier.notify(batch_signals)
 
-    except KeyboardInterrupt:
-        print("\n用户停止扫描。")
-        exit(0)
+        except KeyboardInterrupt:
+            print("\n用户停止扫描。")
+            exit(0)
+        except Exception as e:
+            # 捕捉天勤运维时间异常或其他网络波动
+            msg = str(e)
+            if "日常运维时间" in msg or "ConnectionClosedError" in msg:
+                logger.warning(f"天勤连接异常 (运维/网络波动): {msg}")
+                logger.warning("暂停运行 30 分钟后自动重试...")
+                import time
+
+                time.sleep(1800)
+            else:
+                raise e
 
 
 def main():

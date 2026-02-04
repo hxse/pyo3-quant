@@ -79,6 +79,7 @@ class TimeWindowThrottler:
         阻塞等待直到进入下一个活跃窗口
 
         在窗口外会持续睡眠，期间定期做心跳保持连接。
+        为了准确卡点唤醒，会动态计算距离下一周期的剩余时间。
 
         Args:
             data_source: 数据源对象，用于调用 wait() 方法
@@ -90,9 +91,25 @@ class TimeWindowThrottler:
             # 已经在窗口内，检查是否是新周期
             return self.cycle_tracker.is_new_cycle()
 
-        # 窗口外，开始等待
+        # 窗口外，计算需要等待的时间
         while not self.is_in_window():
-            data_source.wait(self.heartbeat_interval)
+            now = time.time()
+            # 计算下一个周期的起始时间戳
+            current_cycle_id = int(now // self.period_seconds)
+            next_cycle_start = (current_cycle_id + 1) * self.period_seconds
+
+            # 距离下个周期还有多久
+            to_wait = next_cycle_start - now
+
+            # 如果时间出现异常倒流或计算误差，由于 while 循环保障，只需设一个极小值重试即可
+            if to_wait < 0:
+                to_wait = 0.5
+
+            # 取最小值：既要尽可能等到整点，又要维持心跳
+            # 加 0.5s 缓冲确保唤醒时已经跨过整点
+            sleep_time = min(to_wait + 0.5, self.heartbeat_interval)
+
+            data_source.wait(sleep_time)
 
         # 刚进入窗口，一定是新周期
         self.cycle_tracker._last_cycle_id = self.cycle_tracker.get_current_cycle_id()

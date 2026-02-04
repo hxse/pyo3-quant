@@ -37,6 +37,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger("scanner")
 
+# === 技巧备注：关于如何彻底静默 TqSdk 的顽固日志 ===
+# 1. 软拦截：logging.getLogger("tqsdk").setLevel(logging.ERROR) 只能拦截其通过标准 logging 模块输出的内容。
+# 2. 硬拦截：天勤的统计报告（如 胜率、TQSIM 账户总结）往往绕过了 logging，直接通过 print 或 C 扩展写入 stdout/stderr。
+# 3. 终极方案：若需在 --once 模式下彻底消除退出时的统计噪音，建议在 finally 块中：
+#    with contextlib.redirect_stdout(open(os.devnull, "w")): data_source.close()
+# 4. 注意：在 --run (持续扫描) 模式下，这些噪音通常不会触发，因此目前保持代码简洁，不做物理拦截。
+# ===============================================
+
 
 def get_active_strategies(include_debug: bool = False) -> list:
     """获取所有激活的策略实例，根据参数过滤 debug 策略"""

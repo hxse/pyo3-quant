@@ -286,7 +286,9 @@ def main():
 
     # 准备策略
     strategies_instances = get_active_strategies(include_debug=args.debug)
-    print(f"激活策略: {[s.name for s in strategies_instances]}")
+    print(
+        f"加载策略: {len(strategies_instances)} 种 -> {[s.name for s in strategies_instances]}"
+    )
 
     try:
         if args.once:

@@ -155,6 +155,21 @@ fn execute_single_backtest(
     processed_template: &TemplateContainer,
     processed_settings: &SettingContainer,
 ) -> Result<BacktestSummary, QuantError> {
+    // 0. 全局数据校验：检查基础数据的时间戳是否规范
+    if let Some(base_df) = processed_data.source.get(&processed_data.base_data_key) {
+        // 尝试获取第一行时间戳进行校验
+        if let Ok(time_col) = base_df.column("time") {
+            if let Ok(time_ca) = time_col.i64() {
+                if let Some(first_ts) = time_ca.get(0) {
+                    utils::validate_timestamp_ms(
+                        first_ts,
+                        &format!("Base Data ({})", processed_data.base_data_key),
+                    )?;
+                }
+            }
+        }
+    }
+
     // 1. 初始化执行上下文
     let mut ctx = utils::BacktestContext::new();
     let stage = processed_settings.execution_stage;

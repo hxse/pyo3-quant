@@ -100,6 +100,38 @@ class ScanContext:
             # 注意: 这里假设 pdf 已经包含了 time (int64 ms) 列
             # 如果是 scanner 传进来的，通常是 pandas DataFrame
             pl_df = pl.from_pandas(target_df)
+
+            # 转换为 Polars DataFrame 并标准化时间列
+            # 统一路径：无论输入是 Datetime 还是 Int64，先转为 Int64 (物理纳秒值)，再整除 1M 转毫秒
+            pl_df = (
+                pl.from_pandas(target_df)
+                .rename({"datetime": "time"})
+                .with_columns(
+                    (pl.col("time").cast(pl.Int64) // 1_000_000).alias("time")
+                )
+            )
+
+            assert pl_df["time"].dtype == pl.Int64, (
+                f"时间列类型错误: 期望 Int64, 实际 {pl_df['time'].dtype}"
+            )
+
+            if not pl_df.is_empty():
+                first_ts = pl_df["time"][0]
+                # 语义化校验：将时间戳转为年份，检查是否在合理区间 (1990~2100)
+                # 这比检查 Int64 数值本身更直观且健壮
+                sample_year = pl.select(
+                    pl.lit(first_ts).cast(pl.Datetime("ms")).dt.year()
+                ).item()
+                # 动态语义化校验：检查年份是否在 (1970, 当前年份+10) 之间
+                # 这种动态上限彻底解决了固定年份带来的“千年虫”问题
+                from datetime import datetime
+
+                current_year = datetime.now().year
+                assert 1970 <= sample_year <= current_year + 10, (
+                    f"时间戳异常: 解析年份 {sample_year} 超出合理范围 "
+                    f"(1970 ~ {current_year + 10})。期望毫秒级时间戳。"
+                )
+
             source_dict[key] = pl_df
 
         # 验证基准数据是否存在

@@ -1,8 +1,10 @@
 use crate::backtest_engine::indicators::registry::Indicator;
-use crate::error::{IndicatorError, QuantError};
+use crate::backtest_engine::utils::validate_timestamp_ms;
+use crate::error::QuantError;
 use crate::types::Param;
 use polars::prelude::*;
 use polars::series::ops::NullBehavior;
+
 use std::collections::HashMap;
 
 /// 开盘 K 线检测指标 (基于时间断层)
@@ -22,18 +24,11 @@ impl Indicator for OpeningBarIndicator {
         // 命名规则: {key}
         let alias = indicator_key.to_string();
 
-        // 验证时间戳是否为毫秒级 (ms)
-        // 10^12 级别为毫秒 (2001年后), 10^15 级别为微秒, 10^18 级别为纳秒, 10^9 级别为秒
         if let Some(first_time) = ohlcv_df.column("time")?.i64()?.get(0) {
-            if first_time <= 1_000_000_000_000 || first_time >= 1_000_000_000_000_000 {
-                return Err(IndicatorError::InvalidParameter(
-                    indicator_key.to_string(),
-                    format!(
-                        "时间戳应该是毫秒级 (ms), 但检测到值为: {}. 如果是秒级请乘以1000, 如果是纳秒级请除以1000000",
-                        first_time
-                    ),
-                ).into());
-            }
+            validate_timestamp_ms(
+                first_time,
+                &format!("OpeningBarIndicator({})", indicator_key),
+            )?;
         }
 
         let lazy_df = ohlcv_df.clone().lazy();

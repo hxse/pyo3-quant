@@ -1,8 +1,9 @@
 from .registry import StrategyRegistry
-
-# 恢复新策略的导入
-from .trend import TrendStrategy
-from .reversal import ReversalStrategy
-from .momentum import MomentumStrategy
+from .trend import TrendStrategy as TrendStrategy
+from .reversal import ReversalStrategy as ReversalStrategy
+from .momentum import MomentumStrategy as MomentumStrategy
+from .pullback import PullbackStrategy as PullbackStrategy
+from .oscillation import OscillationStrategy as OscillationStrategy
+from .debug_simple import DebugSimpleResonanceStrategy as DebugSimpleResonanceStrategy
 
 __all__ = ["StrategyRegistry"]

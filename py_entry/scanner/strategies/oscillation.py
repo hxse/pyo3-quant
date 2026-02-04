@@ -21,18 +21,18 @@ import polars as pl
 
 
 @StrategyRegistry.register
-class ReversalStrategy(StrategyProtocol):
+class OscillationStrategy(StrategyProtocol):
     """
-    极值背驰策略 (Reversal - Rust 引擎版)
+    震荡回归策略 (Oscillation Reversion - Rust 引擎版)
 
-    逻辑 (完全匹配 manual_trading.md 1.3):
-    - 周线: 强势多头/空头背景 (CCI > 80 / < -80)
-    - 日线: 极值背离 (CCI-Divergence, recency=5)
-    - 1小时: 动能反转 (MACD 红转绿 / 绿转红)
-    - 5分钟: 共振杀跌/反弹 (MACD 触发 + 破小均线 + 破中均线 + 受阻大均线)
+    逻辑 (匹配 manual_trading.md 1.6):
+    - 周线: 中枢震荡 (40 < RSI < 60)
+    - 日线: 中枢震荡 (40 < RSI < 60)
+    - 1小时: 超卖/超买 (RSI < 35 / RSI > 65)
+    - 5分钟: 企稳/见顶 (MACD红柱+站上EMA / MACD绿柱+跌破EMA)
     """
 
-    name: Final[str] = "reversal"
+    name: Final[str] = "oscillation"
 
     def scan(self, ctx: ScanContext) -> StrategySignal | None:
         # 0. 检查数据
@@ -42,27 +42,13 @@ class ReversalStrategy(StrategyProtocol):
         # 1. 准备参数
         indicators = {
             "ohlcv_1w": {
-                # 周线: 仅需 CCI 判断背景 + EMA 趋势过滤
-                "cci_w": {"period": Param.create(14)},
-                "ema_w": {"period": Param.create(20)},
+                "rsi_w": {"period": Param.create(14)},
             },
             "ohlcv_1d": {
-                # 日线: 核心是 CCI 背离 (API重构: 一次性返回 top/bottom, 废弃 mode)
-                "cci-divergence_0": {
-                    "period": Param.create(14),
-                    "window": Param.create(20),
-                    "gap": Param.create(3),
-                    "recency": Param.create(5),
-                },
-                "ema_d": {"period": Param.create(20)},
+                "rsi_d": {"period": Param.create(14)},
             },
             "ohlcv_1h": {
-                "macd_h": {
-                    "fast_period": Param.create(12),
-                    "slow_period": Param.create(26),
-                    "signal_period": Param.create(9),
-                },
-                "ema_h": {"period": Param.create(20)},
+                "rsi_h": {"period": Param.create(14)},
             },
             "ohlcv_5m": {
                 "macd_m": {
@@ -75,26 +61,33 @@ class ReversalStrategy(StrategyProtocol):
         }
 
         # 2. 信号逻辑 (Rust 表达式)
+        # 核心定义: 刚刚触发 = (当前满足组合) AND (上一刻不同时满足)
+        # 等价于: (MACD红 且 价格上穿EMA) OR (价格在EMA上 且 MACD翻红)
 
-        # --- 做多逻辑 (底背离反转: 抓空头回调/见底) ---
+        # --- 共通的大周期过滤 ---
         long_filter = [
-            # 1. [周线] 极度弱势背景
-            "cci_w,ohlcv_1w,0 < -80",
-            "close,ohlcv_1w,0 < ema_w,ohlcv_1w,0",
-            # 2. [日线] 弱势中的底背离
-            "close,ohlcv_1d,0 < ema_d,ohlcv_1d,0",
-            "cci-divergence_0_bottom,ohlcv_1d,0 > 0.5",
-            # 3. [1小时] 动能转折 (红柱)
-            "macd_h_hist,ohlcv_1h,0 > 0",
-            # 4. [空间约束] 黄金窗口: 1h < Close < 1d
-            "close,ohlcv_5m,0 > ema_h,ohlcv_1h,0",
-            "close,ohlcv_5m,0 < ema_d,ohlcv_1d,0",
+            "rsi_w,ohlcv_1w,0 > 40",
+            "rsi_w,ohlcv_1w,0 < 60",  # 周线中枢
+            "rsi_d,ohlcv_1d,0 > 40",
+            "rsi_d,ohlcv_1d,0 < 60",  # 日线中枢
+            "rsi_h,ohlcv_1h,0 < 35",  # 1H 超卖
         ]
 
-        # 5m 做多触发 (OR)
+        short_filter = [
+            "rsi_w,ohlcv_1w,0 > 40",
+            "rsi_w,ohlcv_1w,0 < 60",
+            "rsi_d,ohlcv_1d,0 > 40",
+            "rsi_d,ohlcv_1d,0 < 60",
+            "rsi_h,ohlcv_1h,0 > 65",  # 1H 超买
+        ]
+
+        # --- 5m 触发条件 (OR) ---
+
+        # 做多触发
         long_trigger_group = SignalGroup(
             logic=LogicOp.OR,
             sub_groups=[
+                # 路径1: 动能已备，价格突破
                 SignalGroup(
                     logic=LogicOp.AND,
                     comparisons=[
@@ -102,6 +95,7 @@ class ReversalStrategy(StrategyProtocol):
                         "close,ohlcv_5m,0 x> ema_m,ohlcv_5m,0",
                     ],
                 ),
+                # 路径2: 价格已备，动能起爆
                 SignalGroup(
                     logic=LogicOp.AND,
                     comparisons=[
@@ -112,25 +106,11 @@ class ReversalStrategy(StrategyProtocol):
             ],
         )
 
-        # --- 做空逻辑 (顶背离反转: 抓多头回调/见顶) ---
-        short_filter = [
-            # 1. [周线] 极度强势背景
-            "cci_w,ohlcv_1w,0 > 80",
-            "close,ohlcv_1w,0 > ema_w,ohlcv_1w,0",
-            # 2. [日线] 强势中的顶背离
-            "close,ohlcv_1d,0 > ema_d,ohlcv_1d,0",
-            "cci-divergence_0_top,ohlcv_1d,0 > 0.5",
-            # 3. [1小时] 动能转折 (绿柱)
-            "macd_h_hist,ohlcv_1h,0 < 0",
-            # 4. [空间约束] 夹逼区间: 1d < Close < 1h
-            "close,ohlcv_5m,0 < ema_h,ohlcv_1h,0",
-            "close,ohlcv_5m,0 > ema_d,ohlcv_1d,0",
-        ]
-
-        # 5m 做空触发 (OR)
+        # 做空触发
         short_trigger_group = SignalGroup(
             logic=LogicOp.OR,
             sub_groups=[
+                # 路径1: 动能已弱，价格跌破
                 SignalGroup(
                     logic=LogicOp.AND,
                     comparisons=[
@@ -138,6 +118,7 @@ class ReversalStrategy(StrategyProtocol):
                         "close,ohlcv_5m,0 x< ema_m,ohlcv_5m,0",
                     ],
                 ),
+                # 路径2: 价格已破，动能翻绿
                 SignalGroup(
                     logic=LogicOp.AND,
                     comparisons=[
@@ -198,16 +179,17 @@ class ReversalStrategy(StrategyProtocol):
         short_sig = last_row["entry_short"][0]
 
         price = data.source["ohlcv_5m"].select(pl.col("close")).tail(1).item()
+        metadata = {"price": price}
 
         if entry_sig > 0.5:
             return StrategySignal(
                 strategy_name=self.name,
                 symbol=ctx.symbol,
                 direction="long",
-                trigger="Reversal 底背离反转",
-                summary=f"{ctx.symbol} 触发极值底背离",
-                detail_lines=["价格: {price}", "背离类型: CCI底背离(日)"],
-                metadata={"price": price},
+                trigger="Oscillation 超卖反弹",
+                summary=f"{ctx.symbol} 震荡区间超卖反弹",
+                detail_lines=[f"价格: {price}", "条件: 周日RSI中枢 + 1H超卖 + 5m企稳"],
+                metadata=metadata,
             )
 
         if short_sig > 0.5:
@@ -215,10 +197,10 @@ class ReversalStrategy(StrategyProtocol):
                 strategy_name=self.name,
                 symbol=ctx.symbol,
                 direction="short",
-                trigger="Reversal 顶背离反转",
-                summary=f"{ctx.symbol} 触发极值顶背离",
-                detail_lines=["价格: {price}", "背离类型: CCI顶背离(日)"],
-                metadata={"price": price},
+                trigger="Oscillation 超买回落",
+                summary=f"{ctx.symbol} 震荡区间超买回落",
+                detail_lines=[f"价格: {price}", "条件: 周日RSI中枢 + 1H超买 + 5m见顶"],
+                metadata=metadata,
             )
 
         return None

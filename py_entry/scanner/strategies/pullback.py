@@ -21,18 +21,18 @@ import polars as pl
 
 
 @StrategyRegistry.register
-class ReversalStrategy(StrategyProtocol):
+class PullbackStrategy(StrategyProtocol):
     """
-    极值背驰策略 (Reversal - Rust 引擎版)
+    顺势回调策略 (Pullback / MeanReversion - Rust 引擎版)
 
-    逻辑 (完全匹配 manual_trading.md 1.3):
-    - 周线: 强势多头/空头背景 (CCI > 80 / < -80)
-    - 日线: 极值背离 (CCI-Divergence, recency=5)
-    - 1小时: 动能反转 (MACD 红转绿 / 绿转红)
-    - 5分钟: 共振杀跌/反弹 (MACD 触发 + 破小均线 + 破中均线 + 受阻大均线)
+    逻辑 (匹配 manual_trading.md 1.5):
+    - 周线: 强趋势 (MACD同向 + 快线过零 + 价格在EMA同侧)
+    - 日线: 次级折返 (MACD反向 + 但快线仍保持在零轴原侧 - 即弱反弹/回调)
+    - 1小时: 折返结束 (MACD重回同向)
+    - 5分钟: 刚刚触发 (MACD同向 + 刚刚穿越EMA)
     """
 
-    name: Final[str] = "reversal"
+    name: Final[str] = "pullback"
 
     def scan(self, ctx: ScanContext) -> StrategySignal | None:
         # 0. 检查数据
@@ -42,19 +42,19 @@ class ReversalStrategy(StrategyProtocol):
         # 1. 准备参数
         indicators = {
             "ohlcv_1w": {
-                # 周线: 仅需 CCI 判断背景 + EMA 趋势过滤
-                "cci_w": {"period": Param.create(14)},
+                "macd_w": {
+                    "fast_period": Param.create(12),
+                    "slow_period": Param.create(26),
+                    "signal_period": Param.create(9),
+                },
                 "ema_w": {"period": Param.create(20)},
             },
             "ohlcv_1d": {
-                # 日线: 核心是 CCI 背离 (API重构: 一次性返回 top/bottom, 废弃 mode)
-                "cci-divergence_0": {
-                    "period": Param.create(14),
-                    "window": Param.create(20),
-                    "gap": Param.create(3),
-                    "recency": Param.create(5),
+                "macd_d": {
+                    "fast_period": Param.create(12),
+                    "slow_period": Param.create(26),
+                    "signal_period": Param.create(9),
                 },
-                "ema_d": {"period": Param.create(20)},
             },
             "ohlcv_1h": {
                 "macd_h": {
@@ -62,7 +62,6 @@ class ReversalStrategy(StrategyProtocol):
                     "slow_period": Param.create(26),
                     "signal_period": Param.create(9),
                 },
-                "ema_h": {"period": Param.create(20)},
             },
             "ohlcv_5m": {
                 "macd_m": {
@@ -75,26 +74,44 @@ class ReversalStrategy(StrategyProtocol):
         }
 
         # 2. 信号逻辑 (Rust 表达式)
+        # 5m 触发公式: (MACD同向 AND close x> EMA) OR (close > EMA AND MACD x> 0)
 
-        # --- 做多逻辑 (底背离反转: 抓空头回调/见底) ---
-        long_filter = [
-            # 1. [周线] 极度弱势背景
-            "cci_w,ohlcv_1w,0 < -80",
-            "close,ohlcv_1w,0 < ema_w,ohlcv_1w,0",
-            # 2. [日线] 弱势中的底背离
-            "close,ohlcv_1d,0 < ema_d,ohlcv_1d,0",
-            "cci-divergence_0_bottom,ohlcv_1d,0 > 0.5",
-            # 3. [1小时] 动能转折 (红柱)
+        # --- 做多逻辑 (周线强多 -> 日线弱回调 -> 1H回多 -> 5m启动) ---
+        entry_comparisons = [
+            # 1. [周线] 强多头
+            "macd_w_hist,ohlcv_1w,0 > 0",  # 红柱
+            "macd_w_macd,ohlcv_1w,0 > 0",  # 快线零上 (确保是多头趋势而非空头反弹)
+            "close,ohlcv_1w,0 > ema_w,ohlcv_1w,0",  # 价格在均线上
+            # 2. [日线] 次级回调 (红柱变蓝柱 / 或者是蓝柱)
+            # 关键: 是回调而非反转 -> 快线必须还在零上!
+            "macd_d_hist,ohlcv_1d,0 < 0",  # 蓝柱 (回调中)
+            "macd_d_macd,ohlcv_1d,0 > 0",  # 但快线 > 0 (结构未坏)
+            # 3. [1小时] 回调结束 (重回红柱)
             "macd_h_hist,ohlcv_1h,0 > 0",
-            # 4. [空间约束] 黄金窗口: 1h < Close < 1d
-            "close,ohlcv_5m,0 > ema_h,ohlcv_1h,0",
-            "close,ohlcv_5m,0 < ema_d,ohlcv_1d,0",
+            # 4. [5分钟] 刚刚触发 (OR逻辑)
+            # 这里通过 SignalTemplate 将 Trigger 部分作为 sub_group 嵌入
+            # 由于外层已经是 AND，我们在外层只写 1~3 的 AND
+            # 第 4 部分由 long_trigger_group 处理
+        ]
+
+        # --- 做空逻辑 (周线强空 -> 日线弱反弹 -> 1H回空 -> 5m启动) ---
+        exit_comparisons = [
+            # 1. [周线] 强空头
+            "macd_w_hist,ohlcv_1w,0 < 0",  # 蓝柱
+            "macd_w_macd,ohlcv_1w,0 < 0",  # 快线零下
+            "close,ohlcv_1w,0 < ema_w,ohlcv_1w,0",
+            # 2. [日线] 次级反弹
+            "macd_d_hist,ohlcv_1d,0 > 0",  # 红柱 (反弹中)
+            "macd_d_macd,ohlcv_1d,0 < 0",  # 但快线 < 0 (结构未坏)
+            # 3. [1小时] 反弹结束
+            "macd_h_hist,ohlcv_1h,0 < 0",
         ]
 
         # 5m 做多触发 (OR)
         long_trigger_group = SignalGroup(
             logic=LogicOp.OR,
             sub_groups=[
+                # 路径1: 动能已备，价格突破
                 SignalGroup(
                     logic=LogicOp.AND,
                     comparisons=[
@@ -102,6 +119,7 @@ class ReversalStrategy(StrategyProtocol):
                         "close,ohlcv_5m,0 x> ema_m,ohlcv_5m,0",
                     ],
                 ),
+                # 路径2: 价格已备，动能起爆
                 SignalGroup(
                     logic=LogicOp.AND,
                     comparisons=[
@@ -112,25 +130,11 @@ class ReversalStrategy(StrategyProtocol):
             ],
         )
 
-        # --- 做空逻辑 (顶背离反转: 抓多头回调/见顶) ---
-        short_filter = [
-            # 1. [周线] 极度强势背景
-            "cci_w,ohlcv_1w,0 > 80",
-            "close,ohlcv_1w,0 > ema_w,ohlcv_1w,0",
-            # 2. [日线] 强势中的顶背离
-            "close,ohlcv_1d,0 > ema_d,ohlcv_1d,0",
-            "cci-divergence_0_top,ohlcv_1d,0 > 0.5",
-            # 3. [1小时] 动能转折 (绿柱)
-            "macd_h_hist,ohlcv_1h,0 < 0",
-            # 4. [空间约束] 夹逼区间: 1d < Close < 1h
-            "close,ohlcv_5m,0 < ema_h,ohlcv_1h,0",
-            "close,ohlcv_5m,0 > ema_d,ohlcv_1d,0",
-        ]
-
         # 5m 做空触发 (OR)
         short_trigger_group = SignalGroup(
             logic=LogicOp.OR,
             sub_groups=[
+                # 路径1: 动能已弱，价格跌破
                 SignalGroup(
                     logic=LogicOp.AND,
                     comparisons=[
@@ -138,6 +142,7 @@ class ReversalStrategy(StrategyProtocol):
                         "close,ohlcv_5m,0 x< ema_m,ohlcv_5m,0",
                     ],
                 ),
+                # 路径2: 价格已破，动能翻绿
                 SignalGroup(
                     logic=LogicOp.AND,
                     comparisons=[
@@ -151,12 +156,12 @@ class ReversalStrategy(StrategyProtocol):
         template = SignalTemplate(
             entry_long=SignalGroup(
                 logic=LogicOp.AND,
-                comparisons=long_filter,
+                comparisons=entry_comparisons,
                 sub_groups=[long_trigger_group],
             ),
             entry_short=SignalGroup(
                 logic=LogicOp.AND,
-                comparisons=short_filter,
+                comparisons=exit_comparisons,
                 sub_groups=[short_trigger_group],
             ),
         )
@@ -198,16 +203,17 @@ class ReversalStrategy(StrategyProtocol):
         short_sig = last_row["entry_short"][0]
 
         price = data.source["ohlcv_5m"].select(pl.col("close")).tail(1).item()
+        metadata = {"price": price}
 
         if entry_sig > 0.5:
             return StrategySignal(
                 strategy_name=self.name,
                 symbol=ctx.symbol,
                 direction="long",
-                trigger="Reversal 底背离反转",
-                summary=f"{ctx.symbol} 触发极值底背离",
-                detail_lines=["价格: {price}", "背离类型: CCI底背离(日)"],
-                metadata={"price": price},
+                trigger="Pullback 顺势回调买入",
+                summary=f"{ctx.symbol} 强趋势回调结束",
+                detail_lines=[f"价格: {price}", "条件: 周强多/日回调/1H回多/5m启动"],
+                metadata=metadata,
             )
 
         if short_sig > 0.5:
@@ -215,10 +221,10 @@ class ReversalStrategy(StrategyProtocol):
                 strategy_name=self.name,
                 symbol=ctx.symbol,
                 direction="short",
-                trigger="Reversal 顶背离反转",
-                summary=f"{ctx.symbol} 触发极值顶背离",
-                detail_lines=["价格: {price}", "背离类型: CCI顶背离(日)"],
-                metadata={"price": price},
+                trigger="Pullback 顺势反弹做空",
+                summary=f"{ctx.symbol} 强趋势反弹结束",
+                detail_lines=[f"价格: {price}", "条件: 周强空/日反弹/1H回空/5m启动"],
+                metadata=metadata,
             )
 
         return None

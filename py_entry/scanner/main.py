@@ -267,7 +267,7 @@ def scan_forever(
         except Exception as e:
             # 捕捉天勤运维时间异常或其他网络波动
             msg = str(e)
-            if "日常运维时间" in msg or "ConnectionClosedError" in msg:
+            if "每日 19:00-19:30 为日常运维时间，请稍后再试" in msg:
                 logger.warning(f"天勤连接异常 (运维/网络波动): {msg}")
                 logger.warning("暂停运行 30 分钟后自动重试...")
                 import time

@@ -11,6 +11,7 @@ from py_entry.types import (
     BacktestParams,
     PerformanceParams,
 )
+from py_entry.scanner.config import ScanLevel
 from py_entry.data_generator import generate_data_dict, DirectDataConfig
 from py_entry.runner import Backtest
 
@@ -25,7 +26,7 @@ class StrategySignal(BaseModel):
     direction: Literal["long", "short", "none"]  # 方向
 
     # === 信号详情 ===
-    trigger: str  # 触发信号简述（如 "5m close x> EMA"）
+    trigger: str  # 触发信号简述（如 "15m close x> EMA"）
 
     # === 可展示信息 (给人看的) ===
     summary: str  # 一句话总结（如 "甲醇 做空 | 四周期共振"）
@@ -82,59 +83,78 @@ class StrategyCheckResult(TypedDict):
     # 可选字段
     trigger: NotRequired[str]
     details: NotRequired[list[str]]
-    extra_info: str  # 必须有，默认为空串
 
 
 class ScanContext:
     """扫描上下文 - 策略输入"""
 
-    def __init__(self, symbol: str, klines: dict[str, pd.DataFrame]):
+    def __init__(
+        self,
+        symbol: str,
+        klines: dict[str, pd.DataFrame],
+        level_to_tf: dict[ScanLevel, str],
+    ):
+        """
+        Args:
+            symbol: 品种名称
+            klines: 物理K线字典，key 为物理周期名 (如 "15m", "1h")
+            level_to_tf: 级别与物理周期映射 (如 {ScanLevel.TRIGGER: "15m", ScanLevel.WAVE: "1h"})
+        """
         self.symbol = symbol
-        self.klines = klines  # key: "5m", "1h", "D", "W" etc.
+        self.klines = klines
+        self.level_to_tf = level_to_tf
 
-    def get_klines(self, tf_name: str) -> pd.DataFrame | None:
-        return self.klines.get(tf_name)
+    def get_tf_name(self, level: ScanLevel) -> str | None:
+        """获取级别对应的物理周期名称"""
+        return self.level_to_tf.get(level)
 
-    def validate_klines_existence(self, required_timeframes: list[str]) -> None:
-        """检查必要周期数据是否存在且不为空，否则抛出 ValueError"""
+    def get_level_dk(self, level: ScanLevel) -> str:
+        """获取级别对应的数据容器键名 (如 'ohlcv_15m')"""
+        tf_name = self.get_tf_name(level)
+        if not tf_name:
+            raise ValueError(f"未定义的级别: {level}")
+        return f"ohlcv_{tf_name}"
+
+    def get_klines_by_level(self, level: ScanLevel) -> pd.DataFrame | None:
+        """直接通过级别获取 K 线数据"""
+        tf_name = self.get_tf_name(level)
+        return self.klines.get(tf_name) if tf_name else None
+
+    def validate_levels_existence(self, required_levels: list[ScanLevel]) -> None:
+        """检查必要级别数据是否存在且不为空"""
         missing = []
-        for tf in required_timeframes:
-            df = self.klines.get(tf)
+        for lv in required_levels:
+            df = self.get_klines_by_level(lv)
             if df is None or df.empty:
-                missing.append(tf)
+                missing.append(lv)
 
         if missing:
-            raise ValueError(f"缺少必要周期数据: {missing}")
+            raise ValueError(f"缺少必要级别数据: {missing}")
 
     def to_data_container(
-        self, base_tf: str = "ohlcv_15m", lookback: int | None = None
+        self, base_level: ScanLevel = ScanLevel.TRIGGER, lookback: int | None = None
     ) -> DataContainer:
         """
         将当前 K 线上下文转换为 BacktestEngine 所需的 DataContainer
 
         Args:
-            base_tf: 基准数据键名 (如 "ohlcv_15m")
-            lookback: 可选的回溯长度，仅取最近的 N 根 K 线以提升性能
-
-        Returns:
-            DataContainer 对象
+            base_level: 基准级别 (如 ScanLevel.TRIGGER)
+            lookback: 可选的回溯长度
         """
         source_dict = {}
+        base_tf = self.get_tf_name(base_level)
+        if not base_tf:
+            raise ValueError(f"基准级别 '{base_level}' 未定义")
+
+        base_dk = f"ohlcv_{base_tf}"
 
         for tf_name, pdf in self.klines.items():
-            # 统一键名格式: 5m -> ohlcv_5m (如果 key 已经是 ohlcv_ 开头则不动)
-            key = tf_name if tf_name.startswith("ohlcv_") else f"ohlcv_{tf_name}"
+            key = f"ohlcv_{tf_name}"
 
             # 数据切片 (优化性能)
             target_df = pdf if lookback is None else pdf.iloc[-lookback:]
 
-            # 转换为 Polars DataFrame
-            # 注意: 这里假设 pdf 已经包含了 time (int64 ms) 列
-            # 如果是 scanner 传进来的，通常是 pandas DataFrame
-            pl_df = pl.from_pandas(target_df)
-
             # 转换为 Polars DataFrame 并标准化时间列
-            # 统一路径：无论输入是 Datetime 还是 Int64，先转为 Int64 (物理纳秒值)，再整除 1M 转毫秒
             pl_df = (
                 pl.from_pandas(target_df)
                 .rename({"datetime": "time"})
@@ -143,19 +163,14 @@ class ScanContext:
                 )
             )
 
-            assert pl_df["time"].dtype == pl.Int64, (
-                f"时间列类型错误: 期望 Int64, 实际 {pl_df['time'].dtype}"
-            )
+            assert pl_df["time"].dtype == pl.Int64
 
             if not pl_df.is_empty():
                 first_ts = pl_df["time"][0]
                 # 语义化校验：将时间戳转为年份，检查是否在合理区间 (1990~2100)
-                # 这比检查 Int64 数值本身更直观且健壮
                 sample_year = pl.select(
                     pl.lit(first_ts).cast(pl.Datetime("ms")).dt.year()
                 ).item()
-                # 动态语义化校验：检查年份是否在 (1970, 当前年份+10) 之间
-                # 这种动态上限彻底解决了固定年份带来的“千年虫”问题
                 current_year = datetime.now().year
                 assert 1970 <= sample_year <= current_year + 10, (
                     f"时间戳异常: 解析年份 {sample_year} 超出合理范围 "
@@ -164,18 +179,8 @@ class ScanContext:
 
             source_dict[key] = pl_df
 
-        # 验证基准数据是否存在
-        if base_tf not in source_dict:
-            # 尝试找一个默认的
-            if source_dict:
-                base_tf = next(iter(source_dict.keys()))
-            else:
-                raise ValueError("ScanContext 为空，无法转换")
-
         # 构造 DirectDataConfig
-        config = DirectDataConfig(data=source_dict, base_data_key=base_tf)
-
-        # 委托给标准生成器处理 (它会处理 time mapping, skip mask 等)
+        config = DirectDataConfig(data=source_dict, base_data_key=base_dk)
         return generate_data_dict(config)
 
 
@@ -196,7 +201,7 @@ def run_scan_backtest(
     ctx: ScanContext,
     indicators: dict,
     signal_template: SignalTemplate,
-    base_tf: str = "ohlcv_5m",
+    base_level: ScanLevel = ScanLevel.TRIGGER,
 ) -> tuple[dict[str, float], float, int] | None:
     """
     通用回测执行器 helper。
@@ -209,7 +214,7 @@ def run_scan_backtest(
         ctx: 扫描上下文
         indicators: 指标配置
         signal_template: 信号模板
-        base_tf: 基准周期 key (默认 ohlcv_5m)
+        base_level: 基准级别 key (默认 trigger_level)
 
     Returns:
         (signal_dict, close_price, timestamp) | None
@@ -218,7 +223,8 @@ def run_scan_backtest(
         timestamp: K 线时间戳 (毫秒)
     """
     # 1. 转换数据
-    data = ctx.to_data_container(base_tf=base_tf)
+    data = ctx.to_data_container(base_level=base_level)
+    base_dk = ctx.get_level_dk(base_level)
 
     # 2. 准备回测配置
     settings = SettingContainer(
@@ -226,9 +232,7 @@ def run_scan_backtest(
         return_only_final=False,
     )
     bt = Backtest(
-        data_source=DirectDataConfig(
-            data=data.source, base_data_key=data.base_data_key
-        ),
+        data_source=DirectDataConfig(data=data.source, base_data_key=base_dk),
         indicators=indicators,
         signal_template=signal_template,
         engine_settings=settings,
@@ -254,7 +258,7 @@ def run_scan_backtest(
     signal_dict = {k: v[0] for k, v in last_row.items()}
 
     # 5. 提取对应价格和时间
-    last_candle = data.source[base_tf].select(["close", "time"]).tail(2).head(1)
+    last_candle = data.source[base_dk].select(["close", "time"]).tail(2).head(1)
     price = last_candle.select(pl.col("close")).item()
     timestamp = last_candle.select(pl.col("time")).item()
 

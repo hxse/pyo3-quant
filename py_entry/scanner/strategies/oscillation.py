@@ -1,14 +1,5 @@
 from typing import Final
-from py_entry.scanner.config import (
-    TF_5M,
-    TF_1H,
-    TF_1D,
-    TF_1W,
-    DK_5M,
-    DK_1H,
-    DK_1D,
-    DK_1W,
-)
+from py_entry.scanner.config import ScanLevel
 from py_entry.scanner.strategies.base import (
     StrategyProtocol,
     ScanContext,
@@ -28,169 +19,149 @@ from py_entry.types import (
 @StrategyRegistry.register
 class OscillationStrategy(StrategyProtocol):
     """
-    震荡回归策略 (Oscillation Reversion - Rust 引擎版)
+    宽幅震荡策略 (Oscillation - Rust 引擎版)
 
-    逻辑 (匹配 manual_trading.md 1.6):
-    - 周线: 中枢震荡 (40 < RSI < 60)
-    - 日线: 中枢震荡 (40 < RSI < 60)
-    - 1小时: 超卖/超买 (RSI < 35 / RSI > 65)
-    - 5分钟: 企稳/见顶 (MACD红柱+站上EMA / MACD绿柱+跌破EMA)
+    逻辑 (角色化级别版本):
+    - MacroLevel: 震荡背景 (ADX弱 < 25)
+    - TrendLevel: 震荡背景 (MACD走平 + 价格在EMA附近)
+    - WaveLevel: 边界确认 (CCI由超买/超卖区域回弹)
+    - TriggerLevel: 择机切入 (MACD零轴附近死叉/金叉)
     """
 
     name: Final[str] = "oscillation"
 
     def scan(self, ctx: ScanContext) -> StrategySignal | None:
         # 0. 检查数据
-        required_tfs = [TF_5M, TF_1H, TF_1D, TF_1W]
-        ctx.validate_klines_existence(required_tfs)
+        required_levels = [
+            ScanLevel.TRIGGER,
+            ScanLevel.WAVE,
+            ScanLevel.TREND,
+            ScanLevel.MACRO,
+        ]
+        ctx.validate_levels_existence(required_levels)
+
+        # 获取数据键名
+        dk_macro = ctx.get_level_dk(ScanLevel.MACRO)
+        dk_trend = ctx.get_level_dk(ScanLevel.TREND)
+        dk_wave = ctx.get_level_dk(ScanLevel.WAVE)
+        dk_trigger = ctx.get_level_dk(ScanLevel.TRIGGER)
 
         # 1. 准备参数
         indicators = {
-            DK_1W: {
-                "rsi_w": {"period": Param.create(14)},
+            dk_macro: {
+                "adx_w": {"period": Param.create(14)},
             },
-            DK_1D: {
-                "rsi_d": {"period": Param.create(14)},
+            dk_trend: {
+                "macd_d": {
+                    "fast_period": Param.create(12),
+                    "slow_period": Param.create(26),
+                    "signal_period": Param.create(9),
+                },
+                "ema_d": {"period": Param.create(20)},
             },
-            DK_1H: {
-                "rsi_h": {"period": Param.create(14)},
+            dk_wave: {
+                "cci_h": {"period": Param.create(14)},
             },
-            DK_5M: {
+            dk_trigger: {
                 "macd_m": {
                     "fast_period": Param.create(12),
                     "slow_period": Param.create(26),
                     "signal_period": Param.create(9),
                 },
-                "ema_m": {"period": Param.create(20)},
             },
         }
 
-        # 2. 信号逻辑 (Rust 表达式)
-        # 核心定义: 刚刚触发 = (当前满足组合) AND (上一刻不同时满足)
-        # 等价于: (MACD红 且 价格上穿EMA) OR (价格在EMA上 且 MACD翻红)
-
-        # --- 共通的大周期过滤 ---
+        # 2. 信号逻辑
+        # --- 震荡做多 (下轨反弹) ---
         long_filter = [
-            f"rsi_w,{DK_1W},0 > 40",
-            f"rsi_w,{DK_1W},0 < 60",  # 周线中枢
-            f"rsi_d,{DK_1D},0 > 40",
-            f"rsi_d,{DK_1D},0 < 60",  # 日线中枢
-            f"rsi_h,{DK_1H},0 < 35",  # 1H 超卖
+            # Macro: 趋势不强
+            f"adx_w_adx,{dk_macro},0 < 30",
+            # Trend: 动能走平
+            f"macd_d_macd,{dk_trend},0 < 0.5",
+            f"macd_d_macd,{dk_trend},0 > -0.5",
+            # Wave: 超卖回弹
+            f"cci_h,{dk_wave},1 < -100",
+            f"cci_h,{dk_wave},0 > -100",
         ]
 
+        # --- 震荡做空 (上轨回落) ---
         short_filter = [
-            f"rsi_w,{DK_1W},0 > 40",
-            f"rsi_w,{DK_1W},0 < 60",
-            f"rsi_d,{DK_1D},0 > 40",
-            f"rsi_d,{DK_1D},0 < 60",
-            f"rsi_h,{DK_1H},0 > 65",  # 1H 超买
+            # Macro
+            f"adx_w_adx,{dk_macro},0 < 30",
+            # Trend
+            f"macd_d_macd,{dk_trend},0 < 0.5",
+            f"macd_d_macd,{dk_trend},0 > -0.5",
+            # Wave: 超买回落
+            f"cci_h,{dk_wave},1 > 100",
+            f"cci_h,{dk_wave},0 < 100",
         ]
-
-        # --- 5m 触发条件 (OR) ---
-
-        # 做多触发
-        long_trigger_group = SignalGroup(
-            logic=LogicOp.OR,
-            sub_groups=[
-                # 路径1: 动能已备，价格突破
-                SignalGroup(
-                    logic=LogicOp.AND,
-                    comparisons=[
-                        f"macd_m_hist,{DK_5M},0 > 0",
-                        f"close,{DK_5M},0 x> ema_m,{DK_5M},0",
-                    ],
-                ),
-                # 路径2: 价格已备，动能起爆
-                SignalGroup(
-                    logic=LogicOp.AND,
-                    comparisons=[
-                        f"close,{DK_5M},0 > ema_m,{DK_5M},0",
-                        f"macd_m_hist,{DK_5M},0 x> 0",
-                    ],
-                ),
-            ],
-        )
-
-        # 做空触发
-        short_trigger_group = SignalGroup(
-            logic=LogicOp.OR,
-            sub_groups=[
-                # 路径1: 动能已弱，价格跌破
-                SignalGroup(
-                    logic=LogicOp.AND,
-                    comparisons=[
-                        f"macd_m_hist,{DK_5M},0 < 0",
-                        f"close,{DK_5M},0 x< ema_m,{DK_5M},0",
-                    ],
-                ),
-                # 路径2: 价格已破，动能翻绿
-                SignalGroup(
-                    logic=LogicOp.AND,
-                    comparisons=[
-                        f"close,{DK_5M},0 < ema_m,{DK_5M},0",
-                        f"macd_m_hist,{DK_5M},0 x< 0",
-                    ],
-                ),
-            ],
-        )
 
         template = SignalTemplate(
             entry_long=SignalGroup(
                 logic=LogicOp.AND,
                 comparisons=long_filter,
-                sub_groups=[long_trigger_group],
+                sub_groups=[
+                    SignalGroup(
+                        logic=LogicOp.AND,
+                        comparisons=[f"macd_m_hist,{dk_trigger},0 x> 0"],
+                    )
+                ],
             ),
             entry_short=SignalGroup(
                 logic=LogicOp.AND,
                 comparisons=short_filter,
-                sub_groups=[short_trigger_group],
+                sub_groups=[
+                    SignalGroup(
+                        logic=LogicOp.AND,
+                        comparisons=[f"macd_m_hist,{dk_trigger},0 x< 0"],
+                    )
+                ],
             ),
         )
 
-        # 3. 运行回测 (使用 helper)
+        # 3. 运行回测
         result = run_scan_backtest(
             ctx=ctx,
             indicators=indicators,
             signal_template=template,
-            base_tf=DK_5M,
+            base_level=ScanLevel.TRIGGER,
         )
         if result is None:
             return None
 
         signal_dict, price, timestamp_ms = result
-        entry_sig = signal_dict.get("entry_long", 0.0)
+        long_sig = signal_dict.get("entry_long", 0.0)
         short_sig = signal_dict.get("entry_short", 0.0)
 
-        # 格式化时间
         ts_str = format_timestamp(timestamp_ms)
 
-        if entry_sig > 0.5:
+        if long_sig > 0.5:
             return StrategySignal(
                 strategy_name=self.name,
                 symbol=ctx.symbol,
                 direction="long",
-                trigger="震荡低点反弹",
+                trigger=f"{ctx.get_tf_name(ScanLevel.TRIGGER)} 震荡低位反弹",
                 summary=f"{ctx.symbol} oscillation 做多",
                 detail_lines=[
                     f"时间: {ts_str}",
                     f"价格: {price}",
-                    "RSI/Stoch超卖 + 5m金叉",
+                    "条件: Macro/Trend低波动 + Wave超卖回归 + Trigger金叉",
                 ],
                 metadata={"price": price, "time": timestamp_ms},
             )
-
-        if short_sig > 0.5:
+        elif short_sig > 0.5:
             return StrategySignal(
                 strategy_name=self.name,
                 symbol=ctx.symbol,
                 direction="short",
-                trigger="震荡高点回落",
+                trigger=f"{ctx.get_tf_name(ScanLevel.TRIGGER)} 震荡高位回落",
                 summary=f"{ctx.symbol} oscillation 做空",
                 detail_lines=[
                     f"时间: {ts_str}",
                     f"价格: {price}",
-                    "RSI/Stoch超买 + 5m死叉",
+                    "条件: Macro/Trend低波动 + Wave超买回归 + Trigger死叉",
                 ],
                 metadata={"price": price, "time": timestamp_ms},
             )
+
         return None

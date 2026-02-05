@@ -1,14 +1,5 @@
 from typing import Final
-from py_entry.scanner.config import (
-    TF_5M,
-    TF_1H,
-    TF_1D,
-    TF_1W,
-    DK_5M,
-    DK_1H,
-    DK_1D,
-    DK_1W,
-)
+from py_entry.scanner.config import ScanLevel
 from py_entry.scanner.strategies.base import (
     StrategyProtocol,
     ScanContext,
@@ -30,31 +21,42 @@ class TrendStrategy(StrategyProtocol):
     """
     强趋势共振策略 (Trend - Rust 引擎版)
 
-    逻辑 (完全匹配 manual_trading.md 1.2):
-    - 周线: CCI > 80 AND Close > EMA
-    - 日线: CCI > 30 AND Close > EMA
-    - 1小时: MACD红柱 AND Close > EMA
-    - 5分钟: (MACD红柱 AND close x> EMA) OR (close > EMA AND MACD红柱上穿0)
+    逻辑 (角色化级别版本):
+    - MacroLevel: CCI > 80 AND Close > EMA
+    - TrendLevel: CCI > 30 AND Close > EMA
+    - WaveLevel: MACD红柱 AND Close > EMA
+    - TriggerLevel: (MACD红柱 AND close x> EMA) OR (close > EMA AND MACD红柱上穿0)
     """
 
     name: Final[str] = "trend"
 
     def scan(self, ctx: ScanContext) -> StrategySignal | None:
         # 0. 检查数据
-        required_tfs = [TF_5M, TF_1H, TF_1D, TF_1W]
-        ctx.validate_klines_existence(required_tfs)
+        required_levels = [
+            ScanLevel.TRIGGER,
+            ScanLevel.WAVE,
+            ScanLevel.TREND,
+            ScanLevel.MACRO,
+        ]
+        ctx.validate_levels_existence(required_levels)
+
+        # 获取数据键名
+        dk_macro = ctx.get_level_dk(ScanLevel.MACRO)
+        dk_trend = ctx.get_level_dk(ScanLevel.TREND)
+        dk_wave = ctx.get_level_dk(ScanLevel.WAVE)
+        dk_trigger = ctx.get_level_dk(ScanLevel.TRIGGER)
 
         # 1. 准备参数
         indicators = {
-            DK_1W: {
+            dk_macro: {
                 "cci_w": {"period": Param.create(14)},
                 "ema_w": {"period": Param.create(20)},
             },
-            DK_1D: {
+            dk_trend: {
                 "cci_d": {"period": Param.create(14)},
                 "ema_d": {"period": Param.create(20)},
             },
-            DK_1H: {
+            dk_wave: {
                 "macd_h": {
                     "fast_period": Param.create(12),
                     "slow_period": Param.create(26),
@@ -62,7 +64,7 @@ class TrendStrategy(StrategyProtocol):
                 },
                 "ema_h": {"period": Param.create(20)},
             },
-            DK_5M: {
+            dk_trigger: {
                 "macd_m": {
                     "fast_period": Param.create(12),
                     "slow_period": Param.create(26),
@@ -73,34 +75,34 @@ class TrendStrategy(StrategyProtocol):
         }
 
         # 2. 信号逻辑
-        # 文档结构: 大周期过滤 (AND) + 5m触发 (OR: 穿越 vs 开盘)
+        # 文档结构: 大周期过滤 (AND) + 15m触发 (OR: 穿越 vs 开盘)
 
         # --- 共通的大周期过滤条件 ---
         long_filter = [
-            # 周线
-            f"cci_w,{DK_1W},0 > 80",
-            f"close,{DK_1W},0 > ema_w,{DK_1W},0",
-            # 日线
-            f"cci_d,{DK_1D},0 > 30",
-            f"close,{DK_1D},0 > ema_d,{DK_1D},0",
-            # 1小时
-            f"macd_h_hist,{DK_1H},0 > 0",
-            f"close,{DK_1H},0 > ema_h,{DK_1H},0",
+            # Macro
+            f"cci_w,{dk_macro},0 > 80",
+            f"close,{dk_macro},0 > ema_w,{dk_macro},0",
+            # Trend
+            f"cci_d,{dk_trend},0 > 30",
+            f"close,{dk_trend},0 > ema_d,{dk_trend},0",
+            # Wave
+            f"macd_h_hist,{dk_wave},0 > 0",
+            f"close,{dk_wave},0 > ema_h,{dk_wave},0",
         ]
 
         short_filter = [
-            # 周线 (做空对称)
-            f"cci_w,{DK_1W},0 < -80",
-            f"close,{DK_1W},0 < ema_w,{DK_1W},0",
-            # 日线
-            f"cci_d,{DK_1D},0 < -30",
-            f"close,{DK_1D},0 < ema_d,{DK_1D},0",
-            # 1小时
-            f"macd_h_hist,{DK_1H},0 < 0",
-            f"close,{DK_1H},0 < ema_h,{DK_1H},0",
+            # Macro (做空对称)
+            f"cci_w,{dk_macro},0 < -80",
+            f"close,{dk_macro},0 < ema_w,{dk_macro},0",
+            # Trend
+            f"cci_d,{dk_trend},0 < -30",
+            f"close,{dk_trend},0 < ema_d,{dk_trend},0",
+            # Wave
+            f"macd_h_hist,{dk_wave},0 < 0",
+            f"close,{dk_wave},0 < ema_h,{dk_wave},0",
         ]
 
-        # --- 5m 触发条件 (OR) ---
+        # --- Trigger 触发条件 (OR) ---
         # 做多触发: (MACD红柱 AND 上穿EMA) OR (站上EMA AND MACD金叉/转红)
         long_trigger_group = SignalGroup(
             logic=LogicOp.OR,
@@ -108,15 +110,15 @@ class TrendStrategy(StrategyProtocol):
                 SignalGroup(
                     logic=LogicOp.AND,
                     comparisons=[
-                        f"macd_m_hist,{DK_5M},0 > 0",
-                        f"close,{DK_5M},0 x> ema_m,{DK_5M},0",
+                        f"macd_m_hist,{dk_trigger},0 > 0",
+                        f"close,{dk_trigger},0 x> ema_m,{dk_trigger},0",
                     ],
                 ),
                 SignalGroup(
                     logic=LogicOp.AND,
                     comparisons=[
-                        f"close,{DK_5M},0 > ema_m,{DK_5M},0",
-                        f"macd_m_hist,{DK_5M},0 x> 0",
+                        f"close,{dk_trigger},0 > ema_m,{dk_trigger},0",
+                        f"macd_m_hist,{dk_trigger},0 x> 0",
                     ],
                 ),
             ],
@@ -129,15 +131,15 @@ class TrendStrategy(StrategyProtocol):
                 SignalGroup(
                     logic=LogicOp.AND,
                     comparisons=[
-                        f"macd_m_hist,{DK_5M},0 < 0",
-                        f"close,{DK_5M},0 x< ema_m,{DK_5M},0",
+                        f"macd_m_hist,{dk_trigger},0 < 0",
+                        f"close,{dk_trigger},0 x< ema_m,{dk_trigger},0",
                     ],
                 ),
                 SignalGroup(
                     logic=LogicOp.AND,
                     comparisons=[
-                        f"close,{DK_5M},0 < ema_m,{DK_5M},0",
-                        f"macd_m_hist,{DK_5M},0 x< 0",
+                        f"close,{dk_trigger},0 < ema_m,{dk_trigger},0",
+                        f"macd_m_hist,{dk_trigger},0 x< 0",
                     ],
                 ),
             ],
@@ -161,7 +163,7 @@ class TrendStrategy(StrategyProtocol):
             ctx=ctx,
             indicators=indicators,
             signal_template=template,
-            base_tf=DK_5M,
+            base_level=ScanLevel.TRIGGER,
         )
         if result is None:
             return None
@@ -178,12 +180,12 @@ class TrendStrategy(StrategyProtocol):
                 strategy_name=self.name,
                 symbol=ctx.symbol,
                 direction="long",
-                trigger="Trend 突破进场",
+                trigger=f"{ctx.get_tf_name(ScanLevel.TRIGGER)} 突破进场",
                 summary=f"{ctx.symbol} trend 做多",
                 detail_lines=[
                     f"时间: {ts_str}",
                     f"价格: {price}",
-                    "条件: 周/日CCI强 + 1H红柱 + 5m红柱/突破EMA共振",
+                    "条件: Macro/Trend CCI强 + Wave红柱 + Trigger红柱/突破EMA共振",
                 ],
                 metadata={"price": price, "time": timestamp_ms},
             )
@@ -194,12 +196,12 @@ class TrendStrategy(StrategyProtocol):
                 strategy_name=self.name,
                 symbol=ctx.symbol,
                 direction="short",
-                trigger="Trend 向下突破",
+                trigger=f"{ctx.get_tf_name(ScanLevel.TRIGGER)} 向下突破",
                 summary=f"{ctx.symbol} trend 做空",
                 detail_lines=[
                     f"时间: {ts_str}",
                     f"价格: {price}",
-                    "条件: 周/日CCI弱 + 1H绿柱 + 5m绿柱/跌破EMA共振",
+                    "条件: Macro/Trend CCI弱 + Wave绿柱 + Trigger绿柱/跌破EMA共振",
                 ],
                 metadata={"price": price, "time": timestamp_ms},
             )

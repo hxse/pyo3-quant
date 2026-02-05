@@ -7,24 +7,25 @@ from typing import Any
 from pydantic import BaseModel, model_validator
 
 
+from enum import StrEnum
+
+
+class ScanLevel(StrEnum):
+    """扫描逻辑级别枚举"""
+
+    TRIGGER = "trigger_level"
+    WAVE = "wave_level"
+    TREND = "trend_level"
+    MACRO = "macro_level"
+
+
 class TimeframeConfig(BaseModel):
     """单个周期配置"""
 
-    name: str  # 周期名称，如 "5m", "1h"
+    level: ScanLevel  # 逻辑级别
+    name: str  # 物理周期名称，如 "15m", "1h"
     seconds: int  # 秒数
     use_index: bool = False  # 是否使用指数合约 (KQ.i@) 获取数据
-
-
-# --- 周期与数据键名常量 ---
-TF_5M = "5m"
-TF_1H = "1h"
-TF_1D = "1d"
-TF_1W = "1w"
-
-DK_5M = f"ohlcv_{TF_5M}"
-DK_1H = f"ohlcv_{TF_1H}"
-DK_1D = f"ohlcv_{TF_1D}"
-DK_1W = f"ohlcv_{TF_1W}"
 
 
 class ScannerConfig(BaseModel):
@@ -37,7 +38,8 @@ class ScannerConfig(BaseModel):
     # 节流配置
     # 是否启用节流模式（True: 仅窗口期活跃; False: 全天候活跃）
     enable_throttler: bool = True
-    # 窗口宽度（秒），即在 5分钟整点前后多少秒内为活跃期
+    # 窗口宽度（秒），即在整点前后多少秒内为活跃期
+    # 默认 30s 足够捕捉 15m 级别的更新
     throttle_window_seconds: int = 30
     # 非窗口期维持心跳的调用间隔（秒）
     heartbeat_interval_seconds: int = 10
@@ -90,14 +92,22 @@ class ScannerConfig(BaseModel):
                 raise RuntimeError(f"读取配置文件 {config_path} 失败: {e}") from e
         return data
 
-    # 方案一：经典四周期 (5m, 1h, 1d, 1w) - 从周线开始，更可靠
-    # 大周期 (1h, 1d, 1w) 使用指数合约 (use_index=True) 以获取平滑趋势
-    # 小周期 (5m) 使用主连合约 (use_index=False) 以获取真实价格突破
+    # 默认四层级别共振体系 (15m, 1h, 1d, 1w)
+    # 大级别 (wave, trend, macro) 使用指数合约 (use_index=True) 以获取平滑趋势
+    # 触点级别 (trigger) 使用主连合约 (use_index=False) 以获取真实价格突破
     timeframes: list[TimeframeConfig] = [
-        TimeframeConfig(name=TF_5M, seconds=5 * 60, use_index=False),
-        TimeframeConfig(name=TF_1H, seconds=60 * 60, use_index=True),
-        TimeframeConfig(name=TF_1D, seconds=24 * 3600, use_index=True),
-        TimeframeConfig(name=TF_1W, seconds=7 * 24 * 3600, use_index=True),
+        TimeframeConfig(
+            level=ScanLevel.TRIGGER, name="15m", seconds=15 * 60, use_index=False
+        ),
+        TimeframeConfig(
+            level=ScanLevel.WAVE, name="1h", seconds=60 * 60, use_index=True
+        ),
+        TimeframeConfig(
+            level=ScanLevel.TREND, name="1d", seconds=24 * 3600, use_index=True
+        ),
+        TimeframeConfig(
+            level=ScanLevel.MACRO, name="1w", seconds=7 * 24 * 3600, use_index=True
+        ),
     ]
 
     # 需要扫描的期货品种（主力合约）

@@ -16,12 +16,11 @@ except ImportError as e:
     print(f"详细错误: {e}")
     exit(1)
 
-from .config import ScannerConfig
+from .config import ScannerConfig, ScanLevel
 from .data_source import DataSourceProtocol, TqDataSource, MockDataSource
 from .notifier import Notifier, format_heartbeat, format_signal_report
 import traceback
 from .throttler import TimeWindowThrottler, CycleTracker
-from .utils import get_base_timeframe_config
 from .strategies.base import StrategySignal, ScanContext
 from .strategies.registry import StrategyRegistry
 from .batcher import Batcher
@@ -36,14 +35,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("scanner")
-
-# === 技巧备注：关于如何彻底静默 TqSdk 的顽固日志 ===
-# 1. 软拦截：logging.getLogger("tqsdk").setLevel(logging.ERROR) 只能拦截其通过标准 logging 模块输出的内容。
-# 2. 硬拦截：天勤的统计报告（如 胜率、TQSIM 账户总结）往往绕过了 logging，直接通过 print 或 C 扩展写入 stdout/stderr。
-# 3. 终极方案：若需在 --once 模式下彻底消除退出时的统计噪音，建议在 finally 块中：
-#    with contextlib.redirect_stdout(open(os.devnull, "w")): data_source.close()
-# 4. 注意：在 --run (持续扫描) 模式下，这些噪音通常不会触发，因此目前保持代码简洁，不做物理拦截。
-# ===============================================
 
 
 def get_active_strategies(include_debug: bool = False) -> list:
@@ -68,27 +59,26 @@ def _scan_symbol(
     signals = []
     try:
         # P0: 获取真实交易合约 (Underlying)
-        # 即使是大周期扫描指数，最终交易的载体还是主力合约
         real_symbol = data_source.get_underlying_symbol(symbol)
 
         # 1. 准备数据上下文 (获取所有需要的周期)
-        # 目前策略主要用: 5m, 1h, 1d, 1w
-        # 这些应该在 ScannerConfig.timeframes 里配置了
-        # 我们遍历 config.timeframes 来获取数据
         klines_dict = {}
+        level_to_tf = {}
         for tf in config.timeframes:
+            # 建立级别映射
+            level_to_tf[tf.level] = tf.name
+
             # 动态切换数据源: 指数 vs 主连
             target_symbol = symbol
             if tf.use_index:
                 # 简单替换：把 KQ.m@ 替换为 KQ.i@
                 target_symbol = symbol.replace("KQ.m@", "KQ.i@")
 
-            # print(f"DEBUG: 获取 K线 {target_symbol} {tf.name}")
             df = data_source.get_klines(target_symbol, tf.seconds, config.kline_length)
             if df is not None and not df.empty:
                 klines_dict[tf.name] = df
 
-        ctx = ScanContext(symbol=symbol, klines=klines_dict)
+        ctx = ScanContext(symbol=symbol, klines=klines_dict, level_to_tf=level_to_tf)
 
         # 2. 运行所有策略
         for strategy in strategies_list:
@@ -100,6 +90,7 @@ def _scan_symbol(
                     signals.append(sig)
             except Exception as e:
                 logger.error(f"策略 {strategy.name} 扫描 {symbol} 出错: {e}")
+                traceback.print_exc()
 
     except (
         ConnectionError,
@@ -181,7 +172,14 @@ def scan_forever(
 
     # 1. 初始化：记录每个品种的最后 K 线时间戳
     last_times: dict[str, int] = {}
-    base_tf = get_base_timeframe_config(config.timeframes)
+
+    # 查找 trigger_level 配置
+    base_tf = next(
+        (tf for tf in config.timeframes if tf.level == ScanLevel.TRIGGER), None
+    )
+    if not base_tf:
+        logger.error(f"配置中缺少 {ScanLevel.TRIGGER}，无法确定主循环周期。")
+        exit(1)
 
     # 预热数据并记录初始时间戳
     print("正在初始化数据并记录时间戳...")
@@ -303,7 +301,7 @@ def main():
     # 初始化数据源
     if args.mock:
         print("模式: Mock (离线模拟)")
-        data_source = MockDataSource(symbols=config.symbols)
+        data_source = MockDataSource(config=config)
     else:
         print("模式: 实盘数据 (TqSdk)")
         if not config.tq_username or not config.tq_password:

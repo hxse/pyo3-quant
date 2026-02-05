@@ -4,6 +4,7 @@ import numpy as np
 
 if TYPE_CHECKING:
     from tqsdk import TqAuth
+    from .config import ScannerConfig
 
 from tqsdk import TqApi
 
@@ -103,10 +104,10 @@ class TqDataSource:
 class MockDataSource:
     """模拟数据源 - 用于离线测试"""
 
-    def __init__(self, symbols: list[str] | None = None, seed: int = 42):
+    def __init__(self, config: "ScannerConfig | None" = None, seed: int = 42):
         print(f"注意: 正在使用 MockDataSource (生成模拟数据, 固定种子={seed})")
-        # symbols 参数仅用于兼容，实际上 mock 生成逻辑内部可能用到
-        self.symbols = symbols if symbols else []
+        self.config = config
+        self.symbols = config.symbols if config and hasattr(config, "symbols") else []
         self.base_seed = seed
 
     def get_klines(
@@ -126,13 +127,23 @@ class MockDataSource:
         # 创建局部随机生成器，绝对不污染全局 np.random
         rng = np.random.default_rng(local_seed)
 
-        # 生成时间索引 (为了 mock 稳定，时间最好也是按照逻辑生成的，而不是 now)
-        # 这里为了简单，我们还是用 now，但对于测试复现，最好是固定的 end_time
-        # 如果需要严格复现，应该把 end_time 也固定下来
-        # 这里暂且保留 pd.Timestamp.now()，因为用户主要关心 K 线形态
+        # 识别这个周期对应的逻辑级别
+        from .config import ScanLevel
+
+        level = None
+        if self.config:
+            level = next(
+                (
+                    tf.level
+                    for tf in self.config.timeframes
+                    if tf.seconds == duration_seconds
+                ),
+                None,
+            )
+
+        # 生成时间索引
         end_time = pd.Timestamp.now().round("1s")
         freq = f"{duration_seconds}s"
-        # 生成 DatetimeIndex (默认 ns 精度)
         times = pd.date_range(end=end_time, periods=data_length, freq=freq)
 
         # 随机游走生成收盘价
@@ -150,46 +161,43 @@ class MockDataSource:
         is_bearish = any(s in symbol for s in bearish_symbols)
 
         if is_bullish:
-            if duration_seconds >= 86400:
-                # 日线/周线：制造长期大幅上涨，确保 CCI > 100
-                # 策略: 从一半位置开始，稳步拉升 30%
+            if level in (ScanLevel.MACRO, ScanLevel.TREND):
+                # 大级别：制造长期大幅上涨，确保 CCI > 100
                 half_len = data_length // 2
                 trend = np.linspace(0, 0.30, half_len)
                 price[-half_len:] = price[-half_len:] * (1 + trend)
 
-            elif duration_seconds == 3600:
-                # 1小时线：制造近期上涨，确保 MACD 为红柱 (快线 > 慢线)
-                # 策略: 最后 1/3 数据拉升 15%
+            elif level == ScanLevel.WAVE:
+                # 波段级别：制造近期上涨，确保 MACD 为红柱
                 part_len = data_length // 3
                 trend = np.linspace(0, 0.15, part_len)
                 price[-part_len:] = price[-part_len:] * (1 + trend)
 
-            elif duration_seconds == 300:
-                # 5分钟线：制造刚刚 上穿 EMA 的形态
-                # 策略：前段微涨保持均线多头，最后两根制造强力突破
+            elif level == ScanLevel.TRIGGER:
+                # 触点级别：制造刚刚上穿 EMA 的形态
                 # 先微涨 5% 垫高均线
                 price[:] = price * np.linspace(1.0, 1.05, data_length)
-                # 最后制造突破 (注意 Scanner 检查的是倒数第二根 -2)
+                # 最后制造突破
                 base_close = price[-4]
                 price[-3] = base_close * 0.995  # N-3: 回踩
                 price[-2] = base_close * 1.020  # N-2: 突破 (大阳线) -> 信号点
                 price[-1] = price[-2] * 1.001  # N-1: 保持
 
         elif is_bearish:
-            if duration_seconds >= 86400:
-                # 日线/周线：制造长期大幅下跌，确保 CCI < -100
+            if level in (ScanLevel.MACRO, ScanLevel.TREND):
+                # 大级别：制造长期大幅下跌，确保 CCI < -100
                 half_len = data_length // 2
                 trend = np.linspace(0, 0.30, half_len)
                 price[-half_len:] = price[-half_len:] * (1 - trend)
 
-            elif duration_seconds == 3600:
-                # 1小时线：制造近期下跌
+            elif level == ScanLevel.WAVE:
+                # 波段级别：制造近期下跌
                 part_len = data_length // 3
                 trend = np.linspace(0, 0.15, part_len)
                 price[-part_len:] = price[-part_len:] * (1 - trend)
 
-            elif duration_seconds == 300:
-                # 5分钟线：制造刚刚 下穿 EMA 的形态
+            elif level == ScanLevel.TRIGGER:
+                # 触点级别：制造刚刚下穿 EMA 的形态
                 price[:] = price * np.linspace(1.0, 0.95, data_length)
                 base_close = price[-4]
                 price[-3] = base_close * 1.005  # N-3: 反抽
@@ -206,8 +214,8 @@ class MockDataSource:
         # open 默认 shift(1)
         open_ = close.shift(1).fillna(start_price)
 
-        # 修正 5m 数据的 open/high/low 以匹配人工构造的 price
-        if (is_bullish or is_bearish) and duration_seconds == 300:
+        # 修正 Trigger 数据的 open/high/low 以匹配人工构造的 price
+        if (is_bullish or is_bearish) and level == ScanLevel.TRIGGER:
             pass  # 默认逻辑已经能生成合理 candles
 
         # 修正 high/low

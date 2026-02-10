@@ -23,7 +23,7 @@ impl OutputBuffers {
         self.exit_short_price[i] = state.action.exit_short_price.unwrap_or(f64::NAN);
         self.risk_in_bar_direction[i] = state.risk_state.in_bar_direction;
         self.first_entry_side[i] = state.action.first_entry_side;
-        self.frame_events[i] = state.frame_events;
+        self.frame_state[i] = state.frame_state as u8;
 
         // === 可选列（从 WriteConfig 判断是否需要写入） ===
 
@@ -124,7 +124,7 @@ pub struct OutputRow<'a> {
     pub exit_short_price: &'a mut f64,
     pub risk_in_bar_direction: &'a mut i8,
     pub first_entry_side: &'a mut i8,
-    pub frame_events: &'a mut u32,
+    pub frame_state: &'a mut u8,
     // 可选列
     pub sl_pct_long: Option<&'a mut f64>,
     pub sl_pct_short: Option<&'a mut f64>,
@@ -159,7 +159,7 @@ impl<'a> OutputRow<'a> {
         *self.exit_short_price = state.action.exit_short_price.unwrap_or(f64::NAN);
         *self.risk_in_bar_direction = state.risk_state.in_bar_direction;
         *self.first_entry_side = state.action.first_entry_side;
-        *self.frame_events = state.frame_events;
+        *self.frame_state = state.frame_state as u8;
     }
 
     /// 按组写入可选列数据
@@ -247,7 +247,7 @@ pub struct OutputBuffersIter<'a> {
     exit_short_price: std::slice::IterMut<'a, f64>,
     risk_in_bar_direction: std::slice::IterMut<'a, i8>,
     first_entry_side: std::slice::IterMut<'a, i8>,
-    frame_events: std::slice::IterMut<'a, u32>,
+    frame_state: std::slice::IterMut<'a, u8>,
     // 可选列迭代器
     sl_pct_long: Option<std::slice::IterMut<'a, f64>>,
     sl_pct_short: Option<std::slice::IterMut<'a, f64>>,
@@ -282,7 +282,7 @@ impl<'a> OutputBuffersIter<'a> {
             exit_short_price: buffers.exit_short_price[start..].iter_mut(),
             risk_in_bar_direction: buffers.risk_in_bar_direction[start..].iter_mut(),
             first_entry_side: buffers.first_entry_side[start..].iter_mut(),
-            frame_events: buffers.frame_events[start..].iter_mut(),
+            frame_state: buffers.frame_state[start..].iter_mut(),
             sl_pct_long: buffers
                 .sl_pct_price_long
                 .as_mut()
@@ -362,7 +362,7 @@ impl<'a> Iterator for OutputBuffersIter<'a> {
             exit_short_price: self.exit_short_price.next()?,
             risk_in_bar_direction: self.risk_in_bar_direction.next()?,
             first_entry_side: self.first_entry_side.next()?,
-            frame_events: self.frame_events.next()?,
+            frame_state: self.frame_state.next()?,
             sl_pct_long: self.sl_pct_long.as_mut().and_then(|i| i.next()),
             sl_pct_short: self.sl_pct_short.as_mut().and_then(|i| i.next()),
             tp_pct_long: self.tp_pct_long.as_mut().and_then(|i| i.next()),

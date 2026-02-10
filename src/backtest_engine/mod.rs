@@ -285,7 +285,7 @@ pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(indicators::py_calculate_indicators, m)?)?;
     m.add_function(wrap_pyfunction!(signal_generator::py_generate_signals, m)?)?;
     m.add_function(wrap_pyfunction!(backtester::py_run_backtest, m)?)?;
-    m.add_function(wrap_pyfunction!(backtester::py_bitmask_to_event_names, m)?)?;
+    m.add_function(wrap_pyfunction!(backtester::py_frame_state_name, m)?)?;
     m.add_function(wrap_pyfunction!(
         performance_analyzer::py_analyze_performance,
         m

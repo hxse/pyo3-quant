@@ -10,7 +10,7 @@ mod signal_preprocessor;
 pub mod state;
 
 use crate::backtest_engine::utils::get_ohlcv_dataframe;
-pub use state::frame_events::py_bitmask_to_event_names;
+pub use state::frame_state::py_frame_state_name;
 use {
     atr_calculator::calculate_atr_if_needed, data_preparer::PreparedData, main_loop::run_main_loop,
     pyo3_polars::PyDataFrame,

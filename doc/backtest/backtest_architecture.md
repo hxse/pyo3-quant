@@ -117,7 +117,9 @@ if can_entry_long() && prev_bar.entry_long:
 
 ### 2.4 单 Bar 状态枚举（阶段 3）
 
-基于**六个字段**的组合（四个价格 + `in_bar_direction` + `first_entry_side`）可推断出以下 15 种合法状态：
+回测状态采用 **"15 + 1"** 推断模式：
+1. 基于**六个字段**（四个价格 + `in_bar_direction` + `first_entry_side`）组合推断出 **15 种** 通用持仓状态。
+2. 引入 **1 种** 特殊状态 `GapBlocked`，用于标记因跳空保护而被拦截的进场信号。
 
 | # | entry_L | exit_L | entry_S | exit_S | in_bar | first_entry | 状态 |
 |:-:|:-------:|:------:|:-------:|:------:|:------:|:-----------:|------|
@@ -136,8 +138,10 @@ if can_entry_long() && prev_bar.entry_long:
 | 13| ✓ | ✗ | ✓ | ✓ | 0 | 1 | `reversal_S_to_L` |
 | 14| ✓ | ✓ | ✓ | ✓ | 1 | 1 | `reversal_to_L_risk` |
 | 15| ✓ | ✓ | ✓ | ✓ | -1 | -1 | `reversal_to_S_risk` |
+| 16| ✗ | ✗ | ✗ | ✗ | 0 | 0 | `gap_blocked` (跳空拦截) |
 
 > **状态说明**：
+> - `gap_blocked`: 特殊状态。当信号指示进场但因跳空保护被拦截时，实际上未持有仓位（no_position），但为了区分"无信号"和"信号被拦截"，标记为 `gap_blocked`。
 > - `first_entry_side`：标记进场方向。`0`=非进场 bar，`1`=多头首次进场，`-1`=空头首次进场
 > - `in_bar_direction`：标记离场模式。`0`=无/Next-Bar 离场，`1`=多头 In-Bar 离场，`-1`=空头 In-Bar 离场
 > - "秒杀" 状态：同 bar 内进场后立即被风控平仓（`first_entry_side` 和 `in_bar_direction` 同时非零）
@@ -358,6 +362,7 @@ def should_skip_current_bar():
 
 #### 风控状态列
 - `risk_in_bar_direction` (Int8): 风控触发方向（0=无, 1=多头In-Bar, -1=空头In-Bar）
+- `frame_state` (UInt8): 从价格组合推断的帧状态（见 2.4 节状态表）。**注意：此列仅用于外部调试和展示，并不参与内部因果逻辑推演，状态机完全由价格字段驱动。**
 
 > [!TIP]
 > **风控离场推断**：
@@ -392,20 +397,19 @@ src/backtest_engine/backtester/
 │   ├── mod.rs                    # 模块导出
 │   ├── output_struct.rs          # OutputBuffers 结构体定义（固定列与可选列）
 │   ├── output_init.rs            # 缓冲区初始化逻辑
-│   ├── output_convert.rs         # 转换为 DataFrame
+│   ├── output_convert.rs         # 转换为 DataFrame (含 Polars 转换)
 │   └── output_validate.rs        # 数组长度验证
 └── state/
     ├── mod.rs                    # 模块导出
     ├── backtest_state.rs         # BacktestState 核心状态机
     │                             # - 状态判断辅助函数 (has_long_position, can_entry_long 等)
-    │                             # - debug_inferred_state() 状态推断调试
+    ├── frame_state.rs            # FrameState 枚举定义及 infer 推断逻辑
     ├── position_calculator.rs    # 仓位计算（阶段 1-4）
     │                             # - calculate_position() 主入口
     │                             # - 执行顺序：价格重置 → 策略离场 → 策略进场 → Risk检查
     ├── capital_calculator.rs     # 资金结算（阶段 5）
     │                             # - calculate_capital() 主入口
     │                             # - 已实现/未实现盈亏计算
-    │                             # - 余额归零保护 (should_skip_current_bar)
     ├── capital_state.rs          # CapitalState 资金状态结构体
     ├── action.rs                 # Action 价格字段结构体
     ├── current_bar_data.rs       # CurrentBarData 当前K线数据结构体
@@ -417,15 +421,10 @@ src/backtest_engine/backtester/
         ├── risk_state.rs             # RiskState 结构体定义
         │                             # - 多空分离的风控价格字段
         │                             # - should_exit_in_bar_*/should_exit_next_bar_* 判断
-        │                             # - reset_*_state() 状态重置方法
         ├── risk_price_calc.rs        # 风控价格计算公式
-        │                             # - calc_sl_pct_price, calc_tp_atr_price 等
-        │                             # - Direction 枚举 (Long/Short)
         ├── trigger_price_utils.rs    # 触发价格工具函数
         ├── gap_check.rs              # 跳空保护检查
-        │                             # - init_entry_with_safety_check() 进场安全检查
         ├── tsl_psar.rs               # PSAR 算法实现
-        │                             # - init_tsl_psar(), update_tsl_psar()
         └── risk_check/               # 风控检查逻辑子目录
             ├── mod.rs                # check_risk_exit() 主入口
             ├── trigger_checker.rs    # 触发检测逻辑

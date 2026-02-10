@@ -19,6 +19,7 @@ polars = { version = "0.52", default-features = false, features = [
     "diff",
     "dtype-struct",
     "dtype-i8",
+    "dtype-u8",
 ] }
 pyo3 = { version = "0.26" }
 pyo3-polars = "0.25"

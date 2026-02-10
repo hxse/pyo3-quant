@@ -54,7 +54,7 @@ impl OutputBuffers {
                 ColumnName::FirstEntrySide.as_str(),
                 self.first_entry_side.len(),
             ),
-            (ColumnName::FrameEvents.as_str(), self.frame_events.len()),
+            (ColumnName::FrameState.as_str(), self.frame_state.len()),
         ];
 
         // 检查所有固定列的长度

@@ -57,7 +57,7 @@ pub enum ColumnName {
     FirstEntrySide,
 
     // 帧事件位掩码
-    FrameEvents,
+    FrameState,
 
     // 追踪指标状态
     HasLeadingNan,
@@ -117,7 +117,7 @@ impl ColumnName {
             ColumnName::FirstEntrySide => "first_entry_side",
 
             // 帧事件位掩码
-            ColumnName::FrameEvents => "frame_events",
+            ColumnName::FrameState => "frame_state",
 
             // 追踪指标状态
             ColumnName::HasLeadingNan => "has_leading_nan",

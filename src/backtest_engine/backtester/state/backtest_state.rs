@@ -1,6 +1,9 @@
 use super::super::data_preparer::PreparedData;
 use super::risk_trigger::risk_state::RiskState;
-use super::{action::Action, capital_state::CapitalState, current_bar_data::CurrentBarData};
+use super::{
+    action::Action, capital_state::CapitalState, current_bar_data::CurrentBarData,
+    frame_state::FrameState,
+};
 use crate::types::BacktestParams;
 
 /// 回测状态管理结构体
@@ -17,8 +20,10 @@ pub struct BacktestState<'a> {
     pub prev_bar: CurrentBarData,
     /// 帐户资金计算
     pub capital_state: CapitalState,
-    /// 当前帧的事件位掩码
-    pub frame_events: u32,
+    /// 当前帧的状态
+    pub frame_state: FrameState,
+    /// 是否被跳空拦截进场
+    pub gap_blocked: bool,
 }
 
 impl<'a> BacktestState<'a> {
@@ -39,7 +44,8 @@ impl<'a> BacktestState<'a> {
             current_bar: CurrentBarData::default(),
             prev_bar: CurrentBarData::default(),
             capital_state: CapitalState::new(params.initial_capital),
-            frame_events: 0,
+            frame_state: FrameState::NoPosition,
+            gap_blocked: false,
         }
     }
 
@@ -100,49 +106,16 @@ impl<'a> BacktestState<'a> {
         self.action.entry_short_price.is_some() && self.action.exit_short_price.is_some()
     }
 
-    /// Debug辅助：推断当前状态（英文，供调试）
-    /// 可在DataFrame转换时添加为独立的debug列
-    #[allow(dead_code)]
-    pub fn debug_inferred_state(&self) -> String {
-        let el = self.action.entry_long_price.is_some();
-        let xl = self.action.exit_long_price.is_some();
-        let es = self.action.entry_short_price.is_some();
-        let xs = self.action.exit_short_price.is_some();
-        let risk = self.risk_state.in_bar_direction;
-        let first = self.action.first_entry_side;
-
-        match (el, xl, es, xs, risk, first) {
-            // #1 无仓位
-            (false, false, false, false, 0, 0) => "no_position".to_string(),
-            // #2 持有多头 (延续)
-            (true, false, false, false, 0, 0) => "hold_long".to_string(),
-            // #3 持有多头 (进场)
-            (true, false, false, false, 0, 1) => "hold_long_first".to_string(),
-            // #4 持有空头 (延续)
-            (false, false, true, false, 0, 0) => "hold_short".to_string(),
-            // #5 持有空头 (进场)
-            (false, false, true, false, 0, -1) => "hold_short_first".to_string(),
-            // #6 多头离场 (信号)
-            (true, true, false, false, 0, 0) => "exit_long_signal".to_string(),
-            // #7 多头离场 (持仓后风险)
-            (true, true, false, false, 1, 0) => "exit_long_risk".to_string(),
-            // #8 多头离场 (秒杀风险)
-            (true, true, false, false, 1, 1) => "exit_long_risk_first".to_string(),
-            // #9 空头离场 (信号)
-            (false, false, true, true, 0, 0) => "exit_short_signal".to_string(),
-            // #10 空头离场 (持仓后风险)
-            (false, false, true, true, -1, 0) => "exit_short_risk".to_string(),
-            // #11 空头离场 (秒杀风险)
-            (false, false, true, true, -1, -1) => "exit_short_risk_first".to_string(),
-            // #12 反手 L->S
-            (true, true, true, false, 0, -1) => "reversal_L_to_S".to_string(),
-            // #13 反手 S->L
-            (true, false, true, true, 0, 1) => "reversal_S_to_L".to_string(),
-            // #14 反手风险 -> L
-            (true, true, true, true, 1, 1) => "reversal_to_L_risk".to_string(),
-            // #15 反手风险 -> S
-            (true, true, true, true, -1, -1) => "reversal_to_S_risk".to_string(),
-            _ => format!("invalid_state:({el},{xl},{es},{xs},risk:{risk},first:{first})"),
-        }
+    /// 根据当前所有字段推断 FrameState
+    pub fn infer_frame_state(&mut self) {
+        self.frame_state = FrameState::infer(
+            self.action.entry_long_price.is_some(),
+            self.action.exit_long_price.is_some(),
+            self.action.entry_short_price.is_some(),
+            self.action.exit_short_price.is_some(),
+            self.risk_state.in_bar_direction,
+            self.action.first_entry_side,
+            self.gap_blocked,
+        );
     }
 }

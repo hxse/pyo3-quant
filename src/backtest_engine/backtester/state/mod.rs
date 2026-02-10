@@ -4,7 +4,7 @@ pub mod backtest_state;
 pub mod capital_calculator;
 pub mod capital_state;
 pub mod current_bar_data;
-pub mod frame_events;
+pub mod frame_state;
 pub mod output_buffers_iter;
 pub mod position_calculator;
 pub mod prepared_data_iter;

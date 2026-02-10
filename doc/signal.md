@@ -98,14 +98,60 @@ class SignalGroup:
 
 **交叉比较 (Cross)：**
 表示当前状态满足条件，且上一状态不满足条件（即发生了状态穿越）。
+逻辑公式：`Trigger = (NOT Prev_Satisfied) AND (Curr_Satisfied)`
+
 - `x>` (向上突破): 上一根K线 `<=`, 当前K线 `>`
 - `x<` (向下跌破): 上一根K线 `>=`, 当前K线 `<`
-- `x>=`, `x<=`, `x==`, `x!=`: 同理
+- `x>=`: 上一根K线 `<`, 当前K线 `>=`  (注意: `NOT >=` 等价于 `<`)
+- `x<=`: 上一根K线 `>`, 当前K线 `<=`  (注意: `NOT <=` 等价于 `>`)
+- `x==`: 上一根K线 `!=`, 当前K线 `==`
+- `x!=`: 上一根K线 `==`, 当前K线 `!=`
 
 > [!IMPORTANT]
 > **NaN/Null 值处理**：交叉信号仅在当前值和前一个值都有效（非 NaN/Null）时才会触发。
 > 如果前一个值是 NaN 或 Null，即使当前值满足条件，也**不会**触发交叉信号。
 > 这确保了交叉信号仅在发生真实的状态转换时触发，而不是在数据预热期结束后立即触发。
+
+**区间穿越 (Zone Cross)：**
+
+交叉比较的扩展形式。普通交叉（`x> value`）只在穿越发生的那一根K线返回 True（瞬时信号），区间穿越在穿越后**持续返回 True**，直到值离开指定区间（方向信号）。
+
+**语法：**
+```text
+左操作数 x> 激活边界..终止边界
+左操作数 x< 激活边界..终止边界
+```
+
+`..` 是范围分隔符，第一个值为激活边界，第二个值为终止边界。
+
+**语义：**
+
+| 语法 | 激活条件 | 活跃区间 | 失效条件 |
+| :--- | :--- | :--- | :--- |
+| `x> lower..upper` | `prev <= lower AND curr > lower` | `lower < value < upper` | `value >= upper` 或 `value <= lower` |
+| `x< upper..lower` | `prev >= upper AND curr < upper` | `lower < value < upper` | `value <= lower` 或 `value >= upper` |
+| `x>= lower..upper` | `prev < lower AND curr >= lower` | `lower <= value <= upper` | `value > upper` 或 `value < lower` |
+| `x<= upper..lower` | `prev > upper AND curr <= upper` | `lower <= value <= upper` | `value < lower` 或 `value > upper` |
+
+**再激活**：值离开区间失效后，如果再次满足穿越条件，会重新激活。
+
+**范围边界类型**：和右操作数一致，支持数值字面量、数据操作数、参数引用（`$`）。
+
+**典型示例：**
+
+- **RSI 超卖反弹**：`RSI x> 30..70`
+  - 激活：RSI 自下而上穿过 30。
+  - 活跃：RSI 在 (30, 70) 区间。
+  - 失效：RSI 触及 70（获利）或跌破 30（走弱）。
+- **均线回踩确认**：`close x> sma_200..sma_50`
+  - 激活：价格从下方穿过长期均线（200线）。
+  - 活跃：价格保持在长期和短期均线（50线）之间。
+  - 失效：价格突破短期均线（趋势加速阶段结束）或跌破长期均线（支撑失败）。
+
+> [!WARNING]
+> **约束限制：**
+> 1. `..` **仅允许与交叉操作符搭配**（`x>`, `x<`, `x>=`, `x<=`）。普通比较操作符（`>`, `<` 等）不支持 `..`。
+> 2. 左操作数的偏移量**仅支持单值**（如 `0`, `1`）。范围偏移量（`&1-3`）和列表偏移量（`|1/3/5`）不允许与 `..` 搭配。(暂时不支持, 未来可能会添加)
 
 ### 2.3 右操作数 (Right Operand)
 
@@ -161,6 +207,29 @@ class SignalGroup:
 ```text
 "volume, ohlcv_15m, |0-2 > $vol_threshold"
 # 最近3根K线中，至少有一根的成交量大于阈值
+```
+
+### 区间穿越 (RSI 方向信号)
+```text
+"rsi,ohlcv_1h,0 x> 20..60"
+# RSI 自下而上穿过20时激活，RSI 在 (20, 60) 区间内持续为 True
+# RSI >= 60 或 RSI <= 20 时失效
+```
+
+### 区间穿越 (布林带方向信号)
+```text
+"close,ohlcv_1h,0 x> bbands_lower,ohlcv_1h,0 .. bbands_middle,ohlcv_1h,0"
+# 价格自下而上穿过布林下轨时激活
+# 价格在 (下轨, 中轨) 区间内持续为 True
+# 价格 >= 中轨 或 价格 <= 下轨 时失效
+```
+
+### 区间穿越 (做空方向 + 参数引用)
+```text
+"rsi,ohlcv_1h,0 x< $rsi_high .. $rsi_low"
+# RSI 自上而下穿过 $rsi_high 时激活
+# RSI 在 ($rsi_low, $rsi_high) 区间内持续为 True
+# RSI <= $rsi_low 或 RSI >= $rsi_high 时失效
 ```
 
 ### 复杂组合示例 (Python 代码)

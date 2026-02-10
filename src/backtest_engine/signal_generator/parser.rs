@@ -299,12 +299,12 @@ fn parse_right_operand(input: &str) -> Res<'_, SignalRightOperand> {
 /// - `x>=`, `x<=`, `x==`, `x!=`: 类似的交叉逻辑
 fn parse_op(input: &str) -> Res<'_, CompareOp> {
     alt((
-        value(CompareOp::CGT, tag("x>")),
-        value(CompareOp::CLT, tag("x<")),
         value(CompareOp::CGE, tag("x>=")),
         value(CompareOp::CLE, tag("x<=")),
         value(CompareOp::CEQ, tag("x==")),
         value(CompareOp::CNE, tag("x!=")),
+        value(CompareOp::CGT, tag("x>")),
+        value(CompareOp::CLT, tag("x<")),
         value(CompareOp::GE, tag(">=")),
         value(CompareOp::LE, tag("<=")),
         value(CompareOp::EQ, tag("==")),
@@ -337,6 +337,13 @@ pub fn parse_condition_str(input: &str) -> Res<'_, SignalCondition> {
     let (input, op) = delimited(multispace0, parse_op, multispace0).parse(input)?;
     let (input, right) = delimited(multispace0, parse_right_operand, multispace0).parse(input)?;
 
+    // 探测 ".." 范围分隔符
+    let (input, zone_end) = opt(preceded(
+        delimited(multispace0, tag(".."), multispace0),
+        parse_right_operand,
+    ))
+    .parse(input)?;
+
     Ok((
         input,
         SignalCondition {
@@ -344,6 +351,7 @@ pub fn parse_condition_str(input: &str) -> Res<'_, SignalCondition> {
             left,
             right,
             op,
+            zone_end,
         },
     ))
 }
@@ -380,6 +388,31 @@ pub fn parse_condition(input: &str) -> Result<SignalCondition, QuantError> {
                     trimmed_input, remaining
                 ))));
             }
+
+            // 区间穿越(..) 约束校验
+            if condition.zone_end.is_some() {
+                // 1. 仅允许与交叉操作符搭配
+                match condition.op {
+                    CompareOp::CGT | CompareOp::CLT | CompareOp::CGE | CompareOp::CLE => {}
+                    _ => {
+                        return Err(QuantError::Signal(SignalError::ParseError(format!(
+                            "区间穿越(..)仅允许与交叉操作符搭配(x>, x<, x>=, x<=)，当前操作符不支持。\n条件: '{}'",
+                            trimmed_input
+                        ))))
+                    }
+                }
+                // 2. 左操作数仅支持单值偏移
+                match &condition.left.offset {
+                    OffsetType::Single(_) => {}
+                    _ => {
+                        return Err(QuantError::Signal(SignalError::ParseError(format!(
+                            "区间穿越(..)目前仅支持单值偏移，不支持范围(如 &0-2)或列表(如 |1/3)偏移。\n条件: '{}'",
+                            trimmed_input
+                        ))))
+                    }
+                }
+            }
+
             Ok(condition)
         }
         Err(nom::Err::Error(e)) | Err(nom::Err::Failure(e)) => {
@@ -392,5 +425,69 @@ pub fn parse_condition(input: &str) -> Result<SignalCondition, QuantError> {
             "条件不完整。\n条件: '{}'",
             trimmed_input
         )))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backtest_engine::signal_generator::types::{CompareOp, SignalRightOperand};
+
+    #[test]
+    fn test_parse_zone_cross_scalar() {
+        let cond = parse_condition("rsi, ohlcv_15m, 0 x> 30..70").unwrap();
+        assert!(matches!(cond.op, CompareOp::CGT));
+        if let SignalRightOperand::Scalar(v) = cond.right {
+            assert!((v - 30.0).abs() < f64::EPSILON);
+        } else {
+            panic!("Expected Scalar operand");
+        }
+        assert!(cond.zone_end.is_some());
+        if let SignalRightOperand::Scalar(v) = cond.zone_end.unwrap() {
+            assert!((v - 70.0).abs() < f64::EPSILON);
+        } else {
+            panic!("Expected Scalar operand");
+        }
+    }
+
+    #[test]
+    fn test_parse_zone_cross_data_operand() {
+        let cond = parse_condition(
+            "close, ohlcv_1h, 0 x> bbands_lower, ohlcv_1h, 0 .. bbands_middle, ohlcv_1h, 0",
+        )
+        .unwrap();
+        assert!(cond.zone_end.is_some());
+        if let SignalRightOperand::Data(d) = cond.zone_end.unwrap() {
+            assert_eq!(d.name, "bbands_middle");
+        } else {
+            panic!("Expected Data operand");
+        }
+    }
+
+    #[test]
+    fn test_parse_zone_cross_rejects_non_cross_op() {
+        // 普通 > 不允许搭配 ..
+        let result = parse_condition("rsi, ohlcv_15m, 0 > 30..70");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_zone_cross_rejects_range_offset() {
+        // 范围偏移不允许搭配 ..
+        let result = parse_condition("rsi, ohlcv_15m, &1-3 x> 30..70");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_zone_cross_with_decimal() {
+        // 小数点不会和 .. 冲突
+        let cond = parse_condition("rsi, ohlcv_15m, 0 x> 20.5..60.3").unwrap();
+        if let SignalRightOperand::Scalar(v) = cond.right {
+            assert!((v - 20.5).abs() < f64::EPSILON);
+        }
+        assert!(cond.zone_end.is_some());
+        if let SignalRightOperand::Scalar(v) = cond.zone_end.unwrap() {
+            assert!((v - 60.3).abs() < f64::EPSILON);
+        }
     }
 }

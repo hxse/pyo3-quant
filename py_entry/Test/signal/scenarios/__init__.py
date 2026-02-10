@@ -96,6 +96,30 @@ from py_entry.Test.signal.scenarios.scenario_syntax_invalid_wrong_order import (
     config as syntax_invalid_wrong_order_config,
     manual_calc as syntax_invalid_wrong_order_calc,
 )
+from py_entry.Test.signal.scenarios.scenario_zone_cross_up import (
+    config as zone_cross_up_config,
+    manual_calc as zone_cross_up_calc,
+)
+from py_entry.Test.signal.scenarios.scenario_zone_cross_down import (
+    config as zone_cross_down_config,
+    manual_calc as zone_cross_down_calc,
+)
+from py_entry.Test.signal.scenarios.scenario_zone_cross_dynamic import (
+    config as zone_cross_dynamic_config,
+    manual_calc as zone_cross_dynamic_calc,
+)
+from py_entry.Test.signal.scenarios.scenario_zone_cross_param import (
+    config as zone_cross_param_config,
+    manual_calc as zone_cross_param_calc,
+)
+from py_entry.Test.signal.scenarios.scenario_zone_cross_negated import (
+    config as zone_cross_negated_config,
+    manual_calc as zone_cross_negated_calc,
+)
+from py_entry.Test.signal.scenarios.scenario_zone_cross_inclusive import (
+    config as zone_cross_inclusive_config,
+    manual_calc as zone_cross_inclusive_calc,
+)
 
 
 @dataclass
@@ -139,6 +163,60 @@ _ALL_SCENARIOS = [
         signal_params=crossover_up_config.SIGNAL_PARAMS,
         signal_template=crossover_up_config.SIGNAL_TEMPLATE,
         manual_calculator=crossover_up_calc.calculate_signals,
+        expected_exception=None,  # 预期成功
+    ),
+    TestScenario(
+        name="scenario_zone_cross_up",
+        description=zone_cross_up_config.DESCRIPTION,
+        indicators_params=zone_cross_up_config.INDICATORS_PARAMS,
+        signal_params=zone_cross_up_config.SIGNAL_PARAMS,
+        signal_template=zone_cross_up_config.SIGNAL_TEMPLATE,
+        manual_calculator=zone_cross_up_calc.calculate_signals,
+        expected_exception=None,  # 预期成功
+    ),
+    TestScenario(
+        name="scenario_zone_cross_down",
+        description=zone_cross_down_config.DESCRIPTION,
+        indicators_params=zone_cross_down_config.INDICATORS_PARAMS,
+        signal_params=zone_cross_down_config.SIGNAL_PARAMS,
+        signal_template=zone_cross_down_config.SIGNAL_TEMPLATE,
+        manual_calculator=zone_cross_down_calc.calculate_signals,
+        expected_exception=None,  # 预期成功
+    ),
+    TestScenario(
+        name="scenario_zone_cross_dynamic",
+        description=zone_cross_dynamic_config.DESCRIPTION,
+        indicators_params=zone_cross_dynamic_config.INDICATORS_PARAMS,
+        signal_params=zone_cross_dynamic_config.SIGNAL_PARAMS,
+        signal_template=zone_cross_dynamic_config.SIGNAL_TEMPLATE,
+        manual_calculator=zone_cross_dynamic_calc.calculate_signals,
+        expected_exception=None,  # 预期成功
+    ),
+    TestScenario(
+        name="scenario_zone_cross_param",
+        description=zone_cross_param_config.DESCRIPTION,
+        indicators_params=zone_cross_param_config.INDICATORS_PARAMS,
+        signal_params=zone_cross_param_config.SIGNAL_PARAMS,
+        signal_template=zone_cross_param_config.SIGNAL_TEMPLATE,
+        manual_calculator=zone_cross_param_calc.calculate_signals,
+        expected_exception=None,  # 预期成功
+    ),
+    TestScenario(
+        name="scenario_zone_cross_negated",
+        description=zone_cross_negated_config.DESCRIPTION,
+        indicators_params=zone_cross_negated_config.INDICATORS_PARAMS,
+        signal_params=zone_cross_negated_config.SIGNAL_PARAMS,
+        signal_template=zone_cross_negated_config.SIGNAL_TEMPLATE,
+        manual_calculator=zone_cross_negated_calc.calculate_signals,
+        expected_exception=None,  # 预期成功
+    ),
+    TestScenario(
+        name="scenario_zone_cross_inclusive",
+        description=zone_cross_inclusive_config.DESCRIPTION,
+        indicators_params=zone_cross_inclusive_config.INDICATORS_PARAMS,
+        signal_params=zone_cross_inclusive_config.SIGNAL_PARAMS,
+        signal_template=zone_cross_inclusive_config.SIGNAL_TEMPLATE,
+        manual_calculator=zone_cross_inclusive_calc.calculate_signals,
         expected_exception=None,  # 预期成功
     ),
     TestScenario(

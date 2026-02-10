@@ -66,13 +66,16 @@ debug name:
 
 # ==================== 测试 ====================
 
-# 运行所有 Python 测试
-test:
-    uv run --no-sync python -m pytest py_entry/Test
-
-# 运行指定的测试文件或目录 (例: just test-path py_entry/Test/backtest)
-test-path path:
+# 运行 Python 测试 (可选 path 参数，例: just test-py path="py_entry/Test/backtest")
+test-py path="py_entry/Test":
     uv run --no-sync python -m pytest {{path}}
+
+# 运行 Rust 单元测试
+test-rust:
+    export LD_LIBRARY_PATH=$(uv run --no-sync python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))"):${LD_LIBRARY_PATH:-} && uv run --no-sync cargo test
+
+# 运行所有测试
+test: test-rust test-py
 
 # 运行策略相关性分析测试 (默认 reversal_extreme)
 test-correlation strategy="reversal_extreme":
@@ -83,7 +86,7 @@ test-correlation strategy="reversal_extreme":
 
 # 运行 Rust cargo check
 check-rust:
-    cargo check
+    uv run --no-sync cargo check
 
 # 运行 Python 类型检查 (ty)
 check-py:
@@ -116,11 +119,11 @@ lint-fix-py:
 
 # 运行 Rust linter (clippy)
 lint-rust:
-    cargo clippy
+    uv run --no-sync cargo clippy
 
 # 自动修复 Rust lint 错误
 lint-fix-rust:
-    cargo clippy --fix --allow-dirty --allow-staged
+    uv run --no-sync cargo clippy --fix --allow-dirty --allow-staged
 
 # 运行所有 linter
 lint: lint-py lint-rust
@@ -132,11 +135,11 @@ fix: lint-fix-py lint-fix-rust
 
 # 构建 wheel 包
 build:
-    maturin build --release
+    source .venv/bin/activate && maturin build --release
 
 # 构建并安装 wheel 包
 build-install:
-    maturin build --release && uv pip install target/wheels/*.whl --force-reinstall
+    source .venv/bin/activate && maturin build --release && uv pip install target/wheels/*.whl --force-reinstall
 
 # ==================== 扫描器 (独立模块，使用天勤量化) ====================
 

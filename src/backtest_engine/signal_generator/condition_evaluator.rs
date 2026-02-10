@@ -141,6 +141,137 @@ fn perform_crossover_comparison(
     Ok((cross_result, current_mask.bitor(prev_mask)))
 }
 
+/// 区间穿越：矢量化预计算比较结果 + 迭代器状态机
+///
+/// Phase 1: 用 perform_comparison 矢量化计算 out_of_zone（SIMD 优化）
+/// Phase 2: 迭代器扫描 cross + out_of_zone 的 bool 结果，维护 active 状态
+fn perform_zone_cross(
+    cross_result: &BooleanChunked,
+    cross_mask: &BooleanChunked, // 新增：上游交叉计算的 NaN 掩码
+    left_s: &Series,
+    right_resolved: &ResolvedOperand, // 激活边界
+    end_resolved: &ResolvedOperand,   // 终止边界 (原 upper_resolved)
+    op: &CompareOp,
+) -> Result<BooleanChunked, QuantError> {
+    let len = left_s.len();
+
+    // ===================== Phase 1: 矢量化预计算 =====================
+    // 计算 out_of_zone = (value >= upper) | (value <= lower)
+    // 逻辑：
+    // - 对于 x> lower..upper:
+    //   - 激活边界是 lower, 终止边界是 upper
+    //   - 活跃区间是 (lower, upper)
+    //   - 脱离区间 (out_of_zone): value >= upper (终止) 或 value <= lower (回落)
+    // - 对于 x< upper..lower:
+    //   - 激活边界是 upper, 终止边界是 lower
+    //   - 活跃区间是 (lower, upper)
+    //   - 脱离区间 (out_of_zone): value <= lower (终止) 或 value >= upper (回升)
+
+    // 一次 match 确定比较方向，返回两组 (result, mask)
+    let ((ooz_end, end_mask), (ooz_activate, activate_mask)) = match op {
+        CompareOp::CGT => {
+            // x> lower..upper: 失效条件 value >= upper(end) OR value <= lower(activate)
+            (
+                perform_comparison(
+                    left_s,
+                    end_resolved,
+                    0,
+                    |a, b| a.gt_eq(b),
+                    |a, v| a.gt_eq(v),
+                )?,
+                perform_comparison(
+                    left_s,
+                    right_resolved,
+                    0,
+                    |a, b| a.lt_eq(b),
+                    |a, v| a.lt_eq(v),
+                )?,
+            )
+        }
+        CompareOp::CGE => {
+            // x>= lower..upper: 失效条件 value > upper(end) OR value < lower(activate)
+            (
+                perform_comparison(left_s, end_resolved, 0, |a, b| a.gt(b), |a, v| a.gt(v))?,
+                perform_comparison(left_s, right_resolved, 0, |a, b| a.lt(b), |a, v| a.lt(v))?,
+            )
+        }
+        CompareOp::CLT => {
+            // x< upper..lower: 失效条件 value <= lower(end) OR value >= upper(activate)
+            (
+                perform_comparison(
+                    left_s,
+                    end_resolved,
+                    0,
+                    |a, b| a.lt_eq(b),
+                    |a, v| a.lt_eq(v),
+                )?,
+                perform_comparison(
+                    left_s,
+                    right_resolved,
+                    0,
+                    |a, b| a.gt_eq(b),
+                    |a, v| a.gt_eq(v),
+                )?,
+            )
+        }
+        CompareOp::CLE => {
+            // x<= upper..lower: 失效条件 value < lower(end) OR value > upper(activate)
+            (
+                perform_comparison(left_s, end_resolved, 0, |a, b| a.lt(b), |a, v| a.lt(v))?,
+                perform_comparison(left_s, right_resolved, 0, |a, b| a.gt(b), |a, v| a.gt(v))?,
+            )
+        }
+        _ => {
+            return Err(QuantError::Signal(SignalError::InvalidInput(format!(
+                "zone_cross 仅支持交叉运算符(x>, x<, x>=, x<=)，当前运算符: {:?}",
+                op
+            ))));
+        }
+    };
+
+    let out_of_zone = ooz_end.bitor(ooz_activate);
+
+    // 组合无效掩码：只要 Left 或任何一侧边界是 NaN/Null，则当前 Bar 强制失效且状态重置
+    // 显式合并所有来源的 NaN 掩码
+    let combined_invalid = cross_mask.bitor(&end_mask).bitor(activate_mask);
+
+    // ===================== Phase 2: 迭代器状态机 =====================
+    // 输入全是预计算好的 BooleanChunked，用迭代器遍历（无边界检查开销）
+    let mut result = Vec::with_capacity(len);
+    let mut active = false;
+
+    // 获取迭代器
+    let cross_iter = cross_result.iter();
+    let ooz_iter = out_of_zone.into_iter();
+    let invalid_iter = combined_invalid.into_iter();
+
+    for (c, (o, inv)) in cross_iter.zip(ooz_iter.zip(invalid_iter)) {
+        let is_invalid = inv.unwrap_or(true);
+        if is_invalid {
+            active = false;
+            result.push(false);
+            continue;
+        }
+
+        let is_cross = c.unwrap_or(false);
+        let is_ooz = o.unwrap_or(true);
+
+        // 穿越激活（但如果同时已经 out_of_zone，则不激活）
+        if is_cross && !is_ooz {
+            active = true;
+        } else if is_ooz {
+            active = false;
+        }
+
+        result.push(active);
+    }
+
+    Ok(BooleanChunked::from_slice(
+        PlSmallStr::from_static("zone_cross"),
+        &result,
+    ))
+}
+
 pub fn evaluate_parsed_condition(
     condition: &SignalCondition,
     processed_data: &DataContainer,
@@ -368,6 +499,43 @@ pub fn evaluate_parsed_condition(
         .into_series()
         .fill_null(FillNullStrategy::Zero)?;
 
+    let mut mask = final_mask.ok_or_else(|| {
+        QuantError::Signal(SignalError::InvalidInput("Empty mask result".to_string()))
+    })?;
+
+    // 区间穿越 (Zone Cross) 处理
+    if let Some(zone_end_operand) = &condition.zone_end {
+        let end_resolved = resolve_right_operand(
+            zone_end_operand,
+            processed_data,
+            indicator_dfs,
+            signal_params,
+        )?;
+
+        // 先合并 end_resolved 的 NaN mask（在 zone cross 计算之前）
+        if let ResolvedOperand::Series(end_series_vec) = &end_resolved {
+            let end_s = &end_series_vec[0];
+            let end_invalid = end_s.is_nan()?.bitor(end_s.is_null());
+            mask = mask.bitor(end_invalid);
+        }
+
+        // result_series 此时是普通 cross 的瞬时结果
+        let cross_bool = result_series.bool()?.clone();
+        // Zone Cross 只支持单值偏移，且在之前的约束校验中已保证
+        let left_s = &left_series_vec[0];
+
+        let zone_result = perform_zone_cross(
+            &cross_bool,
+            &mask,
+            left_s,
+            &right_resolved,
+            &end_resolved,
+            &condition.op,
+        )?;
+
+        result_series = zone_result.into_series();
+    }
+
     if condition.negated {
         let bool_chunked = result_series
             .bool()
@@ -379,10 +547,6 @@ pub fn evaluate_parsed_condition(
             .clone();
         result_series = bool_chunked.not().into_series();
     }
-
-    let mask = final_mask.ok_or_else(|| {
-        QuantError::Signal(SignalError::InvalidInput("Empty mask result".to_string()))
-    })?;
 
     Ok((result_series, mask))
 }

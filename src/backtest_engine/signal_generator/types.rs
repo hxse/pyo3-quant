@@ -51,4 +51,5 @@ pub struct SignalCondition {
     pub left: SignalDataOperand,
     pub right: SignalRightOperand,
     pub op: CompareOp,
+    pub zone_end: Option<SignalRightOperand>,
 }

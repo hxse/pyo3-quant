@@ -16,7 +16,7 @@ except ImportError as e:
     print(f"详细错误: {e}")
     exit(1)
 
-from .config import ScannerConfig, ScanLevel
+from .config import ScannerConfig, ScanLevel, TimeframeConfig
 from .data_source import DataSourceProtocol, TqDataSource, MockDataSource
 from .notifier import Notifier, format_heartbeat, format_signal_report
 import traceback
@@ -174,12 +174,16 @@ def scan_forever(
     last_times: dict[str, int] = {}
 
     # 查找 trigger_level 配置
-    base_tf = next(
+    base_tf_found = next(
         (tf for tf in config.timeframes if tf.level == ScanLevel.TRIGGER), None
     )
-    if not base_tf:
+    if base_tf_found is None:
         logger.error(f"配置中缺少 {ScanLevel.TRIGGER}，无法确定主循环周期。")
         exit(1)
+
+    # 通过 assert 进一步窄化类型以满足 ty check
+    assert base_tf_found is not None
+    base_tf: TimeframeConfig = base_tf_found
 
     # 预热数据并记录初始时间戳
     print("正在初始化数据并记录时间戳...")

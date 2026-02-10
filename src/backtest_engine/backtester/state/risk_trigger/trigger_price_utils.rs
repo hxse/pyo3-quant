@@ -22,8 +22,10 @@ pub fn calculate_risk_price(
     tsl_psar_price: Option<f64>,
     is_long_position: bool,
 ) -> Option<f64> {
-    // 收集所有有效价格
-    let prices: Vec<f64> = [
+    let mut best: Option<f64> = None;
+
+    // 使用数组迭代器避免 Vec 内存分配 (Stack only)
+    for price in [
         sl_pct_price,
         sl_atr_price,
         tp_pct_price,
@@ -34,20 +36,20 @@ pub fn calculate_risk_price(
     ]
     .into_iter()
     .flatten()
-    .collect();
-
-    if prices.is_empty() {
-        return None;
+    {
+        best = Some(match best {
+            None => price,
+            Some(current) => {
+                if is_long_position {
+                    current.min(price) // 多头：取最小值（最保守）
+                } else {
+                    current.max(price) // 空头：取最大值（最保守）
+                }
+            }
+        });
     }
 
-    // 根据仓位类型选择合适的价格
-    if is_long_position {
-        // 多头仓位：选择最小的价格（最保守的离场点）
-        Some(prices.iter().fold(f64::MAX, |a, &b| a.min(b)))
-    } else {
-        // 空头仓位：选择最大的价格（最保守的离场点）
-        Some(prices.iter().fold(f64::MIN, |a, &b| a.max(b)))
-    }
+    best
 }
 
 /// 获取用于检查 SL 触发条件的价格

@@ -73,6 +73,13 @@ impl OutputBuffers {
         .into_series();
         columns.push(first_entry_side_series.into());
 
+        let frame_events_series = UInt32Chunked::from_slice(
+            ColumnName::FrameEvents.as_pl_small_str(),
+            &self.frame_events,
+        )
+        .into_series();
+        columns.push(frame_events_series.into());
+
         // 定义可选列的名称和数据
         let optional_columns = [
             (ColumnName::SlPctPriceLong.as_str(), &self.sl_pct_price_long),

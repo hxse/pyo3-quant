@@ -16,13 +16,4 @@ pub struct Action {
     pub first_entry_side: i8,
 }
 
-impl Action {
-    /// 重置所有价格字段
-    pub fn reset_prices(&mut self) {
-        self.entry_long_price = None;
-        self.entry_short_price = None;
-        self.exit_long_price = None;
-        self.exit_short_price = None;
-        // 注意：is_first_entry_xxx 不需要在这里重置，它们由 position_calculator 控制
-    }
-}
+// 结构体已派生 Default，无需显式 new

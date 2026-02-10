@@ -108,6 +108,7 @@ impl OutputBuffers {
             // Risk State Output
             risk_in_bar_direction: vec![0; capacity],
             first_entry_side: vec![0; capacity],
+            frame_events: vec![0; capacity],
         }
     }
 }

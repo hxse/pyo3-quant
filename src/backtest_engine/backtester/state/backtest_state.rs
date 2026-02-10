@@ -17,6 +17,8 @@ pub struct BacktestState<'a> {
     pub prev_bar: CurrentBarData,
     /// 帐户资金计算
     pub capital_state: CapitalState,
+    /// 当前帧的事件位掩码
+    pub frame_events: u32,
 }
 
 impl<'a> BacktestState<'a> {
@@ -37,6 +39,7 @@ impl<'a> BacktestState<'a> {
             current_bar: CurrentBarData::default(),
             prev_bar: CurrentBarData::default(),
             capital_state: CapitalState::new(params.initial_capital),
+            frame_events: 0,
         }
     }
 

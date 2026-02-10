@@ -17,7 +17,7 @@
 
 ## 2. 状态机核心流程
 
-回测引擎的每一根 K 线 (`bar[i]`) 都遵循以下状态机流程：
+回测引擎的每一根 K 线 (`bar[i]`) 都遵循以下状态机流程。如果输入数据总长度 `data_length <= 2`，引擎将仅执行缓冲区初始化并直接返回。
 
 ```mermaid
 graph LR
@@ -312,7 +312,7 @@ if balance != bar_start_balance:
 #### 核心字段
 - `balance`: 已实现盈亏（离场时更新）
 - `equity`: 含未实现盈亏（每 Bar 更新）
-- `peak_equity`: 历史最高净值（用于回撤计算）
+- `peak_equity`: 历史最高净值（仅用于计算 `current_drawdown`）
 
 #### 余额归零保护
 
@@ -387,7 +387,7 @@ src/backtest_engine/backtester/
 ├── data_preparer.rs          # 数据准备 (PreparedData 结构体)
 ├── signal_preprocessor.rs    # 信号预处理（R1-R5 冲突解决、屏蔽规则）
 ├── atr_calculator.rs         # ATR 指标计算
-├── buffer_slices.rs          # 缓冲区切片工具
+├── write_config.rs           # 写入配置 (决定可选列是否输出)
 ├── output/                   # 输出缓冲区模块
 │   ├── mod.rs                    # 模块导出
 │   ├── output_struct.rs          # OutputBuffers 结构体定义（固定列与可选列）
@@ -409,7 +409,7 @@ src/backtest_engine/backtester/
     ├── capital_state.rs          # CapitalState 资金状态结构体
     ├── action.rs                 # Action 价格字段结构体
     ├── current_bar_data.rs       # CurrentBarData 当前K线数据结构体
-    ├── output_buffers_iter.rs    # 输出缓冲区迭代器
+    ├── output_buffers_iter.rs    # 输出缓冲区迭代器 (包含统一的 write_row 写入逻辑)
     ├── prepared_data_iter.rs     # 预处理数据迭代器
     ├── write_config.rs           # 写入配置
     └── risk_trigger/

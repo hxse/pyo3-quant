@@ -180,11 +180,11 @@ impl RiskState {
         self.in_bar_direction = 0;
     }
 
-    /// 重置所有状态（跳过 bar 时调用）
-    ///
-    /// 完全清空所有风险相关状态
+    /// 重置所有风险状态（资金归零跳过时使用）
     pub fn reset_all(&mut self) {
-        *self = Self::default();
+        self.reset_long_state();
+        self.reset_short_state();
+        self.reset_exit_state();
     }
 
     /// 重置多头风险状态（多头离场后调用）

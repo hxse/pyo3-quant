@@ -1,5 +1,5 @@
-/// 回测动作结构体
-/// 用于记录回测过程中的交易动作和状态
+/// 资金状态结构体
+/// 管理回测过程中的账户资金信息：余额、净值、回撤、手续费等
 #[derive(Debug, Clone)]
 pub struct CapitalState {
     /// 初始本金
@@ -16,8 +16,7 @@ pub struct CapitalState {
     pub fee: f64,
     /// 累计手续费
     pub fee_cum: f64,
-    /// 历史最高净值（用于止损后暂停开仓判断）
-    /// 历史最高净值（用于止损后暂停开仓判断）
+    /// 历史最高净值（用于计算回撤比例）
     pub peak_equity: f64,
     /// 当前回撤比例
     pub current_drawdown: f64,

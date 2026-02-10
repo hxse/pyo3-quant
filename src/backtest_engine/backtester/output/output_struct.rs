@@ -71,4 +71,6 @@ pub struct OutputBuffers {
     pub risk_in_bar_direction: Vec<i8>,
     /// 首次进场方向（0=无, 1=多头, -1=空头）
     pub first_entry_side: Vec<i8>,
+    /// 帧事件位掩码
+    pub frame_events: Vec<u32>,
 }

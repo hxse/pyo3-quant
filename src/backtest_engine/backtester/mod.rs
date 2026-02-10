@@ -3,7 +3,6 @@ use crate::types::{BacktestParams, DataContainer};
 use polars::prelude::*;
 use pyo3::prelude::*;
 mod atr_calculator;
-mod buffer_slices;
 mod data_preparer;
 mod main_loop;
 mod output;
@@ -11,6 +10,7 @@ mod signal_preprocessor;
 pub mod state;
 
 use crate::backtest_engine::utils::get_ohlcv_dataframe;
+pub use state::frame_events::py_bitmask_to_event_names;
 use {
     atr_calculator::calculate_atr_if_needed, data_preparer::PreparedData, main_loop::run_main_loop,
     pyo3_polars::PyDataFrame,

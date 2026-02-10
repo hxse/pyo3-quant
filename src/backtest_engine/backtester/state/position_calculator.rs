@@ -1,16 +1,9 @@
 use super::backtest_state::BacktestState;
+use super::frame_events::event_bits;
 use super::risk_trigger;
 use crate::types::BacktestParams;
 
 impl<'a> BacktestState<'a> {
-    pub fn reset_position_on_skip(&mut self) {
-        self.action.reset_prices();
-        // 重置首次进场标记，避免跳过的 bar 保留旧值
-        self.action.first_entry_side = 0;
-
-        self.risk_state.reset_all();
-    }
-
     /// 计算并更新仓位状态（价格驱动版本）
     ///
     /// 基于价格组合而非Position枚举来管理状态
@@ -19,18 +12,28 @@ impl<'a> BacktestState<'a> {
     /// 2. 处理i-1的策略信号（next_bar模式）
     /// 3. 处理i的risk触发（in_bar模式）
     pub fn calculate_position(&mut self, params: &BacktestParams) {
+        if self.should_skip_current_bar() {
+            self.reset_position_on_skip();
+            return;
+        }
+
+        // 每帧开始重置事件记录
+        self.frame_events = 0;
+
         // === 1. 价格重置逻辑（区分方向） ===
         // 如果上一bar多头离场完成，本bar重置多头价格和风险状态
         if self.action.exit_long_price.is_some() {
             self.action.entry_long_price = None;
             self.action.exit_long_price = None;
             self.risk_state.reset_long_state();
+            self.frame_events |= event_bits::RESET_LONG;
         }
         // 如果上一bar空头离场完成，本bar重置空头价格和风险状态
         if self.action.exit_short_price.is_some() {
             self.action.entry_short_price = None;
             self.action.exit_short_price = None;
             self.risk_state.reset_short_state();
+            self.frame_events |= event_bits::RESET_SHORT;
         }
 
         // === 2. 处理bar(i-1)的策略信号（next_bar模式） ===
@@ -48,12 +51,23 @@ impl<'a> BacktestState<'a> {
             && !self.risk_state.should_exit_in_bar_long()
         {
             self.action.exit_long_price = Some(self.current_bar.open);
+            // 区分是信号离场还是 TSL/PSAR 触发的策略模式离场
+            if self.prev_bar.exit_long {
+                self.frame_events |= event_bits::EXIT_LONG;
+            } else {
+                self.frame_events |= event_bits::RISK_EXIT_LONG;
+            }
         }
         if self.has_short_position()
             && (self.prev_bar.exit_short || self.risk_state.should_exit_next_bar_short())
             && !self.risk_state.should_exit_in_bar_short()
         {
             self.action.exit_short_price = Some(self.current_bar.open);
+            if self.prev_bar.exit_short {
+                self.frame_events |= event_bits::EXIT_SHORT;
+            } else {
+                self.frame_events |= event_bits::RISK_EXIT_SHORT;
+            }
         }
 
         // 2.2 进场检查（含反手逻辑）
@@ -66,6 +80,9 @@ impl<'a> BacktestState<'a> {
             if is_safe {
                 self.action.entry_long_price = Some(self.current_bar.open);
                 self.action.first_entry_side = 1;
+                self.frame_events |= event_bits::ENTRY_LONG;
+            } else {
+                self.frame_events |= event_bits::GAP_BLOCKED;
             }
         }
         if self.can_entry_short() && self.prev_bar.entry_short {
@@ -74,6 +91,9 @@ impl<'a> BacktestState<'a> {
             if is_safe {
                 self.action.entry_short_price = Some(self.current_bar.open);
                 self.action.first_entry_side = -1;
+                self.frame_events |= event_bits::ENTRY_SHORT;
+            } else {
+                self.frame_events |= event_bits::GAP_BLOCKED;
             }
         }
 
@@ -87,6 +107,7 @@ impl<'a> BacktestState<'a> {
             if self.risk_state.should_exit_in_bar_long() {
                 self.action.exit_long_price =
                     self.risk_state.exit_price(risk_trigger::Direction::Long);
+                self.frame_events |= event_bits::RISK_EXIT_LONG | event_bits::RISK_IN_BAR_LONG;
             }
         }
         if self.has_short_position() {
@@ -95,7 +116,18 @@ impl<'a> BacktestState<'a> {
             if self.risk_state.should_exit_in_bar_short() {
                 self.action.exit_short_price =
                     self.risk_state.exit_price(risk_trigger::Direction::Short);
+                self.frame_events |= event_bits::RISK_EXIT_SHORT | event_bits::RISK_IN_BAR_SHORT;
             }
         }
+    }
+
+    /// 当资金归零跳过时，重置所有仓位和价格状态
+    fn reset_position_on_skip(&mut self) {
+        self.action.entry_long_price = None;
+        self.action.exit_long_price = None;
+        self.action.entry_short_price = None;
+        self.action.exit_short_price = None;
+        self.action.first_entry_side = 0;
+        self.risk_state.reset_all(); // 注意这里需要确保 risk_state.reset_all() 存在或写出逻辑
     }
 }

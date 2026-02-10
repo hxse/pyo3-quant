@@ -2,6 +2,111 @@ use super::write_config::WriteConfig;
 use crate::backtest_engine::backtester::output::OutputBuffers;
 use crate::backtest_engine::backtester::state::BacktestState;
 
+impl OutputBuffers {
+    /// 按索引写入单行数据（统一写入接口）
+    ///
+    /// 用于初始化阶段（row 0/1）的随机访问写入。
+    /// 主循环中使用 OutputBuffersIter 进行顺序写入以获得更高性能。
+    #[inline]
+    pub fn write_row(&mut self, i: usize, state: &BacktestState<'_>, config: &WriteConfig) {
+        // === 固定列 ===
+        self.balance[i] = state.capital_state.balance;
+        self.equity[i] = state.capital_state.equity;
+        self.trade_pnl_pct[i] = state.capital_state.trade_pnl_pct;
+        self.total_return_pct[i] = state.capital_state.total_return_pct;
+        self.fee[i] = state.capital_state.fee;
+        self.fee_cum[i] = state.capital_state.fee_cum;
+        self.current_drawdown[i] = state.capital_state.current_drawdown;
+        self.entry_long_price[i] = state.action.entry_long_price.unwrap_or(f64::NAN);
+        self.entry_short_price[i] = state.action.entry_short_price.unwrap_or(f64::NAN);
+        self.exit_long_price[i] = state.action.exit_long_price.unwrap_or(f64::NAN);
+        self.exit_short_price[i] = state.action.exit_short_price.unwrap_or(f64::NAN);
+        self.risk_in_bar_direction[i] = state.risk_state.in_bar_direction;
+        self.first_entry_side[i] = state.action.first_entry_side;
+        self.frame_events[i] = state.frame_events;
+
+        // === 可选列（从 WriteConfig 判断是否需要写入） ===
+
+        // PCT 组
+        if !config.pct_funcs.is_empty() {
+            if config.pct_funcs.has_sl {
+                if let (Some(l), Some(s)) = (
+                    self.sl_pct_price_long.as_mut(),
+                    self.sl_pct_price_short.as_mut(),
+                ) {
+                    l[i] = state.risk_state.sl_pct_price_long.unwrap_or(f64::NAN);
+                    s[i] = state.risk_state.sl_pct_price_short.unwrap_or(f64::NAN);
+                }
+            }
+            if config.pct_funcs.has_tp {
+                if let (Some(l), Some(s)) = (
+                    self.tp_pct_price_long.as_mut(),
+                    self.tp_pct_price_short.as_mut(),
+                ) {
+                    l[i] = state.risk_state.tp_pct_price_long.unwrap_or(f64::NAN);
+                    s[i] = state.risk_state.tp_pct_price_short.unwrap_or(f64::NAN);
+                }
+            }
+            if config.pct_funcs.has_tsl {
+                if let (Some(l), Some(s)) = (
+                    self.tsl_pct_price_long.as_mut(),
+                    self.tsl_pct_price_short.as_mut(),
+                ) {
+                    l[i] = state.risk_state.tsl_pct_price_long.unwrap_or(f64::NAN);
+                    s[i] = state.risk_state.tsl_pct_price_short.unwrap_or(f64::NAN);
+                }
+            }
+        }
+
+        // ATR 组
+        if !config.atr_funcs.is_empty() {
+            if config.atr_funcs.has_sl {
+                if let (Some(l), Some(s)) = (
+                    self.sl_atr_price_long.as_mut(),
+                    self.sl_atr_price_short.as_mut(),
+                ) {
+                    l[i] = state.risk_state.sl_atr_price_long.unwrap_or(f64::NAN);
+                    s[i] = state.risk_state.sl_atr_price_short.unwrap_or(f64::NAN);
+                }
+            }
+            if config.atr_funcs.has_tp {
+                if let (Some(l), Some(s)) = (
+                    self.tp_atr_price_long.as_mut(),
+                    self.tp_atr_price_short.as_mut(),
+                ) {
+                    l[i] = state.risk_state.tp_atr_price_long.unwrap_or(f64::NAN);
+                    s[i] = state.risk_state.tp_atr_price_short.unwrap_or(f64::NAN);
+                }
+            }
+            if config.atr_funcs.has_tsl {
+                if let (Some(l), Some(s)) = (
+                    self.tsl_atr_price_long.as_mut(),
+                    self.tsl_atr_price_short.as_mut(),
+                ) {
+                    l[i] = state.risk_state.tsl_atr_price_long.unwrap_or(f64::NAN);
+                    s[i] = state.risk_state.tsl_atr_price_short.unwrap_or(f64::NAN);
+                }
+            }
+        }
+
+        // PSAR 组
+        if config.has_psar {
+            if let (Some(l), Some(s)) = (
+                self.tsl_psar_price_long.as_mut(),
+                self.tsl_psar_price_short.as_mut(),
+            ) {
+                l[i] = state.risk_state.tsl_psar_price_long.unwrap_or(f64::NAN);
+                s[i] = state.risk_state.tsl_psar_price_short.unwrap_or(f64::NAN);
+            }
+        }
+
+        // ATR column (always write if enabled)
+        if let Some(atr) = self.atr.as_mut() {
+            atr[i] = state.current_bar.atr.unwrap_or(f64::NAN);
+        }
+    }
+}
+
 /// 输出缓冲区行数据结构体
 /// 包含当前行所有输出列的可变引用
 pub struct OutputRow<'a> {
@@ -19,6 +124,7 @@ pub struct OutputRow<'a> {
     pub exit_short_price: &'a mut f64,
     pub risk_in_bar_direction: &'a mut i8,
     pub first_entry_side: &'a mut i8,
+    pub frame_events: &'a mut u32,
     // 可选列
     pub sl_pct_long: Option<&'a mut f64>,
     pub sl_pct_short: Option<&'a mut f64>,
@@ -53,6 +159,7 @@ impl<'a> OutputRow<'a> {
         *self.exit_short_price = state.action.exit_short_price.unwrap_or(f64::NAN);
         *self.risk_in_bar_direction = state.risk_state.in_bar_direction;
         *self.first_entry_side = state.action.first_entry_side;
+        *self.frame_events = state.frame_events;
     }
 
     /// 按组写入可选列数据
@@ -118,7 +225,7 @@ impl<'a> OutputRow<'a> {
     ///
     /// 先写入固定列，再按组写入可选列。
     #[inline]
-    pub fn write_from_state_grouped(&mut self, state: &BacktestState<'_>, config: &WriteConfig) {
+    pub fn write(&mut self, state: &BacktestState<'_>, config: &WriteConfig) {
         self.write_fixed(state);
         self.write_optional_grouped(state, config);
     }
@@ -140,6 +247,7 @@ pub struct OutputBuffersIter<'a> {
     exit_short_price: std::slice::IterMut<'a, f64>,
     risk_in_bar_direction: std::slice::IterMut<'a, i8>,
     first_entry_side: std::slice::IterMut<'a, i8>,
+    frame_events: std::slice::IterMut<'a, u32>,
     // 可选列迭代器
     sl_pct_long: Option<std::slice::IterMut<'a, f64>>,
     sl_pct_short: Option<std::slice::IterMut<'a, f64>>,
@@ -174,6 +282,7 @@ impl<'a> OutputBuffersIter<'a> {
             exit_short_price: buffers.exit_short_price[start..].iter_mut(),
             risk_in_bar_direction: buffers.risk_in_bar_direction[start..].iter_mut(),
             first_entry_side: buffers.first_entry_side[start..].iter_mut(),
+            frame_events: buffers.frame_events[start..].iter_mut(),
             sl_pct_long: buffers
                 .sl_pct_price_long
                 .as_mut()
@@ -253,6 +362,7 @@ impl<'a> Iterator for OutputBuffersIter<'a> {
             exit_short_price: self.exit_short_price.next()?,
             risk_in_bar_direction: self.risk_in_bar_direction.next()?,
             first_entry_side: self.first_entry_side.next()?,
+            frame_events: self.frame_events.next()?,
             sl_pct_long: self.sl_pct_long.as_mut().and_then(|i| i.next()),
             sl_pct_short: self.sl_pct_short.as_mut().and_then(|i| i.next()),
             tp_pct_long: self.tp_pct_long.as_mut().and_then(|i| i.next()),

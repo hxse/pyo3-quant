@@ -1,4 +1,5 @@
 use super::backtest_state::BacktestState;
+use super::frame_state::FrameState;
 use super::risk_trigger;
 use crate::types::BacktestParams;
 
@@ -13,6 +14,7 @@ impl<'a> BacktestState<'a> {
     pub fn calculate_position(&mut self, params: &BacktestParams) {
         if self.should_skip_current_bar() {
             self.reset_position_on_skip();
+            self.frame_state = FrameState::CapitalExhausted;
             return;
         }
 
@@ -113,6 +115,7 @@ impl<'a> BacktestState<'a> {
         self.action.entry_short_price = None;
         self.action.exit_short_price = None;
         self.action.first_entry_side = 0;
-        self.risk_state.reset_all(); // 注意这里需要确保 risk_state.reset_all() 存在或写出逻辑
+        self.gap_blocked = false;
+        self.risk_state.reset_all();
     }
 }

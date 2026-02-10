@@ -26,7 +26,7 @@
 | `exit_short_price` | `float64` | 空头离场价格 (NaN 表示无操作)。 |
 | `risk_in_bar_direction` | `int8` | **风控离场标志**。<br>`0`: 无 In-Bar 风控离场。<br>`1`: 多头 In-Bar 风控触发。<br>`-1`: 空头 In-Bar 风控触发。 |
 | `first_entry_side` | `int8` | **首次进场方向**。<br>`0`: 非进场 bar。<br>`1`: 多头首次进场。<br>`-1`: 空头首次进场。 |
-| `frame_state` | `uint8` | **帧状态枚举**。<br>从价格字段组合**推断**而出的状态标识（如 `HoldLong`, `ExitLongRisk` 等）。<br>⚠️ **注意**：此列是只读输出，**不是**状态机的驱动源。状态机是由价格字段驱动的。 |
+| `frame_state` | `uint8` | **帧状态枚举**。<br>从价格字段组合**推断**而出的状态标识（0=no_position, ..., 15=gap_blocked, 16=capital_exhausted）。<br>⚠️ **注意**：此列是只读输出，**不是**状态机的驱动源。状态机是由价格字段驱动的。 |
 | `has_leading_nan` | `bool` | **无效数据标记**。⚠️ 此列由**信号生成器**生成，回测引擎从输入 DataFrame 中透传。表示该位置数据是否处于预热期或存在缺失。 |
 
 > [!TIP]

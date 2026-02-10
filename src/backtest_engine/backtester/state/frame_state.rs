@@ -24,6 +24,7 @@ pub enum FrameState {
     ReversalToLRisk = 13,    // #14
     ReversalToSRisk = 14,    // #15
     GapBlocked = 15,         // #16 新增
+    CapitalExhausted = 16,   // #17 新增：资金耗尽
     Invalid = 255,           // 非法状态
 }
 
@@ -80,6 +81,7 @@ impl FrameState {
             Self::ReversalToLRisk => "reversal_to_L_risk",
             Self::ReversalToSRisk => "reversal_to_S_risk",
             Self::GapBlocked => "gap_blocked",
+            Self::CapitalExhausted => "capital_exhausted",
             Self::Invalid => "invalid_state",
         }
     }
@@ -105,6 +107,7 @@ pub fn py_frame_state_name(state_id: u8) -> String {
         13 => FrameState::ReversalToLRisk,
         14 => FrameState::ReversalToSRisk,
         15 => FrameState::GapBlocked,
+        16 => FrameState::CapitalExhausted,
         _ => FrameState::Invalid,
     };
     state.as_str().to_string()

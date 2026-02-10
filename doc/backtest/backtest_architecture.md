@@ -115,36 +115,18 @@ if can_entry_long() && prev_bar.entry_long:
 
 ---
 
-### 2.4 单 Bar 状态枚举（阶段 3）
+### 2.4 单 Bar 状态枚举 (阶段 3)
 
-回测状态采用 **"15 + 1"** 推断模式：
+回测状态采用 **"15 + 2"** 推断模式工作：
 1. 基于**六个字段**（四个价格 + `in_bar_direction` + `first_entry_side`）组合推断出 **15 种** 通用持仓状态。
-2. 引入 **1 种** 特殊状态 `GapBlocked`，用于标记因跳空保护而被拦截的进场信号。
+2. 引入 **2 种** 特殊语义状态：
+   - `GapBlocked`: 标记因跳空保护而被拦截的进场信号。
+   - `CapitalExhausted`: 标记因资金耗尽而停止交易的状态。
 
-| # | entry_L | exit_L | entry_S | exit_S | in_bar | first_entry | 状态 |
-|:-:|:-------:|:------:|:-------:|:------:|:------:|:-----------:|------|
-| 1 | ✗ | ✗ | ✗ | ✗ | 0 | 0 | `no_position` |
-| 2 | ✓ | ✗ | ✗ | ✗ | 0 | 0 | `hold_long` (延续) |
-| 3 | ✓ | ✗ | ✗ | ✗ | 0 | 1 | `hold_long_first` (进场) |
-| 4 | ✗ | ✗ | ✓ | ✗ | 0 | 0 | `hold_short` (延续) |
-| 5 | ✗ | ✗ | ✓ | ✗ | 0 | -1 | `hold_short_first` (进场) |
-| 6 | ✓ | ✓ | ✗ | ✗ | 0 | 0 | `exit_long_signal` |
-| 7 | ✓ | ✓ | ✗ | ✗ | 1 | 0 | `exit_long_risk` (持仓后) |
-| 8 | ✓ | ✓ | ✗ | ✗ | 1 | 1 | `exit_long_risk_first` (秒杀) |
-| 9 | ✗ | ✗ | ✓ | ✓ | 0 | 0 | `exit_short_signal` |
-| 10| ✗ | ✗ | ✓ | ✓ | -1 | 0 | `exit_short_risk` (持仓后) |
-| 11| ✗ | ✗ | ✓ | ✓ | -1 | -1 | `exit_short_risk_first` (秒杀) |
-| 12| ✓ | ✓ | ✓ | ✗ | 0 | -1 | `reversal_L_to_S` |
-| 13| ✓ | ✗ | ✓ | ✓ | 0 | 1 | `reversal_S_to_L` |
-| 14| ✓ | ✓ | ✓ | ✓ | 1 | 1 | `reversal_to_L_risk` |
-| 15| ✓ | ✓ | ✓ | ✓ | -1 | -1 | `reversal_to_S_risk` |
-| 16| ✗ | ✗ | ✗ | ✗ | 0 | 0 | `gap_blocked` (跳空拦截) |
-
-> **状态说明**：
-> - `gap_blocked`: 特殊状态。当信号指示进场但因跳空保护被拦截时，实际上未持有仓位（no_position），但为了区分"无信号"和"信号被拦截"，标记为 `gap_blocked`。
-> - `first_entry_side`：标记进场方向。`0`=非进场 bar，`1`=多头首次进场，`-1`=空头首次进场
-> - `in_bar_direction`：标记离场模式。`0`=无/Next-Bar 离场，`1`=多头 In-Bar 离场，`-1`=空头 In-Bar 离场
-> - "秒杀" 状态：同 bar 内进场后立即被风控平仓（`first_entry_side` 和 `in_bar_direction` 同时非零）
+> [!IMPORTANT]
+> **单一事实源 (Single Source of Truth)**：
+> 关于状态字段的详细定义、17 种合法状态的白名单组合表以及约束推导逻辑，请参见：
+> **[state_machine_constraints.md (状态机合法性约束体系)](./state_machine_constraints.md#31-有效状态白名单)**
 
 **辅助函数**（定义于 `BacktestState`）：
 - `has_long_position()`: `entry_long.is_some() && exit_long.is_none()`

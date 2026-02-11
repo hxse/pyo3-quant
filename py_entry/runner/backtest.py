@@ -1,5 +1,5 @@
 import time
-from typing import Optional, List, Union
+from typing import Optional, List, TYPE_CHECKING
 from types import SimpleNamespace
 from loguru import logger
 
@@ -16,6 +16,11 @@ from py_entry.types import (
     OptimizationResult,
     WalkForwardResult,
 )
+
+if TYPE_CHECKING:
+    from py_entry.types import SensitivityConfig
+    from py_entry.runner.results.sensitivity_result import SensitivityResult
+
 from py_entry.runner.results.optuna_result import OptunaOptResult
 
 
@@ -244,5 +249,37 @@ class Backtest:
         if self.enable_timing and start_time is not None:
             elapsed = time.perf_counter() - start_time
             logger.info(f"Backtest.walk_forward() 耗时: {elapsed:.4f}秒")
+
+        return result
+
+    def sensitivity(
+        self,
+        config: Optional["SensitivityConfig"] = None,
+        params_override: Optional[SingleParamSet] = None,
+    ) -> "SensitivityResult":
+        """参数敏感性分析 (Jitter Test)"""
+        start_time = time.perf_counter() if self.enable_timing else None
+
+        # Lazy import to avoid circular dependency
+        from py_entry.runner.results.sensitivity_result import SensitivityResult
+        from py_entry.types import SensitivityConfig
+
+        config = config or SensitivityConfig()
+        target_params = params_override or self.params
+
+        # Rust 接口需对应 py_run_sensitivity_test
+        raw_result = pyo3_quant.backtest_engine.sensitivity.run_sensitivity_test(
+            self.data_dict,
+            _to_rust_param(target_params),
+            self.template_config,
+            self.engine_settings,
+            config,
+        )
+
+        result = SensitivityResult(raw_result)
+
+        if self.enable_timing and start_time is not None:
+            elapsed = time.perf_counter() - start_time
+            logger.info(f"Backtest.sensitivity() 耗时: {elapsed:.4f}秒")
 
         return result

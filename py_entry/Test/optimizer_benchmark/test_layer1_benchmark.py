@@ -1,12 +1,11 @@
 import pytest
-from py_entry.types import OptimizerConfig
+from py_entry.types import OptimizerConfig, BenchmarkFunction
 import pyo3_quant
 
 # from pyo3_quant.backtest_engine.optimizer import py_run_optimizer_benchmark, BenchmarkFunction
 # 直接从 optimizer 模块获取，避免 import 路径问题
 optimizer_module = pyo3_quant.backtest_engine.optimizer
-py_run_optimizer_benchmark = optimizer_module.py_run_optimizer_benchmark  # type: ignore
-BenchmarkFunction = optimizer_module.BenchmarkFunction  # type: ignore
+py_run_optimizer_benchmark = optimizer_module.py_run_optimizer_benchmark
 
 
 # 设置测试参数

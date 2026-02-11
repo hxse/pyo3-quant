@@ -8,7 +8,7 @@ from .inputs.backtest import (
     PerformanceParams,
 )
 from .inputs.data import DataContainer, DataSource
-from .inputs.optimizer import OptimizeMetric, OptimizerConfig
+from .inputs.optimizer import OptimizeMetric, OptimizerConfig, BenchmarkFunction
 from .inputs.optuna_config import OptunaConfig
 from .inputs.params_base import Param, ParamType
 from .inputs.settings import ExecutionStage, SettingContainer
@@ -33,3 +33,5 @@ from .chart_config import (
 from .outputs.optimizer import OptimizationResult, RoundSummary
 from .outputs.walk_forward import WalkForwardResult, WindowResult
 from .outputs.backtest import BacktestSummary, IndicatorResults, PerformanceMetrics
+
+from .sensitivity import SensitivityConfig, SensitivitySample, SensitivityResult

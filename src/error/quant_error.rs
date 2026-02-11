@@ -28,4 +28,7 @@ pub enum QuantError {
 
     #[error("Infrastructure error: {0}")]
     InfrastructureError(String),
+
+    #[error("Invalid parameter: {0}")]
+    InvalidParam(String),
 }

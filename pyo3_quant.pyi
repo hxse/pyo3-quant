@@ -13,6 +13,7 @@ from py_entry.types import (
     BacktestParams,
     PerformanceParams,
     SignalTemplate,
+    BenchmarkFunction,
 )
 
 # ===== Errors Submodule =====
@@ -57,6 +58,7 @@ class errors:
     class PyMappingColumnNotFound(PySignalError): ...
     class PyMappingCastError(PySignalError): ...
     class PyMappingApplyError(PySignalError): ...
+    class PyMappingNameError(PySignalError): ...
     class PyParameterNotFoundError(PySignalError): ...
     class PyInvalidInputError(PySignalError): ...
     class PyParseError(PySignalError): ...
@@ -70,17 +72,13 @@ class backtest_engine:
         template: TemplateContainer,
         engine_settings: SettingContainer,
     ) -> List[Dict[str, Any]]:
-        """运行回测引擎
-
-        Returns:
-            回测结果摘要字典列表 (Python 端会通过 BacktestSummary.from_dict 进一步转换)
-        """
+        """运行回测引擎"""
         ...
 
     @staticmethod
     def run_single_backtest(
         data_dict: DataContainer,
-        param: Any,  # 传入 SimpleNamespace 或符合结构的字典
+        param: Any,
         template: TemplateContainer,
         engine_settings: SettingContainer,
     ) -> Dict[str, Any]:
@@ -122,6 +120,11 @@ class backtest_engine:
         """分析回测绩效"""
         ...
 
+    @staticmethod
+    def frame_state_name(state_id: int) -> str:
+        """将状态 ID 转为名称"""
+        ...
+
     class optimizer:
         @staticmethod
         def py_run_optimizer(
@@ -132,6 +135,16 @@ class backtest_engine:
             optimizer_config: Any,
         ) -> Dict[str, Any]:
             """运行参数优化"""
+            ...
+
+        @staticmethod
+        def py_run_optimizer_benchmark(
+            config: Any,
+            function: BenchmarkFunction,
+            bounds: List[tuple[float, float]],
+            seed: Optional[int] = None,
+        ) -> tuple[List[float], float]:
+            """评估基准函数优化"""
             ...
 
     class walk_forward:
@@ -155,4 +168,16 @@ class backtest_engine:
             tp_exit_in_bar: bool,
         ) -> Dict[str, Any]:
             """解析交易动作"""
+            ...
+
+    class sensitivity:
+        @staticmethod
+        def run_sensitivity_test(
+            data_dict: DataContainer,
+            param: Any,
+            template: TemplateContainer,
+            engine_settings: SettingContainer,
+            config: Any,
+        ) -> Dict[str, Any]:
+            """执行敏感性/抖动测试"""
             ...

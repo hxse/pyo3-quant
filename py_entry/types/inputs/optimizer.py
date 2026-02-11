@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional, List
 
 
@@ -13,6 +13,13 @@ class OptimizeMetric(str, Enum):
     TotalReturn = "total_return"
     WinRate = "win_rate"
     ProfitLossRatio = "profit_loss_ratio"
+
+
+class BenchmarkFunction(str, Enum):
+    Sphere = "Sphere"
+    Rosenbrock = "Rosenbrock"
+    Rastrigin = "Rastrigin"
+    Ackley = "Ackley"
 
 
 class OptimizerConfig(BaseModel):

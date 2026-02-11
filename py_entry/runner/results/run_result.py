@@ -1,5 +1,5 @@
 import time
-from typing import TYPE_CHECKING, List, Tuple, Self, Optional, Union
+from typing import TYPE_CHECKING, List, Tuple, Self, Union
 from io import BytesIO
 from pathlib import Path
 from loguru import logger

@@ -1,4 +1,9 @@
-use pyo3::{create_exception, exceptions::PyException, prelude::*, PyTypeInfo};
+use pyo3::{
+    create_exception,
+    exceptions::{PyException, PyValueError},
+    prelude::*,
+    PyTypeInfo,
+};
 
 use super::backtest_error::py_interface::{
     convert_backtest_error, register_py_module as register_backtest_errors,
@@ -26,6 +31,7 @@ impl From<QuantError> for PyErr {
             QuantError::PyO3(e) => e,
             QuantError::Polars(e) => PyQuantError::new_err(e.to_string()),
             QuantError::InfrastructureError(s) => PyQuantError::new_err(s),
+            QuantError::InvalidParam(s) => PyValueError::new_err(s),
         }
     }
 }

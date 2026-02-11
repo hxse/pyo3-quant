@@ -2,13 +2,44 @@ use pyo3::prelude::*;
 use std::f64::consts::PI;
 
 /// 基准函数枚举
-#[pyclass]
 #[derive(Clone, Copy, Debug)]
 pub enum BenchmarkFunction {
     Sphere,
     Rosenbrock,
     Rastrigin,
     Ackley,
+}
+
+impl<'py> IntoPyObject<'py> for BenchmarkFunction {
+    type Target = pyo3::types::PyString;
+    type Output = Bound<'py, pyo3::types::PyString>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        let s = match self {
+            Self::Sphere => "Sphere",
+            Self::Rosenbrock => "Rosenbrock",
+            Self::Rastrigin => "Rastrigin",
+            Self::Ackley => "Ackley",
+        };
+        Ok(pyo3::types::PyString::new(py, s))
+    }
+}
+
+impl<'source> FromPyObject<'source> for BenchmarkFunction {
+    fn extract_bound(ob: &Bound<'source, PyAny>) -> PyResult<Self> {
+        let s: String = ob.extract()?;
+        match s.to_lowercase().as_str() {
+            "sphere" => Ok(Self::Sphere),
+            "rosenbrock" => Ok(Self::Rosenbrock),
+            "rastrigin" => Ok(Self::Rastrigin),
+            "ackley" => Ok(Self::Ackley),
+            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Unknown benchmark function: {}",
+                s
+            ))),
+        }
+    }
 }
 
 impl BenchmarkFunction {

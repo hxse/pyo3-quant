@@ -99,6 +99,14 @@ pub fn extract_optimizable_params(single_param: &SingleParamSet) -> Vec<Flattene
         }
     }
 
+    // 确保顺序确定性 (HashMap 迭代顺序随机，会影响 Rosenbrock 等位置敏感函数)
+    flat_params.sort_by(|a, b| {
+        a.type_idx
+            .cmp(&b.type_idx)
+            .then_with(|| a.group.cmp(&b.group))
+            .then_with(|| a.name.cmp(&b.name))
+    });
+
     flat_params
 }
 

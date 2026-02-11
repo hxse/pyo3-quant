@@ -52,6 +52,7 @@ pub mod backtester;
 pub mod indicators;
 pub mod optimizer;
 mod performance_analyzer;
+pub mod sensitivity;
 pub mod signal_generator;
 mod utils;
 pub mod walk_forward;
@@ -302,7 +303,6 @@ pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
         optimizer::py_run_optimizer_benchmark,
         &optimizer_submodule
     )?)?;
-    optimizer_submodule.add_class::<optimizer::BenchmarkFunction>()?;
     m.add_submodule(&optimizer_submodule)?;
 
     // 注册向前滚动优化子模块
@@ -314,6 +314,14 @@ pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     let action_resolver_submodule = PyModule::new(m.py(), "action_resolver")?;
     action_resolver::register_py_module(&action_resolver_submodule)?;
     m.add_submodule(&action_resolver_submodule)?;
+
+    // 注册 sensitivity 子模块
+    let sensitivity_submodule = PyModule::new(m.py(), "sensitivity")?;
+    sensitivity_submodule.add_function(wrap_pyfunction!(
+        sensitivity::py_run_sensitivity_test,
+        &sensitivity_submodule
+    )?)?;
+    m.add_submodule(&sensitivity_submodule)?;
 
     Ok(())
 }

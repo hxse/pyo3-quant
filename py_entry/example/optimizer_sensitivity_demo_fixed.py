@@ -83,40 +83,28 @@ def run_sensitivity_demo():
     )
 
     logger.info("Running sensitivity analysis...")
-    try:
-        # We need to run optimize or just sensitivity?
-        # Sensitivity usually runs around a "center" param set.
-        # By default it uses current params in `bt`.
-        # Since we defined `optimize=True` for SMA period=14, it will jitter around 14.
+    # We need to run optimize or just sensitivity?
+    # Sensitivity usually runs around a "center" param set.
+    # By default it uses current params in `bt`.
+    # Since we defined `optimize=True` for SMA period=14, it will jitter around 14.
 
-        result = bt.sensitivity(config=config)
+    result = bt.sensitivity(config=config)
 
-        # 4. Report
-        print("\nSensitivity Analysis Result:")
-        print(f"Target Metric: {result.target_metric}")
-        print(f"Original Value: {result.original_value:.4f}")
-        print(f"Mean: {result.mean:.4f}")
-        print(f"Std Dev: {result.std:.4f}")
-        print(f"CV (Coef of Var): {result.cv:.4f}")
-        print(f"Min: {result.min:.4f}")
-        print(f"Max: {result.max:.4f}")
+    # 4. Report
+    print("\nSensitivity Analysis Result:")
+    print(f"Target Metric: {result.target_metric}")
+    print(f"Original Value: {result.original_value:.4f}")
+    print(f"Mean: {result.mean:.4f}")
+    print(f"Std Dev: {result.std:.4f}")
+    print(f"CV (Coef of Var): {result.cv:.4f}")
+    print(f"Min: {result.min:.4f}")
+    print(f"Max: {result.max:.4f}")
 
-        print("\nSamples (first 5):")
-        for i, sample in enumerate(result.samples[:5]):
-            print(
-                f"  Sample {i}: Values={sample.values}, Metric={sample.metric_value:.4f}"
-            )
+    print("\nSamples (first 5):")
+    for i, sample in enumerate(result.samples[:5]):
+        print(f"  Sample {i}: Values={sample.values}, Metric={sample.metric_value:.4f}")
 
-        print("\nSuccess!")
-
-        # Optional: Plot
-        # result.plot()
-
-    except Exception as e:
-        logger.error(f"Sensitivity analysis failed: {e}")
-        import traceback
-
-        traceback.print_exc()
+    print("\nSuccess!")
 
 
 if __name__ == "__main__":

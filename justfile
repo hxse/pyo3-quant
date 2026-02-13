@@ -17,16 +17,16 @@ sync:
     uv sync
 
 # 安装 maturin import hook (推荐的开发模式)
-hook-install:
-    source ./.venv/bin/activate && python -m maturin_import_hook site install --args="--release"
+# hook-install:
+#      uv run --no-sync && python -m maturin_import_hook site install --args="--release"
 
 # 卸载 maturin import hook
-hook-uninstall:
-    source ./.venv/bin/activate && python -m maturin_import_hook site uninstall
+# hook-uninstall:
+#      uv run --no-sync && python -m maturin_import_hook site uninstall
 
 # 使用 maturin develop 编译 (传统开发模式)
 develop:
-    source ./.venv/bin/activate && maturin develop --release
+    uv run --no-sync maturin develop --release
 
 # 清理 Rust 编译缓存
 clean:
@@ -37,37 +37,37 @@ clean:
 # 运行任意 Python 模块 (支持斜杠或点号格式)
 # 例: just run py_entry/example/basic_backtest
 # 例: just run py_entry.example.basic_backtest
-run path:
+run path: develop
     PYTHONPATH=. uv run --no-sync python {{ path }}
 
 # 运行基础回测示例
-run-basic:
+run-basic: develop
     PYTHONPATH=. uv run --no-sync python py_entry/example/basic_backtest.py
 
 # 运行自定义回测示例
-run-custom:
+run-custom: develop
     PYTHONPATH=. uv run --no-sync python py_entry/example/custom_backtest.py
 
 # 运行性能基准测试 (pyo3-quant vs VectorBT)
-benchmark:
+benchmark: develop
     PYTHONPATH=. uv run --no-sync --with vectorbt python -m py_entry.benchmark.run_benchmark
 
 # 运行复杂度仿真测试 (Numba Complexity Test)
-benchmark-check:
+benchmark-check: develop
     PYTHONPATH=. uv run --no-sync --with vectorbt python -m py_entry.benchmark.numba_complexity_test
 
 # 计时运行基础回测
-run-time path:
+run-time path: develop
     PYTHONPATH=. /usr/bin/time -f "\n执行时间: %e 秒" uv run --no-sync python {{ path }}
 
 # 运行 debug 目录下的脚本 (例: just debug debug_compare)
-debug name:
+debug name: develop
     PYTHONPATH=. uv run --no-sync python py_entry/debug/{{name}}.py
 
 # ==================== 测试 ====================
 
 # 运行 Python 测试 (可选 path 参数，例: just test-py path="py_entry/Test/backtest")
-test-py path="py_entry/Test":
+test-py path="py_entry/Test": develop
     uv run --no-sync python -m pytest {{path}}
 
 # 运行 Rust 单元测试
@@ -78,7 +78,7 @@ test-rust:
 test: test-rust test-py
 
 # 运行策略相关性分析测试 (默认 reversal_extreme)
-test-correlation strategy="reversal_extreme":
+test-correlation strategy="reversal_extreme": develop
     uv run --no-sync python -m pytest py_entry/Test/backtest/correlation_analysis/test_correlation.py -k "{{strategy}}" -s -v
 
 
@@ -89,7 +89,7 @@ check-rust:
     uv run --no-sync cargo check
 
 # 运行 Python 类型检查 (ty)
-check-py:
+check-py: develop
 	uvx ty check --exclude py_entry/scanner/strategies/legacy
 
 check: check-rust check-py
@@ -135,11 +135,11 @@ fix: lint-fix-py lint-fix-rust
 
 # 构建 wheel 包
 build:
-    source .venv/bin/activate && maturin build --release
+    uv run --no-sync maturin build --release
 
 # 构建并安装 wheel 包
 build-install:
-    source .venv/bin/activate && maturin build --release && uv pip install target/wheels/*.whl --force-reinstall
+    uv run --no-sync maturin build --release && uv pip install target/wheels/*.whl --force-reinstall
 
 # ==================== 扫描器 (独立模块，使用天勤量化) ====================
 
@@ -148,25 +148,25 @@ scanner-install:
     uv sync --group scanner
 
 # 运行趋势共振扫描器（持续运行）
-scanner-run:
+scanner-run: develop
     PYTHONPATH=. uv run --no-sync --group scanner python -m py_entry.scanner.main
 
 # 运行扫描器（单次扫描）
-scanner-once:
+scanner-once: develop
     PYTHONPATH=. uv run --no-sync --group scanner python -m py_entry.scanner.main --once
 
 # 运行扫描器（Mock 模式，离线测试）
-scanner-mock:
+scanner-mock: develop
     PYTHONPATH=. uv run --no-sync --group scanner python -m py_entry.scanner.main --once --mock
 
 # 运行扫描器单元测试
-scanner-test:
+scanner-test: develop
     PYTHONPATH=. uv run --no-sync --group scanner python -m pytest py_entry/Test/scanner/ -v
 
 # 运行趋势共振扫描器（调试模式，包含以 debug_ 开头的测试策略）
-scanner-debug:
+scanner-debug: develop
     PYTHONPATH=. uv run --no-sync --group scanner python -m py_entry.scanner.main --debug
 
 # 查看最新行情数据及指标数值 (EMA, CCI, MACD)
-scanner-inspect:
+scanner-inspect: develop
     PYTHONPATH=. uv run --no-sync --group scanner python py_entry/debug/inspect_scanner_data.py

@@ -51,7 +51,7 @@ def sensitivity_setup():
     )
 
     engine_settings = SettingContainer(
-        execution_stage=ExecutionStage.PERFORMANCE, return_only_final=True
+        execution_stage=ExecutionStage.Performance, return_only_final=True
     )
 
     bt = Backtest(
@@ -146,7 +146,7 @@ def test_no_optimizable_params(sensitivity_setup):
             entry_long=SignalGroup(logic=LogicOp.AND, comparisons=[]),
             entry_short=SignalGroup(logic=LogicOp.AND, comparisons=[]),
         ),
-        engine_settings=SettingContainer(execution_stage=ExecutionStage.PERFORMANCE),
+        engine_settings=SettingContainer(execution_stage=ExecutionStage.Performance),
     )
 
     config = SensitivityConfig(n_samples=5)
@@ -175,11 +175,16 @@ def test_param_bounds_and_quantization(sensitivity_setup):
     """验证采样值是否严格受限于 min/max 并尊重 step"""
     bt = sensitivity_setup
     # 修改参数，设置明显的边界和步长
-    # 正确路径是 bt.params.indicators
-    bt.params.indicators.root["ohlcv_15m"]["sma"]["period"].min = 10
-    bt.params.indicators.root["ohlcv_15m"]["sma"]["period"].max = 20
-    bt.params.indicators.root["ohlcv_15m"]["sma"]["period"].step = 5
-    bt.params.indicators.root["ohlcv_15m"]["sma"]["period"].value = 15
+    # 由于 PyO3 的 getter 返回的是副本，我们需要读取-修改-写回
+    indicators = bt.params.indicators
+    # ohlcv_15m -> sma -> period
+    p = indicators["ohlcv_15m"]["sma"]["period"]
+    p.min = 10
+    p.max = 20
+    p.step = 5
+    p.value = 15
+    # 写回
+    bt.params.indicators = indicators
 
     config = SensitivityConfig(jitter_ratio=0.5, n_samples=20, seed=42)
     result = bt.sensitivity(config=config)
@@ -197,10 +202,8 @@ def test_original_value_consistency(sensitivity_setup):
     bt = sensitivity_setup
     # 1. 直接回测
     run_result = bt.run()
-    # RunResult 对象包含 summary 字段
-    expected_val = run_result.summary.performance.get(
-        OptimizeMetric.CalmarRatioRaw.value, 0.0
-    )
+    # summary.performance 的 key 由 Rust 侧 as_str() 输出，为 snake_case 字符串。
+    expected_val = run_result.summary.performance.get("calmar_ratio_raw", 0.0)
 
     # 2. 敏感性测试
     config = SensitivityConfig(n_samples=5, metric=OptimizeMetric.CalmarRatioRaw)
@@ -215,7 +218,10 @@ def test_multi_param_jitter(sensitivity_setup):
     bt = sensitivity_setup
     # 增加第二个优化参数：sl_pct (止损比例)
     # 类型匹配 BacktestParams 中的 Optional[Param]
-    bt.params.backtest.sl_pct = Param(value=0.02, optimize=True, min=0.01, max=0.05)
+    # PyO3 getter 为副本语义，必须“读取-修改-写回”。
+    bp = bt.params.backtest
+    bp.sl_pct = Param(value=0.02, optimize=True, min=0.01, max=0.05)
+    bt.params.backtest = bp
 
     config = SensitivityConfig(n_samples=5, seed=42)
     result = bt.sensitivity(config=config)
@@ -223,9 +229,15 @@ def test_multi_param_jitter(sensitivity_setup):
     for sample in result.samples:
         # 应有两个参数值: [SMA period, sl_pct]
         assert len(sample.values) == 2
-        # 验证至少有一个样本的值改变了
-        # 原始值组合为 [14.0, 0.02]
-        assert sample.values != [14.0, 0.02]
+    # 验证至少有一个样本的值改变了
+    # 原始值组合为 [14.0, 0.02]
+    # 注意：由于随机性，个别样本可能恰好等于原始值，因此我们验证"至少有一个不同"而不是"全都不同"
+    has_diff = False
+    for sample in result.samples:
+        if sample.values != [14.0, 0.02]:
+            has_diff = True
+            break
+    assert has_diff, "所有样本都等于原始参数，抖动未生效。"
 
 
 def test_zero_jitter_error(sensitivity_setup):

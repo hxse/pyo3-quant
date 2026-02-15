@@ -11,7 +11,7 @@ DESCRIPTION = "测试区间穿越向下：rsi x< 70..30 表示RSI下穿70后持�
 
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "rsi": {"period": Param.create(14)},
+        "rsi": {"period": Param(14)},
     },
 }
 

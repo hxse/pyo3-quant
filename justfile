@@ -8,6 +8,10 @@ default:
 
 # ==================== 环境设置 ====================
 
+python_libdir := `uv run --no-sync python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))"`
+export LD_LIBRARY_PATH := python_libdir + ":" + env_var_or_default("LD_LIBRARY_PATH", "")
+export PYTHONPATH := "."
+
 # 首次设置开发环境 (一键配置)
 setup:
     bash scripts/setup_dev_env.sh
@@ -18,19 +22,28 @@ sync:
 
 # 安装 maturin import hook (推荐的开发模式)
 # hook-install:
-#      uv run --no-sync && python -m maturin_import_hook site install --args="--release"
+#     uv run --no-sync python -m maturin_import_hook site install --args="--release"
 
 # 卸载 maturin import hook
 # hook-uninstall:
-#      uv run --no-sync && python -m maturin_import_hook site uninstall
+#     uv run --no-sync python -m maturin_import_hook site uninstall
 
 # 使用 maturin develop 编译 (传统开发模式)
 develop:
     uv run --no-sync maturin develop --release
+    just stub
 
-# 清理 Rust 编译缓存
-clean:
-    cargo clean
+# 生成 Python 类型存根 (.pyi)
+stub:
+    uv run --no-sync cargo run --bin stub_gen
+
+# 清理生成的 Python 类型存根
+stub-clean:
+    find python/pyo3_quant -name "*.pyi" -delete
+
+# 清理所有构建产物
+clean: stub-clean
+    uv run --no-sync cargo clean
 
 # ==================== 运行 ====================
 
@@ -38,31 +51,32 @@ clean:
 # 例: just run py_entry/example/basic_backtest
 # 例: just run py_entry.example.basic_backtest
 run path: develop
-    PYTHONPATH=. uv run --no-sync python {{ path }}
+    uv run --no-sync python {{ path }}
 
 # 运行基础回测示例
 run-basic: develop
-    PYTHONPATH=. uv run --no-sync python py_entry/example/basic_backtest.py
+    uv run --no-sync python py_entry/example/basic_backtest.py
 
 # 运行自定义回测示例
 run-custom: develop
-    PYTHONPATH=. uv run --no-sync python py_entry/example/custom_backtest.py
+    uv run --no-sync python py_entry/example/custom_backtest.py
 
 # 运行性能基准测试 (pyo3-quant vs VectorBT)
 benchmark: develop
-    PYTHONPATH=. uv run --no-sync --with vectorbt python -m py_entry.benchmark.run_benchmark
+    uv run --no-sync --with vectorbt python -m py_entry.benchmark.run_benchmark
 
 # 运行复杂度仿真测试 (Numba Complexity Test)
 benchmark-check: develop
-    PYTHONPATH=. uv run --no-sync --with vectorbt python -m py_entry.benchmark.numba_complexity_test
+    uv run --no-sync --with vectorbt python -m py_entry.benchmark.numba_complexity_test
 
 # 计时运行基础回测
+# 注意: /usr/bin/time 是系统命令，不应加 uv run
 run-time path: develop
-    PYTHONPATH=. /usr/bin/time -f "\n执行时间: %e 秒" uv run --no-sync python {{ path }}
+    /usr/bin/time -f "\n执行时间: %e 秒" uv run --no-sync python {{ path }}
 
 # 运行 debug 目录下的脚本 (例: just debug debug_compare)
 debug name: develop
-    PYTHONPATH=. uv run --no-sync python py_entry/debug/{{name}}.py
+    uv run --no-sync python py_entry/debug/{{name}}.py
 
 # ==================== 测试 ====================
 
@@ -72,7 +86,7 @@ test-py path="py_entry/Test": develop
 
 # 运行 Rust 单元测试
 test-rust:
-    export LD_LIBRARY_PATH=$(uv run --no-sync python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))"):${LD_LIBRARY_PATH:-} && uv run --no-sync cargo test
+    uv run --no-sync cargo test
 
 # 运行所有测试
 test: test-rust test-py
@@ -90,7 +104,7 @@ check-rust:
 
 # 运行 Python 类型检查 (ty)
 check-py: develop
-	uvx ty check --exclude py_entry/scanner/strategies/legacy
+    uvx ty check --exclude py_entry/scanner/strategies/legacy
 
 check: check-rust check-py
 
@@ -102,7 +116,7 @@ fmt-py:
 
 # 格式化 Rust 代码
 fmt-rust:
-    cargo fmt
+    uv run --no-sync cargo fmt
 
 # 格式化所有代码 (Python + Rust)
 fmt: fmt-py fmt-rust
@@ -135,11 +149,12 @@ fix: lint-fix-py lint-fix-rust
 
 # 构建 wheel 包
 build:
+    just stub
     uv run --no-sync maturin build --release
 
 # 构建并安装 wheel 包
-build-install:
-    uv run --no-sync maturin build --release && uv pip install target/wheels/*.whl --force-reinstall
+build-install: build
+    uv pip install target/wheels/*.whl --force-reinstall
 
 # ==================== 扫描器 (独立模块，使用天勤量化) ====================
 
@@ -149,24 +164,24 @@ scanner-install:
 
 # 运行趋势共振扫描器（持续运行）
 scanner-run: develop
-    PYTHONPATH=. uv run --no-sync --group scanner python -m py_entry.scanner.main
+    uv run --no-sync --group scanner python -m py_entry.scanner.main
 
 # 运行扫描器（单次扫描）
 scanner-once: develop
-    PYTHONPATH=. uv run --no-sync --group scanner python -m py_entry.scanner.main --once
+    uv run --no-sync --group scanner python -m py_entry.scanner.main --once
 
 # 运行扫描器（Mock 模式，离线测试）
 scanner-mock: develop
-    PYTHONPATH=. uv run --no-sync --group scanner python -m py_entry.scanner.main --once --mock
+    uv run --no-sync --group scanner python -m py_entry.scanner.main --once --mock
 
 # 运行扫描器单元测试
 scanner-test: develop
-    PYTHONPATH=. uv run --no-sync --group scanner python -m pytest py_entry/Test/scanner/ -v
+    uv run --no-sync --group scanner python -m pytest py_entry/Test/scanner/ -v
 
 # 运行趋势共振扫描器（调试模式，包含以 debug_ 开头的测试策略）
 scanner-debug: develop
-    PYTHONPATH=. uv run --no-sync --group scanner python -m py_entry.scanner.main --debug
+    uv run --no-sync --group scanner python -m py_entry.scanner.main --debug
 
 # 查看最新行情数据及指标数值 (EMA, CCI, MACD)
 scanner-inspect: develop
-    PYTHONPATH=. uv run --no-sync --group scanner python py_entry/debug/inspect_scanner_data.py
+    uv run --no-sync --group scanner python py_entry/debug/inspect_scanner_data.py

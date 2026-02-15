@@ -15,8 +15,8 @@ from py_entry.types import (
 # 1. 指标参数
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "rsi_14": {"period": Param.create(14)},
-        "sma_20": {"period": Param.create(20)},
+        "rsi_14": {"period": Param(14)},
+        "sma_20": {"period": Param(20)},
     },
     "ohlcv_1h": {},
     "ohlcv_4h": {},
@@ -25,9 +25,9 @@ INDICATORS_PARAMS = {
 # 2. 信号参数 (定义将被引用的参数)
 # SignalParams 是 Dict[str, Param] 类型别名，直接使用字典
 SIGNAL_PARAMS = {
-    "rsi_buy_threshold": Param.create(30.0),
-    "rsi_sell_threshold": Param.create(70.0),
-    "sma_period_param": Param.create(20.0),
+    "rsi_buy_threshold": Param(30.0),
+    "rsi_sell_threshold": Param(70.0),
+    "sma_period_param": Param(20.0),
 }
 
 # 3. 信号模板 (使用 $param_name 引用参数)

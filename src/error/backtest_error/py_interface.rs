@@ -1,23 +1,23 @@
-use pyo3::{create_exception, exceptions::PyException, prelude::*, PyTypeInfo};
+use pyo3::{exceptions::PyException, prelude::*, PyTypeInfo};
 
 use super::error::BacktestError;
 
-create_exception!(pyo3_quant.errors, PyBacktestError, PyException);
-create_exception!(
+crate::define_exception!(pyo3_quant.errors, PyBacktestError, PyException);
+crate::define_exception!(
     pyo3_quant.errors,
     PyArrayLengthMismatchError,
     PyBacktestError
 );
-create_exception!(pyo3_quant.errors, PyMissingColumnError, PyBacktestError);
-create_exception!(pyo3_quant.errors, PyNonContiguousDataError, PyBacktestError);
-create_exception!(pyo3_quant.errors, PyInvalidParameterError, PyBacktestError);
-create_exception!(pyo3_quant.errors, PyEmptyDataFrameError, PyBacktestError);
-create_exception!(pyo3_quant.errors, PyContainsNaNError, PyBacktestError);
-create_exception!(pyo3_quant.errors, PyATRCalculationError, PyBacktestError);
-create_exception!(pyo3_quant.errors, PyOHLCVNotFoundError, PyBacktestError);
-create_exception!(pyo3_quant.errors, PyDataValidationError, PyBacktestError);
-create_exception!(pyo3_quant.errors, PyMissingDataSourceError, PyBacktestError);
-create_exception!(pyo3_quant.errors, PyValidationError, PyBacktestError);
+crate::define_exception!(pyo3_quant.errors, PyMissingColumnError, PyBacktestError);
+crate::define_exception!(pyo3_quant.errors, PyNonContiguousDataError, PyBacktestError);
+crate::define_exception!(pyo3_quant.errors, PyInvalidParameterError, PyBacktestError);
+crate::define_exception!(pyo3_quant.errors, PyEmptyDataFrameError, PyBacktestError);
+crate::define_exception!(pyo3_quant.errors, PyContainsNaNError, PyBacktestError);
+crate::define_exception!(pyo3_quant.errors, PyATRCalculationError, PyBacktestError);
+crate::define_exception!(pyo3_quant.errors, PyOHLCVNotFoundError, PyBacktestError);
+crate::define_exception!(pyo3_quant.errors, PyDataValidationError, PyBacktestError);
+crate::define_exception!(pyo3_quant.errors, PyMissingDataSourceError, PyBacktestError);
+crate::define_exception!(pyo3_quant.errors, PyValidationError, PyBacktestError);
 
 pub fn convert_backtest_error(e: BacktestError) -> PyErr {
     match e {

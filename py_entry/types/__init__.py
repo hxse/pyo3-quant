@@ -1,19 +1,45 @@
-from .inputs.backtest import (
+# 从 Rust 模块导入（#[pyclass] 类型）
+from pyo3_quant import (
+    Param,
+    ParamType,
     BacktestParams,
     PerformanceMetric,
-    IndicatorsParams,
-    SignalParams,
-    SingleParamSet,
-    ParamContainer,
     PerformanceParams,
+    SingleParamSet,
+    DataContainer,
+    OptimizerConfig,
+    OptimizeMetric,
+    BenchmarkFunction,
+    SettingContainer,
+    ExecutionStage,
+    LogicOp,
+    SignalGroup,
+    SignalTemplate,
+    TemplateContainer,
+    WalkForwardConfig,
+    BacktestSummary,
+    RoundSummary,
+    SamplePoint,
+    OptimizationResult,
+    WindowResult,
+    WalkForwardResult,
+    SensitivityConfig,
+    SensitivitySample,
+    SensitivityResult,
 )
-from .inputs.data import DataContainer, DataSource
-from .inputs.optimizer import OptimizeMetric, OptimizerConfig, BenchmarkFunction
-from .inputs.optuna_config import OptunaConfig
-from .inputs.params_base import Param, ParamType
-from .inputs.settings import ExecutionStage, SettingContainer
-from .inputs.signals import LogicOp, SignalGroup, SignalTemplate, TemplateContainer
-from .inputs.walk_forward import WalkForwardConfig
+
+# Python 类型别名（无 Rust 对应，保持向下兼容）
+from typing import Dict, List
+import polars as pl
+
+SignalParams = Dict[str, Param]
+IndicatorsParams = Dict[str, Dict[str, Dict[str, Param]]]
+ParamContainer = List[SingleParamSet]
+DataSource = Dict[str, pl.DataFrame]
+PerformanceMetrics = Dict[str, float]
+IndicatorResults = Dict[str, pl.DataFrame]
+
+# 纯 Python 类型（保留）
 from .chart_config import (
     ChartConfig,
     SeriesItemConfig,
@@ -29,9 +55,53 @@ from .chart_config import (
     BaselineOption,
     BarOption,
 )
+from .inputs.optuna_config import OptunaConfig
 
-from .outputs.optimizer import OptimizationResult, RoundSummary
-from .outputs.walk_forward import WalkForwardResult, WindowResult
-from .outputs.backtest import BacktestSummary, IndicatorResults, PerformanceMetrics
-
-from .sensitivity import SensitivityConfig, SensitivitySample, SensitivityResult
+__all__ = [
+    "Param",
+    "ParamType",
+    "BacktestParams",
+    "PerformanceMetric",
+    "PerformanceParams",
+    "SingleParamSet",
+    "DataContainer",
+    "OptimizerConfig",
+    "OptimizeMetric",
+    "BenchmarkFunction",
+    "SettingContainer",
+    "ExecutionStage",
+    "LogicOp",
+    "SignalGroup",
+    "SignalTemplate",
+    "TemplateContainer",
+    "WalkForwardConfig",
+    "BacktestSummary",
+    "RoundSummary",
+    "SamplePoint",
+    "OptimizationResult",
+    "WindowResult",
+    "WalkForwardResult",
+    "SensitivityConfig",
+    "SensitivitySample",
+    "SensitivityResult",
+    "SignalParams",
+    "IndicatorsParams",
+    "ParamContainer",
+    "DataSource",
+    "PerformanceMetrics",
+    "IndicatorResults",
+    "ChartConfig",
+    "SeriesItemConfig",
+    "IndicatorLayoutItem",
+    "DashboardOverride",
+    "HorizontalLineOption",
+    "VerticalLineOption",
+    "CandleOption",
+    "HistogramOption",
+    "VolumeOption",
+    "LineOption",
+    "AreaOption",
+    "BaselineOption",
+    "BarOption",
+    "OptunaConfig",
+]

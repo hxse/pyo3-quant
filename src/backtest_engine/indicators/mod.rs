@@ -22,6 +22,7 @@ use crate::types::{DataContainer, IndicatorResults, IndicatorsParams, Param};
 use crate::error::{IndicatorError, QuantError};
 use polars::prelude::*;
 use pyo3::prelude::*;
+use pyo3::IntoPyObject;
 use pyo3_polars::PyDataFrame;
 use std::collections::HashMap;
 
@@ -75,17 +76,27 @@ pub fn calculate_indicators(
     Ok(all_indicators)
 }
 
+use pyo3_stub_gen::derive::*;
+
+#[gen_stub_pyfunction(module = "pyo3_quant.backtest_engine.indicators")]
 #[pyfunction(name = "calculate_indicators")]
 pub fn py_calculate_indicators(
+    py: Python<'_>,
     processed_data: DataContainer,
     indicators_params: IndicatorsParams,
-) -> PyResult<HashMap<String, PyDataFrame>> {
+) -> PyResult<HashMap<String, Py<PyAny>>> {
     let result_map = calculate_indicators(&processed_data, &indicators_params)?;
 
-    let py_result_map = result_map
-        .into_iter()
-        .map(|(k, v)| (k, PyDataFrame(v)))
-        .collect();
+    let mut py_result_map = HashMap::new();
+    for (k, v) in result_map {
+        let py_obj = PyDataFrame(v).into_pyobject(py).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Failed to convert DataFrame: {}",
+                e
+            ))
+        })?;
+        py_result_map.insert(k, py_obj.into_any().unbind());
+    }
 
     Ok(py_result_map)
 }

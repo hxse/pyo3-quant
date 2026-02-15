@@ -1,7 +1,80 @@
 use pyo3::prelude::*;
+use pyo3_stub_gen::derive::*;
+use pyo3_stub_gen::PyStubType;
+
+/// 基准函数枚举
+#[pyclass(eq, eq_int, hash, frozen)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum BenchmarkFunction {
+    Sphere,
+    Rosenbrock,
+    Rastrigin,
+    Ackley,
+}
+
+impl BenchmarkFunction {
+    pub fn evaluate(&self, x: &[f64]) -> f64 {
+        match self {
+            Self::Sphere => x.iter().map(|&v| v * v).sum(),
+            Self::Rosenbrock => {
+                let mut sum = 0.0;
+                for i in 0..x.len() - 1 {
+                    let term1 = x[i + 1] - x[i] * x[i];
+                    let term2 = 1.0 - x[i];
+                    sum += 100.0 * term1 * term1 + term2 * term2;
+                }
+                sum
+            }
+            Self::Rastrigin => {
+                let a = 10.0;
+                let n = x.len() as f64;
+                a * n
+                    + x.iter()
+                        .map(|&v| v * v - a * (2.0 * std::f64::consts::PI * v).cos())
+                        .sum::<f64>()
+            }
+            Self::Ackley => {
+                let n = x.len() as f64;
+                let sum1: f64 = x.iter().map(|&v| v * v).sum();
+                let sum2: f64 = x
+                    .iter()
+                    .map(|&v| (2.0 * std::f64::consts::PI * v).cos())
+                    .sum();
+                -20.0 * (-0.2 * (sum1 / n).sqrt()).exp() - (sum2 / n).exp()
+                    + 20.0
+                    + std::f64::consts::E
+            }
+        }
+    }
+}
+
+impl PyStubType for BenchmarkFunction {
+    fn type_output() -> pyo3_stub_gen::TypeInfo {
+        pyo3_stub_gen::TypeInfo::locally_defined(
+            "BenchmarkFunction",
+            pyo3_stub_gen::ModuleRef::Default,
+        )
+    }
+}
+
+pyo3_stub_gen::inventory::submit! {
+    pyo3_stub_gen::type_info::PyEnumInfo {
+        enum_id: || std::any::TypeId::of::<BenchmarkFunction>(),
+        pyclass_name: "BenchmarkFunction",
+        module: Some("pyo3_quant._pyo3_quant"),
+        doc: "基准函数枚举",
+        variants: &[
+            ("Sphere", "Sphere"),
+            ("Rosenbrock", "Rosenbrock"),
+            ("Rastrigin", "Rastrigin"),
+            ("Ackley", "Ackley"),
+        ],
+    }
+}
 
 /// 优化目标指标枚举
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[pyclass(eq, eq_int, hash, frozen)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum OptimizeMetric {
     /// 年化夏普比率
     SharpeRatio,
@@ -21,8 +94,12 @@ pub enum OptimizeMetric {
     WinRate,
     /// 盈亏比
     ProfitLossRatio,
+    /// 最大回撤
+    MaxDrawdown,
 }
 
+#[gen_stub_pymethods]
+#[pymethods]
 impl OptimizeMetric {
     /// 转换为对应的性能指标键名
     pub fn as_str(&self) -> &'static str {
@@ -33,35 +110,47 @@ impl OptimizeMetric {
             Self::SharpeRatioRaw => "sharpe_ratio_raw",
             Self::SortinoRatioRaw => "sortino_ratio_raw",
             Self::CalmarRatioRaw => "calmar_ratio_raw",
-            Self::TotalReturn => "total_return",
-            Self::WinRate => "win_rate",
             Self::ProfitLossRatio => "profit_loss_ratio",
+            Self::WinRate => "win_rate",
+            Self::MaxDrawdown => "max_drawdown",
+            Self::TotalReturn => "total_return",
         }
     }
 }
 
-impl<'source> FromPyObject<'source> for OptimizeMetric {
-    fn extract_bound(ob: &Bound<'source, PyAny>) -> PyResult<Self> {
-        let s: String = ob.extract()?;
-        match s.as_str() {
-            "sharpe_ratio" => Ok(Self::SharpeRatio),
-            "sortino_ratio" => Ok(Self::SortinoRatio),
-            "calmar_ratio" => Ok(Self::CalmarRatio),
-            "sharpe_ratio_raw" => Ok(Self::SharpeRatioRaw),
-            "sortino_ratio_raw" => Ok(Self::SortinoRatioRaw),
-            "calmar_ratio_raw" => Ok(Self::CalmarRatioRaw),
-            "total_return" => Ok(Self::TotalReturn),
-            "win_rate" => Ok(Self::WinRate),
-            "profit_loss_ratio" => Ok(Self::ProfitLossRatio),
-            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Unknown optimize metric: {}. Valid options: sharpe_ratio, sortino_ratio, calmar_ratio, sharpe_ratio_raw, sortino_ratio_raw, calmar_ratio_raw, total_return, win_rate, profit_loss_ratio",
-                s
-            ))),
-        }
+impl PyStubType for OptimizeMetric {
+    fn type_output() -> pyo3_stub_gen::TypeInfo {
+        pyo3_stub_gen::TypeInfo::locally_defined(
+            "OptimizeMetric",
+            pyo3_stub_gen::ModuleRef::Default,
+        )
     }
 }
 
-#[derive(Debug, Clone, FromPyObject)]
+pyo3_stub_gen::inventory::submit! {
+    pyo3_stub_gen::type_info::PyEnumInfo {
+        enum_id: || std::any::TypeId::of::<OptimizeMetric>(),
+        pyclass_name: "OptimizeMetric",
+        module: Some("pyo3_quant._pyo3_quant"),
+        doc: "优化目标指标枚举",
+        variants: &[
+            ("SharpeRatio", "年化夏普比率"),
+            ("SortinoRatio", "年化索提诺比率"),
+            ("CalmarRatio", "年化卡尔马比率"),
+            ("SharpeRatioRaw", "非年化夏普比率"),
+            ("SortinoRatioRaw", "非年化索提诺比率"),
+            ("CalmarRatioRaw", "非年化卡尔马比率"),
+            ("TotalReturn", "总回报率"),
+            ("WinRate", "胜率"),
+            ("ProfitLossRatio", "盈亏比"),
+            ("MaxDrawdown", "最大回撤"),
+        ],
+    }
+}
+
+#[gen_stub_pyclass]
+#[pyclass(get_all, set_all)]
+#[derive(Debug, Clone)]
 pub struct OptimizerConfig {
     pub explore_ratio: f64,
     pub sigma_ratio: f64,
@@ -86,24 +175,61 @@ pub struct OptimizerConfig {
     pub seed: Option<u64>,
 }
 
-// 移除 #[pymethods] impl OptimizerConfig
+#[gen_stub_pymethods]
+#[pymethods]
+impl OptimizerConfig {
+    #[new]
+    #[pyo3(signature = (*, explore_ratio=0.20, sigma_ratio=0.10, weight_decay=0.15, top_k_ratio=0.70, samples_per_round=100, max_samples=10000, min_samples=400, max_rounds=200, stop_patience=10, optimize_metric=crate::types::OptimizeMetric::CalmarRatioRaw, init_samples=None, return_top_k=10, seed=None))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        explore_ratio: f64,
+        sigma_ratio: f64,
+        weight_decay: f64,
+        top_k_ratio: f64,
+        samples_per_round: usize,
+        max_samples: usize,
+        min_samples: usize,
+        max_rounds: usize,
+        stop_patience: usize,
+        optimize_metric: crate::types::OptimizeMetric,
+        init_samples: Option<Vec<Vec<f64>>>,
+        return_top_k: usize,
+        seed: Option<u64>,
+    ) -> Self {
+        Self {
+            explore_ratio,
+            sigma_ratio,
+            weight_decay,
+            top_k_ratio,
+            samples_per_round,
+            max_samples,
+            min_samples,
+            max_rounds,
+            stop_patience,
+            optimize_metric,
+            init_samples,
+            return_top_k,
+            seed,
+        }
+    }
+}
 
 impl Default for OptimizerConfig {
     fn default() -> Self {
-        Self {
-            explore_ratio: 0.20,
-            sigma_ratio: 0.10,
-            weight_decay: 0.15,
-            top_k_ratio: 0.70,
-            samples_per_round: 100,
-            max_samples: 10000,
-            min_samples: 400,
-            max_rounds: 200,
-            stop_patience: 10,
-            optimize_metric: OptimizeMetric::CalmarRatioRaw,
-            init_samples: None,
-            return_top_k: 10,
-            seed: None,
-        }
+        Self::new(
+            0.20,
+            0.10,
+            0.15,
+            0.70,
+            100,
+            10000,
+            400,
+            200,
+            10,
+            crate::types::OptimizeMetric::CalmarRatioRaw,
+            None,
+            10,
+            None,
+        )
     }
 }

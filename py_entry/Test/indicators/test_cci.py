@@ -7,6 +7,7 @@ from py_entry.Test.indicators.indicator_test_template import (
     IndicatorTestConfig,
     validate_indicator_accuracy,
 )
+from py_entry.types import Param
 
 
 # 1. 定义引擎结果提取器
@@ -32,7 +33,7 @@ def cci_pandas_ta_extractor(
     """
     使用 pandas_ta 计算 CCI
     """
-    period = params["period"]["value"]
+    period = int(params["period"].value)
 
     # 注意：我们的 Rust 实现是对齐 TA-Lib 的
     # 所以无论 enable_talib 是 True 還是 False，我们都期望对齐 TA-Lib
@@ -63,8 +64,8 @@ config = IndicatorTestConfig(
     indicator_name="cci",
     params_config={
         "ohlcv_15m": {
-            "cci_14": {"period": {"value": 14}},
-            "cci_50": {"period": {"value": 50}},
+            "cci_14": {"period": Param(14)},
+            "cci_50": {"period": Param(50)},
         }
     },
     suffixes=[],

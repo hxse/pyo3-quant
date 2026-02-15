@@ -76,26 +76,26 @@ psar_config = IndicatorTestConfig(
     params_config={
         "ohlcv_15m": {
             "psar_0": {
-                "af0": Param.create(0.02),
-                "af_step": Param.create(0.02),
-                "max_af": Param.create(0.2),
+                "af0": Param(0.02),
+                "af_step": Param(0.02),
+                "max_af": Param(0.2),
             },
             "psar_1": {
-                "af0": Param.create(0.03),
-                "af_step": Param.create(0.03),
-                "max_af": Param.create(0.3),
+                "af0": Param(0.03),
+                "af_step": Param(0.03),
+                "max_af": Param(0.3),
             },
         },
         "ohlcv_1h": {
             "psar_0": {
-                "af0": Param.create(0.01),
-                "af_step": Param.create(0.01),
-                "max_af": Param.create(0.15),
+                "af0": Param(0.01),
+                "af_step": Param(0.01),
+                "max_af": Param(0.15),
             },
             "psar_1": {
-                "af0": Param.create(0.025),
-                "af_step": Param.create(0.025),
-                "max_af": Param.create(0.25),
+                "af0": Param(0.025),
+                "af_step": Param(0.025),
+                "max_af": Param(0.25),
             },
         },
     },

@@ -49,24 +49,24 @@ class OscillationStrategy(StrategyProtocol):
         # 1. 准备参数
         indicators = {
             dk_macro: {
-                "adx_w": {"period": Param.create(14)},
+                "adx_w": {"period": Param(14)},
             },
             dk_trend: {
                 "macd_d": {
-                    "fast_period": Param.create(12),
-                    "slow_period": Param.create(26),
-                    "signal_period": Param.create(9),
+                    "fast_period": Param(12),
+                    "slow_period": Param(26),
+                    "signal_period": Param(9),
                 },
-                "ema_d": {"period": Param.create(20)},
+                "ema_d": {"period": Param(20)},
             },
             dk_wave: {
-                "cci_h": {"period": Param.create(14)},
+                "cci_h": {"period": Param(14)},
             },
             dk_trigger: {
                 "macd_m": {
-                    "fast_period": Param.create(12),
-                    "slow_period": Param.create(26),
-                    "signal_period": Param.create(9),
+                    "fast_period": Param(12),
+                    "slow_period": Param(26),
+                    "signal_period": Param(9),
                 },
             },
         }

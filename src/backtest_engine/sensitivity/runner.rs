@@ -4,18 +4,18 @@ use crate::backtest_engine::optimizer::param_extractor::{
 };
 use crate::backtest_engine::utils;
 use crate::error::QuantError;
-use crate::types::{DataContainer, SettingContainer, SingleParamSet, TemplateContainer};
+use crate::types::{
+    DataContainer, SensitivityConfig, SensitivityResult, SensitivitySample, SettingContainer,
+    SingleParamSet, TemplateContainer,
+};
 use pyo3::prelude::*;
+use pyo3_stub_gen::derive::*;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
 use rand_distr::{Distribution, Normal};
 use rayon::prelude::*;
 use std::collections::HashMap;
-
-use crate::backtest_engine::sensitivity::types::{
-    SensitivityConfig, SensitivityResult, SensitivitySample,
-};
 
 /// 生成抖动采样点
 fn generate_jitter_samples(
@@ -184,14 +184,29 @@ pub fn run_sensitivity_test(
 }
 
 /// PyO3 接口函数：运行敏感性测试
+#[gen_stub_pyfunction(
+    module = "pyo3_quant.backtest_engine.sensitivity",
+    python = r#"
+import pyo3_quant
+
+def run_sensitivity_test(
+    data_dict: pyo3_quant.DataContainer,
+    param: pyo3_quant.SingleParamSet,
+    template: pyo3_quant.TemplateContainer,
+    engine_settings: pyo3_quant.SettingContainer,
+    config: pyo3_quant.SensitivityConfig,
+) -> pyo3_quant.SensitivityResult:
+    """运行敏感性测试"""
+"#
+)]
 #[pyfunction(name = "run_sensitivity_test")]
 pub fn py_run_sensitivity_test(
     data_dict: DataContainer,
     center_param: SingleParamSet,
     template: TemplateContainer,
     settings: SettingContainer,
-    config: SensitivityConfig,
-) -> PyResult<SensitivityResult> {
+    config: crate::types::SensitivityConfig,
+) -> PyResult<crate::types::SensitivityResult> {
     let result = run_sensitivity_test(&data_dict, &center_param, &template, &settings, &config)?;
     Ok(result)
 }

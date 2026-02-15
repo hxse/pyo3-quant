@@ -3,10 +3,10 @@ import pandas as pd
 import numpy as np
 
 if TYPE_CHECKING:
-    from tqsdk import TqAuth
+    from tqsdk import TqAuth  # type: ignore
     from .config import ScannerConfig
 
-from tqsdk import TqApi
+from tqsdk import TqApi  # type: ignore
 
 
 class DataSourceProtocol(Protocol):

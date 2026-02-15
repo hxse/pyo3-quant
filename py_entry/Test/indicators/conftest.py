@@ -31,7 +31,7 @@ def run_indicator_backtest(
         data_source=data_params,
         indicators=indicators_params,
         engine_settings=SettingContainer(
-            execution_stage=ExecutionStage.INDICATOR,
+            execution_stage=ExecutionStage.Indicator,
             return_only_final=True,
         ),
     )

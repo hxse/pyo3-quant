@@ -42,8 +42,8 @@ def get_config() -> StrategyConfig:
     indicators_params = {
         f"ohlcv_{C.timeframe}": {
             "bbands": {
-                "period": Param.create(C.bbands_period),
-                "std": Param.create(C.bbands_std),
+                "period": Param(C.bbands_period),
+                "std": Param(C.bbands_std),
             }
         },
     }
@@ -63,10 +63,10 @@ def get_config() -> StrategyConfig:
         sl_anchor_mode=C.sl_anchor_mode,
         tp_anchor_mode=C.tp_anchor_mode,
         tsl_anchor_mode=C.tsl_anchor_mode,
-        sl_pct=Param.create(C.sl_pct),
-        tp_atr=Param.create(C.tp_atr),
-        tsl_atr=Param.create(C.tsl_atr),
-        atr_period=Param.create(C.atr_period),
+        sl_pct=Param(C.sl_pct),
+        tp_atr=Param(C.tp_atr),
+        tsl_atr=Param(C.tsl_atr),
+        atr_period=Param(C.atr_period),
         tsl_atr_tight=C.tsl_atr_tight,
     )
 
@@ -109,7 +109,7 @@ def get_config() -> StrategyConfig:
     )
 
     engine_settings = SettingContainer(
-        execution_stage=ExecutionStage.PERFORMANCE,
+        execution_stage=ExecutionStage.Performance,
         return_only_final=False,
     )
 

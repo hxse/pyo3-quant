@@ -23,13 +23,13 @@ simulated_data_config = DataGenerationParams(
 # 构建指标参数
 indicators_params = {
     "ohlcv_15m": {
-        "sma_0": {"period": Param.create(14, min=5, max=50, step=1)},
+        "sma_0": {"period": Param(14, min=5, max=50, step=1)},
         "sma_1": {
-            "period": Param.create(200, min=100, max=300, step=10),
+            "period": Param(200, min=100, max=300, step=10),
         },
     },
     "ohlcv_4h": {  # 数据没有4h, 预期报错
-        "sma_0": {"period": Param.create(14, min=5, max=50, step=1)},
+        "sma_0": {"period": Param(14, min=5, max=50, step=1)},
     },
 }
 

@@ -6,7 +6,7 @@ from typing import NoReturn
 
 # --- 依赖检查 ---
 try:
-    import tqsdk  # noqa: F401
+    import tqsdk  # type: ignore # noqa: F401
     import pandas  # noqa: F401
     import pandas_ta  # noqa: F401
     import httpx  # noqa: F401
@@ -26,7 +26,7 @@ from .strategies.registry import StrategyRegistry
 from .batcher import Batcher
 from . import strategies  # noqa: F401 (自动触发策略注册)
 
-from tqsdk import TqAuth
+from tqsdk import TqAuth  # type: ignore
 
 # 配置日志
 logging.basicConfig(

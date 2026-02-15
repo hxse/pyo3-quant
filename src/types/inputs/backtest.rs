@@ -1,11 +1,15 @@
 use super::params_base::Param;
 use crate::error::BacktestError;
-use pyo3::{prelude::*, Bound};
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3_stub_gen::derive::*;
+use pyo3_stub_gen::PyStubType;
 use std::collections::HashMap;
 
 pub type IndicatorsParams = HashMap<String, HashMap<String, HashMap<String, Param>>>;
 pub type SignalParams = HashMap<String, Param>;
 
+#[pyclass(eq, eq_int, hash, frozen)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum PerformanceMetric {
     TotalReturn,
@@ -63,42 +67,52 @@ impl PerformanceMetric {
     }
 }
 
-impl<'source> FromPyObject<'source> for PerformanceMetric {
-    fn extract_bound(ob: &Bound<'source, PyAny>) -> PyResult<Self> {
-        let s: String = ob.extract()?;
-        match s.as_str() {
-            "total_return" => Ok(Self::TotalReturn),
-            "max_drawdown" => Ok(Self::MaxDrawdown),
-            "sharpe_ratio" => Ok(Self::SharpeRatio),
-            "sortino_ratio" => Ok(Self::SortinoRatio),
-            "calmar_ratio" => Ok(Self::CalmarRatio),
-            "sharpe_ratio_raw" => Ok(Self::SharpeRatioRaw),
-            "sortino_ratio_raw" => Ok(Self::SortinoRatioRaw),
-            "calmar_ratio_raw" => Ok(Self::CalmarRatioRaw),
-            "max_drawdown_duration" => Ok(Self::MaxDrawdownDuration),
-            "total_trades" => Ok(Self::TotalTrades),
-            "avg_daily_trades" => Ok(Self::AvgDailyTrades),
-            "win_rate" => Ok(Self::WinRate),
-            "profit_loss_ratio" => Ok(Self::ProfitLossRatio),
-            "avg_holding_duration" => Ok(Self::AvgHoldingDuration),
-            "avg_empty_duration" => Ok(Self::AvgEmptyDuration),
-            "max_holding_duration" => Ok(Self::MaxHoldingDuration),
-            "max_empty_duration" => Ok(Self::MaxEmptyDuration),
-            "max_safe_leverage" => Ok(Self::MaxSafeLeverage),
-            "annualization_factor" => Ok(Self::AnnualizationFactor),
-            "has_leading_nan_count" => Ok(Self::HasLeadingNanCount),
-            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Unknown metric: {}",
-                s
-            ))),
-        }
+impl PyStubType for PerformanceMetric {
+    fn type_output() -> pyo3_stub_gen::TypeInfo {
+        pyo3_stub_gen::TypeInfo::locally_defined(
+            "PerformanceMetric",
+            pyo3_stub_gen::ModuleRef::Default,
+        )
+    }
+}
+
+pyo3_stub_gen::inventory::submit! {
+    pyo3_stub_gen::type_info::PyEnumInfo {
+        enum_id: || std::any::TypeId::of::<PerformanceMetric>(),
+        pyclass_name: "PerformanceMetric",
+        module: Some("pyo3_quant._pyo3_quant"),
+        doc: "性能指标枚举",
+        variants: &[
+            ("TotalReturn", "总回报率"),
+            ("MaxDrawdown", "最大回撤"),
+            ("MaxDrawdownDuration", "最大回撤持续时间"),
+            ("SharpeRatio", "年化夏普比率"),
+            ("SortinoRatio", "年化索提诺比率"),
+            ("CalmarRatio", "年化卡尔马比率"),
+            ("SharpeRatioRaw", "非年化夏普比率（原始）"),
+            ("SortinoRatioRaw", "非年化索提诺比率（原始）"),
+            ("CalmarRatioRaw", "非年化卡尔马比率（原始）"),
+            ("TotalTrades", "总交易次数"),
+            ("AvgDailyTrades", "平均每日交易次数"),
+            ("WinRate", "胜率"),
+            ("ProfitLossRatio", "盈亏比"),
+            ("AvgHoldingDuration", "平均持仓时间"),
+            ("AvgEmptyDuration", "平均空仓时间"),
+            ("MaxHoldingDuration", "最大持仓时间"),
+            ("MaxEmptyDuration", "最大空仓时间"),
+            ("MaxSafeLeverage", "最大安全杠杆"),
+            ("AnnualizationFactor", "年化因子"),
+            ("HasLeadingNanCount", "前置无效数据计数"),
+        ],
     }
 }
 
 /// 回测引擎的参数结构体。
 /// 包含止损止盈、ATR、资金管理、手续费等所有可配置参数。
 /// 参数值为 `Param` 类型，通过 `.value` 访问实际数值。
-#[derive(Clone, Debug, FromPyObject)]
+#[gen_stub_pyclass]
+#[pyclass(get_all, set_all)]
+#[derive(Clone, Debug)]
 pub struct BacktestParams {
     // === 止损止盈参数 (百分比) ===
     /// 百分比止损阈值。当仓位亏损达到此百分比时触发止损。
@@ -187,6 +201,147 @@ pub struct BacktestParams {
     /// 百分比手续费。每笔交易金额的百分比手续费。
     /// 必须 >= 0.0。
     pub fee_pct: f64,
+}
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl BacktestParams {
+    #[new]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (
+        *,
+        sl_pct=None,
+        tp_pct=None,
+        tsl_pct=None,
+        sl_atr=None,
+        tp_atr=None,
+        tsl_atr=None,
+        atr_period=None,
+        tsl_psar_af0=None,
+        tsl_psar_af_step=None,
+        tsl_psar_max_af=None,
+        tsl_atr_tight=false,
+        sl_exit_in_bar=true,
+        tp_exit_in_bar=true,
+        sl_trigger_mode=true,
+        tp_trigger_mode=true,
+        tsl_trigger_mode=true,
+        sl_anchor_mode=false,
+        tp_anchor_mode=false,
+        tsl_anchor_mode=false,
+        initial_capital=10000.0,
+        fee_fixed=0.0,
+        fee_pct=0.0006
+    ))]
+    pub fn new(
+        sl_pct: Option<Param>,
+        tp_pct: Option<Param>,
+        tsl_pct: Option<Param>,
+        sl_atr: Option<Param>,
+        tp_atr: Option<Param>,
+        tsl_atr: Option<Param>,
+        atr_period: Option<Param>,
+        tsl_psar_af0: Option<Param>,
+        tsl_psar_af_step: Option<Param>,
+        tsl_psar_max_af: Option<Param>,
+        tsl_atr_tight: bool,
+        sl_exit_in_bar: bool,
+        tp_exit_in_bar: bool,
+        sl_trigger_mode: bool,
+        tp_trigger_mode: bool,
+        tsl_trigger_mode: bool,
+        sl_anchor_mode: bool,
+        tp_anchor_mode: bool,
+        tsl_anchor_mode: bool,
+        initial_capital: f64,
+        fee_fixed: f64,
+        fee_pct: f64,
+    ) -> Self {
+        Self {
+            initial_capital,
+            fee_fixed,
+            fee_pct,
+            tsl_atr_tight,
+            sl_exit_in_bar,
+            tp_exit_in_bar,
+            sl_trigger_mode,
+            tp_trigger_mode,
+            tsl_trigger_mode,
+            sl_anchor_mode,
+            tp_anchor_mode,
+            tsl_anchor_mode,
+            sl_pct,
+            tp_pct,
+            tsl_pct,
+            sl_atr,
+            tp_atr,
+            tsl_atr,
+            atr_period,
+            tsl_psar_af0,
+            tsl_psar_af_step,
+            tsl_psar_max_af,
+            ..Default::default()
+        }
+    }
+
+    /// 业务层设置可优化参数（Option<Param> 字段）。
+    /// 使用字段名精确更新，避免在 Python 侧做深层读改写回。
+    pub fn set_optimizable_param(&mut self, name: &str, value: Option<Param>) -> PyResult<()> {
+        match name {
+            "sl_pct" => self.sl_pct = value,
+            "tp_pct" => self.tp_pct = value,
+            "tsl_pct" => self.tsl_pct = value,
+            "sl_atr" => self.sl_atr = value,
+            "tp_atr" => self.tp_atr = value,
+            "tsl_atr" => self.tsl_atr = value,
+            "atr_period" => self.atr_period = value,
+            "tsl_psar_af0" => self.tsl_psar_af0 = value,
+            "tsl_psar_af_step" => self.tsl_psar_af_step = value,
+            "tsl_psar_max_af" => self.tsl_psar_max_af = value,
+            _ => {
+                return Err(PyValueError::new_err(format!(
+                    "未知的 Backtest 可优化参数: {name}"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// 业务层设置布尔参数。
+    pub fn set_bool_param(&mut self, name: &str, value: bool) -> PyResult<()> {
+        match name {
+            "tsl_atr_tight" => self.tsl_atr_tight = value,
+            "sl_exit_in_bar" => self.sl_exit_in_bar = value,
+            "tp_exit_in_bar" => self.tp_exit_in_bar = value,
+            "sl_trigger_mode" => self.sl_trigger_mode = value,
+            "tp_trigger_mode" => self.tp_trigger_mode = value,
+            "tsl_trigger_mode" => self.tsl_trigger_mode = value,
+            "sl_anchor_mode" => self.sl_anchor_mode = value,
+            "tp_anchor_mode" => self.tp_anchor_mode = value,
+            "tsl_anchor_mode" => self.tsl_anchor_mode = value,
+            _ => {
+                return Err(PyValueError::new_err(format!(
+                    "未知的 Backtest 布尔参数: {name}"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// 业务层设置数值参数。
+    pub fn set_f64_param(&mut self, name: &str, value: f64) -> PyResult<()> {
+        match name {
+            "initial_capital" => self.initial_capital = value,
+            "fee_fixed" => self.fee_fixed = value,
+            "fee_pct" => self.fee_pct = value,
+            _ => {
+                return Err(PyValueError::new_err(format!(
+                    "未知的 Backtest 数值参数: {name}"
+                )));
+            }
+        }
+        Ok(())
+    }
 }
 
 impl BacktestParams {
@@ -406,100 +561,180 @@ impl BacktestParams {
     }
 }
 
-#[derive(Debug, Clone)]
+#[gen_stub_pyclass]
+#[pyclass(get_all, set_all)]
+#[derive(Debug, Clone, Default)]
 pub struct PerformanceParams {
     pub metrics: Vec<PerformanceMetric>,
     pub risk_free_rate: f64,
     pub leverage_safety_factor: Option<f64>,
 }
 
-impl<'source> FromPyObject<'source> for PerformanceParams {
-    fn extract_bound(ob: &Bound<'source, PyAny>) -> PyResult<Self> {
-        let metrics = if let Ok(m) = ob.getattr("metrics") {
-            m.extract()?
-        } else {
-            ob.get_item("metrics")?.extract()?
-        };
-
-        let risk_free_rate = ob
-            .getattr("risk_free_rate")
-            .or_else(|_| ob.get_item("risk_free_rate"))
-            .and_then(|i| i.extract())
-            .unwrap_or(0.0);
-
-        let leverage_safety_factor = ob
-            .getattr("leverage_safety_factor")
-            .or_else(|_| ob.get_item("leverage_safety_factor"))
-            .ok()
-            .and_then(|i| i.extract().ok());
-
-        Ok(Self {
-            metrics,
+#[gen_stub_pymethods]
+#[pymethods]
+impl PerformanceParams {
+    #[new]
+    #[pyo3(signature = (*, metrics=None, risk_free_rate=0.0, leverage_safety_factor=None))]
+    pub fn new(
+        metrics: Option<Vec<PerformanceMetric>>,
+        risk_free_rate: f64,
+        leverage_safety_factor: Option<f64>,
+    ) -> Self {
+        Self {
+            metrics: metrics.unwrap_or_default(),
             risk_free_rate,
             leverage_safety_factor,
-        })
-    }
-}
-
-// The following FromPyObject impl for SingleParamSet is provided by the user.
-// It replaces the #[derive(FromPyObject)] for SingleParamSet.
-// It also uses HashMap<String, Param> for indicators, signal, backtest,
-// which implies a different structure than the original `IndicatorsParams`, `SignalParams`, `BacktestParams`.
-// Assuming the user intends to change the internal representation for Python interaction.
-use pyo3::types::PyDict;
-// removed duplicate std::collections::HashMap import
-// removed crate::types::param::Param import, stick to super::params_base::Param which is available
-
-impl<'source> FromPyObject<'source> for SingleParamSet {
-    fn extract_bound(ob: &Bound<'source, PyAny>) -> PyResult<Self> {
-        let indicators_dict: Bound<PyDict> = ob.getattr("indicators")?.extract()?;
-        let mut indicators = HashMap::new();
-
-        for (tf_key, tf_val) in indicators_dict {
-            let group_dict: Bound<PyDict> = tf_val.extract()?;
-            let mut groups = HashMap::new();
-
-            for (group_key, group_val) in group_dict {
-                let params_dict: Bound<PyDict> = group_val.extract()?;
-                let mut params = HashMap::new();
-
-                for (p_key, p_val) in params_dict {
-                    let param: Param = p_val.extract()?;
-                    params.insert(p_key.extract()?, param);
-                }
-                groups.insert(group_key.extract()?, params);
-            }
-            indicators.insert(tf_key.extract()?, groups);
         }
+    }
 
-        let signal: HashMap<String, Param> = ob.getattr("signal")?.extract()?;
-        let backtest: BacktestParams = ob.getattr("backtest")?.extract()?;
+    /// 业务层设置绩效指标列表。
+    pub fn apply_metrics(&mut self, metrics: Vec<PerformanceMetric>) {
+        self.metrics = metrics;
+    }
 
-        // performance 参数通过 PerformanceParams::default() 初始化，
-        // 或者从 Python 端传入（如果 Python 端有对应结构）。
-        // 目前 Python SingleParamSet 似乎没有 performance 字段对应 Rust 的 PerformanceParams。
-        // Rust 的 SingleParamSet 有 performance: PerformanceParams。
-        // 查看 Rust SingleParamSet 定义:
-        // pub struct SingleParamSet { ..., pub performance: PerformanceParams }
-        // Python SingleParamSet 也有 performance: PerformanceParams。
-        // 所以应该提取。
-        let performance: PerformanceParams = ob.getattr("performance")?.extract()?;
+    /// 业务层设置无风险利率。
+    pub fn apply_risk_free_rate(&mut self, value: f64) {
+        self.risk_free_rate = value;
+    }
 
-        Ok(SingleParamSet {
-            indicators,
-            signal,
-            backtest,
-            performance,
-        })
+    /// 业务层设置杠杆安全系数。
+    pub fn apply_leverage_safety_factor(&mut self, value: Option<f64>) {
+        self.leverage_safety_factor = value;
     }
 }
 
-#[derive(Debug, Clone)] // Removed FromPyObject derive as it's manually implemented above
+#[gen_stub_pyclass]
+#[pyclass(get_all, set_all)]
+#[derive(Debug, Clone, Default)]
 pub struct SingleParamSet {
-    pub indicators: HashMap<String, HashMap<String, HashMap<String, Param>>>, // Changed type to match FromPyObject impl
-    pub signal: HashMap<String, Param>, // Changed type to match FromPyObject impl
+    pub indicators: HashMap<String, HashMap<String, HashMap<String, Param>>>,
+    pub signal: HashMap<String, Param>,
     pub backtest: BacktestParams,
     pub performance: PerformanceParams,
 }
 
+#[gen_stub_pymethods]
+#[pymethods]
+impl SingleParamSet {
+    #[new]
+    #[pyo3(signature = (*, indicators=None, signal=None, backtest=None, performance=None))]
+    pub fn new(
+        indicators: Option<HashMap<String, HashMap<String, HashMap<String, Param>>>>,
+        signal: Option<HashMap<String, Param>>,
+        backtest: Option<BacktestParams>,
+        performance: Option<PerformanceParams>,
+    ) -> Self {
+        Self {
+            indicators: indicators.unwrap_or_default(),
+            signal: signal.unwrap_or_default(),
+            backtest: backtest.unwrap_or_default(),
+            performance: performance.unwrap_or_default(),
+        }
+    }
+
+    /// 业务层一次性替换指标参数容器。
+    pub fn set_indicators_params(&mut self, indicators: IndicatorsParams) {
+        self.indicators = indicators;
+    }
+
+    /// 业务层一次性替换信号参数容器。
+    pub fn set_signal_params(&mut self, signal: SignalParams) {
+        self.signal = signal;
+    }
+
+    /// 业务层一次性替换回测参数容器。
+    pub fn set_backtest_params(&mut self, backtest: BacktestParams) {
+        self.backtest = backtest;
+    }
+
+    /// 业务层一次性替换绩效参数容器。
+    pub fn set_performance_params(&mut self, performance: PerformanceParams) {
+        self.performance = performance;
+    }
+
+    /// 业务层设置单个指标参数，按 data_key/indicator/param_name 精确落位。
+    pub fn set_indicator_param(
+        &mut self,
+        data_key: String,
+        indicator_name: String,
+        param_name: String,
+        param: Param,
+    ) {
+        self.indicators
+            .entry(data_key)
+            .or_default()
+            .entry(indicator_name)
+            .or_default()
+            .insert(param_name, param);
+    }
+
+    /// 业务层设置单个信号参数。
+    pub fn set_signal_param(&mut self, name: String, param: Param) {
+        self.signal.insert(name, param);
+    }
+
+    /// 业务层设置回测可优化参数（Option<Param> 字段）。
+    pub fn set_backtest_optimizable_param(
+        &mut self,
+        name: &str,
+        value: Option<Param>,
+    ) -> PyResult<()> {
+        self.backtest.set_optimizable_param(name, value)
+    }
+
+    /// 业务层设置回测布尔参数。
+    pub fn set_backtest_bool_param(&mut self, name: &str, value: bool) -> PyResult<()> {
+        self.backtest.set_bool_param(name, value)
+    }
+
+    /// 业务层设置回测数值参数。
+    pub fn set_backtest_f64_param(&mut self, name: &str, value: f64) -> PyResult<()> {
+        self.backtest.set_f64_param(name, value)
+    }
+
+    /// 业务层设置绩效指标列表。
+    pub fn set_performance_metrics(&mut self, metrics: Vec<PerformanceMetric>) {
+        self.performance.apply_metrics(metrics);
+    }
+
+    /// 业务层设置绩效无风险利率。
+    pub fn set_performance_risk_free_rate(&mut self, value: f64) {
+        self.performance.apply_risk_free_rate(value);
+    }
+
+    /// 业务层设置杠杆安全系数。
+    pub fn set_performance_leverage_safety_factor(&mut self, value: Option<f64>) {
+        self.performance.apply_leverage_safety_factor(value);
+    }
+}
+
 pub type ParamContainer = Vec<SingleParamSet>;
+
+impl Default for BacktestParams {
+    fn default() -> Self {
+        Self {
+            sl_pct: None,
+            tp_pct: None,
+            tsl_pct: None,
+            sl_atr: None,
+            tp_atr: None,
+            tsl_atr: None,
+            atr_period: None,
+            tsl_psar_af0: None,
+            tsl_psar_af_step: None,
+            tsl_psar_max_af: None,
+            tsl_atr_tight: false,
+            sl_exit_in_bar: true,
+            tp_exit_in_bar: true,
+            sl_trigger_mode: true,
+            tp_trigger_mode: true,
+            tsl_trigger_mode: true,
+            sl_anchor_mode: false,
+            tp_anchor_mode: false,
+            tsl_anchor_mode: false,
+            initial_capital: 10000.0,
+            fee_fixed: 0.0,
+            fee_pct: 0.0006,
+        }
+    }
+}

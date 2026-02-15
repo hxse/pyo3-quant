@@ -1,39 +1,39 @@
-use pyo3::{create_exception, exceptions::PyException, prelude::*, PyTypeInfo};
+use pyo3::{exceptions::PyException, prelude::*, PyTypeInfo};
 
 use super::error::IndicatorError;
 
-create_exception!(pyo3_quant.errors, PyIndicatorError, PyException);
-create_exception!(
+crate::define_exception!(pyo3_quant.errors, PyIndicatorError, PyException);
+crate::define_exception!(
     pyo3_quant.errors,
     PyIndicatorParameterNotFoundError,
     PyIndicatorError
 );
-create_exception!(
+crate::define_exception!(
     pyo3_quant.errors,
     PyIndicatorInvalidParameterError,
     PyIndicatorError
 );
-create_exception!(
+crate::define_exception!(
     pyo3_quant.errors,
     PyIndicatorColumnNotFoundError,
     PyIndicatorError
 );
-create_exception!(
+crate::define_exception!(
     pyo3_quant.errors,
     PyIndicatorDataTooShortError,
     PyIndicatorError
 );
-create_exception!(
+crate::define_exception!(
     pyo3_quant.errors,
     PyIndicatorNotImplementedError,
     PyIndicatorError
 );
-create_exception!(
+crate::define_exception!(
     pyo3_quant.errors,
     PyDataSourceNotFoundError,
     PyIndicatorError
 );
-create_exception!(
+crate::define_exception!(
     pyo3_quant.errors,
     PyDataSourceLengthMismatchError,
     PyIndicatorError

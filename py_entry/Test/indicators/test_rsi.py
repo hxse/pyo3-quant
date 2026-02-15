@@ -37,12 +37,12 @@ rsi_config = IndicatorTestConfig(
     indicator_name="rsi",
     params_config={
         "ohlcv_15m": {
-            "rsi_0": {"period": Param.create(14)},
-            "rsi_1": {"period": Param.create(21)},
+            "rsi_0": {"period": Param(14)},
+            "rsi_1": {"period": Param(21)},
         },
         "ohlcv_1h": {
-            "rsi_0": {"period": Param.create(9)},
-            "rsi_1": {"period": Param.create(25)},
+            "rsi_0": {"period": Param(9)},
+            "rsi_1": {"period": Param(25)},
         },
     },
     suffixes=[],

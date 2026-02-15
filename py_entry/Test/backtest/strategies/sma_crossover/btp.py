@@ -27,11 +27,11 @@ class SmaCrossoverBtp(Strategy):
 
     def next(self):
         # 金叉：快线上穿慢线 -> 做多
-        if crossover(self.sma_fast, self.sma_slow):  # type: ignore
+        if crossover(self.sma_fast, self.sma_slow):
             self.position.close()
             self.buy()
 
         # 死叉：快线下穿慢线 -> 做空
-        elif crossover(self.sma_slow, self.sma_fast):  # type: ignore
+        elif crossover(self.sma_slow, self.sma_fast):
             self.position.close()
             self.sell()

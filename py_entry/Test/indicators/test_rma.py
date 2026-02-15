@@ -35,12 +35,12 @@ rma_config = IndicatorTestConfig(
     indicator_name="rma",
     params_config={
         "ohlcv_15m": {
-            "rma_0": {"period": Param.create(14)},
-            "rma_1": {"period": Param.create(100)},
+            "rma_0": {"period": Param(14)},
+            "rma_1": {"period": Param(100)},
         },
         "ohlcv_1h": {
-            "rma_0": {"period": Param.create(20)},
-            "rma_1": {"period": Param.create(200)},
+            "rma_0": {"period": Param(20)},
+            "rma_1": {"period": Param(200)},
         },
     },
     suffixes=[],

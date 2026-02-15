@@ -59,7 +59,7 @@ def run_sensitivity_demo():
 
     # Engine Settings
     engine_settings = SettingContainer(
-        execution_stage=ExecutionStage.PERFORMANCE, return_only_final=True
+        execution_stage=ExecutionStage.Performance, return_only_final=True
     )
 
     # Initialize Backtest

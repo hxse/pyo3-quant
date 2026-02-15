@@ -21,7 +21,7 @@ DESCRIPTION = "测试无效的语法：省略第一个参数name应该报错"
 
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "sma_0": {"period": Param.create(20)},
+        "sma_0": {"period": Param(20)},
     },
 }
 

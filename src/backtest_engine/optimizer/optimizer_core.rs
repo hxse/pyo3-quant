@@ -2,19 +2,7 @@
 //!
 //! 包含优化状态管理、停止条件检测、TopK维护等核心功能
 
-use crate::types::RoundSummary;
-use std::collections::HashMap;
-
-/// 采样点结构
-#[derive(Clone, Debug)]
-pub struct SamplePoint {
-    /// 各维度的参数值
-    pub values: Vec<f64>,
-    /// 该参数组合的目标指标值（由 optimize_metric 指定）
-    pub metric_value: f64,
-    /// 所有已计算的性能指标
-    pub all_metrics: HashMap<String, f64>,
-}
+use crate::types::{RoundSummary, SamplePoint};
 
 /// 优化器配置验证结果
 pub struct ValidationResult {

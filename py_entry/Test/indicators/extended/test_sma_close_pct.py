@@ -1,5 +1,6 @@
 import pytest
 from py_entry.Test.indicators.conftest import run_indicator_backtest
+from py_entry.types import Param
 
 
 def test_sma_close_pct_column_names(data_dict):
@@ -9,8 +10,8 @@ def test_sma_close_pct_column_names(data_dict):
     """
     indicator_configs = {
         "ohlcv_15m": {
-            "sma-close-pct_0": {"period": {"value": 20}},
-            "sma-close-pct_fast": {"period": {"value": 5}},
+            "sma-close-pct_0": {"period": Param(20)},
+            "sma-close-pct_fast": {"period": Param(5)},
         }
     }
 

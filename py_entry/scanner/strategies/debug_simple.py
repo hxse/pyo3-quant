@@ -35,7 +35,7 @@ class DebugSimpleStrategy(StrategyProtocol):
         # 1. 准备参数
         indicators = {
             dk_trigger: {
-                "ema_test": {"period": Param.create(20)},
+                "ema_test": {"period": Param(20)},
             },
         }
 

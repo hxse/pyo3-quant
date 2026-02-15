@@ -13,7 +13,7 @@ from py_entry.types import (
 # 1. 指标参数
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "sma_10": {"period": Param.create(10)},
+        "sma_10": {"period": Param(10)},
     },
     "ohlcv_1h": {},
     "ohlcv_4h": {},

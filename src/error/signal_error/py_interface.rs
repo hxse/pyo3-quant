@@ -1,23 +1,23 @@
-use pyo3::{create_exception, exceptions::PyException, prelude::*, PyTypeInfo};
+use pyo3::{exceptions::PyException, prelude::*, PyTypeInfo};
 
 use super::error::SignalError;
 
-create_exception!(pyo3_quant.errors, PySignalError, PyException);
-create_exception!(pyo3_quant.errors, PySourceNotFoundError, PySignalError);
-create_exception!(
+crate::define_exception!(pyo3_quant.errors, PySignalError, PyException);
+crate::define_exception!(pyo3_quant.errors, PySourceNotFoundError, PySignalError);
+crate::define_exception!(
     pyo3_quant.errors,
     PySourceIndexOutOfBoundsError,
     PySignalError
 );
-create_exception!(pyo3_quant.errors, PyColumnNotFoundError, PySignalError);
-create_exception!(pyo3_quant.errors, PyInvalidSourceFormatError, PySignalError);
-create_exception!(pyo3_quant.errors, PyMappingColumnNotFound, PySignalError);
-create_exception!(pyo3_quant.errors, PyMappingCastError, PySignalError);
-create_exception!(pyo3_quant.errors, PyMappingApplyError, PySignalError);
-create_exception!(pyo3_quant.errors, PyParameterNotFoundError, PySignalError);
-create_exception!(pyo3_quant.errors, PyInvalidInputError, PySignalError);
-create_exception!(pyo3_quant.errors, PyParseError, PySignalError);
-create_exception!(pyo3_quant.errors, PyInvalidOffsetError, PySignalError);
+crate::define_exception!(pyo3_quant.errors, PyColumnNotFoundError, PySignalError);
+crate::define_exception!(pyo3_quant.errors, PyInvalidSourceFormatError, PySignalError);
+crate::define_exception!(pyo3_quant.errors, PyMappingColumnNotFound, PySignalError);
+crate::define_exception!(pyo3_quant.errors, PyMappingCastError, PySignalError);
+crate::define_exception!(pyo3_quant.errors, PyMappingApplyError, PySignalError);
+crate::define_exception!(pyo3_quant.errors, PyParameterNotFoundError, PySignalError);
+crate::define_exception!(pyo3_quant.errors, PyInvalidInputError, PySignalError);
+crate::define_exception!(pyo3_quant.errors, PyParseError, PySignalError);
+crate::define_exception!(pyo3_quant.errors, PyInvalidOffsetError, PySignalError);
 
 pub fn convert_signal_error(e: SignalError) -> PyErr {
     match e {

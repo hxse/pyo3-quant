@@ -33,7 +33,7 @@ def main():
         backtest=strategy.backtest_params,
         signal_template=strategy.signal_template,
         engine_settings=SettingContainer(
-            execution_stage=ExecutionStage.BACKTEST,
+            execution_stage=ExecutionStage.Backtest,
             return_only_final=False,
         ),
         performance=strategy.performance_params,

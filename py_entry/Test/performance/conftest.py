@@ -31,8 +31,8 @@ def full_performance_result():
 
     indicators_params = {
         "ohlcv_15m": {
-            "sma_fast": {"period": Param.create(5)},
-            "sma_slow": {"period": Param.create(10)},
+            "sma_fast": {"period": Param(5)},
+            "sma_slow": {"period": Param(10)},
         },
     }
 
@@ -48,8 +48,8 @@ def full_performance_result():
         sl_anchor_mode=False,
         tp_anchor_mode=False,
         tsl_anchor_mode=False,
-        sl_pct=Param.create(2),
-        tp_pct=Param.create(5),
+        sl_pct=Param(2),
+        tp_pct=Param(5),
     )
 
     signal_template = SignalTemplate(
@@ -95,7 +95,7 @@ def full_performance_result():
     )
 
     engine_settings = SettingContainer(
-        execution_stage=ExecutionStage.PERFORMANCE,
+        execution_stage=ExecutionStage.Performance,
         return_only_final=False,
     )
 

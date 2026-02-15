@@ -6,7 +6,7 @@ DESCRIPTION = "测试 inclusive 区间穿越：rsi x>= 30..70"
 
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "rsi": {"period": Param.create(14)},
+        "rsi": {"period": Param(14)},
     },
 }
 

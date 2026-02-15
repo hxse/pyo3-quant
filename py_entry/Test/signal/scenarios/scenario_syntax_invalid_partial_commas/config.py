@@ -22,7 +22,7 @@ DESCRIPTION = "测试无效的语法：省略部分逗号（只有1个逗号）�
 
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "sma_0": {"period": Param.create(20)},
+        "sma_0": {"period": Param(20)},
     },
 }
 

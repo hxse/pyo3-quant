@@ -249,7 +249,8 @@ class TestFrameStateCrossValidation:
         # 验证 frame_state_name 函数能正确解析所有出现的状态
         unique_states = backtest_df["frame_state"].unique().sort().to_list()
         for state_id in unique_states:
-            name = pyo3_quant.backtest_engine.frame_state_name(state_id)
+            # 统一使用 backtester 子模块中的唯一导出路径
+            name = pyo3_quant.backtest_engine.backtester.frame_state_name(state_id)
             assert name != "invalid_state", (
                 f"frame_state={state_id} 映射为 invalid_state"
             )

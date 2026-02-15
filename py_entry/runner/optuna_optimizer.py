@@ -1,8 +1,6 @@
 import optuna
-import copy
 from typing import List, Dict, Any, Optional, TYPE_CHECKING
 from loguru import logger
-from types import SimpleNamespace
 
 from py_entry.types import (
     SingleParamSet,
@@ -62,13 +60,28 @@ def extract_optimizable_params(params: SingleParamSet) -> List[ParamInfo]:
     return infos
 
 
+def _clone_param_with_value(param: Any, value: float | int) -> Any:
+    """复制 Param，并仅覆盖 value 字段。"""
+    return param.__class__(
+        value=value,
+        min=param.min,
+        max=param.max,
+        dtype=param.dtype,
+        optimize=param.optimize,
+        log_scale=param.log_scale,
+        step=param.step,
+    )
+
+
 def build_param_set(
     base_params: SingleParamSet,
     param_infos: List[ParamInfo],
     trial_values: Dict[str, Any],
 ) -> SingleParamSet:
-    """根据采样值构建新的参数集"""
-    new_params = copy.deepcopy(base_params)
+    """根据采样值构建新的参数集（新对象 + 最小必要拷贝）。"""
+    indicator_updates: Dict[tuple[str, str, str], Any] = {}
+    signal_updates: Dict[str, Any] = {}
+    backtest_updates: Dict[str, Any] = {}
 
     for info in param_infos:
         val = trial_values.get(info.unique_key)
@@ -76,19 +89,86 @@ def build_param_set(
             continue
 
         if info.type_idx == 0:
-            # Indicator
             tf, group_name = info.group.split(":")
-            new_params.indicators[tf][group_name][info.name].value = val
+            indicator_updates[(tf, group_name, info.name)] = val
         elif info.type_idx == 1:
-            # Signal
-            new_params.signal[info.name].value = val
+            signal_updates[info.name] = val
         elif info.type_idx == 2:
-            # Backtest
-            p_obj = getattr(new_params.backtest, info.name)
-            if p_obj:
-                p_obj.value = val
+            backtest_updates[info.name] = val
 
-    return new_params
+    # indicators: 仅在命中更新时拷贝对应路径，其他结构复用。
+    indicators = base_params.indicators
+    if indicator_updates:
+        indicators = dict(base_params.indicators)
+        copied_tf: set[str] = set()
+        copied_group: set[tuple[str, str]] = set()
+        for (tf, group_name, param_name), value in indicator_updates.items():
+            if tf not in copied_tf:
+                indicators[tf] = dict(indicators[tf])
+                copied_tf.add(tf)
+            group_key = (tf, group_name)
+            if group_key not in copied_group:
+                indicators[tf][group_name] = dict(indicators[tf][group_name])
+                copied_group.add(group_key)
+            old_param = indicators[tf][group_name][param_name]
+            indicators[tf][group_name][param_name] = _clone_param_with_value(
+                old_param, value
+            )
+
+    # signal: 仅拷贝命中的键。
+    signal = base_params.signal
+    if signal_updates:
+        signal = dict(base_params.signal)
+        for name, value in signal_updates.items():
+            signal[name] = _clone_param_with_value(signal[name], value)
+
+    # backtest: 仅存在更新时才新建对象，且只替换命中的 Param 字段。
+    backtest_config = base_params.backtest
+    if backtest_updates:
+        bp = base_params.backtest
+        maybe_param_fields = [
+            "sl_pct",
+            "tp_pct",
+            "tsl_pct",
+            "sl_atr",
+            "tp_atr",
+            "tsl_atr",
+            "atr_period",
+            "tsl_psar_af0",
+            "tsl_psar_af_step",
+            "tsl_psar_max_af",
+        ]
+        kwargs = {}
+        for field in maybe_param_fields:
+            obj = getattr(bp, field)
+            if field in backtest_updates and obj is not None:
+                kwargs[field] = _clone_param_with_value(obj, backtest_updates[field])
+            elif obj is not None:
+                kwargs[field] = obj
+
+        backtest_config = bp.__class__(
+            initial_capital=bp.initial_capital,
+            fee_fixed=bp.fee_fixed,
+            fee_pct=bp.fee_pct,
+            tsl_atr_tight=bp.tsl_atr_tight,
+            sl_exit_in_bar=bp.sl_exit_in_bar,
+            tp_exit_in_bar=bp.tp_exit_in_bar,
+            sl_trigger_mode=bp.sl_trigger_mode,
+            tp_trigger_mode=bp.tp_trigger_mode,
+            tsl_trigger_mode=bp.tsl_trigger_mode,
+            sl_anchor_mode=bp.sl_anchor_mode,
+            tp_anchor_mode=bp.tp_anchor_mode,
+            tsl_anchor_mode=bp.tsl_anchor_mode,
+            **kwargs,
+        )
+
+    # 每个 trial 创建新 SingleParamSet；performance 不参与采样，直接复用。
+    return SingleParamSet(
+        indicators=indicators,
+        signal=signal,
+        backtest=backtest_config,
+        performance=base_params.performance,
+    )
 
 
 def get_best_params_structure(
@@ -151,11 +231,11 @@ def run_optuna_optimization(
         load_if_exists=True,
     )
 
-    metric_key = (
-        config.metric.value
-        if isinstance(config.metric, OptimizeMetric)
-        else config.metric
-    )
+    # Map Enum to snake_case string manually using if-else chain since hashing might be missing
+
+    metric_key = config.metric
+    if isinstance(config.metric, OptimizeMetric):
+        metric_key = config.metric.as_str()
 
     # 根据 n_jobs 选择执行模式
     if config.n_jobs == 1:
@@ -273,15 +353,15 @@ def _sample_trial_values(
         p_min = p.min
         p_max = p.max
 
-        if p.dtype == ParamType.INTEGER:
+        if p.dtype == ParamType.Integer:
             val = trial.suggest_int(
                 info.unique_key,
                 int(p_min),
                 int(p_max),
                 log=p.log_scale,
-                step=int(p.step) if p.step > 0 else 1,
+                step=max(1, int(p.step)) if p.step > 0 else 1,
             )
-        elif p.dtype == ParamType.BOOLEAN:
+        elif p.dtype == ParamType.Boolean:
             val = (
                 1.0
                 if trial.suggest_categorical(info.unique_key, [True, False])

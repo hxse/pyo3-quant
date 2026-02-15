@@ -1,5 +1,4 @@
 use pyo3::{
-    create_exception,
     exceptions::{PyException, PyValueError},
     prelude::*,
     PyTypeInfo,
@@ -19,7 +18,7 @@ use super::signal_error::py_interface::{
     convert_signal_error, register_py_module as register_signal_errors,
 };
 
-create_exception!(pyo3_quant.errors, PyQuantError, PyException);
+crate::define_exception!(pyo3_quant.errors, PyQuantError, PyException);
 
 impl From<QuantError> for PyErr {
     fn from(err: QuantError) -> PyErr {

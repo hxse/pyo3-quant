@@ -4,7 +4,7 @@
 
 use crate::backtest_engine::execute_single_backtest;
 use crate::backtest_engine::optimizer::optimizer_core::{
-    merge_top_k, should_stop_patience, validate_config, SamplePoint,
+    merge_top_k, should_stop_patience, validate_config,
 };
 use crate::backtest_engine::optimizer::param_extractor::{
     apply_values_to_param, extract_optimizable_params, quantize_value, set_param_value,
@@ -15,15 +15,14 @@ use crate::backtest_engine::optimizer::sampler::{
 };
 use crate::backtest_engine::utils;
 use crate::error::{OptimizerError, QuantError};
-use crate::types::OptimizerConfig;
-use crate::types::{DataContainer, SettingContainer, SingleParamSet, TemplateContainer};
-use crate::types::{OptimizationResult, RoundSummary};
+use crate::types::{
+    BenchmarkFunction, DataContainer, OptimizationResult, OptimizerConfig, RoundSummary,
+    SamplePoint, SettingContainer, SingleParamSet, TemplateContainer,
+};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rayon::prelude::*;
 use std::collections::HashMap;
-
-use super::benchmark::BenchmarkFunction;
 
 /// 评估模式枚举
 pub enum EvalMode<'a> {
@@ -330,7 +329,7 @@ pub fn run_optimization_generic(
 
     Ok(OptimizationResult {
         best_params: best_param_set,
-        optimize_metric: config.optimize_metric.as_str().to_string(),
+        optimize_metric: config.optimize_metric,
         optimize_value: best.metric_value,
         metrics: best.all_metrics.clone(),
         total_samples,

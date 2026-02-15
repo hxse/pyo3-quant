@@ -13,21 +13,21 @@ from py_entry.types import (
 # 1. 指标参数
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "bbands_20": {"period": Param.create(20), "std": Param.create(2.0)},
+        "bbands_20": {"period": Param(20), "std": Param(2.0)},
     },
     "ohlcv_1h": {
-        "rsi_14": {"period": Param.create(14)},
+        "rsi_14": {"period": Param(14)},
     },
     "ohlcv_4h": {
-        "sma_10": {"period": Param.create(10)},
-        "sma_30": {"period": Param.create(30)},
+        "sma_10": {"period": Param(10)},
+        "sma_30": {"period": Param(30)},
     },
 }
 
 # 2. 信号参数
 SIGNAL_PARAMS = {
-    "rsi_midline": Param.create(50.0),
-    "rsi_oversold": Param.create(30.0),
+    "rsi_midline": Param(50.0),
+    "rsi_oversold": Param(30.0),
 }
 
 # 3. 信号模板

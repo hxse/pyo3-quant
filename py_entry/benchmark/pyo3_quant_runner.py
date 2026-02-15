@@ -31,23 +31,23 @@ def create_backtest(df: pl.DataFrame, strategy: str = "A") -> Backtest:
         indicators = {
             "ohlcv_15m": {
                 "sma_fast": {
-                    "period": Param.create(
+                    "period": Param(
                         20,
                         min=params["sma_fast"][0],
                         max=params["sma_fast"][1],
                         step=1.0,
                         optimize=True,
-                        dtype=ParamType.INTEGER,
+                        dtype=ParamType.Integer,
                     )
                 },
                 "sma_slow": {
-                    "period": Param.create(
+                    "period": Param(
                         60,
                         min=params["sma_slow"][0],
                         max=params["sma_slow"][1],
                         step=1.0,
                         optimize=True,
-                        dtype=ParamType.INTEGER,
+                        dtype=ParamType.Integer,
                     )
                 },
             }
@@ -56,7 +56,7 @@ def create_backtest(df: pl.DataFrame, strategy: str = "A") -> Backtest:
             initial_capital=10000.0,
             fee_fixed=0.0,
             fee_pct=0.0005,
-            tsl_pct=Param.create(
+            tsl_pct=Param(
                 0.02,
                 min=params["tsl_pct"][0],
                 max=params["tsl_pct"][1],
@@ -82,33 +82,33 @@ def create_backtest(df: pl.DataFrame, strategy: str = "A") -> Backtest:
         indicators = {
             "ohlcv_15m": {
                 "ema_fast": {
-                    "period": Param.create(
+                    "period": Param(
                         12,
                         min=params["ema_fast"][0],
                         max=params["ema_fast"][1],
                         step=1.0,
                         optimize=True,
-                        dtype=ParamType.INTEGER,
+                        dtype=ParamType.Integer,
                     )
                 },
                 "ema_slow": {
-                    "period": Param.create(
+                    "period": Param(
                         26,
                         min=params["ema_slow"][0],
                         max=params["ema_slow"][1],
                         step=1.0,
                         optimize=True,
-                        dtype=ParamType.INTEGER,
+                        dtype=ParamType.Integer,
                     )
                 },
                 "rsi": {
-                    "period": Param.create(
+                    "period": Param(
                         14,
                         min=params["rsi_period"][0],
                         max=params["rsi_period"][1],
                         step=1.0,
                         optimize=True,
-                        dtype=ParamType.INTEGER,
+                        dtype=ParamType.Integer,
                     )
                 },
             }
@@ -117,7 +117,7 @@ def create_backtest(df: pl.DataFrame, strategy: str = "A") -> Backtest:
             initial_capital=10000.0,
             fee_fixed=0.0,
             fee_pct=0.0005,
-            tsl_pct=Param.create(
+            tsl_pct=Param(
                 0.02,
                 min=params["tsl_pct"][0],
                 max=params["tsl_pct"][1],
@@ -152,7 +152,7 @@ def create_backtest(df: pl.DataFrame, strategy: str = "A") -> Backtest:
             initial_capital=10000.0,
             fee_fixed=0.0,
             fee_pct=0.0005,
-            tsl_pct=Param.create(
+            tsl_pct=Param(
                 0.02,
                 min=params["tsl_pct"][0],
                 max=params["tsl_pct"][1],
@@ -182,7 +182,7 @@ def create_backtest(df: pl.DataFrame, strategy: str = "A") -> Backtest:
         signal_template=signal_template,
         performance=PerformanceParams(metrics=[PerformanceMetric.TotalReturn]),
         engine_settings=SettingContainer(
-            execution_stage=ExecutionStage.PERFORMANCE, return_only_final=True
+            execution_stage=ExecutionStage.Performance, return_only_final=True
         ),
         signal={},
     )

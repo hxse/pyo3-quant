@@ -21,7 +21,7 @@ DESCRIPTION = "测试无效的混合逻辑偏移：&和|混用应该报错"
 
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "sma_0": {"period": Param.create(20)},
+        "sma_0": {"period": Param(20)},
     },
 }
 

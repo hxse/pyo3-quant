@@ -6,7 +6,7 @@
 import numpy as np
 import polars as pl
 import pandas as pd
-import talib
+import pandas_ta as ta
 from py_entry.Test.backtest.correlation_analysis.adapters.pyo3_adapter import (
     Pyo3Adapter,
 )
@@ -61,11 +61,8 @@ def run_lifecycle_analysis():
     # 2. 获取 OHLCV 和 ATR
     print("\n[2/4] 提取数据...")
     ohlc = ohlcv_df.copy()
-    ohlc["ATR"] = talib.ATR(
-        ohlc["High"].values,
-        ohlc["Low"].values,
-        ohlc["Close"].values,
-        timeperiod=C.atr_period,
+    ohlc["ATR"] = ta.atr(
+        ohlc["High"], ohlc["Low"], ohlc["Close"], length=C.atr_period, talib=True
     )
 
     # 3. 提取交易

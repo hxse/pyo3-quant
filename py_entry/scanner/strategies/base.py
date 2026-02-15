@@ -228,7 +228,7 @@ def run_scan_backtest(
 
     # 2. 准备回测配置
     settings = SettingContainer(
-        execution_stage=ExecutionStage.SIGNALS,
+        execution_stage=ExecutionStage.Signals,
         return_only_final=False,
     )
     bt = Backtest(

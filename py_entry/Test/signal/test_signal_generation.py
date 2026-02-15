@@ -33,7 +33,7 @@ from py_entry.Test.signal.utils import (
 def setting_container():
     """设置容器（所有场景共享）"""
     return SettingContainer(
-        execution_stage=ExecutionStage.PERFORMANCE,  # 使用PERFORMANCE而不是SIGNAL
+        execution_stage=ExecutionStage.Performance,  # 使用PERFORMANCE而不是SIGNAL
     )
 
 

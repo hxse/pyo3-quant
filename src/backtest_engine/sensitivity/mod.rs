@@ -8,5 +8,4 @@ pub mod types;
 pub use self::runner::py_run_sensitivity_test;
 #[allow(unused_imports)]
 pub use self::runner::run_sensitivity_test;
-#[allow(unused_imports)]
-pub use self::types::{SensitivityConfig, SensitivityResult, SensitivitySample};
+// 移除已移动到 crate::types 的类型的重导出

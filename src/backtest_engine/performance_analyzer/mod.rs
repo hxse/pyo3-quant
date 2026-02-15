@@ -146,14 +146,19 @@ pub fn analyze_performance(
     Ok(result)
 }
 
+use pyo3_stub_gen::derive::*;
+
+#[gen_stub_pyfunction(module = "pyo3_quant.backtest_engine.performance_analyzer")]
 #[pyfunction(name = "analyze_performance")]
 pub fn py_analyze_performance(
+    py: Python<'_>,
     data_dict: DataContainer,
-    backtest_df_py: PyDataFrame,
+    backtest_df_py: Py<PyAny>,
     performance_params: PerformanceParams,
 ) -> PyResult<HashMap<String, f64>> {
     // 1. 将 Python 对象转换为 Rust 类型
-    let backtest_df: DataFrame = backtest_df_py.into();
+    let backtest_df: PyDataFrame = backtest_df_py.bind(py).extract()?;
+    let backtest_df: DataFrame = backtest_df.into();
 
     // 2. 调用原始的 analyze_performance 函数
     let result = analyze_performance(&data_dict, &backtest_df, &performance_params)?;

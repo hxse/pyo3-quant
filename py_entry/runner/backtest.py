@@ -1,6 +1,5 @@
 import time
-from typing import Optional, List, TYPE_CHECKING
-from types import SimpleNamespace
+from typing import Optional, List, TYPE_CHECKING, Any
 from loguru import logger
 
 import pyo3_quant
@@ -15,15 +14,11 @@ from py_entry.types import (
     WalkForwardConfig,
     OptimizationResult,
     WalkForwardResult,
+    SensitivityConfig,
+    SensitivityResult,
 )
 
-if TYPE_CHECKING:
-    from py_entry.types import SensitivityConfig
-    from py_entry.runner.results.sensitivity_result import SensitivityResult
-
 from py_entry.runner.results.optuna_result import OptunaOptResult
-
-
 from py_entry.data_generator import DataSourceConfig, OtherParams
 from py_entry.runner.setup_utils import (
     build_data,
@@ -47,18 +42,6 @@ from py_entry.runner.results.run_result import RunResult
 from py_entry.runner.results.batch_result import BatchResult
 from py_entry.runner.results.opt_result import OptimizeResult
 from py_entry.runner.results.wf_result import WalkForwardResultWrapper
-
-
-def _to_rust_param(param: SingleParamSet):
-    """Convert SingleParamSet to a structure compatible with Rust engine.
-    Rust expects attributes for the container, but PyDict for indicators/signal.
-    """
-    return SimpleNamespace(
-        indicators=param.indicators.root,
-        signal=param.signal.root,
-        backtest=param.backtest,
-        performance=param.performance,
-    )
 
 
 class Backtest:
@@ -118,16 +101,13 @@ class Backtest:
 
         target_params = params_override or self.params
 
-        # 直接调用 Rust 的单回测 API
-        raw_result = pyo3_quant.backtest_engine.run_single_backtest(
+        # 直接调用 Rust 的单回测 API, #[pyclass] 类型直接传过去
+        summary = pyo3_quant.backtest_engine.run_single_backtest(
             self.data_dict,
-            _to_rust_param(target_params),
+            target_params,
             self.template_config,
             self.engine_settings,
         )
-
-        # 直接解析结果
-        summary = BacktestSummary.model_validate(raw_result)
 
         result = RunResult(
             summary=summary,
@@ -145,20 +125,15 @@ class Backtest:
         return result
 
     def batch(self, param_list: List[SingleParamSet]) -> BatchResult:
-        """批量并发回测
-
-        直接调用 run_backtest_engine(param_list)
-        """
+        """批量并发回测"""
         start_time = time.perf_counter() if self.enable_timing else None
 
-        raw_results = pyo3_quant.backtest_engine.run_backtest_engine(
+        summaries = pyo3_quant.backtest_engine.run_backtest_engine(
             self.data_dict,
-            [_to_rust_param(p) for p in param_list],
+            param_list,
             self.template_config,
             self.engine_settings,
         )
-
-        summaries = [BacktestSummary.model_validate(r) for r in raw_results]
 
         result = BatchResult(
             summaries=summaries,
@@ -192,13 +167,13 @@ class Backtest:
 
         raw_result = pyo3_quant.backtest_engine.optimizer.py_run_optimizer(
             self.data_dict,
-            _to_rust_param(target_params),
+            target_params,
             self.template_config,
             self.engine_settings,
             config,
         )
 
-        result = OptimizeResult(OptimizationResult.model_validate(raw_result))
+        result = OptimizeResult(raw_result)
 
         if self.enable_timing and start_time is not None:
             elapsed = time.perf_counter() - start_time
@@ -228,16 +203,16 @@ class Backtest:
         config = config or WalkForwardConfig()
         target_params = params_override or self.params
 
-        raw_result = pyo3_quant.backtest_engine.walk_forward.py_run_walk_forward(
+        raw_result = pyo3_quant.backtest_engine.walk_forward.run_walk_forward(
             self.data_dict,
-            _to_rust_param(target_params),
+            target_params,
             self.template_config,
             self.engine_settings,
             config,
         )
 
         result = WalkForwardResultWrapper(
-            WalkForwardResult.model_validate(raw_result),
+            raw_result,
             context={
                 "data_dict": self.data_dict,
                 "template_config": self.template_config,
@@ -254,15 +229,11 @@ class Backtest:
 
     def sensitivity(
         self,
-        config: Optional["SensitivityConfig"] = None,
+        config: Optional[SensitivityConfig] = None,
         params_override: Optional[SingleParamSet] = None,
     ) -> "SensitivityResult":
         """参数敏感性分析 (Jitter Test)"""
         start_time = time.perf_counter() if self.enable_timing else None
-
-        # Lazy import to avoid circular dependency
-        from py_entry.runner.results.sensitivity_result import SensitivityResult
-        from py_entry.types import SensitivityConfig
 
         config = config or SensitivityConfig()
         target_params = params_override or self.params
@@ -270,16 +241,14 @@ class Backtest:
         # Rust 接口需对应 py_run_sensitivity_test
         raw_result = pyo3_quant.backtest_engine.sensitivity.run_sensitivity_test(
             self.data_dict,
-            _to_rust_param(target_params),
+            target_params,
             self.template_config,
             self.engine_settings,
             config,
         )
 
-        result = SensitivityResult(raw_result)
-
         if self.enable_timing and start_time is not None:
             elapsed = time.perf_counter() - start_time
             logger.info(f"Backtest.sensitivity() 耗时: {elapsed:.4f}秒")
 
-        return result
+        return raw_result

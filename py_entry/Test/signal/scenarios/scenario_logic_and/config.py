@@ -13,8 +13,8 @@ from py_entry.types import (
 # 1. 指标参数
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "rsi_14": {"period": Param.create(14)},
-        "sma_20": {"period": Param.create(20)},
+        "rsi_14": {"period": Param(14)},
+        "sma_20": {"period": Param(20)},
     },
     "ohlcv_1h": {},
     "ohlcv_4h": {},
@@ -22,7 +22,7 @@ INDICATORS_PARAMS = {
 
 # 2. 信号参数
 SIGNAL_PARAMS = {
-    "rsi_threshold": Param.create(50.0),
+    "rsi_threshold": Param(50.0),
 }
 
 # 3. 信号模板

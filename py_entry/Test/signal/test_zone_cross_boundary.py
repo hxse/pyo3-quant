@@ -88,7 +88,7 @@ def test_zone_cross_boundary_inclusive():
     # 但通常是 "indicator_name"
     # 我们配置一个 SMA(1) 来代表 Close
 
-    indicators_params = {"ohlcv_15m": {"sma_1": {"period": Param.create(1)}}}
+    indicators_params = {"ohlcv_15m": {"sma_1": {"period": Param(1)}}}
 
     signal_template = SignalTemplate(
         entry_long=SignalGroup(
@@ -102,7 +102,7 @@ def test_zone_cross_boundary_inclusive():
         data_source=data_config,
         indicators=indicators_params,
         signal_template=signal_template,
-        engine_settings=SettingContainer(execution_stage=ExecutionStage.PERFORMANCE),
+        engine_settings=SettingContainer(execution_stage=ExecutionStage.Performance),
     )
 
     result = runner.run()
@@ -179,7 +179,7 @@ def test_zone_cross_boundary_strict_down():
     )
 
     data_config = DirectDataConfig(data={"ohlcv_15m": df}, base_data_key="ohlcv_15m")
-    indicators_params = {"ohlcv_15m": {"sma_1": {"period": Param.create(1)}}}
+    indicators_params = {"ohlcv_15m": {"sma_1": {"period": Param(1)}}}
 
     signal_template = SignalTemplate(
         entry_long=SignalGroup(
@@ -192,7 +192,7 @@ def test_zone_cross_boundary_strict_down():
         data_source=data_config,
         indicators=indicators_params,
         signal_template=signal_template,
-        engine_settings=SettingContainer(execution_stage=ExecutionStage.PERFORMANCE),
+        engine_settings=SettingContainer(execution_stage=ExecutionStage.Performance),
     )
 
     result = runner.run()
@@ -262,7 +262,7 @@ def test_zone_cross_boundary_inclusive_down():
     )
 
     data_config = DirectDataConfig(data={"ohlcv_15m": df}, base_data_key="ohlcv_15m")
-    indicators_params = {"ohlcv_15m": {"sma_1": {"period": Param.create(1)}}}
+    indicators_params = {"ohlcv_15m": {"sma_1": {"period": Param(1)}}}
 
     signal_template = SignalTemplate(
         entry_long=SignalGroup(
@@ -275,7 +275,7 @@ def test_zone_cross_boundary_inclusive_down():
         data_source=data_config,
         indicators=indicators_params,
         signal_template=signal_template,
-        engine_settings=SettingContainer(execution_stage=ExecutionStage.PERFORMANCE),
+        engine_settings=SettingContainer(execution_stage=ExecutionStage.Performance),
     )
 
     result = runner.run()

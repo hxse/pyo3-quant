@@ -10,7 +10,7 @@ pub(crate) enum ForceDirection {
 
 // 核心状态结构体
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct PsarState {
+pub struct PsarState {
     pub(crate) is_long: bool,     // true=多头, false=空头
     pub(crate) current_psar: f64, // 当前PSAR值
     pub(crate) current_ep: f64,   // 当前极端点 (Extreme Point)

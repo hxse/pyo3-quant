@@ -44,6 +44,7 @@
 //! 这种策略显著降低了大规模回测的内存占用。
 
 use pyo3::prelude::*;
+use pyo3_stub_gen::derive::*;
 use rayon::prelude::*;
 
 // 子模块声明
@@ -223,6 +224,20 @@ fn execute_single_backtest(
 /// # 返回值
 ///
 /// 返回 Python 列表，每个元素为一个回测摘要字典
+#[gen_stub_pyfunction(
+    module = "pyo3_quant.backtest_engine",
+    python = r#"
+import pyo3_quant
+
+def run_backtest_engine(
+    data_dict: pyo3_quant.DataContainer,
+    param_set: list[pyo3_quant.SingleParamSet],
+    template: pyo3_quant.TemplateContainer,
+    engine_settings: pyo3_quant.SettingContainer,
+) -> list[pyo3_quant.BacktestSummary]:
+    """运行回测引擎"""
+"#
+)]
 #[pyfunction(name = "run_backtest_engine")]
 pub fn py_run_backtest_engine(
     data_dict: DataContainer,
@@ -250,6 +265,20 @@ pub fn py_run_backtest_engine(
 /// # 返回值
 ///
 /// 返回 Python 字典（摘要结果）
+#[gen_stub_pyfunction(
+    module = "pyo3_quant.backtest_engine",
+    python = r#"
+import pyo3_quant
+
+def run_single_backtest(
+    data_dict: pyo3_quant.DataContainer,
+    param: pyo3_quant.SingleParamSet,
+    template: pyo3_quant.TemplateContainer,
+    engine_settings: pyo3_quant.SettingContainer,
+) -> pyo3_quant.BacktestSummary:
+    """运行单个回测"""
+"#
+)]
 #[pyfunction(name = "run_single_backtest")]
 pub fn py_run_single_backtest(
     data_dict: DataContainer,
@@ -261,6 +290,21 @@ pub fn py_run_single_backtest(
     let result = execute_single_backtest(&data_dict, &param, &template, &engine_settings)?;
 
     Ok(result)
+}
+
+/// 将子模块注册到 Python 的 `sys.modules`
+///
+/// 这样 `import pyo3_quant.backtest_engine.xxx` 会直接命中 Rust 已注册的模块对象，
+/// 避免 Python 侧再做 `setattr(sys.modules, ...)` 的动态注入 hack。
+fn register_submodule_in_sys_modules(
+    py: Python<'_>,
+    full_module_name: &str,
+    submodule: &Bound<'_, PyModule>,
+) -> PyResult<()> {
+    py.import("sys")?
+        .getattr("modules")?
+        .set_item(full_module_name, submodule)?;
+    Ok(())
 }
 
 /// 注册 PyO3 模块的所有函数
@@ -282,19 +326,68 @@ pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_run_backtest_engine, m)?)?;
     m.add_function(wrap_pyfunction!(py_run_single_backtest, m)?)?;
 
-    // 注册各个子模块的函数
-    m.add_function(wrap_pyfunction!(indicators::py_calculate_indicators, m)?)?;
-    m.add_function(wrap_pyfunction!(signal_generator::py_generate_signals, m)?)?;
-    m.add_function(wrap_pyfunction!(backtester::py_run_backtest, m)?)?;
-    m.add_function(wrap_pyfunction!(backtester::py_frame_state_name, m)?)?;
-    m.add_function(wrap_pyfunction!(
-        performance_analyzer::py_analyze_performance,
-        m
+    // 统一在 Rust 侧构建并注册子模块，避免 Python 侧动态桥接。
+    // 每个子模块都同步写入 sys.modules，确保 import 路径稳定可用。
+    let py = m.py();
+
+    // indicators 子模块
+    let indicators_submodule = PyModule::new(py, "indicators")?;
+    indicators_submodule.add_function(wrap_pyfunction!(
+        indicators::py_calculate_indicators,
+        &indicators_submodule
     )?)?;
+    m.add_submodule(&indicators_submodule)?;
+    register_submodule_in_sys_modules(
+        py,
+        "pyo3_quant.backtest_engine.indicators",
+        &indicators_submodule,
+    )?;
+
+    // signal_generator 子模块
+    let signal_generator_submodule = PyModule::new(py, "signal_generator")?;
+    signal_generator_submodule.add_function(wrap_pyfunction!(
+        signal_generator::py_generate_signals,
+        &signal_generator_submodule
+    )?)?;
+    m.add_submodule(&signal_generator_submodule)?;
+    register_submodule_in_sys_modules(
+        py,
+        "pyo3_quant.backtest_engine.signal_generator",
+        &signal_generator_submodule,
+    )?;
+
+    // backtester 子模块
+    let backtester_submodule = PyModule::new(py, "backtester")?;
+    backtester_submodule.add_function(wrap_pyfunction!(
+        backtester::py_run_backtest,
+        &backtester_submodule
+    )?)?;
+    backtester_submodule.add_function(wrap_pyfunction!(
+        backtester::py_frame_state_name,
+        &backtester_submodule
+    )?)?;
+    m.add_submodule(&backtester_submodule)?;
+    register_submodule_in_sys_modules(
+        py,
+        "pyo3_quant.backtest_engine.backtester",
+        &backtester_submodule,
+    )?;
+
+    // performance_analyzer 子模块
+    let performance_analyzer_submodule = PyModule::new(py, "performance_analyzer")?;
+    performance_analyzer_submodule.add_function(wrap_pyfunction!(
+        performance_analyzer::py_analyze_performance,
+        &performance_analyzer_submodule
+    )?)?;
+    m.add_submodule(&performance_analyzer_submodule)?;
+    register_submodule_in_sys_modules(
+        py,
+        "pyo3_quant.backtest_engine.performance_analyzer",
+        &performance_analyzer_submodule,
+    )?;
 
     // 注册优化器子模块
-    let optimizer_submodule = PyModule::new(m.py(), "optimizer")?;
-
+    let optimizer_submodule = PyModule::new(py, "optimizer")?;
     optimizer_submodule.add_function(wrap_pyfunction!(
         optimizer::py_run_optimizer,
         &optimizer_submodule
@@ -304,24 +397,44 @@ pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
         &optimizer_submodule
     )?)?;
     m.add_submodule(&optimizer_submodule)?;
+    register_submodule_in_sys_modules(
+        py,
+        "pyo3_quant.backtest_engine.optimizer",
+        &optimizer_submodule,
+    )?;
 
     // 注册向前滚动优化子模块
-    let wf_submodule = PyModule::new(m.py(), "walk_forward")?;
+    let wf_submodule = PyModule::new(py, "walk_forward")?;
     walk_forward::register_py_module(&wf_submodule)?;
     m.add_submodule(&wf_submodule)?;
+    register_submodule_in_sys_modules(
+        py,
+        "pyo3_quant.backtest_engine.walk_forward",
+        &wf_submodule,
+    )?;
 
     // 注册 action_resolver 子模块
-    let action_resolver_submodule = PyModule::new(m.py(), "action_resolver")?;
+    let action_resolver_submodule = PyModule::new(py, "action_resolver")?;
     action_resolver::register_py_module(&action_resolver_submodule)?;
     m.add_submodule(&action_resolver_submodule)?;
+    register_submodule_in_sys_modules(
+        py,
+        "pyo3_quant.backtest_engine.action_resolver",
+        &action_resolver_submodule,
+    )?;
 
     // 注册 sensitivity 子模块
-    let sensitivity_submodule = PyModule::new(m.py(), "sensitivity")?;
+    let sensitivity_submodule = PyModule::new(py, "sensitivity")?;
     sensitivity_submodule.add_function(wrap_pyfunction!(
         sensitivity::py_run_sensitivity_test,
         &sensitivity_submodule
     )?)?;
     m.add_submodule(&sensitivity_submodule)?;
+    register_submodule_in_sys_modules(
+        py,
+        "pyo3_quant.backtest_engine.sensitivity",
+        &sensitivity_submodule,
+    )?;
 
     Ok(())
 }

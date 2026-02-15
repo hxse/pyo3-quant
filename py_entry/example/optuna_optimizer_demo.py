@@ -37,23 +37,23 @@ def main():
     indicators_params = {
         "ohlcv_15m": {
             "sma_fast": {
-                "period": Param.create(
+                "period": Param(
                     20,
                     min=5,  # 优化下界
                     max=50,  # 优化上界
                     step=1.0,
                     optimize=True,
-                    dtype=ParamType.INTEGER,
+                    dtype=ParamType.Integer,
                 ),
             },
             "sma_slow": {
-                "period": Param.create(
+                "period": Param(
                     60,
                     min=51,
                     max=200,
                     step=1.0,
                     optimize=True,
-                    dtype=ParamType.INTEGER,
+                    dtype=ParamType.Integer,
                 ),
             },
         }
@@ -76,9 +76,9 @@ def main():
         tp_anchor_mode=False,
         tsl_anchor_mode=False,
         tsl_atr_tight=True,
-        sl_atr=Param.create(2.5, min=1.0, max=5.0, step=0.1, optimize=True),
-        tsl_atr=Param.create(2.0, min=1.0, max=5.0, step=0.1, optimize=True),
-        atr_period=Param.create(14),
+        sl_atr=Param(2.5, min=1.0, max=5.0, step=0.1, optimize=True),
+        tsl_atr=Param(2.0, min=1.0, max=5.0, step=0.1, optimize=True),
+        atr_period=Param(14),
     )
 
     # 5. 性能参数 (包含更多对比指标)
@@ -108,7 +108,7 @@ def main():
 
     # 7. 引擎设置
     engine_settings = SettingContainer(
-        execution_stage=ExecutionStage.PERFORMANCE,
+        execution_stage=ExecutionStage.Performance,
         return_only_final=True,
     )
 

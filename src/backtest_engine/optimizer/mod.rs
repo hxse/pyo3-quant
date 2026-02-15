@@ -1,4 +1,6 @@
-pub mod benchmark;
+pub mod benchmark {
+    pub use crate::types::BenchmarkFunction;
+}
 pub mod evaluation;
 pub mod optimizer_core;
 pub mod param_extractor;

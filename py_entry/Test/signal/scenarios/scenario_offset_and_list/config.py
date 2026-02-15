@@ -17,7 +17,7 @@ DESCRIPTION = "测试AND列表偏移：&0/1/5 表示指定的K线(0,1,5)都必�
 
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "sma_0": {"period": Param.create(20)},
+        "sma_0": {"period": Param(20)},
     },
 }
 

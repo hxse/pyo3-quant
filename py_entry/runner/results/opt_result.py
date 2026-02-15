@@ -58,7 +58,7 @@ class OptimizeResult:
     def optimize_metric(self) -> OptimizeMetric:
         """优化目标指标类型"""
         # Convert string back to Enum
-        return OptimizeMetric(self._raw.optimize_metric)
+        return self._raw.optimize_metric
 
     @property
     def optimize_value(self) -> float:

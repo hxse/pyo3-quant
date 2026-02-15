@@ -1,44 +1,66 @@
-use pyo3::{prelude::*, Bound, FromPyObject};
+use pyo3::prelude::*;
+use pyo3_stub_gen::derive::*;
+use pyo3_stub_gen::PyStubType;
 
 // 定义执行阶段枚举，派生 PartialOrd、Ord 以支持阶段比较
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[pyclass(eq, eq_int, hash, frozen)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub enum ExecutionStage {
-    None,
+    Idle,
     Indicator,
     Signals,
     Backtest,
     Performance,
 }
 
-// 从 Python 枚举转换：接收字符串值并转换
-impl<'py> FromPyObject<'py> for ExecutionStage {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let py_str: String = ob.extract()?;
-        match py_str.as_str() {
-            "none" => Ok(ExecutionStage::None),
-            "indicator" => Ok(ExecutionStage::Indicator),
-            "signals" => Ok(ExecutionStage::Signals),
-            "backtest" => Ok(ExecutionStage::Backtest),
-            "performance" => Ok(ExecutionStage::Performance),
-            other => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Invalid execution stage: {}",
-                other
-            ))),
-        }
+impl PyStubType for ExecutionStage {
+    fn type_output() -> pyo3_stub_gen::TypeInfo {
+        pyo3_stub_gen::TypeInfo::locally_defined(
+            "ExecutionStage",
+            pyo3_stub_gen::ModuleRef::Default,
+        )
     }
 }
 
-#[derive(Debug, Clone, FromPyObject)]
+pyo3_stub_gen::inventory::submit! {
+    pyo3_stub_gen::type_info::PyEnumInfo {
+        enum_id: || std::any::TypeId::of::<ExecutionStage>(),
+        pyclass_name: "ExecutionStage",
+        module: Some("pyo3_quant._pyo3_quant"),
+        doc: "执行阶段指标枚举",
+        variants: &[
+            ("Idle", "空闲/未开始"),
+            ("Indicator", "指标计算"),
+            ("Signals", "信号生成"),
+            ("Backtest", "回测执行"),
+            ("Performance", "性能评估"),
+        ],
+    }
+}
+
+#[gen_stub_pyclass]
+#[pyclass(get_all, set_all)]
+#[derive(Debug, Clone)]
 pub struct SettingContainer {
     pub execution_stage: ExecutionStage,
     pub return_only_final: bool,
 }
 
+#[gen_stub_pymethods]
+#[pymethods]
+impl SettingContainer {
+    #[new]
+    #[pyo3(signature = (*, execution_stage=self::ExecutionStage::Performance, return_only_final=false))]
+    pub fn new(execution_stage: ExecutionStage, return_only_final: bool) -> Self {
+        Self {
+            execution_stage,
+            return_only_final,
+        }
+    }
+}
+
 impl Default for SettingContainer {
     fn default() -> Self {
-        Self {
-            execution_stage: ExecutionStage::Performance,
-            return_only_final: false,
-        }
+        Self::new(self::ExecutionStage::Performance, false)
     }
 }

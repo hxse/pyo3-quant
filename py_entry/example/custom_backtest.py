@@ -42,30 +42,30 @@ simulated_data_config = DataGenerationParams(
 indicators_params = {
     "ohlcv_15m": {
         "bbands": {
-            "period": Param.create(14),
-            "std": Param.create(2),
+            "period": Param(14),
+            "std": Param(2),
         }
     },
     "ohlcv_1h": {
         "rsi": {
-            "period": Param.create(14),
+            "period": Param(14),
         }
     },
     "ohlcv_4h": {
         "sma_0": {
-            "period": Param.create(8),
+            "period": Param(8),
         },
         "sma_1": {
-            "period": Param.create(16),
+            "period": Param(16),
         },
     },
 }
 
 # 自定义信号参数
 signal_params = {
-    # "rsi_upper": Param.create(70, 60, 80, 5),
-    "rsi_center": Param.create(50, min=40, max=60, step=5),
-    # "rsi_lower": Param.create(30, 20, 40, 5),
+    # "rsi_upper": Param(70, 60, 80, 5),
+    "rsi_center": Param(50, min=40, max=60, step=5),
+    # "rsi_lower": Param(30, 20, 40, 5),
 }
 
 
@@ -83,16 +83,16 @@ backtest_params = BacktestParams(
     tp_anchor_mode=False,
     tsl_anchor_mode=False,
     tsl_atr_tight=True,
-    sl_pct=Param.create(0.02),
-    # tp_pct=Param.create(0.06),
-    # tsl_pct=Param.create(0.02),
-    # sl_atr=Param.create(2),
-    tp_atr=Param.create(6),
-    tsl_atr=Param.create(2),
-    atr_period=Param.create(14),
-    tsl_psar_af0=Param.create(0.02),
-    tsl_psar_af_step=Param.create(0.02),
-    tsl_psar_max_af=Param.create(0.2),
+    sl_pct=Param(0.02),
+    # tp_pct=Param(0.06),
+    # tsl_pct=Param(0.02),
+    # sl_atr=Param(2),
+    tp_atr=Param(6),
+    tsl_atr=Param(2),
+    atr_period=Param(14),
+    tsl_psar_af0=Param(0.02),
+    tsl_psar_af_step=Param(0.02),
+    tsl_psar_max_af=Param(0.2),
 )
 
 # 自定义性能参数
@@ -133,7 +133,7 @@ signal_template = SignalTemplate(
 
 # 自定义引擎设置
 engine_settings = SettingContainer(
-    execution_stage=ExecutionStage.PERFORMANCE,
+    execution_stage=ExecutionStage.Performance,
     return_only_final=False,
 )
 

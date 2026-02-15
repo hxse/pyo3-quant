@@ -35,23 +35,23 @@ def main():
     indicators_params = {
         "ohlcv_15m": {
             "sma_fast": {
-                "period": Param.create(
+                "period": Param(
                     20,
                     min=10,
                     max=40,
                     step=5.0,
                     optimize=True,
-                    dtype=ParamType.INTEGER,
+                    dtype=ParamType.Integer,
                 ),
             },
             "sma_slow": {
-                "period": Param.create(
+                "period": Param(
                     100,
                     min=60,
                     max=200,
                     step=10.0,
                     optimize=True,
-                    dtype=ParamType.INTEGER,
+                    dtype=ParamType.Integer,
                 ),
             },
         }
@@ -78,8 +78,8 @@ def main():
         initial_capital=10000.0,
         fee_fixed=1.0,
         fee_pct=0.0005,
-        sl_pct=Param.create(0.01, min=0.005, max=0.05, optimize=True),
-        tp_pct=Param.create(0.02, min=0.005, max=0.08, optimize=True),
+        sl_pct=Param(0.01, min=0.005, max=0.05, optimize=True),
+        tp_pct=Param(0.02, min=0.005, max=0.08, optimize=True),
         tsl_pct=None,
         # Default flags required by API
         sl_exit_in_bar=True,
@@ -114,7 +114,7 @@ def main():
 
     # 6. 引擎设置
     engine_settings = SettingContainer(
-        execution_stage=ExecutionStage.PERFORMANCE,
+        execution_stage=ExecutionStage.Performance,
         return_only_final=True,
     )
 

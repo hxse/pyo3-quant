@@ -1,27 +1,37 @@
 use pyo3::prelude::*;
+use pyo3_stub_gen::derive::*;
+use pyo3_stub_gen::PyStubType;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[pyclass(eq, eq_int, hash, frozen)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum ParamType {
     Float,
     Integer,
     Boolean,
 }
 
-impl<'py> FromPyObject<'py> for ParamType {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let s: String = ob.extract()?;
-        match s.as_str() {
-            "float" => Ok(ParamType::Float),
-            "integer" => Ok(ParamType::Integer),
-            "boolean" => Ok(ParamType::Boolean),
-            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Invalid ParamType: {}",
-                s
-            ))),
-        }
+impl PyStubType for ParamType {
+    fn type_output() -> pyo3_stub_gen::TypeInfo {
+        pyo3_stub_gen::TypeInfo::locally_defined("ParamType", pyo3_stub_gen::ModuleRef::Default)
     }
 }
 
+pyo3_stub_gen::inventory::submit! {
+    pyo3_stub_gen::type_info::PyEnumInfo {
+        enum_id: || std::any::TypeId::of::<ParamType>(),
+        pyclass_name: "ParamType",
+        module: Some("pyo3_quant._pyo3_quant"),
+        doc: "参数类型",
+        variants: &[
+            ("Float", "浮点数"),
+            ("Integer", "整数"),
+            ("Boolean", "布尔值"),
+        ],
+    }
+}
+
+#[gen_stub_pyclass]
+#[pyclass(get_all, set_all)]
 #[derive(Debug, Clone)]
 pub struct Param {
     /// 当前参数值
@@ -40,16 +50,32 @@ pub struct Param {
     pub step: f64,
 }
 
-impl<'source> FromPyObject<'source> for Param {
-    fn extract_bound(ob: &Bound<'source, PyAny>) -> PyResult<Self> {
-        Ok(Self {
-            value: ob.getattr("value")?.extract()?,
-            min: ob.getattr("min")?.extract()?,
-            max: ob.getattr("max")?.extract()?,
-            dtype: ob.getattr("dtype")?.extract()?,
-            optimize: ob.getattr("optimize")?.extract()?,
-            log_scale: ob.getattr("log_scale")?.extract()?,
-            step: ob.getattr("step")?.extract()?,
-        })
+#[gen_stub_pymethods]
+#[pymethods]
+impl Param {
+    #[new]
+    #[pyo3(signature = (value, min=None, max=None, dtype=None, optimize=false, log_scale=false, step=0.01))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        value: f64,
+        min: Option<f64>,
+        max: Option<f64>,
+        dtype: Option<ParamType>,
+        optimize: bool,
+        log_scale: bool,
+        step: f64,
+    ) -> Self {
+        let min = min.unwrap_or(value);
+        let max = max.unwrap_or(value);
+        let dtype = dtype.unwrap_or(ParamType::Float);
+        Self {
+            value,
+            min,
+            max,
+            dtype,
+            optimize,
+            log_scale,
+            step,
+        }
     }
 }

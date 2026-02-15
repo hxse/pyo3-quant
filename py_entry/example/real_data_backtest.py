@@ -53,29 +53,29 @@ def run_real_data_backtest() -> RunResult | None:
     # 3. 配置指标参数
     indicators_params = {
         "ohlcv_15m": {
-            "bbands": {"period": Param.create(14), "std": Param.create(2)},
+            "bbands": {"period": Param(14), "std": Param(2)},
         },
         "ohlcv_1h": {
-            "rsi": {"period": Param.create(14)},
+            "rsi": {"period": Param(14)},
         },
         "ohlcv_4h": {
-            "sma_0": {"period": Param.create(8)},
-            "sma_1": {"period": Param.create(16)},
+            "sma_0": {"period": Param(8)},
+            "sma_1": {"period": Param(16)},
         },
     }
 
     # 4. 配置信号参数
-    signal_params = {"rsi_center": Param.create(50, min=40, max=60, step=5)}
+    signal_params = {"rsi_center": Param(50, min=40, max=60, step=5)}
 
     # 5. 配置回测参数
     backtest_params = BacktestParams(
         initial_capital=10000.0,
         fee_fixed=0.0,
         fee_pct=0.001,
-        sl_pct=Param.create(0.02),
-        tp_atr=Param.create(4),
-        tsl_atr=Param.create(2),
-        atr_period=Param.create(14),
+        sl_pct=Param(0.02),
+        tp_atr=Param(4),
+        tsl_atr=Param(2),
+        atr_period=Param(14),
     )
 
     # 6. 配置性能参数
@@ -116,7 +116,7 @@ def run_real_data_backtest() -> RunResult | None:
         backtest=backtest_params,
         performance=performance_params,
         signal_template=signal_template,
-        engine_settings=SettingContainer(execution_stage=ExecutionStage.PERFORMANCE),
+        engine_settings=SettingContainer(execution_stage=ExecutionStage.Performance),
     )
 
     result = bt.run()

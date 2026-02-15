@@ -17,7 +17,7 @@ DESCRIPTION = "测试向上交叉：x> 表示收盘价向上突破SMA（前一�
 
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "sma_0": {"period": Param.create(20)},
+        "sma_0": {"period": Param(20)},
     },
 }
 

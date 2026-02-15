@@ -40,9 +40,9 @@ def get_config() -> StrategyConfig:
     # 使用 reversal_extreme 的指标配置
     indicators_params = {
         "ohlcv_15m": {
-            "sma_fast": {"period": Param.create(3)},
-            "sma_slow": {"period": Param.create(5)},
-            "sma_exit": {"period": Param.create(7)},  # 用于独立离场
+            "sma_fast": {"period": Param(3)},
+            "sma_slow": {"period": Param(5)},
+            "sma_exit": {"period": Param(7)},  # 用于独立离场
         },
     }
 
@@ -62,12 +62,12 @@ def get_config() -> StrategyConfig:
         tp_anchor_mode=False,
         tsl_anchor_mode=False,
         # PCT 保护性止损止盈
-        sl_pct=Param.create(3),
-        tp_pct=Param.create(5),
+        sl_pct=Param(3),
+        tp_pct=Param(5),
         # PSAR 追踪止损
-        tsl_psar_af0=Param.create(0.02),
-        tsl_psar_af_step=Param.create(0.02),
-        tsl_psar_max_af=Param.create(0.2),
+        tsl_psar_af0=Param(0.02),
+        tsl_psar_af_step=Param(0.02),
+        tsl_psar_max_af=Param(0.2),
     )
 
     # 使用 reversal_extreme 的信号模板（交叉信号）
@@ -97,7 +97,7 @@ def get_config() -> StrategyConfig:
     )
 
     engine_settings = SettingContainer(
-        execution_stage=ExecutionStage.PERFORMANCE,
+        execution_stage=ExecutionStage.Performance,
         return_only_final=False,
     )
 

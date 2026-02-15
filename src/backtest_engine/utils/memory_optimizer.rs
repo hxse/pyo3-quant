@@ -38,7 +38,7 @@ pub fn create_backtest_summary(
     if return_only_final {
         // 只返回最终阶段的结果
         match stop_stage {
-            ExecutionStage::None => BacktestSummary {
+            ExecutionStage::Idle => BacktestSummary {
                 indicators: None,
                 signals: None,
                 backtest: None,
@@ -72,7 +72,7 @@ pub fn create_backtest_summary(
     } else {
         // 保留所有中间结果
         match stop_stage {
-            ExecutionStage::None => BacktestSummary {
+            ExecutionStage::Idle => BacktestSummary {
                 indicators: None,
                 signals: None,
                 backtest: None,

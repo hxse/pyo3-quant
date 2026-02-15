@@ -48,13 +48,13 @@ def create_backtest(seed: int):
     indicators = {
         "ohlcv_15m": {
             "sma_fast": {
-                "period": Param.create(
-                    20, min=10, max=40, optimize=True, dtype=ParamType.INTEGER
+                "period": Param(
+                    20, min=10, max=40, optimize=True, dtype=ParamType.Integer
                 )
             },
             "sma_slow": {
-                "period": Param.create(
-                    60, min=40, max=100, optimize=True, dtype=ParamType.INTEGER
+                "period": Param(
+                    60, min=40, max=100, optimize=True, dtype=ParamType.Integer
                 )
             },
         }
@@ -72,15 +72,13 @@ def create_backtest(seed: int):
     )
 
     engine_settings = SettingContainer(
-        execution_stage=ExecutionStage.PERFORMANCE, return_only_final=True
+        execution_stage=ExecutionStage.Performance, return_only_final=True
     )
 
     backtest_params = BacktestParams(
-        sl_atr=Param.create(2.0, min=1.5, max=4.0, step=0.25, optimize=True),
-        tsl_atr=Param.create(3.0, min=2.0, max=6.0, step=0.25, optimize=True),
-        atr_period=Param.create(
-            14, min=10, max=30, optimize=True, dtype=ParamType.INTEGER
-        ),
+        sl_atr=Param(2.0, min=1.5, max=4.0, step=0.25, optimize=True),
+        tsl_atr=Param(3.0, min=2.0, max=6.0, step=0.25, optimize=True),
+        atr_period=Param(14, min=10, max=30, optimize=True, dtype=ParamType.Integer),
         initial_capital=10000.0,
         fee_pct=0.0005,
         fee_fixed=0.0,

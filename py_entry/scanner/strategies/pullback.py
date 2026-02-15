@@ -50,33 +50,33 @@ class PullbackStrategy(StrategyProtocol):
         indicators = {
             dk_macro: {
                 "macd_w": {
-                    "fast_period": Param.create(12),
-                    "slow_period": Param.create(26),
-                    "signal_period": Param.create(9),
+                    "fast_period": Param(12),
+                    "slow_period": Param(26),
+                    "signal_period": Param(9),
                 },
-                "ema_w": {"period": Param.create(20)},
+                "ema_w": {"period": Param(20)},
             },
             dk_trend: {
                 "macd_d": {
-                    "fast_period": Param.create(12),
-                    "slow_period": Param.create(26),
-                    "signal_period": Param.create(9),
+                    "fast_period": Param(12),
+                    "slow_period": Param(26),
+                    "signal_period": Param(9),
                 },
             },
             dk_wave: {
                 "macd_h": {
-                    "fast_period": Param.create(12),
-                    "slow_period": Param.create(26),
-                    "signal_period": Param.create(9),
+                    "fast_period": Param(12),
+                    "slow_period": Param(26),
+                    "signal_period": Param(9),
                 },
             },
             dk_trigger: {
                 "macd_m": {
-                    "fast_period": Param.create(12),
-                    "slow_period": Param.create(26),
-                    "signal_period": Param.create(9),
+                    "fast_period": Param(12),
+                    "slow_period": Param(26),
+                    "signal_period": Param(9),
                 },
-                "ema_m": {"period": Param.create(20)},
+                "ema_m": {"period": Param(20)},
             },
         }
 

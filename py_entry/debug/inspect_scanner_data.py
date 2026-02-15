@@ -16,7 +16,7 @@ from py_entry.types import (
     SignalGroup,
     LogicOp,
 )
-from tqsdk import TqAuth
+from tqsdk import TqAuth  # type: ignore
 import polars as pl
 
 # 禁用冗余日志
@@ -42,12 +42,12 @@ def main():
     # 2. 定义指标配置
     # 我们为每个周期计算同样的指标，方便对比
     indicators_params = {
-        "ema_20": {"period": Param.create(20)},
-        "cci_14": {"period": Param.create(14)},
+        "ema_20": {"period": Param(20)},
+        "cci_14": {"period": Param(14)},
         "macd_0": {
-            "fast_period": Param.create(12),
-            "slow_period": Param.create(26),
-            "signal_period": Param.create(9),
+            "fast_period": Param(12),
+            "slow_period": Param(26),
+            "signal_period": Param(9),
         },
     }
 
@@ -77,7 +77,7 @@ def main():
             indicators={base_key: indicators_params},
             signal_template=empty_template,
             engine_settings=SettingContainer(
-                execution_stage=ExecutionStage.SIGNALS, return_only_final=False
+                execution_stage=ExecutionStage.Signals, return_only_final=False
             ),
             backtest=BacktestParams(
                 initial_capital=10000.0, fee_fixed=0.0, fee_pct=0.0

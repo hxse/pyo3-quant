@@ -34,10 +34,10 @@ def test_leading_nan_tracking():
     indicators_params = {
         "ohlcv_15m": {
             "sma_10": {
-                "period": Param.create(10),
+                "period": Param(10),
             },
             "sma_20": {
-                "period": Param.create(20),
+                "period": Param(20),
             },
         }
     }
@@ -69,7 +69,7 @@ def test_leading_nan_tracking():
         data_source=data_gen_params,
         indicators=indicators_params,
         signal_template=signal_template,
-        engine_settings=SettingContainer(execution_stage=ExecutionStage.PERFORMANCE),
+        engine_settings=SettingContainer(execution_stage=ExecutionStage.Performance),
     )
     result = runner.run()
 

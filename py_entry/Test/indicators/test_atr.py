@@ -39,12 +39,12 @@ atr_config = IndicatorTestConfig(
     indicator_name="atr",
     params_config={
         "ohlcv_15m": {
-            "atr_0": {"period": Param.create(14)},
-            "atr_1": {"period": Param.create(20)},
+            "atr_0": {"period": Param(14)},
+            "atr_1": {"period": Param(20)},
         },
         "ohlcv_1h": {
-            "atr_0": {"period": Param.create(20)},
-            "atr_1": {"period": Param.create(30)},
+            "atr_0": {"period": Param(20)},
+            "atr_1": {"period": Param(30)},
         },
     },
     suffixes=[],

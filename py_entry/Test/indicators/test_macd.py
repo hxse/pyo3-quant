@@ -61,26 +61,26 @@ macd_config = IndicatorTestConfig(
     params_config={
         "ohlcv_15m": {
             "macd_0": {
-                "fast_period": Param.create(12),
-                "slow_period": Param.create(26),
-                "signal_period": Param.create(9),
+                "fast_period": Param(12),
+                "slow_period": Param(26),
+                "signal_period": Param(9),
             },
             "macd_1": {
-                "fast_period": Param.create(20),
-                "slow_period": Param.create(50),
-                "signal_period": Param.create(15),
+                "fast_period": Param(20),
+                "slow_period": Param(50),
+                "signal_period": Param(15),
             },
         },
         "ohlcv_1h": {
             "macd_0": {
-                "fast_period": Param.create(15),
-                "slow_period": Param.create(30),
-                "signal_period": Param.create(10),
+                "fast_period": Param(15),
+                "slow_period": Param(30),
+                "signal_period": Param(10),
             },
             "macd_1": {
-                "fast_period": Param.create(20),
-                "slow_period": Param.create(35),
-                "signal_period": Param.create(14),
+                "fast_period": Param(20),
+                "slow_period": Param(35),
+                "signal_period": Param(14),
             },
         },
     },

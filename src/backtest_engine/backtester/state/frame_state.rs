@@ -86,8 +86,10 @@ impl FrameState {
         }
     }
 }
+use pyo3_stub_gen::derive::*;
 
 /// 将状态 ID 转为名称（PyO3 导出，替代 bitmask_to_event_names）
+#[gen_stub_pyfunction(module = "pyo3_quant.backtest_engine.backtester")]
 #[pyfunction(name = "frame_state_name")]
 pub fn py_frame_state_name(state_id: u8) -> String {
     let state = match state_id {

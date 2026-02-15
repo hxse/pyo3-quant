@@ -65,19 +65,19 @@ class TrendStrategy(StrategyProtocol):
         results: list[dict] = []  # save details
 
         # Check 5m
-        res_5m = self._check_5m(df_5m)  # type: ignore
+        res_5m = self._check_5m(df_5m)
         results.append({"tf": "5m", "res": res_5m})
 
         # Check 1h
-        res_1h = self._check_1h(df_1h)  # type: ignore
+        res_1h = self._check_1h(df_1h)
         results.append({"tf": "1h", "res": res_1h})
 
         # Check 1d
-        res_1d = self._check_1d(df_1d)  # type: ignore
+        res_1d = self._check_1d(df_1d)
         results.append({"tf": "1d", "res": res_1d})
 
         # Check 1w
-        res_1w = self._check_1w(df_1w)  # type: ignore
+        res_1w = self._check_1w(df_1w)
         results.append({"tf": "1w", "res": res_1w})
 
         # 3. 综合判断
@@ -108,7 +108,7 @@ class TrendStrategy(StrategyProtocol):
 
         # 5. ER 警告检查 (只针对最大周期 1w)
         warnings = []
-        er_msg = self._check_er(df_1w)  # type: ignore
+        er_msg = self._check_er(df_1w)
         if er_msg:
             warnings.append(er_msg)
             # 同时也把 ER 值加到 1w 的详情里 (虽然上面已经通过 extra_info 加了，但 logic 需要理顺)

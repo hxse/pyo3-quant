@@ -25,25 +25,25 @@ DESCRIPTION = "复杂嵌套TA策略：结合趋势、动量和波动率指标的
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
         # 趋势指标
-        "ema_0": {"period": Param.create(21, min=10, max=50, step=5)},  # 短期EMA
-        "ema_1": {"period": Param.create(55, min=20, max=100, step=10)},  # 长期EMA
+        "ema_0": {"period": Param(21, min=10, max=50, step=5)},  # 短期EMA
+        "ema_1": {"period": Param(55, min=20, max=100, step=10)},  # 长期EMA
         # 动量指标
-        "rsi_0": {"period": Param.create(14, min=5, max=30, step=1)},
+        "rsi_0": {"period": Param(14, min=5, max=30, step=1)},
         # 趋势强度指标
-        "adx_0": {"period": Param.create(14, min=5, max=30, step=1)},
+        "adx_0": {"period": Param(14, min=5, max=30, step=1)},
     },
     "ohlcv_1h": {
         # 高时间框架趋势确认
-        "ema_0": {"period": Param.create(55, min=20, max=100, step=10)},
+        "ema_0": {"period": Param(55, min=20, max=100, step=10)},
     },
 }
 
 SIGNAL_PARAMS = {
     # RSI阈值
-    "rsi_oversold": Param.create(30, min=20, max=40, step=5),
-    "rsi_overbought": Param.create(70, min=60, max=80, step=5),
+    "rsi_oversold": Param(30, min=20, max=40, step=5),
+    "rsi_overbought": Param(70, min=60, max=80, step=5),
     # ADX阈值 (趋势/震荡分界)
-    "adx_threshold": Param.create(25.0, min=15.0, max=40.0, step=1.0),
+    "adx_threshold": Param(25.0, min=15.0, max=40.0, step=1.0),
 }
 
 # 复杂嵌套策略信号模板

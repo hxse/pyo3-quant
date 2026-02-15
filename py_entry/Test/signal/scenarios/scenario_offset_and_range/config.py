@@ -19,7 +19,7 @@ DESCRIPTION = "测试AND范围偏移：&0-2 表示最近3根K线(offset 0,1,2)�
 # 指标参数
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "sma_0": {"period": Param.create(20)},
+        "sma_0": {"period": Param(20)},
     },
 }
 

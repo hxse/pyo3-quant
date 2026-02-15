@@ -14,6 +14,13 @@ from py_entry.types import (
     SingleParamSet,
     TemplateContainer,
     SettingContainer,
+    Param,
+    ParamType,
+    BacktestParams,
+    SignalGroup,
+    SignalTemplate,
+    LogicOp,
+    ExecutionStage,
 )
 
 from py_entry.types import ChartConfig
@@ -101,6 +108,62 @@ def convert_to_serializable(obj: Any) -> Any:
                 for k, v in obj_dict.items()
                 if v is not None
             }
+    elif isinstance(obj, Param):
+        return {
+            "value": obj.value,
+            "min": obj.min,
+            "max": obj.max,
+            "step": obj.step,
+            "optimize": obj.optimize,
+            "log_scale": obj.log_scale,
+            "dtype": str(obj.dtype),
+        }
+    elif isinstance(
+        obj, (ParamType, LogicOp, ExecutionStage)
+    ) or obj.__class__.__name__ in ("LogicOp", "ExecutionStage"):
+        return str(obj)
+    elif isinstance(obj, BacktestParams):
+        _BACKTEST_FIELDS = [
+            "sl_pct",
+            "tp_pct",
+            "tsl_pct",
+            "sl_atr",
+            "tp_atr",
+            "tsl_atr",
+            "atr_period",
+            "tsl_psar_af0",
+            "tsl_psar_af_step",
+            "tsl_psar_max_af",
+            "tsl_atr_tight",
+            "sl_exit_in_bar",
+            "tp_exit_in_bar",
+            "sl_trigger_mode",
+            "tp_trigger_mode",
+            "tsl_trigger_mode",
+            "sl_anchor_mode",
+            "tp_anchor_mode",
+            "tsl_anchor_mode",
+            "initial_capital",
+            "fee_fixed",
+            "fee_pct",
+        ]
+        return {
+            k: convert_to_serializable(getattr(obj, k))
+            for k in _BACKTEST_FIELDS
+            if getattr(obj, k) is not None
+        }
+    elif isinstance(obj, SignalGroup):
+        return {
+            "logic": convert_to_serializable(obj.logic),
+            "comparisons": obj.comparisons,
+            "sub_groups": convert_to_serializable(obj.sub_groups),
+        }
+    elif isinstance(obj, SignalTemplate):
+        return {
+            k: convert_to_serializable(getattr(obj, k))
+            for k in ["entry_long", "exit_long", "entry_short", "exit_short"]
+            if getattr(obj, k) is not None
+        }
     elif isinstance(obj, Enum):
         # 将 Enum 转换为其值
         return obj.value
@@ -263,7 +326,7 @@ def convert_backtest_data_to_buffers(
             "signal": convert_to_serializable(param.signal),
             "backtest": convert_to_serializable(param.backtest),
             "performance": {
-                "metrics": [metric.value for metric in param.performance.metrics]
+                "metrics": [str(metric) for metric in param.performance.metrics]
             },
         }
         json_bytes = json.dumps(param_dict, indent=2, ensure_ascii=False).encode(
@@ -289,7 +352,7 @@ def convert_backtest_data_to_buffers(
     # 5. 转换引擎设置
     if engine_settings is not None:
         settings_dict = {
-            "execution_stage": engine_settings.execution_stage.value,
+            "execution_stage": convert_to_serializable(engine_settings.execution_stage),
             "return_only_final": engine_settings.return_only_final,
         }
         json_bytes = json.dumps(

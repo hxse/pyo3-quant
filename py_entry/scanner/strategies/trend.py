@@ -49,28 +49,28 @@ class TrendStrategy(StrategyProtocol):
         # 1. 准备参数
         indicators = {
             dk_macro: {
-                "cci_w": {"period": Param.create(14)},
-                "ema_w": {"period": Param.create(20)},
+                "cci_w": {"period": Param(14)},
+                "ema_w": {"period": Param(20)},
             },
             dk_trend: {
-                "cci_d": {"period": Param.create(14)},
-                "ema_d": {"period": Param.create(20)},
+                "cci_d": {"period": Param(14)},
+                "ema_d": {"period": Param(20)},
             },
             dk_wave: {
                 "macd_h": {
-                    "fast_period": Param.create(12),
-                    "slow_period": Param.create(26),
-                    "signal_period": Param.create(9),
+                    "fast_period": Param(12),
+                    "slow_period": Param(26),
+                    "signal_period": Param(9),
                 },
-                "ema_h": {"period": Param.create(20)},
+                "ema_h": {"period": Param(20)},
             },
             dk_trigger: {
                 "macd_m": {
-                    "fast_period": Param.create(12),
-                    "slow_period": Param.create(26),
-                    "signal_period": Param.create(9),
+                    "fast_period": Param(12),
+                    "slow_period": Param(26),
+                    "signal_period": Param(9),
                 },
-                "ema_m": {"period": Param.create(20)},
+                "ema_m": {"period": Param(20)},
             },
         }
 

@@ -33,33 +33,33 @@ def runner_with_results():
     indicators_params = {
         "ohlcv_15m": {
             "bbands": {
-                "period": Param.create(14),
-                "std": Param.create(2),
+                "period": Param(14),
+                "std": Param(2),
             }
         },
         "ohlcv_1h": {
             "rsi": {
-                "period": Param.create(14),
+                "period": Param(14),
             }
         },
         "ohlcv_4h": {
             "sma_0": {
-                "period": Param.create(8),
+                "period": Param(8),
             },
             "sma_1": {
-                "period": Param.create(16),
+                "period": Param(16),
             },
         },
     }
 
     # 3. 自定义信号参数
     signal_params = {
-        # "rsi_upper": Param.create(70, 60, 80, 5),
-        "rsi_center": Param.create(50, min=40, max=60, step=5),
-        # "rsi_lower": Param.create(30, 20, 40, 5),
+        # "rsi_upper": Param(70, 60, 80, 5),
+        "rsi_center": Param(50, min=40, max=60, step=5),
+        # "rsi_lower": Param(30, 20, 40, 5),
         # 为了测试 HorizontalLine 生成逻辑，我们补充 upper/lower
-        "rsi_upper": Param.create(70),
-        "rsi_lower": Param.create(30),
+        "rsi_upper": Param(70),
+        "rsi_lower": Param(30),
     }
 
     # 4. 自定义回测参数
@@ -75,13 +75,13 @@ def runner_with_results():
         sl_anchor_mode=False,
         tp_anchor_mode=False,
         tsl_anchor_mode=False,
-        sl_pct=Param.create(2),
-        tp_pct=Param.create(2),
-        tsl_pct=Param.create(1),
-        sl_atr=Param.create(2),
-        tp_atr=Param.create(3),
-        tsl_atr=Param.create(2),
-        atr_period=Param.create(14),
+        sl_pct=Param(2),
+        tp_pct=Param(2),
+        tsl_pct=Param(1),
+        sl_atr=Param(2),
+        tp_atr=Param(3),
+        tsl_atr=Param(2),
+        atr_period=Param(14),
     )
 
     # 5. 自定义信号模板
@@ -97,9 +97,9 @@ def runner_with_results():
     signal_template = SignalTemplate(entry_long=entry_long_group)
 
     # 6. 自定义引擎设置
-    # 为了测试 Chart生成，我们需要确保有结果返回，ExecutionStage.BACKTEST 或 PERFORMANCE 都可以
+    # 为了测试 Chart生成，我们需要确保有结果返回，ExecutionStage.Backtest 或 PERFORMANCE 都可以
     engine_settings = SettingContainer(
-        execution_stage=ExecutionStage.BACKTEST,
+        execution_stage=ExecutionStage.Backtest,
         return_only_final=False,  # 测试需要指标数据来生成图表配置
     )
 

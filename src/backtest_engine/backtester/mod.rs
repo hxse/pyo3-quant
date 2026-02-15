@@ -59,27 +59,35 @@ pub fn run_backtest(
     Ok(result_df)
 }
 
+use pyo3::IntoPyObject;
+use pyo3_stub_gen::derive::*;
+
+#[gen_stub_pyfunction(module = "pyo3_quant.backtest_engine.backtester")]
 #[pyfunction(name = "run_backtest")]
 /// Python绑定：执行标准回测计算
 ///
 /// 对应Rust函数：[`run_backtest`]
-///
-/// 从Python调用示例：
-/// ```python
-/// result = run_backtest(processed_data, signals_df, backtest_params)
-/// ```
 pub fn py_run_backtest(
+    py: Python<'_>,
     processed_data: DataContainer,
-    signals_df_py: PyDataFrame,
+    signals_df_py: Py<PyAny>,
     backtest_params: BacktestParams,
-) -> PyResult<PyDataFrame> {
-    // 从 PyDataFrame 获取 DataFrame
-    let signals_df: DataFrame = signals_df_py.into();
+) -> PyResult<Py<PyAny>> {
+    // 从 PyObject 提取 signals_df
+    let signals_df_bound = signals_df_py.bind(py);
+    let signals_df: PyDataFrame = signals_df_bound.extract()?;
+    let signals_df: DataFrame = signals_df.into();
 
     // 调用Rust回测函数并处理错误
     let result_df = run_backtest(&processed_data, &signals_df, &backtest_params)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e)))?;
 
     // 转换为Python DataFrame并返回
-    Ok(PyDataFrame(result_df))
+    let py_obj = PyDataFrame(result_df).into_pyobject(py).map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+            "Failed to convert DataFrame: {}",
+            e
+        ))
+    })?;
+    Ok(py_obj.into_any().unbind())
 }

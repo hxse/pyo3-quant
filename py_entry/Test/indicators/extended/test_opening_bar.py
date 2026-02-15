@@ -1,6 +1,6 @@
 import polars as pl
 from py_entry.runner import Backtest
-from py_entry.types import SettingContainer, ExecutionStage
+from py_entry.types import SettingContainer, ExecutionStage, Param
 from py_entry.data_generator import DirectDataConfig
 
 
@@ -43,7 +43,7 @@ def test_opening_bar_logic_alignment():
     indicator_configs = {
         "test_data": {
             "opening-bar_0": {
-                "threshold": {"value": 900.0}  # 刚好 15 分钟
+                "threshold": Param(900.0)  # 刚好 15 分钟
             }
         }
     }
@@ -51,7 +51,7 @@ def test_opening_bar_logic_alignment():
     bt = Backtest(
         data_source=data_config,
         indicators=indicator_configs,
-        engine_settings=SettingContainer(execution_stage=ExecutionStage.INDICATOR),
+        engine_settings=SettingContainer(execution_stage=ExecutionStage.Indicator),
     )
     result = bt.run()
 
@@ -70,14 +70,14 @@ def test_opening_bar_logic_alignment():
     indicator_configs_2 = {
         "test_data": {
             "opening-bar_1": {
-                "threshold": {"value": 899.0}  # 小于 15 分钟
+                "threshold": Param(899.0)  # 小于 15 分钟
             }
         }
     }
     bt2 = Backtest(
         data_source=data_config,
         indicators=indicator_configs_2,
-        engine_settings=SettingContainer(execution_stage=ExecutionStage.INDICATOR),
+        engine_settings=SettingContainer(execution_stage=ExecutionStage.Indicator),
     )
     result2 = bt2.run()
 

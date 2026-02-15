@@ -11,8 +11,8 @@ DESCRIPTION = "测试动态区间穿越：close x> ema_30..ema_100 表示价格�
 
 INDICATORS_PARAMS = {
     "ohlcv_1h": {
-        "ema_0": {"period": Param.create(30)},
-        "ema_1": {"period": Param.create(100)},
+        "ema_0": {"period": Param(30)},
+        "ema_1": {"period": Param(100)},
     },
 }
 

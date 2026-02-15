@@ -154,8 +154,25 @@ fn slice_data_container(data: &DataContainer, start: usize, len: usize) -> DataC
     }
 }
 
+use pyo3_stub_gen::derive::*;
+
 /// Python 接口
-#[pyfunction]
+#[gen_stub_pyfunction(
+    module = "pyo3_quant.backtest_engine.walk_forward",
+    python = r#"
+import pyo3_quant
+
+def run_walk_forward(
+    data_dict: pyo3_quant.DataContainer,
+    param: pyo3_quant.SingleParamSet,
+    template: pyo3_quant.TemplateContainer,
+    engine_settings: pyo3_quant.SettingContainer,
+    walk_forward_config: pyo3_quant.WalkForwardConfig,
+) -> pyo3_quant.WalkForwardResult:
+    """运行滚动前推测试"""
+"#
+)]
+#[pyfunction(name = "run_walk_forward")]
 pub fn py_run_walk_forward(
     data_dict: DataContainer,
     param: SingleParamSet,

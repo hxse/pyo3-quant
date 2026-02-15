@@ -1,7 +1,7 @@
 use super::error::OptimizerError;
-use pyo3::{create_exception, exceptions::PyException, prelude::*, PyTypeInfo};
+use pyo3::{exceptions::PyException, prelude::*, PyTypeInfo};
 
-create_exception!(pyo3_quant.errors, PyOptimizerError, PyException);
+crate::define_exception!(pyo3_quant.errors, PyOptimizerError, PyException);
 
 pub fn convert_optimizer_error(err: OptimizerError) -> PyErr {
     PyOptimizerError::new_err(err.to_string())

@@ -18,8 +18,7 @@ import sys
 sys.path.insert(0, "/home/hxse/pyo3-quant")
 
 import pandas as pd
-import talib
-from talib import MA_Type
+import pandas_ta as ta
 
 
 from py_entry.Test.backtest.correlation_analysis.adapters.pyo3_adapter import (
@@ -47,27 +46,31 @@ class DebugReversalExtreme(TrailingStrategy):
         self.set_atr_periods(C.atr_period)
         self.set_trailing_sl(n_atr=C.tsl_atr)
 
-        close = pd.Series(self.data.Close)
-
-        # BBands
-        bbands = talib.BBANDS(
-            close.values,
-            timeperiod=C.bbands_period,
-            nbdevup=C.bbands_std,
-            nbdevdn=C.bbands_std,
-            matype=MA_Type.SMA,
+        # BBands (直接调用 pandas_ta)
+        self.bbands_upper, self.bbands_middle, self.bbands_lower = self.I(
+            lambda: (
+                ta.bbands(
+                    pd.Series(self.data.Close),
+                    length=C.bbands_period,
+                    std=C.bbands_std,
+                    talib=True,
+                )
+                .iloc[:, [2, 1, 0]]
+                .values.T
+            )
         )
-        self.bbands_upper = self.I(lambda: bbands[0])
-        self.bbands_middle = self.I(lambda: bbands[1])
-        self.bbands_lower = self.I(lambda: bbands[2])
 
-        # ATR
+        # ATR (直接调用 pandas_ta)
         self.atr = self.I(
-            talib.ATR,
-            self.data.High,
-            self.data.Low,
-            self.data.Close,
-            timeperiod=C.atr_period,
+            lambda: (
+                ta.atr(
+                    pd.Series(self.data.High),
+                    pd.Series(self.data.Low),
+                    pd.Series(self.data.Close),
+                    length=C.atr_period,
+                    talib=True,
+                ).values
+            )
         )
 
         self.extremum = None

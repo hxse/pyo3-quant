@@ -17,7 +17,7 @@ DESCRIPTION = "测试OR列表偏移：|0/1/5 表示指定的K线中至少有一�
 
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "sma_0": {"period": Param.create(20)},
+        "sma_0": {"period": Param(20)},
     },
 }
 

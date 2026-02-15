@@ -6,13 +6,13 @@ DESCRIPTION = "测试参数化区间穿越：rsi x> $lower..$upper"
 
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "rsi": {"period": Param.create(14)},
+        "rsi": {"period": Param(14)},
     },
 }
 
 SIGNAL_PARAMS = {
-    "lower": Param.create(30.0),
-    "upper": Param.create(70.0),
+    "lower": Param(30.0),
+    "upper": Param(70.0),
 }
 
 SIGNAL_TEMPLATE = SignalTemplate(

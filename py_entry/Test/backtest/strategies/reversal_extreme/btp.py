@@ -1,7 +1,8 @@
 from typing import cast, Sequence
 from backtesting import Strategy
 from backtesting.lib import crossover
-import talib
+import pandas as pd
+import pandas_ta as ta
 from .config import CONFIG as C
 
 size = 0.99
@@ -10,20 +11,30 @@ size = 0.99
 class ReversalExtremeBtp(Strategy):
     def init(self):
         # Indicators
+        # 使用 pandas-ta 的 talib=True 模式
         self.bbands_upper, self.bbands_middle, self.bbands_lower = self.I(
-            talib.BBANDS,
-            self.data.Close,
-            timeperiod=C.bbands_period,
-            nbdevup=C.bbands_std,
-            nbdevdn=C.bbands_std,
-            matype=0,
+            lambda: (
+                ta.bbands(
+                    pd.Series(self.data.Close),
+                    length=C.bbands_period,
+                    std=C.bbands_std,
+                    talib=True,
+                )
+                .iloc[:, [2, 1, 0]]
+                .values.T
+            )
         )
+
         self.atr = self.I(
-            talib.ATR,
-            self.data.High,
-            self.data.Low,
-            self.data.Close,
-            timeperiod=C.atr_period,
+            lambda: (
+                ta.atr(
+                    pd.Series(self.data.High),
+                    pd.Series(self.data.Low),
+                    pd.Series(self.data.Close),
+                    length=C.atr_period,
+                    talib=True,
+                ).values
+            )
         )
 
         # Risk State - 独立追踪 TSL，不更新 trade.sl

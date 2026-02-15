@@ -21,8 +21,8 @@ DESCRIPTION = "测试无效的长度不匹配偏移：左右操作数offset长�
 
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "sma_0": {"period": Param.create(20)},
-        "sma_1": {"period": Param.create(30)},
+        "sma_0": {"period": Param(20)},
+        "sma_1": {"period": Param(30)},
     },
 }
 

@@ -1,8 +1,9 @@
-mod backtest;
-pub mod into_py;
-mod optimizer;
-mod walk_forward;
+pub mod backtest;
+pub mod optimizer;
+pub mod sensitivity;
+pub mod walk_forward;
 
-pub use backtest::{BacktestSummary, IndicatorResults, PerformanceMetrics};
-pub use optimizer::{OptimizationResult, RoundSummary};
-pub use walk_forward::{WalkForwardResult, WindowResult};
+pub use self::backtest::{BacktestSummary, IndicatorResults, PerformanceMetrics};
+pub use self::optimizer::{OptimizationResult, RoundSummary, SamplePoint};
+pub use self::sensitivity::{SensitivityResult, SensitivitySample};
+pub use self::walk_forward::{WalkForwardResult, WindowResult};

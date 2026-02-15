@@ -326,7 +326,7 @@ fn parse_op(input: &str) -> Res<'_, CompareOp> {
 /// 4. **右操作数**：参数、数值或数据操作数
 ///
 /// # 示例
-/// ```
+/// ```text
 /// "close, ohlcv_15m, 0 > 100"
 /// "! rsi_0, ohlcv_1h, 0 < $rsi_lower"
 /// "sma_0, ohlcv_4h, 0&2 x> sma_1, ohlcv_4h, 0"
@@ -369,7 +369,9 @@ pub fn parse_condition_str(input: &str) -> Res<'_, SignalCondition> {
 ///
 /// # 示例
 /// ```rust
-/// let cond = parse_condition("close, ohlcv_15m, 0 > sma_0, ohlcv_15m, 0")?;
+/// use pyo3_quant::backtest_engine::signal_generator::parser::parse_condition;
+///
+/// let cond = parse_condition("close, ohlcv_15m, 0 > sma_0, ohlcv_15m, 0").unwrap();
 /// assert!(!cond.negated);
 /// assert_eq!(cond.left.name, "close");
 /// ```

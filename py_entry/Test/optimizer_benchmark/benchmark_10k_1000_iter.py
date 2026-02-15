@@ -50,10 +50,10 @@ def run_benchmark():
     indicators_params = {
         "ohlcv_15m": {
             "sma_fast": {
-                "period": Param.create(20, min=10, max=100, step=5, optimize=True),
+                "period": Param(20, min=10, max=100, step=5, optimize=True),
             },
             "sma_slow": {
-                "period": Param.create(50, min=20, max=200, step=10, optimize=True),
+                "period": Param(50, min=20, max=200, step=10, optimize=True),
             },
         }
     }
@@ -83,12 +83,12 @@ def run_benchmark():
         initial_capital=10000.0,
         fee_fixed=0.0,
         fee_pct=0.0005,
-        sl_pct=Param.create(0.02, min=0.01, max=0.05, optimize=True),
-        tp_pct=Param.create(0.04, min=0.02, max=0.10, optimize=True),
+        sl_pct=Param(0.02, min=0.01, max=0.05, optimize=True),
+        tp_pct=Param(0.04, min=0.02, max=0.10, optimize=True),
         # Risk management
-        sl_atr=Param.create(2.0, min=1.0, max=5.0, step=0.5, optimize=True),
-        tsl_atr=Param.create(3.0, min=1.0, max=5.0, step=0.5, optimize=True),
-        atr_period=Param.create(14),
+        sl_atr=Param(2.0, min=1.0, max=5.0, step=0.5, optimize=True),
+        tsl_atr=Param(3.0, min=1.0, max=5.0, step=0.5, optimize=True),
+        atr_period=Param(14),
         # Default flags
         sl_exit_in_bar=True,
         tp_exit_in_bar=True,
@@ -108,7 +108,7 @@ def run_benchmark():
 
     # 7. Engine Settings
     engine_settings = SettingContainer(
-        execution_stage=ExecutionStage.PERFORMANCE,
+        execution_stage=ExecutionStage.Performance,
         return_only_final=True,
     )
 

@@ -39,7 +39,7 @@ def get_config() -> StrategyConfig:
     # 指标参数
     indicators_params = {
         "ohlcv_15m": {
-            "rsi": {"period": Param.create(14)},
+            "rsi": {"period": Param(14)},
         },
     }
 
@@ -59,13 +59,13 @@ def get_config() -> StrategyConfig:
         sl_anchor_mode=False,
         tp_anchor_mode=False,
         tsl_anchor_mode=False,
-        sl_pct=Param.create(3),
-        tp_pct=Param.create(5),
-        tsl_pct=Param.create(0),
-        sl_atr=Param.create(0),
-        tp_atr=Param.create(0),
-        tsl_atr=Param.create(0),
-        atr_period=Param.create(14),
+        sl_pct=Param(3),
+        tp_pct=Param(5),
+        tsl_pct=Param(0),
+        sl_atr=Param(0),
+        tp_atr=Param(0),
+        tsl_atr=Param(0),
+        atr_period=Param(14),
     )
 
     # 信号模板：RSI 超卖做多，超买做空
@@ -102,7 +102,7 @@ def get_config() -> StrategyConfig:
 
     # 引擎设置
     engine_settings = SettingContainer(
-        execution_stage=ExecutionStage.PERFORMANCE,
+        execution_stage=ExecutionStage.Performance,
         return_only_final=False,
     )
 

@@ -8,6 +8,9 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use std::collections::HashMap;
 
+use pyo3_stub_gen::derive::*;
+
+#[gen_stub_pyfunction(module = "pyo3_quant.backtest_engine.action_resolver")]
 #[pyfunction(name = "resolve_actions")]
 /// Python绑定：解析 DataFrame 行为字典 (SignalState Dict)
 pub fn py_resolve_actions(

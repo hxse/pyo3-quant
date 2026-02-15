@@ -17,7 +17,7 @@ DESCRIPTION = "测试向下交叉：x< 表示收盘价向下跌破SMA（前一�
 
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "sma_0": {"period": Param.create(20)},
+        "sma_0": {"period": Param(20)},
     },
 }
 

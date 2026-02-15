@@ -1,140 +1,46 @@
-# AGENTS.md
+# AGENTS.md - 协作守则与技术指南
 
-This file provides guidance to agents when working with code in this repository.
+本项目是一个基于 **PyO3** 开发的高性能量化交易回测框架。**Rust** 承载核心计算逻辑（如指标计算、回测核心），**Python** 负责上层策略逻辑与灵活调用。
 
-## 通用规则
+## 1. 沟通与语言规范
+*   **全程中文沟通**：所有分析、交流、回复、沟通、Plan 和报告均必须使用中文。
+*   **代码与注释**：代码本身（变量名、函数名、类名等）应使用**英文**以保持专业性；代码注释必须使用**中文**以确保易读性和审阅效率。
+*   **强制注释**：写代码时必须带上注释，提高可阅读性，让审阅与后续维护更易懂。
 
-- **混合项目架构**: 这是一个 Rust + Python (PyO3) 混合项目。Rust 模块 `pyo3_quant` 通过 `maturin` 直接导入到 Python 中。
-- **构建与依赖**:
-    - Python 的 `pandas-ta` 依赖直接从 Git 仓库的 `development` 分支安装。
-    - `ta-lib` 的安装方式因操作系统而异 (Windows 使用 `.whl` 文件,其他系统使用 PyPI)。
-- **并行计算**: Rust 回测引擎 (`src/backtest_engine/mod.rs`) 在多任务并行回测时,使用 `rayon` 进行任务并行,并通过 `utils::process_param_in_single_thread` 强制 `Polars` 在每个任务中以单线程模式运行,以避免 `rayon` 和 `Polars` 内部并行之间的冲突。
-- **回测核心逻辑**: `src/backtest_engine/backtester.rs` 中的 `run_backtest` 函数目前仅为占位实现,返回一个空的 `DataFrame`,实际回测逻辑待实现。
-- **指标计算细节**: Rust 指标计算 (`src/backtest_engine/indicators/calculator.rs`) 支持 SMA 和布林带。布林带的标准差计算 (`src/backtest_engine/indicators/bbands.rs`) 明确使用 `ddof=0`。
-- **Python 回测配置**: Python 端的回测流程由 `py_entry/data_conversion/backtest_runner/BacktestRunner` 驱动,采用 Builder 模式进行配置。定制回测逻辑需要继承 `DefaultParamBuilder`、`DefaultSignalTemplateBuilder` 和 `DefaultEngineSettingsBuilder` 等类。
-- **参数定义**: `py_entry/data_conversion/helpers/create_param` 是一个关键的辅助函数,用于定义回测参数。
-- **内存优化**: `src/backtest_engine/utils/memory_optimizer.rs` 中的 `optimize_memory_by_stage` 函数用于根据执行阶段优化返回结果的内存占用。
-- **指标测试容差**: 指标测试 (`py_entry/Test/indicators/`) 使用 `pytest` 和通用模板。布林带的 `_percent` 列在测试中具有较低的精度要求 (`custom_rtol: 1e-3, custom_atol: 1e-6`),表明其计算结果可能存在细微差异。
-- **源代码参考目录 (`source_ref`)**:
-    - `source_ref` 目录包含多个第三方库的源代码参考,包括但不限于:
-      - Polars
-      - pandas-ta
-      - talib
-      - 其他依赖库
-    - 此目录**仅用于分析和理解这些库的 API 使用方法**。
-    - **严禁在项目代码中直接引用或导入** `source_ref` 目录中的任何内容。
-    - 当遇到相关库的编译错误或 API 使用问题时,可以参考此目录中的源代码来理解正确的使用方式。
-    - 最终代码必须使用项目依赖中的官方模块,而不是 `source_ref` 中的源代码。
-    - **注意**: 如果在 RooCode 中检测不到 `source_ref` 目录,可能是 `.gitignore` 中启用了忽略。可以与用户讨论是否需要临时取消注释 `.gitignore` 中的 `source_ref/` 行以便访问源代码进行分析。
+## 2. 方案讨论与 Plan 优先
+*   **严禁盲目行动**：除非得到明确的执行命令，否则不要直接修改代码。应先深入讨论方案，或同步更新 Plan。
+*   **杜绝「氛围编程」**：追求充分的方案讨论后再执行。细节必须讨论清楚，避免胡乱执行导致的代码质量下降。不搞氛围编程，要搞就搞高质量的方案讨论，再执行。
+*   **Plan 的灵魂地位**：
+    *   **增量更新**：更新 `implementation plan` 时应采用增量方式，仅删除过时的内容，确保 Plan 的连贯性与完整性。
+    *   **示例驱动**：修改或创建 Plan 时，应附带关键的示例代码（Snippet），提高方案的可执行性，减少出错概率。
 
-## 架构规则
+## 3. 开发工作流
+*   **Just 命令优先**：务必先阅读 `justfile`，优先使用 `just` 运行相关指令，避免由于直接执行底层工具导致的环境与配置问题。
+*   **状态同步机制**：严禁一边修改代码一边运行 `just check`。应在逻辑修改完成后统一提交检查，避免开发进程混乱。
+*   **指令执行耐心**：必须耐心等待，确保命令明确运行完毕，再进行下一步操作。严禁在命令执行期间或尚未完成时，擅自作出错误判断并盲目修改代码，避免造成逻辑混乱。
+*   **串行验证顺序**：
+    1.  先运行 `just check`：确保类型安全和语法正确，这能有效节约编译与调试时间。
+    2.  待 `check` 完全通过后，方可运行 `just test` 进行逻辑验证。
 
-- **混合架构设计**: 在设计新功能或修改现有功能时,请始终考虑 Rust 和 Python 之间的职责划分。Rust 负责高性能计算和数据处理,Python 负责业务逻辑编排、参数配置和结果分析。
-- **数据流设计**: 在 Rust 和 Python 之间传递数据时,优先使用 `pyo3-polars` 提供的机制,以确保高效且类型安全的数据交换。
-- **并行策略**: 架构设计应充分利用 Rust 的 `rayon` 库进行任务并行,但要特别注意 `Polars` 在多线程环境下的行为,并通过 `utils::process_param_in_single_thread` 确保兼容性。
-- **回测引擎扩展**: 扩展回测引擎时,请注意 `src/backtest_engine/backtester.rs` 中的 `run_backtest` 函数是核心扩展点。
-- **可配置性**: Python 端的回测配置应通过继承 `py_entry/data_conversion/backtest_runner/` 下的 Builder 类来实现,以保持高度的可配置性和灵活性。
-- **指标扩展**: 在 Rust 中添加新指标时,请遵循 `src/backtest_engine/indicators/calculator.rs` 中现有 SMA 和布林带的模式,确保一致性和可维护性。
-- **内存管理**: 架构设计应考虑内存优化,特别是 `src/backtest_engine/utils/memory_optimizer.rs` 中的 `optimize_memory_by_stage` 函数,以根据执行阶段控制返回结果的内存占用。
+## 4. 架构设计与代码质量
+*   **代码品味（Taste）**：
+    *   **拒绝兼容层**：兼容层会污染代码质量。本项目倾向于破坏性更新（Breaking Changes）以追求最佳实践，除非有极度明确的理由，否则不准搞脏代码。
+    *   **唯一性原则**：代码应保持唯一的用法和写法。不要兼容旧代码或保留冗余的回退逻辑，代码质量永远优先。
+    *   **清晰优雅可读**：实现应优先选择语义直观、层次清晰、命名准确的写法；避免炫技式技巧、隐式行为和过度嵌套，确保审阅者能快速理解核心逻辑。
+*   **类型系统约束**：
+    *   **Rust 为源头**：所有核心类型在 Rust 端定义，利用 `pyo3-stub-gen` 自动生成 Python 的 `.pyi` 类型存根。
+    *   **禁止镜像维护**：Python 侧不得再维护与 Rust 对应的镜像输入/输出类型文件；类型变更必须先改 Rust，再通过 `just stub` / `just check` 同步存根与静态检查。
+    *   **Python 端强类型**：对于大型项目，Python 侧应尽可能结合 **Pydantic** 进行类型声明，确保项目的健壮性与稳定性。
 
-## 提问规则
+## 5. 技术指标对齐标准
+*   **基准对齐**：回测引擎中的指标实现必须严格以 **`pandas-ta` (talib=true)** 模式为准。所有指标实现必须通过与之对齐的严格测试。
+*   **库优先级**：`pandas-ta` (talib=true) > `pandas-ta` (talib=false)。禁止直接使用原始的 `talib` 库。
+*   **调用规范**：禁止使用类似 `ohlc.ta.atr(talib=True)` 的调用方式。应统一采用 `import pandas_ta as ta; ta.atr(...)`。
+*   **版本背景与警告**：
+    *   **优先使用旧版 `pandas-ta`**：原版 `pandas-ta` 已不再更新且已被作者删库闭源。本项目目前使用的是该库的一个不再更新的**备份旧版**，它是我们指标对齐的基准，必须优先使用。
+    *   **慎用 `pandas-ta-classic`**：这是社区基于原版 Fork 的新版，但其内部包含大量未经验证的效果修改。除非备份旧版中确实缺失某个指标，否则不要使用新版（Classic），以防止测试失败或回测结果发生不可解释的漂移。
 
-- **文档上下文**: 提问时,请明确指出是关于 Rust 部分 (例如,Polars 数据处理、PyO3 绑定) 还是 Python 部分 (例如,回测配置、pandas-ta 集成)。
-- **性能相关问题**: 如果问题与性能相关,请提及并行计算 (`rayon` 和 `Polars` 单线程模式) 的上下文。
-
-## 编码规则
-
-- **Rust-Python 交互**: 在 Rust 和 Python 之间传递数据时,请注意 `pyo3-polars` 的使用,确保数据类型和结构兼容。
-- **Polars 并行**: 在 Rust 中进行多任务并行计算时,如果使用 `rayon` 和 `Polars`,请务必通过 `utils::process_param_in_single_thread` 强制 `Polars` 在单线程模式下运行,以避免冲突。
-- **回测逻辑实现**: `src/backtest_engine/backtester.rs` 中的 `run_backtest` 函数目前是占位符,需要在此处实现实际的回测逻辑。
-- **Python 回测定制**: 编写 Python 回测逻辑时,通过继承 `py_entry/data_conversion/backtest_runner/` 下的 Builder 类来定制参数、信号和引擎设置。
-- **参数定义**: 使用 `py_entry/data_conversion/helpers/create_param` 辅助函数来定义回测参数。
-- **指标计算**: 在 Rust 中添加新指标时,请遵循 `src/backtest_engine/indicators/calculator.rs` 中现有 SMA 和布林带的模式。**为确保指标测试通过,实现时必须严格遵循pandas-ta的逻辑细节**:
-  - **验证标准优先级**:
-    - 一般以 `pandas-ta` 作为对比标准。
-    - 当 `pandas-ta` 开启 `talib` 时,如果两者结果不一致,以 `talib` 为优先标准。
-    - 如果 `pandas-ta` 没有该指标或无法获取源代码,需与用户讨论验证方式和实现方式。
-  - **测试配置说明**:
-    - `enable_talib`: 控制 `pandas-ta` 是否使用 `talib` 实现。
-    - `assert_mode_talib`: 是否验证与 `talib` 的一致性。
-    - `assert_mode_pandas_ta`: 是否验证与 `pandas-ta` 的一致性。
-    - 当 `talib` 和 `pandas-ta` 结果冲突时,设置 `assert_mode_talib=True, assert_mode_pandas_ta=False`,以 `talib` 为准。
-    - 当 `talib` 和 `pandas-ta` 结果一致时,设置 `assert_mode_talib=True, assert_mode_pandas_ta=True`。
-    - `talib` 是 `pandas-ta` 内的一个选项,无需单独使用,但需要用户安装 `ta-lib`。
-  - **前导NaN数量**: 确保结果序列前导NaN的数量与pandas-ta完全一致。例如,EMA的前`period-1`个值应为NaN。
-  - **初始值计算**: 某些指标(如EMA)需要特定的初始值。EMA使用前`period`个值的SMA作为初始EMA值(第`period`个位置,索引`period-1`)。
-  - **计算逻辑细节**: 严格复现pandas-ta的计算公式和参数。例如,EMA使用`alpha = 2 / (span + 1)`而不是其他变体。
-  - **参考源码**: 实现前务必查看pandas-ta的源代码,理解其`presma`、`adjust`等参数的影响,以及特殊情况的处理逻辑。**如果无法获取pandas-ta的源代码,请与用户讨论验证方式。**
-  - **测试验证**: 使用`py_entry/Test/indicators/`中的测试模板验证实现,确保与pandas-ta(talib模式和pandas_ta模式)的结果一致。
-
-## 调试规则
-
-- **Rust-Python 交互调试**: 调试 Rust 和 Python 之间的交互时,重点关注 `pyo3` 和 `pyo3-polars` 的数据类型转换和错误处理。
-- **并行冲突调试**: 如果在多任务并行回测中遇到意外行为或崩溃,请检查 `src/backtest_engine/mod.rs` 中 `rayon` 和 `Polars` 的单线程限制 (`utils::process_param_in_single_thread`) 是否正确应用。
-- **回测逻辑调试**: `src/backtest_engine/backtester.rs` 中的 `run_backtest` 函数目前是占位符。调试回测结果时,请注意此函数的当前状态,并确保实际逻辑实现后进行彻底测试。
-- **指标精度调试**: 调试指标计算结果时,特别是布林带的 `_percent` 列,请记住 `py_entry/Test/indicators/test_bbands.py` 中定义的较低精度容差 (`custom_rtol: 1e-3, custom_atol: 1e-6`)。
-- **内存优化调试**: 调试内存使用问题时,请检查 `src/backtest_engine/utils/memory_optimizer.rs` 中的 `optimize_memory_by_stage` 函数是否按预期工作,以根据执行阶段优化返回结果。
-
-# None和NaN处理
-## None 和 NaN 在 Polars 中的区别
-  * 在 Polars 中：
-  * None 表示数据的缺失值，是一个逻辑概念，不占用实际的存储空间
-  * NaN (Not a Number) 是一个特殊的浮点数值，表示无效的数值计算结果
-  * 计算指标的过程中, 尽量用None, 避免NaN传播, 影响计算逻辑, 计算结尾的时候把None统一转换成NaN
-  * 我已经定义好了None和NaN处理工具函数, 在计算指标的过程中直接使用`src/backtest_engine/indicators/utils.rs`
-  * 优先在lazy计算函数结尾处把None转换为NaN, 然后eager计算函数直接调用lazy计算函数就行了, 不用再转换了
-  * 内部计算优先用None, 最后输出时转换成NaN
-
-# 搜索源代码
-  * 可以尝试利用搜索工具搜索 `source_ref/polars/crates/polars-core/src/`
-  * 或者 `source_ref/ta-lib`
-  * 或者 `source_ref/pandas-ta`
-
-# 关于polars clone成本的调查
-源代码路径 `source_ref/polars/crates/polars-core/src/frame/column/mod.rs`
-## Polars DataFrame 和 Series 的内部实现分析
-
-### 1. DataFrame 结构（第172-176行）
-```rust
-#[derive(Clone)]
-pub struct DataFrame {
-    height: usize,
-    pub(crate) columns: Vec<Column>,
-    cached_schema: OnceLock<SchemaRef>,
-}
-```
-
-### 2. Series 结构（第153行）
-```rust
-#[derive(Clone)]
-pub struct Series(pub Arc<dyn SeriesTrait>);
-```
-
-### 3. Column 结构（第43-47行）
-```rust
-#[derive(Debug, Clone)]
-pub enum Column {
-    Series(SeriesColumn),
-    Partitioned(PartitionedColumn),
-    Scalar(ScalarColumn),
-}
-```
-
-### 4. 关键发现：Arc 的使用
-
-从这些源码可以确认：
-
-1. **DataFrame 使用 `Vec<Column>`** - 这是普通向量，不是 Arc
-2. **Series 使用 `Arc<dyn SeriesTrait>`** - 这是智能指针，支持浅拷贝
-3. **Column 使用 `#[derive(Clone)]`** - 但主要是枚举的 clone
-
-## 性能影响分析
-
-### DataFrame 的 Clone 成本
-- `Vec<Column>` 的 clone：需要复制整个向量
-- 每个 `Column` 的 clone：根据枚举变体决定
-  - `Series(SeriesColumn)`：会调用 `Series::clone()`（Arc clone，浅拷贝）
-  - `Partitioned` 和 `Scalar`：通常是简单的值拷贝
-
-### Series 的 Clone 成本
-- `Arc<dyn SeriesTrait>` 的 clone：**只是增加引用计数**，O(1) 操作
+## 6. 异常处理与防御原则
+*   **拒绝异常吞噬**：严禁滥用 `try: except Exception: pass`。异常捕捉必须精细化，或至少打印详细的项目报错日志。
+*   **拒绝冗长防御**：不搞过度复杂的防御性编程。本项目推崇直接报错（Exception），通过明确的报错约束来引导用户使用唯一的正确写法。
+*   **明确性胜过容错**：在回测引擎中，不搞折中的回退逻辑或警告，直接报错是保证逻辑唯一性与系统稳健性的最佳方式。

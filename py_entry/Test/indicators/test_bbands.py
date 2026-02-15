@@ -53,12 +53,12 @@ bbands_config = IndicatorTestConfig(
     indicator_name="bbands",
     params_config={
         "ohlcv_15m": {
-            "bbands_0": {"period": Param.create(14), "std": Param.create(1.5)},
-            "bbands_1": {"period": Param.create(20), "std": Param.create(2.0)},
+            "bbands_0": {"period": Param(14), "std": Param(1.5)},
+            "bbands_1": {"period": Param(20), "std": Param(2.0)},
         },
         "ohlcv_1h": {
-            "bbands_0": {"period": Param.create(20), "std": Param.create(2.0)},
-            "bbands_1": {"period": Param.create(30), "std": Param.create(2.5)},
+            "bbands_0": {"period": Param(20), "std": Param(2.0)},
+            "bbands_1": {"period": Param(30), "std": Param(2.5)},
         },
     },
     suffixes=["lower", "middle", "upper", "bandwidth", "percent"],

@@ -8,6 +8,7 @@ from py_entry.Test.indicators.indicator_test_template import (
     IndicatorTestConfig,
     validate_indicator_accuracy,
 )
+from py_entry.types import Param
 
 
 # 1. 定义引擎结果提取器
@@ -32,7 +33,7 @@ def er_pandas_ta_extractor(
     """
     使用 pandas_ta 计算 ER
     """
-    length = params["length"]["value"]
+    length = int(params["length"].value)
 
     # 调用 pandas_ta 的 er 函数
     result = ta.er(
@@ -51,8 +52,8 @@ config = IndicatorTestConfig(
     indicator_name="er",
     params_config={
         "ohlcv_15m": {
-            "er_10": {"length": {"value": 10}},
-            "er_20": {"length": {"value": 20}},
+            "er_10": {"length": Param(10)},
+            "er_20": {"length": Param(20)},
         }
     },
     suffixes=[],

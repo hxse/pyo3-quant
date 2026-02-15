@@ -26,7 +26,7 @@ def calculate_entry_long(
     active = False
 
     # 获取参数值 (Param 对象)
-    # Param.create(val) 返回 Param 对象，访问其 value 属性
+    # Param(val) 返回 Param 对象，访问其 value 属性
     lower = signal_params["lower"].value
     upper = signal_params["upper"].value
 

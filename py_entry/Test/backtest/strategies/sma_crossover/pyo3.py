@@ -42,8 +42,8 @@ def get_config() -> StrategyConfig:
     # 指标参数 - 使用共享参数
     indicators_params = {
         f"ohlcv_{C.timeframe}": {
-            "sma_fast": {"period": Param.create(C.sma_fast_period)},
-            "sma_slow": {"period": Param.create(C.sma_slow_period)},
+            "sma_fast": {"period": Param(C.sma_fast_period)},
+            "sma_slow": {"period": Param(C.sma_slow_period)},
         },
     }
 
@@ -101,7 +101,7 @@ def get_config() -> StrategyConfig:
     )
 
     engine_settings = SettingContainer(
-        execution_stage=ExecutionStage.PERFORMANCE,
+        execution_stage=ExecutionStage.Performance,
         return_only_final=False,
     )
 

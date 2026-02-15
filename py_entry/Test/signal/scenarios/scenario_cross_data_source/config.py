@@ -22,17 +22,17 @@ DESCRIPTION = "测试跨数据源和周期的指标对比：ohlcv vs ha vs renko
 INDICATORS_PARAMS = {
     # OHLCV数据源
     "ohlcv_15m": {
-        "sma_0": {"period": Param.create(20)},
+        "sma_0": {"period": Param(20)},
     },
     "ohlcv_4h": {
-        "ema_0": {"period": Param.create(10)},
+        "ema_0": {"period": Param(10)},
     },
     # HA数据源
     # "ha_15m": {},  # 只用close
     # "ha_1h": {},  # 只用close
     # Renko数据源
     "renko_15m": {
-        "sma_0": {"period": Param.create(20)},
+        "sma_0": {"period": Param(20)},
     },
     # "renko_1h": {},  # 只用close
 }

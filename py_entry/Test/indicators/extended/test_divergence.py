@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 from py_entry.Test.indicators.conftest import run_indicator_backtest
+from py_entry.types import Param
 
 
 def numpy_divergence_logic(prices, indicators, window, gap, recency, is_high=True):
@@ -52,16 +53,16 @@ def test_divergence_logic_alignment(data_dict):
     indicator_configs = {
         "ohlcv_15m": {
             "rsi-divergence_test": {
-                "period": {"value": 14},
-                "window": {"value": window},
-                "gap": {"value": gap},
-                "recency": {"value": recency},
+                "period": Param(14),
+                "window": Param(window),
+                "gap": Param(gap),
+                "recency": Param(recency),
             },
             "cci-divergence_test": {
-                "period": {"value": 14},
-                "window": {"value": window},
-                "gap": {"value": gap},
-                "recency": {"value": recency},
+                "period": Param(14),
+                "window": Param(window),
+                "gap": Param(gap),
+                "recency": Param(recency),
             },
         }
     }
@@ -131,18 +132,18 @@ def test_divergence_column_names(data_dict):
     indicator_configs = {
         "ohlcv_15m": {
             "cci-divergence_0": {  # 使用全称
-                "period": {"value": 14},
-                "window": {"value": 10},
+                "period": Param(14),
+                "window": Param(10),
             },
             "rsi-divergence_debug": {
-                "period": {"value": 14},
-                "window": {"value": 10},
+                "period": Param(14),
+                "window": Param(10),
             },
             "macd-divergence_fast": {
-                "fast_period": {"value": 12},
-                "slow_period": {"value": 26},
-                "signal_period": {"value": 9},
-                "window": {"value": 10},
+                "fast_period": Param(12),
+                "slow_period": Param(26),
+                "signal_period": Param(9),
+                "window": Param(10),
             },
         }
     }

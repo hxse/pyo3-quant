@@ -117,18 +117,23 @@ pub fn generate_signals(
     Ok(signals_df)
 }
 
+use pyo3_stub_gen::derive::*;
+
+#[gen_stub_pyfunction(module = "pyo3_quant.backtest_engine.signal_generator")]
 #[pyfunction(name = "generate_signals")]
 pub fn py_generate_signals(
+    py: Python<'_>,
     processed_data: DataContainer,
-    indicator_dfs_py: HashMap<String, PyDataFrame>,
+    indicator_dfs_py: HashMap<String, Py<PyAny>>,
     signal_params: SignalParams,
     signal_template: SignalTemplate,
-) -> PyResult<PyDataFrame> {
+) -> PyResult<Py<PyAny>> {
     // 1. 将 Python 对象转换为 Rust 类型
-    let indicator_dfs = indicator_dfs_py
-        .into_iter()
-        .map(|(k, v)| (k, v.into()))
-        .collect();
+    let mut indicator_dfs = HashMap::new();
+    for (k, v) in indicator_dfs_py {
+        let df: PyDataFrame = v.bind(py).extract()?;
+        indicator_dfs.insert(k, df.into());
+    }
 
     // 2. 调用原始的 generate_signals 函数
     let result_df = generate_signals(
@@ -138,6 +143,12 @@ pub fn py_generate_signals(
         &signal_template,
     )?;
 
-    // 3. 将返回的 Rust DataFrame 转换为 PyDataFrame
-    Ok(PyDataFrame(result_df))
+    // 3. 将返回的 Rust DataFrame 转换为 PyDataFrame 并返回 Py<PyAny>
+    let py_obj = PyDataFrame(result_df).into_pyobject(py).map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+            "Failed to convert DataFrame: {}",
+            e
+        ))
+    })?;
+    Ok(py_obj.into_any().unbind())
 }

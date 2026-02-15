@@ -21,7 +21,7 @@ DESCRIPTION = "测试无效的负数偏移：offset不能是负数，应该报�
 
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
-        "sma_0": {"period": Param.create(20)},
+        "sma_0": {"period": Param(20)},
     },
 }
 

@@ -1,14 +1,14 @@
-use super::benchmark::BenchmarkFunction;
 use super::runner::{run_optimization, run_optimization_generic, EvalMode};
-use super::test_helpers::{create_dummy_backtest_params, create_dummy_performance_params};
 use crate::types::{
-    DataContainer, OptimizationResult, OptimizerConfig, Param, ParamType, SettingContainer,
-    SingleParamSet, TemplateContainer,
+    BenchmarkFunction, DataContainer, OptimizationResult, OptimizerConfig, Param, ParamType,
+    SettingContainer, SingleParamSet, TemplateContainer,
 };
 use pyo3::prelude::*;
+use pyo3_stub_gen::derive::*;
 use std::collections::HashMap;
 
 /// Python 接口：运行基准函数优化
+#[gen_stub_pyfunction(module = "pyo3_quant.backtest_engine.optimizer")]
 #[pyfunction]
 #[pyo3(signature = (config, function, bounds, seed=None))]
 pub fn py_run_optimizer_benchmark(
@@ -47,8 +47,9 @@ pub fn py_run_optimizer_benchmark(
     let param_set = SingleParamSet {
         indicators,
         signal: Default::default(),
-        backtest: create_dummy_backtest_params(),
-        performance: create_dummy_performance_params(),
+        backtest: crate::backtest_engine::optimizer::test_helpers::create_dummy_backtest_params(),
+        performance:
+            crate::backtest_engine::optimizer::test_helpers::create_dummy_performance_params(),
     };
 
     let result = run_optimization_generic(
@@ -85,6 +86,19 @@ pub fn py_run_optimizer_benchmark(
     Ok((best_vals, -best_val))
 }
 
+#[gen_stub_pyfunction(
+    module = "pyo3_quant.backtest_engine.optimizer",
+    python = r#"
+def py_run_optimizer(
+    data_dict: _pyo3_quant.DataContainer,
+    param: _pyo3_quant.SingleParamSet,
+    template: _pyo3_quant.TemplateContainer,
+    engine_settings: _pyo3_quant.SettingContainer,
+    optimizer_config: _pyo3_quant.OptimizerConfig,
+) -> _pyo3_quant.OptimizationResult:
+    """运行优化器"""
+"#
+)]
 #[pyfunction]
 pub fn py_run_optimizer(
     data_dict: DataContainer,

@@ -67,22 +67,22 @@ adx_config = IndicatorTestConfig(
     params_config={
         "ohlcv_15m": {
             "adx_0": {
-                "period": Param.create(14),
-                "adxr_length": Param.create(2),
+                "period": Param(14),
+                "adxr_length": Param(2),
             },
             "adx_1": {
-                "period": Param.create(20),
-                "adxr_length": Param.create(4),
+                "period": Param(20),
+                "adxr_length": Param(4),
             },
         },
         "ohlcv_1h": {
             "adx_0": {
-                "period": Param.create(20),
-                "adxr_length": Param.create(10),
+                "period": Param(20),
+                "adxr_length": Param(10),
             },
             "adx_1": {
-                "period": Param.create(50),
-                "adxr_length": Param.create(20),
+                "period": Param(50),
+                "adxr_length": Param(20),
             },
         },
     },

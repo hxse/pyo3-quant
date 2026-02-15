@@ -41,12 +41,12 @@ ema_config = IndicatorTestConfig(
     indicator_name="ema",
     params_config={
         "ohlcv_15m": {
-            "ema_0": {"period": Param.create(14)},
-            "ema_1": {"period": Param.create(100)},
+            "ema_0": {"period": Param(14)},
+            "ema_1": {"period": Param(100)},
         },
         "ohlcv_1h": {
-            "ema_0": {"period": Param.create(20)},
-            "ema_1": {"period": Param.create(200)},
+            "ema_0": {"period": Param(20)},
+            "ema_1": {"period": Param(200)},
         },
     },
     suffixes=[],

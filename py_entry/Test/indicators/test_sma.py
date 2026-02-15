@@ -41,12 +41,12 @@ sma_config = IndicatorTestConfig(
     indicator_name="sma",
     params_config={
         "ohlcv_15m": {
-            "sma_0": {"period": Param.create(14)},
-            "sma_1": {"period": Param.create(100)},
+            "sma_0": {"period": Param(14)},
+            "sma_1": {"period": Param(100)},
         },
         "ohlcv_1h": {
-            "sma_0": {"period": Param.create(20)},
-            "sma_1": {"period": Param.create(200)},
+            "sma_0": {"period": Param(20)},
+            "sma_1": {"period": Param(200)},
         },
     },
     suffixes=[],

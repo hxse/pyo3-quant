@@ -1,7 +1,7 @@
 import polars as pl
-from py_entry.runner import Backtest
-from py_entry.types import SettingContainer, ExecutionStage, Param
+from py_entry.types import ExecutionStage, Param
 from py_entry.data_generator import DirectDataConfig
+from py_entry.Test.shared import make_backtest_runner, make_engine_settings
 
 
 def test_opening_bar_logic_alignment():
@@ -48,10 +48,10 @@ def test_opening_bar_logic_alignment():
         }
     }
 
-    bt = Backtest(
+    bt = make_backtest_runner(
         data_source=data_config,
         indicators=indicator_configs,
-        engine_settings=SettingContainer(execution_stage=ExecutionStage.Indicator),
+        engine_settings=make_engine_settings(execution_stage=ExecutionStage.Indicator),
     )
     result = bt.run()
 
@@ -60,7 +60,6 @@ def test_opening_bar_logic_alignment():
     res_df = indicators_results["test_data"]
     signals = res_df.select("opening-bar_0").to_series().to_list()
 
-    print(f"\nSignals (threshold 900): {signals}")
     # T1(300s), T2(300s), T3(900s) 不是开盘 (因为 900 不大于 900)
     # T4(大间隙) 是开盘
     assert signals == [0.0, 0.0, 0.0, 0.0, 1.0]
@@ -74,10 +73,10 @@ def test_opening_bar_logic_alignment():
             }
         }
     }
-    bt2 = Backtest(
+    bt2 = make_backtest_runner(
         data_source=data_config,
         indicators=indicator_configs_2,
-        engine_settings=SettingContainer(execution_stage=ExecutionStage.Indicator),
+        engine_settings=make_engine_settings(execution_stage=ExecutionStage.Indicator),
     )
     result2 = bt2.run()
 
@@ -86,6 +85,5 @@ def test_opening_bar_logic_alignment():
     res_df2 = indicators_results2["test_data"]
     signals2 = res_df2.select("opening-bar_1").to_series().to_list()
 
-    print(f"Signals (threshold 899): {signals2}")
     # T0(第一根) 为 0.0, T3(900 > 899), T4 是开盘
     assert signals2 == [0.0, 0.0, 0.0, 1.0, 1.0]

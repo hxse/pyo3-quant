@@ -76,8 +76,6 @@ def test_rust_optimizer_benchmark(func_name, bounds, optimal_val):
     best_result = min(results)
     tolerance = TOLERANCE_DICT.get(func_name, 1.0)
 
-    print(f"Function: {func_name}, Best Result: {best_result}, Tolerance: {tolerance}")
-
     assert best_result <= optimal_val + tolerance, (
         f"Optimizer failed on {func_name}. Got {best_result}, expected <= {optimal_val + tolerance}"
     )

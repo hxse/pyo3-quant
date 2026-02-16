@@ -67,7 +67,6 @@ def test_er_strict_mode(data_dict):
     严格模式测试：Rust vs TA-Lib/pandas-ta (高精度对齐)
     """
     # 验证与 pandas-ta 一致
-    print("\nExecuting Test: Rust vs pandas-ta ER (Should Match)")
     validate_indicator_accuracy(
         config,
         data_dict,

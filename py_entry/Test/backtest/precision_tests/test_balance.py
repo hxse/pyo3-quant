@@ -41,21 +41,7 @@ class TestBalanceCalculation:
         errors = df.filter(pl.col("balance_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ Balance 更新错误 (前5条):")
-            print(
-                errors.select(
-                    [
-                        "prev_balance",
-                        "trade_pnl_pct",
-                        "balance",
-                        "expected_balance",
-                        "balance_diff",
-                    ]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处 balance 更新错误")
-
-        print(f"✅ {len(df)} 笔多头离场的 balance 更新正确")
 
     def test_short_exit_balance_update(self, backtest_df, backtest_params):
         """验证空头离场后的 balance 更新"""
@@ -84,21 +70,7 @@ class TestBalanceCalculation:
         errors = df.filter(pl.col("balance_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ Balance 更新错误 (前5条):")
-            print(
-                errors.select(
-                    [
-                        "prev_balance",
-                        "trade_pnl_pct",
-                        "balance",
-                        "expected_balance",
-                        "balance_diff",
-                    ]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处 balance 更新错误")
-
-        print(f"✅ {len(df)} 笔空头离场的 balance 更新正确")
 
 
 class TestBalanceAccumulation:
@@ -133,11 +105,7 @@ class TestBalanceAccumulation:
         errors = df.filter(pl.col("balance_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ Balance 累积错误 (无交易时应保持不变):")
-            print(errors.select(["prev_balance", "balance", "trade_pnl_pct"]).head(5))
             pytest.fail(f"发现 {len(errors)} 处 balance 在无交易时发生变化")
-
-        print(f"✅ {len(df)} 行无交易时 balance 正确保持不变")
 
     def test_balance_continuity(self, backtest_df, backtest_params):
         """验证 balance 累积的连续性
@@ -182,12 +150,4 @@ class TestBalanceAccumulation:
         errors = df.filter(pl.col("balance_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ Balance 连续性错误:")
-            print(
-                errors.select(
-                    ["prev_balance", "trade_pnl_pct", "balance", "expected_balance"]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处 balance 连续性错误")
-
-        print(f"✅ {len(df)} 行 balance 连续性验证通过")

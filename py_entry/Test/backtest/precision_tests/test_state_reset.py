@@ -36,11 +36,7 @@ class TestPerBarReset:
         errors = df.filter(pl.col("trade_pnl_pct") != 0.0)
 
         if len(errors) > 0:
-            print("\n❌ 非离场时 trade_pnl_pct != 0 (前5条):")
-            print(errors.select(["trade_pnl_pct"]).head(5))
             pytest.fail(f"发现 {len(errors)} 处非离场时 trade_pnl_pct 非零")
-
-        print(f"✅ {len(df)} 行非离场时 trade_pnl_pct = 0 验证通过")
 
     def test_fee_zero_when_no_exit(self, backtest_df, backtest_params):
         """验证非离场时 fee = 0"""
@@ -55,11 +51,7 @@ class TestPerBarReset:
         errors = df.filter(pl.col("fee") != 0.0)
 
         if len(errors) > 0:
-            print("\n❌ 非离场时 fee != 0 (前5条):")
-            print(errors.select(["fee"]).head(5))
             pytest.fail(f"发现 {len(errors)} 处非离场时 fee 非零")
-
-        print(f"✅ {len(df)} 行非离场时 fee = 0 验证通过")
 
 
 class TestInBarDirectionReset:
@@ -81,16 +73,10 @@ class TestInBarDirectionReset:
         )
 
         if len(in_bar_1_no_exit) > 0:
-            print("\n❌ in_bar=1 但无 exit_long:")
-            print(in_bar_1_no_exit.head(5))
             pytest.fail(f"发现 {len(in_bar_1_no_exit)} 处 in_bar=1 但无多头离场")
 
         if len(in_bar_neg1_no_exit) > 0:
-            print("\n❌ in_bar=-1 但无 exit_short:")
-            print(in_bar_neg1_no_exit.head(5))
             pytest.fail(f"发现 {len(in_bar_neg1_no_exit)} 处 in_bar=-1 但无空头离场")
-
-        print("✅ risk_in_bar_direction 与离场状态一致")
 
 
 class TestRiskPriceInSameTrade:
@@ -162,11 +148,7 @@ class TestRiskPriceInSameTrade:
         errors = grouped.filter(pl.col("sl_spread") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ 同一交易内 SL 价格不一致:")
-            print(errors.head(5))
             pytest.fail(f"发现 {len(errors)} 笔交易内 SL 价格变化")
-
-        print(f"✅ {len(grouped)} 笔多头交易的 SL 价格保持不变")
 
     def test_tsl_atr_price_only_improves_in_same_trade(self, backtest_with_config):
         """验证 TSL ATR 价格在同一笔交易期间只向有利方向移动"""
@@ -219,12 +201,4 @@ class TestRiskPriceInSameTrade:
         errors = df.filter(pl.col("tsl_change") < -1e-10)
 
         if len(errors) > 0:
-            print("\n❌ 同一交易内 TSL 价格下降 (前5条):")
-            print(
-                errors.select(
-                    ["long_trade_id", "tsl_atr_price_long", "prev_tsl", "tsl_change"]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处 TSL 价格异常下降")
-
-        print(f"✅ {len(df)} 行持仓期间 TSL 价格保持只升不降")

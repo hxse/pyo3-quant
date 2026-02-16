@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 from py_entry.Test.backtest.strategies import get_strategy
-from py_entry.runner import Backtest
+from py_entry.Test.shared import make_backtest_runner
 
 
 @pytest.fixture(scope="module")
@@ -19,7 +19,7 @@ def backtest_result():
     """使用 reversal_extreme 策略执行回测"""
     strategy = get_strategy("reversal_extreme")
 
-    runner = Backtest(
+    runner = make_backtest_runner(
         data_source=strategy.data_config,
         indicators=strategy.indicators_params,
         signal=strategy.signal_params,

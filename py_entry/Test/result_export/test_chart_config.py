@@ -10,18 +10,11 @@ def test_chart_config_generation(runner_with_results):
     runner = runner_with_results
 
     # 1. Generate Config
-    print(
-        f"DEBUG: Before generate, data={runner.data_dict is not None}, results={len(runner.results) if runner.results else 0}"
-    )
     # Using unified export method which generates chart config internally
 
     runner.format_for_export(
         FormatResultsConfig(dataframe_format="csv", add_index=True)
     )
-    print(f"DEBUG: After generate, config={runner.chart_config}")
-
-    if runner.results and runner.results[0].indicators:
-        print(f"DEBUG: Indicators keys: {list(runner.results[0].indicators.keys())}")
 
     config = runner.chart_config
     assert config is not None

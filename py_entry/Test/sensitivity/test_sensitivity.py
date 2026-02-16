@@ -1,18 +1,19 @@
 import pytest
 import numpy as np
-from py_entry.runner.backtest import Backtest
-from py_entry.data_generator import DataGenerationParams
-from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 from py_entry.types import (
     SensitivityConfig,
     OptimizeMetric,
     Param,
-    BacktestParams,
-    SettingContainer,
     ExecutionStage,
     SignalTemplate,
     SignalGroup,
     LogicOp,
+)
+from py_entry.Test.shared import (
+    make_backtest_params,
+    make_backtest_runner,
+    make_data_generation_params,
+    make_engine_settings,
 )
 
 
@@ -20,9 +21,8 @@ from py_entry.types import (
 def sensitivity_setup():
     """Setup a basic backtest instance for testing"""
     # 1. Setup Data Source (Simulated)
-    data_config = DataGenerationParams(
+    data_config = make_data_generation_params(
         timeframes=["15m"],
-        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
         num_bars=5000,  # Small number for fast tests
         fixed_seed=42,
         base_data_key="ohlcv_15m",
@@ -37,9 +37,7 @@ def sensitivity_setup():
 
     signal_params = {}
 
-    backtest_params = BacktestParams(
-        initial_capital=10000.0, fee_fixed=0, fee_pct=0.0005
-    )
+    backtest_params = make_backtest_params(fee_fixed=0, fee_pct=0.0005)
 
     signal_template = SignalTemplate(
         entry_long=SignalGroup(
@@ -50,11 +48,11 @@ def sensitivity_setup():
         ),
     )
 
-    engine_settings = SettingContainer(
+    engine_settings = make_engine_settings(
         execution_stage=ExecutionStage.Performance, return_only_final=True
     )
 
-    bt = Backtest(
+    bt = make_backtest_runner(
         data_source=data_config,
         indicators=indicators,
         signal=signal_params,
@@ -121,9 +119,8 @@ def test_different_seeds_different_results(sensitivity_setup):
 def test_no_optimizable_params(sensitivity_setup):
     """Test that error is raised when no params are optimizable"""
     # Create backtest with NO optimizable params
-    data_config = DataGenerationParams(
+    data_config = make_data_generation_params(
         timeframes=["15m"],
-        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
         num_bars=100,
         fixed_seed=42,
         base_data_key="ohlcv_15m",
@@ -137,16 +134,18 @@ def test_no_optimizable_params(sensitivity_setup):
         }
     }
 
-    bt = Backtest(
+    bt = make_backtest_runner(
         data_source=data_config,
         indicators=indicators,
         signal={},
-        backtest=BacktestParams(initial_capital=10000, fee_fixed=0, fee_pct=0),
+        backtest=make_backtest_params(initial_capital=10000, fee_fixed=0, fee_pct=0),
         signal_template=SignalTemplate(
             entry_long=SignalGroup(logic=LogicOp.AND, comparisons=[]),
             entry_short=SignalGroup(logic=LogicOp.AND, comparisons=[]),
         ),
-        engine_settings=SettingContainer(execution_stage=ExecutionStage.Performance),
+        engine_settings=make_engine_settings(
+            execution_stage=ExecutionStage.Performance
+        ),
     )
 
     config = SensitivityConfig(n_samples=5)

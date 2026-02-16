@@ -79,7 +79,6 @@ def test_cci_strict_mode(data_dict):
     严格模式测试：Rust vs TA-Lib (高精度对齐)
     """
     # 1. 验证与 TA-Lib (enable_talib=True) 一致
-    print("\nExecuting Test: Rust vs TA-Lib (Should Match)")
     validate_indicator_accuracy(
         config,
         data_dict,

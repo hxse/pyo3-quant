@@ -108,37 +108,17 @@ class TestStateWhitelist:
         invalid_rows = df_clean.filter(~whitelist_condition)
 
         if len(invalid_rows) > 0:
-            print(f"\n❌ 发现 {len(invalid_rows)} 行非法状态组合。前 20 行:")
             # 打印详细信息，包括可能导致问题的 NaN 值
-            print(
-                invalid_rows.select(
-                    [
-                        "index",
-                        "el",
-                        "xl",
-                        "es",
-                        "xs",
-                        "dir",
-                        "fes",
-                        "entry_long_price",
-                        "exit_long_price",
-                        "entry_short_price",
-                        "exit_short_price",
-                    ]
-                ).head(20)
-            )
 
             # 检查是否有 NaN 引起的 False
             # 如果价格列有值（Some）但值是 NaN，is_not_nan() 会返回 False
             # 我们可以通过查看这些列是否为 null 来区分 None 和 NaN (在 Polars 中通常都处理为 null，但在 Rust -> Python转换中可能保留 NaN)
-            print("\n检查是否存在 NaN 值 (非 Null):")
             chk_nan = invalid_rows.select(
                 [
                     pl.col("entry_long_price").is_nan().alias("el_is_nan"),
                     pl.col("entry_short_price").is_nan().alias("es_is_nan"),
                 ]
             ).head(20)
-            print(chk_nan)
 
         assert len(invalid_rows) == 0, f"发现 {len(invalid_rows)} 行状态不在白名单中"
 
@@ -147,8 +127,6 @@ class TestStateWhitelist:
             assert False, (
                 f"发现 {len(nan_entry_anomaly)} 行 NaN 价格进场异常。请检查 Rust 代码是否已重新编译且包含 NaN 检查逻辑。"
             )
-
-        print(f"✅ 所有 {len(backtest_df)} 行状态均在白名单中")
 
     def test_state_distribution(self, backtest_df):
         """统计各状态分布（仅供参考，不做断言）"""
@@ -181,7 +159,6 @@ class TestStateWhitelist:
             "reversal_to_short_then_exit",
         ]
 
-        print("\n📊 状态分布:")
         for i, (el, xl, es, xs, dir_val, fes_val) in enumerate(self.VALID_STATES):
             count = len(
                 df.filter(
@@ -193,8 +170,6 @@ class TestStateWhitelist:
                     & (pl.col("fes") == fes_val)
                 )
             )
-            if count > 0:
-                print(f"  - {state_names[i]}: {count} 行")
 
 
 class TestFrameStateCrossValidation:
@@ -231,18 +206,13 @@ class TestFrameStateCrossValidation:
         assert backtest_df["frame_state"].dtype == pl.UInt8, (
             f"frame_state 类型应为 UInt8，实际为 {backtest_df['frame_state'].dtype}"
         )
-        print("✅ frame_state 列存在且类型正确 (UInt8)")
 
     def test_frame_state_values_valid(self, backtest_df):
         """验证所有 frame_state 值都在合法范围内 (0-16)"""
         invalid = backtest_df.filter(
             (pl.col("frame_state") > 16) & (pl.col("frame_state") != 255)
         )
-        if len(invalid) > 0:
-            print(f"\n❌ 发现 {len(invalid)} 行非法 frame_state 值:")
-            print(invalid.select(["frame_state"]).head(20))
         assert len(invalid) == 0, f"发现 {len(invalid)} 行非法 frame_state 值"
-        print("✅ 所有 frame_state 值均在合法范围内")
 
     def test_frame_state_name_function(self, backtest_df):
         """验证 PyO3 导出的 frame_state_name 函数工作正常"""
@@ -259,8 +229,6 @@ class TestFrameStateCrossValidation:
                 assert name == expected, (
                     f"frame_state={state_id}: 期望 '{expected}', 实际 '{name}'"
                 )
-
-        print(f"✅ frame_state_name 函数验证通过，覆盖 {len(unique_states)} 种状态")
 
     def test_frame_state_cross_validation(self, backtest_df):
         """交叉验证：frame_state 列值与价格字段推断结果一致（矢量化）"""
@@ -320,33 +288,13 @@ class TestFrameStateCrossValidation:
             pl.col("frame_state") != pl.col("expected_frame_state")
         )
 
-        if len(mismatched) > 0:
-            print(f"\n❌ 发现 {len(mismatched)} 行 frame_state 不匹配:")
-            print(
-                mismatched.select(
-                    [
-                        "el",
-                        "xl",
-                        "es",
-                        "xs",
-                        "risk_in_bar_direction",
-                        "first_entry_side",
-                        "frame_state",
-                        "expected_frame_state",
-                    ]
-                ).head(20)
-            )
-
         assert len(mismatched) == 0, (
             f"发现 {len(mismatched)} 行 frame_state 与价格推断不一致"
         )
-        print(f"✅ 交叉验证通过: {len(non_special)} 行 frame_state 与价格推断完全一致")
 
     def test_frame_state_distribution(self, backtest_df):
         """统计 frame_state 分布（仅供参考，不做断言）"""
         counts = backtest_df.group_by("frame_state").len().sort("frame_state")
-        print("\n📊 frame_state 分布:")
         for row in counts.iter_rows():
             state_id, count = row
             name = self.FRAME_STATE_MAP.get(state_id, f"unknown({state_id})")
-            print(f"  - [{state_id:2d}] {name}: {count} 行")

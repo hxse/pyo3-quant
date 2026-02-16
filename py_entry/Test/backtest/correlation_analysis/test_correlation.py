@@ -21,8 +21,9 @@ from py_entry.Test.backtest.correlation_analysis.analysis.correlation import (
 
 
 from py_entry.Test.backtest.strategies import get_all_strategies
-from py_entry.Test.backtest.correlation_analysis.config import CommonConfig
-from py_entry.data_generator.time_utils import get_utc_timestamp_ms
+from py_entry.Test.backtest.correlation_analysis.config import (
+    build_config_from_strategy,
+)
 
 
 class TestEngineCorrelation:
@@ -38,23 +39,9 @@ class TestEngineCorrelation:
         strategy_name = strategy_config.name
         btp_class = strategy_config.btp_strategy_class
 
-        print("\n" + "=" * 60)
-        print(f"开始策略相关性分析: {strategy_name}")
-        print("=" * 60)
-
-        # 直接从策略配置构建 CommonConfig（唯一配置来源）
-        data_cfg = strategy_config.data_config
-        backtest_cfg = strategy_config.backtest_params
-
-        config = CommonConfig(
-            bars=data_cfg.num_bars or 6000,
-            seed=data_cfg.fixed_seed if data_cfg.fixed_seed is not None else 42,
-            initial_capital=backtest_cfg.initial_capital or 10000.0,
-            commission=backtest_cfg.fee_pct or 0.0005,
-            timeframe=data_cfg.timeframes[0] if data_cfg.timeframes else "15m",
-            start_time=data_cfg.start_time
-            or get_utc_timestamp_ms("2025-01-01 00:00:00"),
-            allow_gaps=getattr(data_cfg, "allow_gaps", False),
+        # 统一从策略配置构建 CommonConfig，避免重复手写参数映射。
+        config = build_config_from_strategy(
+            strategy_name=strategy_name,
             equity_cutoff_ratio=(
                 strategy_config.custom_params.get("equity_cutoff_ratio", 0.20)
                 if strategy_config.custom_params
@@ -63,7 +50,6 @@ class TestEngineCorrelation:
         )
 
         # 1. 运行 pyo3-quant 引擎
-        print(f"\n[1/3] 运行 pyo3-quant 引擎 ({strategy_name})...")
         pyo3_adapter = Pyo3Adapter(config)
         pyo3_adapter.run(strategy_name)
 
@@ -73,10 +59,7 @@ class TestEngineCorrelation:
         pyo3_trade_count = pyo3_adapter.get_trade_count()
         pyo3_win_rate = pyo3_adapter.get_win_rate()
 
-        print(f"  ✓ pyo3-quant 完成，数据长度: {len(pyo3_equity)}")
-
         # 2. 生成共享 OHLCV 数据并运行 backtesting.py 引擎
-        print(f"\n[2/3] 运行 backtesting.py 引擎 ({strategy_name})...")
         ohlcv_df = generate_ohlcv_for_backtestingpy(config)
 
         btp_adapter = BacktestingPyAdapter(config)
@@ -88,10 +71,7 @@ class TestEngineCorrelation:
         btp_trade_count = btp_adapter.get_trade_count()
         btp_win_rate = btp_adapter.get_win_rate()
 
-        print(f"  ✓ backtesting.py 完成，数据长度: {len(btp_equity)}")
-
         # 2.5 验证数据一致性
-        print("\n[2.5/3] 验证 OHLC 数据一致性...")
         # 从 Pyo3 runner 获取原始数据
         pyo3_ohlc = None
         if pyo3_adapter.runner and pyo3_adapter.runner.data_dict:
@@ -125,16 +105,9 @@ class TestEngineCorrelation:
                     mismatch_count = np.sum(diff >= 0.0001)
                     mismatch_info.append(f"{col}: {mismatch_count} 条不匹配")
 
-            if all_match:
-                print(f"  ✓ OHLC 数据一致 (全部 {len(pyo3_ohlc['open'])} 条匹配)")
-            else:
-                print(f"  ❌ OHLC 数据不一致! {', '.join(mismatch_info)}")
-                assert False, "OHLC 数据不一致，无法进行相关性对比"
-        else:
-            print("  ⚠ 无法获取 Pyo3 OHLC 数据，跳过验证")
+            assert all_match, f"OHLC 数据不一致，无法进行相关性对比: {mismatch_info}"
 
         # 3. 分析相关性
-        print("\n[3/3] 分析相关性...")
         result = analyze_correlation(
             pyo3_equity=pyo3_equity,
             pyo3_drawdown=pyo3_drawdown,
@@ -150,10 +123,6 @@ class TestEngineCorrelation:
             equity_cutoff_ratio=config.equity_cutoff_ratio,
         )
 
-        print("\n" + "=" * 60)
-        print(result)
-        print("=" * 60)
-
         # 4. 断言
         assert result.equity_r > 0.85, f"equity 相关性不足: {result.equity_r:.6f}"
         assert result.drawdown_r > 0.85, f"drawdown 相关性不足: {result.drawdown_r:.6f}"
@@ -165,8 +134,6 @@ class TestEngineCorrelation:
         assert result.max_drawdown_diff < 15.0, (
             f"最大回撤差异过大: {result.max_drawdown_diff:.4f}%"
         )
-
-        print(f"\n✅ 策略 {strategy_name} 相关性检查通过！")
 
 
 if __name__ == "__main__":

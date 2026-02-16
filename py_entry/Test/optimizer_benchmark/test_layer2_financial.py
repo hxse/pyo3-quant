@@ -4,18 +4,18 @@ import numpy as np
 from scipy.stats import mannwhitneyu
 from loguru import logger
 
-from py_entry.runner import Backtest
 from py_entry.types import (
     OptunaConfig,
     OptimizerConfig,
     OptimizeMetric,
-    ParamType,
-    Param,
-    SettingContainer,
     ExecutionStage,
 )
-from py_entry.data_generator import DataGenerationParams
-from py_entry.data_generator.time_utils import get_utc_timestamp_ms
+from py_entry.Test.shared import (
+    make_backtest_runner,
+    make_data_generation_params,
+    make_engine_settings,
+    make_optimizer_sma_atr_components,
+)
 
 
 class TestLayer2Financial:
@@ -39,60 +39,19 @@ class TestLayer2Financial:
     @pytest.fixture
     def backtest_setup(self):
         """创建回测配置"""
-        data_config = DataGenerationParams(
+        data_config = make_data_generation_params(
             timeframes=["15m"],
-            start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
             num_bars=self.N_BARS,
             fixed_seed=42,  # 数据固定，保证场景一致
             base_data_key="ohlcv_15m",
         )
 
-        indicators = {
-            "ohlcv_15m": {
-                "sma_fast": {
-                    "period": Param(
-                        20, min=10, max=40, optimize=True, dtype=ParamType.Integer
-                    )
-                },
-                "sma_slow": {
-                    "period": Param(
-                        60, min=40, max=100, optimize=True, dtype=ParamType.Integer
-                    )
-                },
-            }
-        }
-
-        # 简单策略模板
-        from py_entry.types import SignalTemplate, SignalGroup, LogicOp
-
-        template = SignalTemplate(
-            entry_long=SignalGroup(
-                logic=LogicOp.AND,
-                comparisons=["sma_fast,ohlcv_15m,0 x> sma_slow,ohlcv_15m,0"],
-            ),
-            entry_short=SignalGroup(
-                logic=LogicOp.AND,
-                comparisons=["sma_fast,ohlcv_15m,0 x< sma_slow,ohlcv_15m,0"],
-            ),
+        indicators, template, backtest_params = make_optimizer_sma_atr_components(
+            source_key="ohlcv_15m"
         )
 
-        engine_settings = SettingContainer(
+        engine_settings = make_engine_settings(
             execution_stage=ExecutionStage.Performance, return_only_final=True
-        )
-
-        # 回测参数优化：加入止损止盈
-        from py_entry.types import BacktestParams
-
-        backtest_params = BacktestParams(
-            # ATR 止损配置 (Standard trend following ranges)
-            sl_atr=Param(2.0, min=1.5, max=4.0, step=0.25, optimize=True),
-            tsl_atr=Param(3.0, min=2.0, max=6.0, step=0.25, optimize=True),
-            atr_period=Param(
-                14, min=10, max=30, optimize=True, dtype=ParamType.Integer
-            ),
-            initial_capital=10000.0,
-            fee_pct=0.0005,  # 0.05% fee
-            fee_fixed=0.0,
         )
 
         return data_config, indicators, template, engine_settings, backtest_params
@@ -114,7 +73,7 @@ class TestLayer2Financial:
 
             # 必须每次重新初始化 Backtest 以保证状态重置
             # 注意：此处传入了 backtest_params，其中包含 optimizable 的参数
-            bt = Backtest(
+            bt = make_backtest_runner(
                 data_source=data_config,
                 indicators=indicators,
                 signal={},

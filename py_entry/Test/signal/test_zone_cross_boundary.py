@@ -2,15 +2,14 @@ import polars as pl
 from datetime import datetime, timedelta
 
 from py_entry.data_generator import DirectDataConfig
-from py_entry.runner import Backtest
 from py_entry.types import (
-    SettingContainer,
     ExecutionStage,
     SignalGroup,
     LogicOp,
     SignalTemplate,
     Param,
 )
+from py_entry.Test.shared import make_backtest_runner, make_engine_settings
 
 
 def test_zone_cross_boundary_inclusive():
@@ -98,11 +97,13 @@ def test_zone_cross_boundary_inclusive():
     )
 
     # 4. 运行回测
-    runner = Backtest(
+    runner = make_backtest_runner(
         data_source=data_config,
         indicators=indicators_params,
         signal_template=signal_template,
-        engine_settings=SettingContainer(execution_stage=ExecutionStage.Performance),
+        engine_settings=make_engine_settings(
+            execution_stage=ExecutionStage.Performance
+        ),
     )
 
     result = runner.run()
@@ -114,11 +115,8 @@ def test_zone_cross_boundary_inclusive():
 
     entry_long = signals["entry_long"].to_list()
 
-    print("\nTest Sequence (Close):", test_closes)
-
     # 取出最后几根实际上对应测试序列的结果
     result_slice = entry_long[-len(test_closes) :]
-    print("Result Signal:       ", result_slice)
 
     expected = [
         False,  # 20
@@ -188,11 +186,13 @@ def test_zone_cross_boundary_strict_down():
         )
     )
 
-    runner = Backtest(
+    runner = make_backtest_runner(
         data_source=data_config,
         indicators=indicators_params,
         signal_template=signal_template,
-        engine_settings=SettingContainer(execution_stage=ExecutionStage.Performance),
+        engine_settings=make_engine_settings(
+            execution_stage=ExecutionStage.Performance
+        ),
     )
 
     result = runner.run()
@@ -200,9 +200,6 @@ def test_zone_cross_boundary_strict_down():
     signals = result.summary.signals
     assert signals is not None
     entry_long = signals["entry_long"].to_list()[-len(test_closes) :]
-
-    print("\nTest Sequence (Strict Down):", test_closes)
-    print("Result Signal:              ", entry_long)
 
     expected = [
         False,  # 80
@@ -271,11 +268,13 @@ def test_zone_cross_boundary_inclusive_down():
         )
     )
 
-    runner = Backtest(
+    runner = make_backtest_runner(
         data_source=data_config,
         indicators=indicators_params,
         signal_template=signal_template,
-        engine_settings=SettingContainer(execution_stage=ExecutionStage.Performance),
+        engine_settings=make_engine_settings(
+            execution_stage=ExecutionStage.Performance
+        ),
     )
 
     result = runner.run()
@@ -283,9 +282,6 @@ def test_zone_cross_boundary_inclusive_down():
     signals = result.summary.signals
     assert signals is not None
     entry_long = signals["entry_long"].to_list()[-len(test_closes) :]
-
-    print("\nTest Sequence (Inclusive Down):", test_closes)
-    print("Result Signal:                 ", entry_long)
 
     expected = [
         False,  # 80

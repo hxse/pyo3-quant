@@ -14,14 +14,12 @@ class TestRiskStateColumns:
         missing_cols = required_risk_cols - existing_cols
 
         assert len(missing_cols) == 0, f"缺少列: {missing_cols}"
-        print("✅ 所有 RiskState 输出列存在")
 
     def test_risk_in_bar_direction_is_i8(self, backtest_df):
         """测试 risk_in_bar_direction 是 i8 类型"""
         assert backtest_df["risk_in_bar_direction"].dtype == pl.Int8, (
             f"risk_in_bar_direction 类型错误: {backtest_df['risk_in_bar_direction'].dtype}"
         )
-        print("✅ risk_in_bar_direction 类型正确 (i8)")
 
 
 class TestRiskExitBehavior:
@@ -31,4 +29,3 @@ class TestRiskExitBehavior:
         """测试 risk_in_bar_direction 列无空值"""
         null_count = backtest_df["risk_in_bar_direction"].null_count()
         assert null_count == 0, f"risk_in_bar_direction 包含 {null_count} 个空值"
-        print("✅ risk_in_bar_direction 无空值")

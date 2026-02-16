@@ -3,14 +3,16 @@ import pytest
 from py_entry.data_generator import (
     DataGenerationParams,
 )
-from py_entry.data_generator.time_utils import get_utc_timestamp_ms
-from py_entry.runner import Backtest
 from py_entry.types import (
-    SettingContainer,
     ExecutionStage,
     IndicatorsParams,
     DataContainer,
     BacktestSummary,
+)
+from py_entry.Test.shared import (
+    make_backtest_runner,
+    make_data_generation_params,
+    make_engine_settings,
 )
 
 
@@ -27,10 +29,10 @@ def run_indicator_backtest(
     Returns:
         (backtest_results, data_container) 元组
     """
-    bt = Backtest(
+    bt = make_backtest_runner(
         data_source=data_params,
         indicators=indicators_params,
-        engine_settings=SettingContainer(
+        engine_settings=make_engine_settings(
             execution_stage=ExecutionStage.Indicator,
             return_only_final=True,
         ),
@@ -51,9 +53,8 @@ def run_indicator_backtest(
 def data_dict():
     """生成指标测试所需的测试数据"""
     timeframes = ["15m", "1h"]
-    return DataGenerationParams(
+    return make_data_generation_params(
         timeframes=timeframes,
-        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
         num_bars=5000,
         fixed_seed=42,
         base_data_key="ohlcv_15m",

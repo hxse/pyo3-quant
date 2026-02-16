@@ -48,6 +48,8 @@ class BacktestingPyAdapter:
         Returns:
             self
         """
+        # 这里故意直接使用 backtesting.py 的 Backtest，
+        # 不走 shared builder，避免混淆两个引擎的适配边界。
         # 创建 Backtest 并运行
         bt = Backtest(
             data,

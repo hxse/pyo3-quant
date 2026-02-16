@@ -106,21 +106,7 @@ class TestAtrRiskPriceCalculation:
         errors = first_entries.filter(pl.col("price_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ sl_atr_price_long 计算错误 (前5条):")
-            print(
-                errors.select(
-                    [
-                        "signal_close",
-                        "signal_atr",
-                        "sl_atr_price_long",
-                        "expected_sl_price",
-                        "price_diff",
-                    ]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处 sl_atr_price_long 计算错误")
-
-        print(f"✅ {len(first_entries)} 个多头进场点 sl_atr_price_long 计算正确")
 
     def test_sl_atr_price_short_formula(self, backtest_with_config):
         """验证空头 ATR 止损价格: sl_atr_price_short = signal_close + signal_atr * sl_atr"""
@@ -182,21 +168,7 @@ class TestAtrRiskPriceCalculation:
         errors = first_entries.filter(pl.col("price_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ sl_atr_price_short 计算错误 (前5条):")
-            print(
-                errors.select(
-                    [
-                        "signal_close",
-                        "signal_atr",
-                        "sl_atr_price_short",
-                        "expected_sl_price",
-                        "price_diff",
-                    ]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处 sl_atr_price_short 计算错误")
-
-        print(f"✅ {len(first_entries)} 个空头进场点 sl_atr_price_short 计算正确")
 
     def test_tp_atr_price_long_formula(self, backtest_with_config):
         """验证多头 ATR 止盈价格: tp_atr_price_long = signal_close + signal_atr * tp_atr"""
@@ -258,21 +230,7 @@ class TestAtrRiskPriceCalculation:
         errors = first_entries.filter(pl.col("price_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ tp_atr_price_long 计算错误 (前5条):")
-            print(
-                errors.select(
-                    [
-                        "signal_close",
-                        "signal_atr",
-                        "tp_atr_price_long",
-                        "expected_tp_price",
-                        "price_diff",
-                    ]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处 tp_atr_price_long 计算错误")
-
-        print(f"✅ {len(first_entries)} 个多头进场点 tp_atr_price_long 计算正确")
 
     def test_tp_atr_price_short_formula(self, backtest_with_config):
         """验证空头 ATR 止盈价格: tp_atr_price_short = signal_close - signal_atr * tp_atr"""
@@ -334,18 +292,4 @@ class TestAtrRiskPriceCalculation:
         errors = first_entries.filter(pl.col("price_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ tp_atr_price_short 计算错误 (前5条):")
-            print(
-                errors.select(
-                    [
-                        "signal_close",
-                        "signal_atr",
-                        "tp_atr_price_short",
-                        "expected_tp_price",
-                        "price_diff",
-                    ]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处 tp_atr_price_short 计算错误")
-
-        print(f"✅ {len(first_entries)} 个空头进场点 tp_atr_price_short 计算正确")

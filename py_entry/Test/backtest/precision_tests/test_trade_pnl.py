@@ -137,13 +137,7 @@ class TestTradePnlPctCalculation:
         errors = df.filter(pl.col("pnl_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ trade_pnl_pct 计算错误 (前5条):")
-            print(
-                errors.select(["trade_pnl_pct", "expected_pnl_pct", "pnl_diff"]).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处 trade_pnl_pct 计算错误")
-
-        print(f"✅ {len(df)} 笔多头离场的 trade_pnl_pct 计算正确")
 
     def test_short_exit_trade_pnl_pct(self, backtest_df, backtest_params):
         """验证空头离场的 trade_pnl_pct 计算（排除状态 10/11）"""
@@ -202,13 +196,7 @@ class TestTradePnlPctCalculation:
         errors = df.filter(pl.col("pnl_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ trade_pnl_pct 计算错误 (前5条):")
-            print(
-                errors.select(["trade_pnl_pct", "expected_pnl_pct", "pnl_diff"]).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处 trade_pnl_pct 计算错误")
-
-        print(f"✅ {len(df)} 笔空头离场的 trade_pnl_pct 计算正确")
 
     def test_reversal_then_exit_trade_pnl_pct(self, backtest_df, backtest_params):
         """验证状态 10/11（反手后风控离场）的综合 trade_pnl_pct 计算"""
@@ -294,17 +282,4 @@ class TestTradePnlPctCalculation:
         errors = df.filter(pl.col("pnl_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ 状态 10/11 综合 trade_pnl_pct 计算错误 (前5条):")
-            print(
-                errors.select(
-                    [
-                        "risk_in_bar_direction",
-                        "trade_pnl_pct",
-                        "expected_pnl_pct",
-                        "pnl_diff",
-                    ]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处综合 trade_pnl_pct 计算错误")
-
-        print(f"✅ {len(df)} 笔状态 10/11 的综合 trade_pnl_pct 计算正确")

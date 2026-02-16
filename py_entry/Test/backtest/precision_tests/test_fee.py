@@ -116,15 +116,7 @@ class TestFeeCalculation:
         errors = df.filter(pl.col("fee_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ Fee 计算错误 (前5条):")
-            print(
-                errors.select(
-                    ["entry_long_price", "exit_long_price", "fee", "expected_fee"]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处 fee 计算错误")
-
-        print(f"✅ {len(df)} 笔多头离场的 fee 计算正确")
 
     def test_short_exit_fee_calculation(self, backtest_df, backtest_params):
         """验证空头离场的 fee 计算（排除状态 10/11）"""
@@ -173,15 +165,7 @@ class TestFeeCalculation:
         errors = df.filter(pl.col("fee_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ Fee 计算错误 (前5条):")
-            print(
-                errors.select(
-                    ["entry_short_price", "exit_short_price", "fee", "expected_fee"]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处 fee 计算错误")
-
-        print(f"✅ {len(df)} 笔空头离场的 fee 计算正确")
 
     def test_reversal_then_exit_fee_calculation(self, backtest_df, backtest_params):
         """验证状态 10/11（反手后风控离场）的综合 fee 计算"""
@@ -261,15 +245,7 @@ class TestFeeCalculation:
         errors = df.filter(pl.col("fee_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ 状态 10/11 综合 fee 计算错误 (前5条):")
-            print(
-                errors.select(
-                    ["risk_in_bar_direction", "fee", "expected_fee", "fee_diff"]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处综合 fee 计算错误")
-
-        print(f"✅ {len(df)} 笔状态 10/11 的综合 fee 计算正确")
 
 
 class TestFeeCumCalculation:
@@ -292,16 +268,9 @@ class TestFeeCumCalculation:
         errors = df.filter(pl.col("cum_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ Fee 累积错误 (前5条):")
-            print(
-                errors.select(["fee", "fee_cum", "expected_fee_cum", "cum_diff"]).head(
-                    5
-                )
-            )
             pytest.fail(f"发现 {len(errors)} 处 fee 累积错误")
 
         total_fee = df["fee_cum"].max()
-        print(f"✅ fee_cum 累积正确，总手续费: {total_fee:.4f}")
 
     def test_fee_cum_monotonic(self, backtest_df, backtest_params):
         """验证 fee_cum 单调递增（或不变）"""
@@ -309,4 +278,3 @@ class TestFeeCumCalculation:
         is_monotonic = backtest_df["fee_cum"].is_sorted()
 
         assert is_monotonic, "fee_cum 应该单调递增"
-        print("✅ fee_cum 单调递增验证通过")

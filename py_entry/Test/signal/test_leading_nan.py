@@ -1,12 +1,14 @@
-from py_entry.data_generator import DataGenerationParams
-from py_entry.runner import Backtest
 from py_entry.types import (
-    SettingContainer,
     ExecutionStage,
     Param,
     SignalGroup,
     LogicOp,
     SignalTemplate,
+)
+from py_entry.Test.shared import (
+    make_backtest_runner,
+    make_data_generation_params,
+    make_engine_settings,
 )
 
 
@@ -18,9 +20,8 @@ def test_leading_nan_tracking():
     # 1. 准备数据生成参数
     # 生成足够长的数据以平摊指标预热期
     num_bars = 100
-    data_gen_params = DataGenerationParams(
+    data_gen_params = make_data_generation_params(
         timeframes=["15m", "1h", "4h"],
-        start_time=None,
         num_bars=num_bars,
         fixed_seed=42,
         base_data_key="ohlcv_15m",
@@ -65,11 +66,13 @@ def test_leading_nan_tracking():
 
     # 4. 运行回测引擎
     # 4. 运行回测引擎
-    runner = Backtest(
+    runner = make_backtest_runner(
         data_source=data_gen_params,
         indicators=indicators_params,
         signal_template=signal_template,
-        engine_settings=SettingContainer(execution_stage=ExecutionStage.Performance),
+        engine_settings=make_engine_settings(
+            execution_stage=ExecutionStage.Performance
+        ),
     )
     result = runner.run()
 
@@ -97,7 +100,6 @@ def test_leading_nan_tracking():
 
     # 打印一些调试信息
     nan_count = actual_mask.sum()
-    print(f"\nCaught {nan_count} leading NaNs")
 
     # 验证掩码一致性（矢量化检查）
     # 注意：我们的逻辑中还包含 is_null()，但在当前数据生成器下通常只有 NaN

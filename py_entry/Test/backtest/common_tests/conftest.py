@@ -6,25 +6,9 @@
 
 import pytest
 
-from py_entry.runner import Backtest
 from py_entry.Test.backtest.strategies import get_all_strategies
 from py_entry.Test.backtest.strategies.base import StrategyConfig
-
-
-def _run_backtest(strategy: StrategyConfig):
-    """执行回测并返回结果"""
-    bt = Backtest(
-        data_source=strategy.data_config,
-        indicators=strategy.indicators_params,
-        signal=strategy.signal_params,
-        backtest=strategy.backtest_params,
-        signal_template=strategy.signal_template,
-        engine_settings=strategy.engine_settings,
-        performance=strategy.performance_params,
-    )
-
-    result = bt.run()
-    return result.results
+from py_entry.Test.shared import run_strategy_backtest
 
 
 @pytest.fixture(scope="class", params=get_all_strategies(), ids=lambda s: s.name)
@@ -36,9 +20,8 @@ def backtest_result(request):
     测试报告中会显示策略名称。
     """
     strategy: StrategyConfig = request.param
-    print(f"\n🚀 正在测试策略: {strategy.name}")
-    print(f"   {strategy.description}")
-    return _run_backtest(strategy)
+    results, _, _ = run_strategy_backtest(strategy)
+    return results
 
 
 @pytest.fixture

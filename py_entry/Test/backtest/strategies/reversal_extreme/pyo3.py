@@ -7,15 +7,17 @@
 - 风控：2% SL + 4×ATR TP + 1.5×ATR TSL
 """
 
-from py_entry.data_generator import DataGenerationParams
 from py_entry.types import (
-    BacktestParams,
     Param,
     LogicOp,
     SignalGroup,
     SignalTemplate,
-    SettingContainer,
     ExecutionStage,
+)
+from py_entry.Test.shared import (
+    make_backtest_params,
+    make_data_generation_params,
+    make_engine_settings,
 )
 
 from .. import register_strategy
@@ -29,9 +31,9 @@ def get_config() -> StrategyConfig:
     """返回极端反手策略配置"""
 
     # 数据配置 - 使用共享参数
-    data_config = DataGenerationParams(
+    data_config = make_data_generation_params(
         timeframes=[C.timeframe],
-        start_time=C.start_time,
+        start_time_ms=C.start_time,
         num_bars=C.num_bars,
         fixed_seed=C.fixed_seed,
         base_data_key=f"ohlcv_{C.timeframe}",
@@ -51,7 +53,7 @@ def get_config() -> StrategyConfig:
     signal_params = {}
 
     # 回测参数 - 使用共享参数
-    backtest_params = BacktestParams(
+    backtest_params = make_backtest_params(
         initial_capital=C.initial_capital,
         fee_fixed=C.fee_fixed,
         fee_pct=C.fee_pct,
@@ -108,7 +110,7 @@ def get_config() -> StrategyConfig:
         exit_short=exit_short_group,
     )
 
-    engine_settings = SettingContainer(
+    engine_settings = make_engine_settings(
         execution_stage=ExecutionStage.Performance,
         return_only_final=False,
     )

@@ -1,16 +1,15 @@
 import pytest
-from py_entry.runner import Backtest
 from py_entry.types import (
-    BacktestParams,
-    LogicOp,
     Param,
-    SignalGroup,
-    SignalTemplate,
-    SettingContainer,
     ExecutionStage,
 )
-from py_entry.data_generator import DataGenerationParams
-from py_entry.data_generator.time_utils import get_utc_timestamp_ms
+from py_entry.Test.shared import (
+    make_backtest_params,
+    make_backtest_runner,
+    make_data_generation_params,
+    make_engine_settings,
+)
+from py_entry.types import LogicOp, SignalGroup, SignalTemplate
 
 
 @pytest.fixture(scope="function")
@@ -21,9 +20,8 @@ def runner_with_results():
     """
 
     # 1. 创建 DataGenerationParams 对象
-    simulated_data_config = DataGenerationParams(
+    simulated_data_config = make_data_generation_params(
         timeframes=["15m", "1h", "4h"],
-        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
         num_bars=1000,  # 测试用 1000 根 BAR 足够
         fixed_seed=42,
         base_data_key="ohlcv_15m",
@@ -63,18 +61,9 @@ def runner_with_results():
     }
 
     # 4. 自定义回测参数
-    backtest_params = BacktestParams(
-        initial_capital=10000.0,
+    backtest_params = make_backtest_params(
         fee_fixed=1,
         fee_pct=0.001,
-        sl_exit_in_bar=False,
-        tp_exit_in_bar=False,
-        sl_trigger_mode=False,
-        tp_trigger_mode=False,
-        tsl_trigger_mode=False,
-        sl_anchor_mode=False,
-        tp_anchor_mode=False,
-        tsl_anchor_mode=False,
         sl_pct=Param(2),
         tp_pct=Param(2),
         tsl_pct=Param(1),
@@ -98,13 +87,13 @@ def runner_with_results():
 
     # 6. 自定义引擎设置
     # 为了测试 Chart生成，我们需要确保有结果返回，ExecutionStage.Backtest 或 PERFORMANCE 都可以
-    engine_settings = SettingContainer(
+    engine_settings = make_engine_settings(
         execution_stage=ExecutionStage.Backtest,
         return_only_final=False,  # 测试需要指标数据来生成图表配置
     )
 
     # 7. 创建并运行 Backtest
-    bt = Backtest(
+    bt = make_backtest_runner(
         data_source=simulated_data_config,
         indicators=indicators_params,
         signal=signal_params,

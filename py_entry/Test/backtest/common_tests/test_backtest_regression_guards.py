@@ -4,17 +4,16 @@ import polars as pl
 import pyo3_quant
 import pytest
 
-from py_entry.data_generator import DataGenerationParams
 from py_entry.runner import Backtest
 from py_entry.types import (
     BacktestParams,
     ExecutionStage,
     LogicOp,
     Param,
-    SettingContainer,
     SignalGroup,
     SignalTemplate,
 )
+from py_entry.Test.shared import make_data_generation_params, make_engine_settings
 
 
 def _build_minimal_runner(
@@ -28,9 +27,8 @@ def _build_minimal_runner(
     base_key = f"ohlcv_{timeframe}"
 
     # 这里固定 seed，确保回归测试结果稳定可复现。
-    data_source = DataGenerationParams(
+    data_source = make_data_generation_params(
         timeframes=[timeframe],
-        start_time=None,
         num_bars=num_bars,
         fixed_seed=7,
         base_data_key=base_key,
@@ -76,12 +74,14 @@ def _build_minimal_runner(
         ),
     )
 
+    # 这里故意直接构造 Backtest：该文件是最小回归护栏测试，
+    # 需要显式暴露底层组装路径，避免 helper 层掩盖问题。
     return Backtest(
         data_source=data_source,
         indicators=indicators,
         backtest=backtest_params,
         signal_template=signal_template,
-        engine_settings=SettingContainer(
+        engine_settings=make_engine_settings(
             execution_stage=ExecutionStage.Performance,
             return_only_final=False,
         ),

@@ -12,6 +12,7 @@ from typing import Optional
 from py_entry.runner import Backtest
 from py_entry.Test.backtest.strategies import get_strategy
 from py_entry.Test.backtest.correlation_analysis.config import CommonConfig
+from py_entry.Test.shared import make_backtest_runner, make_data_generation_params
 
 
 @dataclass
@@ -45,20 +46,23 @@ class Pyo3Adapter:
         # 获取策略配置
         strategy = get_strategy(strategy_name)
 
-        # 动态覆盖数据配置（根据 CommonConfig）
-        strategy.data_config.num_bars = self.config.bars
-        strategy.data_config.fixed_seed = self.config.seed
-        strategy.data_config.start_time = self.config.start_time
-        strategy.data_config.timeframes = [self.config.timeframe]
-        strategy.data_config.base_data_key = f"ohlcv_{self.config.timeframe}"
+        # 根据 CommonConfig 生成独立数据配置，避免修改策略原对象。
+        data_config = make_data_generation_params(
+            timeframes=[self.config.timeframe],
+            start_time_ms=self.config.start_time,
+            num_bars=self.config.bars,
+            fixed_seed=self.config.seed,
+            base_data_key=f"ohlcv_{self.config.timeframe}",
+            allow_gaps=self.config.allow_gaps,
+        )
 
-        # 覆盖回测参数
+        # 覆写本次策略实例参数（get_strategy 每次返回新实例）。
         strategy.backtest_params.initial_capital = self.config.initial_capital
         strategy.backtest_params.fee_pct = self.config.commission
 
         # 创建 Backtest 并执行
-        self.runner = Backtest(
-            data_source=strategy.data_config,
+        self.runner = make_backtest_runner(
+            data_source=data_config,
             indicators=strategy.indicators_params,
             signal=strategy.signal_params,
             backtest=strategy.backtest_params,

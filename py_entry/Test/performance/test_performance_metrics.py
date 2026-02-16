@@ -43,21 +43,6 @@ def test_trade_logic_consistency(full_performance_result):
     total_trades = metrics["total_trades"]
 
     # 调试打印
-    print(f"\nDEBUG: total_trades = {total_trades}")
-    print(f"DEBUG: avg_holding_duration = {metrics['avg_holding_duration']}")
-    print(
-        f"DEBUG: entry_long_price 非NaN行数: {df.filter(pl.col('entry_long_price').is_not_nan()).height}"
-    )
-    print(
-        f"DEBUG: entry_short_price 非NaN行数: {df.filter(pl.col('entry_short_price').is_not_nan()).height}"
-    )
-    print(
-        f"DEBUG: trade_pnl_pct 非零行数: {df.filter(pl.col('trade_pnl_pct') != 0).height}"
-    )
-    print("\nDEBUG: 前20行 entry_long_price:")
-    print(
-        df.select(["entry_long_price", "entry_short_price", "trade_pnl_pct"]).head(20)
-    )
 
     if total_trades > 0:
         assert metrics["win_rate"] >= 0

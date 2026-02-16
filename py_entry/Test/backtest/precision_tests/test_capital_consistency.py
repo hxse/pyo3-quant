@@ -41,11 +41,7 @@ class TestEquityCalculation:
         errors = df.filter(pl.col("equity_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ 空仓时 equity != balance (前5条):")
-            print(errors.select(["balance", "equity", "equity_diff"]).head(5))
             pytest.fail(f"发现 {len(errors)} 处 equity 计算错误")
-
-        print(f"✅ {len(df)} 行空仓时 equity = balance 验证通过")
 
     def test_equity_long_position(self, backtest_df, backtest_params):
         """验证持多头时 equity = balance * (1 + (close - entry) / entry)"""
@@ -80,15 +76,7 @@ class TestEquityCalculation:
         errors = df.filter(pl.col("equity_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ 多头 equity 计算错误 (前5条):")
-            print(
-                errors.select(
-                    ["balance", "equity", "expected_equity", "equity_diff"]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处多头 equity 计算错误")
-
-        print(f"✅ {len(df)} 行多头持仓 equity 计算正确")
 
     def test_equity_short_position(self, backtest_df, backtest_params):
         """验证持空头时 equity = balance * (1 + (entry - close) / entry)"""
@@ -124,15 +112,7 @@ class TestEquityCalculation:
         errors = df.filter(pl.col("equity_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ 空头 equity 计算错误 (前5条):")
-            print(
-                errors.select(
-                    ["balance", "equity", "expected_equity", "equity_diff"]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处空头 equity 计算错误")
-
-        print(f"✅ {len(df)} 行空头持仓 equity 计算正确")
 
 
 class TestTotalReturnPctCalculation:
@@ -154,20 +134,7 @@ class TestTotalReturnPctCalculation:
         errors = df.filter(pl.col("return_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ total_return_pct 计算错误 (前5条):")
-            print(
-                errors.select(
-                    [
-                        "equity",
-                        "total_return_pct",
-                        "expected_total_return",
-                        "return_diff",
-                    ]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处 total_return_pct 计算错误")
-
-        print(f"✅ {len(df)} 行 total_return_pct 计算正确")
 
     def test_total_return_pct_initial(self, backtest_df, backtest_params):
         """验证初始状态的 total_return_pct"""
@@ -183,8 +150,6 @@ class TestTotalReturnPctCalculation:
         assert diff < 1e-10, (
             f"初始 total_return_pct 错误: {total_return} != {expected_return}"
         )
-
-        print(f"✅ 初始 total_return_pct = {total_return:.6f} 正确")
 
     def test_balance_total_return_relationship_on_exit(
         self, backtest_df, backtest_params
@@ -240,15 +205,7 @@ class TestTotalReturnPctCalculation:
         errors = df.filter(pl.col("balance_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ balance = initial_capital * (1 + total_return_pct) 不成立:")
-            print(
-                errors.select(
-                    ["balance", "expected_balance", "total_return_pct", "balance_diff"]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处关系错误")
-
-        print(f"✅ {len(df)} 行离场时 balance 与 total_return_pct 关系正确")
 
 
 class TestCumulativeCalculations:
@@ -299,21 +256,7 @@ class TestCumulativeCalculations:
         errors = df.filter(pl.col("balance_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ balance = initial_capital × cumprod(1 + trade_pnl_pct) 不成立:")
-            print(
-                errors.select(
-                    [
-                        "balance",
-                        "expected_balance",
-                        "trade_pnl_pct",
-                        "cumprod_factor",
-                        "balance_diff",
-                    ]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处累积计算错误")
-
-        print(f"✅ {len(df)} 行余额与累积盈亏关系正确（爆仓前）")
 
     def test_total_return_from_cumprod(self, backtest_df, backtest_params):
         """验证总回报等于累积的 (1 + trade_pnl_pct) - 1（离场时）
@@ -372,20 +315,7 @@ class TestCumulativeCalculations:
         errors = df.filter(pl.col("return_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ total_return_pct = cumprod(1 + trade_pnl_pct) - 1 不成立:")
-            print(
-                errors.select(
-                    [
-                        "total_return_pct",
-                        "expected_total_return",
-                        "cumprod_factor",
-                        "return_diff",
-                    ]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处累积计算错误")
-
-        print(f"✅ {len(df)} 行离场时总回报与累积盈亏关系正确（爆仓前）")
 
 
 class TestBalanceEquityCrossValidation:
@@ -423,11 +353,7 @@ class TestBalanceEquityCrossValidation:
         errors = df.filter(pl.col("diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ 纯离场时 equity != balance (前5条):")
-            print(errors.select(["balance", "equity", "diff"]).head(5))
             pytest.fail(f"发现 {len(errors)} 处纯离场时 equity 错误")
-
-        print(f"✅ {len(df)} 行纯离场时 equity = balance 验证通过")
 
     def test_trade_pnl_pct_zero_when_no_exit(self, backtest_df, backtest_params):
         """验证非离场时 trade_pnl_pct = 0"""
@@ -442,11 +368,7 @@ class TestBalanceEquityCrossValidation:
         errors = df.filter(pl.col("trade_pnl_pct") != 0.0)
 
         if len(errors) > 0:
-            print("\n❌ 非离场时 trade_pnl_pct != 0 (前5条):")
-            print(errors.select(["trade_pnl_pct"]).head(5))
             pytest.fail(f"发现 {len(errors)} 处非离场时 trade_pnl_pct 非零")
-
-        print(f"✅ {len(df)} 行非离场时 trade_pnl_pct = 0 验证通过")
 
 
 class TestDrawdownCalculation:
@@ -477,34 +399,18 @@ class TestDrawdownCalculation:
         errors = df.filter(pl.col("drawdown_diff") > tolerance)
 
         if len(errors) > 0:
-            print("\n❌ current_drawdown 计算错误 (前5条):")
-            print(
-                errors.select(
-                    ["equity", "current_drawdown", "expected_drawdown", "drawdown_diff"]
-                ).head(5)
-            )
             pytest.fail(f"发现 {len(errors)} 处 current_drawdown 计算错误")
-
-        print(f"✅ {len(df)} 行 current_drawdown 计算正确")
 
     def test_drawdown_non_negative(self, backtest_df, backtest_params):
         """验证 current_drawdown >= 0"""
         errors = backtest_df.filter(pl.col("current_drawdown") < 0)
 
         if len(errors) > 0:
-            print("\n❌ current_drawdown 出现负值:")
-            print(errors.select(["current_drawdown"]).head(5))
             pytest.fail(f"发现 {len(errors)} 处 current_drawdown 为负")
-
-        print("✅ current_drawdown 非负验证通过")
 
     def test_drawdown_max_one(self, backtest_df, backtest_params):
         """验证 current_drawdown <= 1 (最多 100% 回撤)"""
         errors = backtest_df.filter(pl.col("current_drawdown") > 1.0)
 
         if len(errors) > 0:
-            print("\n❌ current_drawdown > 1:")
-            print(errors.select(["current_drawdown"]).head(5))
             pytest.fail(f"发现 {len(errors)} 处 current_drawdown > 1")
-
-        print("✅ current_drawdown <= 1 验证通过")

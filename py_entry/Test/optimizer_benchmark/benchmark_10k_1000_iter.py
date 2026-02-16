@@ -7,24 +7,22 @@ import pytest  # keeps data generation happy if it relies on fixtures, but we'll
 # Ensure python path is correct
 sys.path.append(os.getcwd())
 
-from py_entry.runner import Backtest
 from py_entry.types import (
     OptunaConfig,
     OptimizerConfig,
     OptimizeMetric,
-    ParamType,
     Param,
-    SettingContainer,
     ExecutionStage,
-    BacktestParams,
     PerformanceParams,
     PerformanceMetric,
-    SignalTemplate,
-    SignalGroup,
-    LogicOp,
 )
-from py_entry.data_generator import DataGenerationParams
-from py_entry.data_generator.time_utils import get_utc_timestamp_ms
+from py_entry.Test.shared import (
+    make_backtest_params,
+    make_backtest_runner,
+    make_data_generation_params,
+    make_engine_settings,
+    make_ma_cross_template,
+)
 
 
 def run_benchmark():
@@ -38,9 +36,8 @@ def run_benchmark():
     SEED = 42
 
     # 2. Data Setup
-    data_config = DataGenerationParams(
+    data_config = make_data_generation_params(
         timeframes=["15m"],
-        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
         num_bars=N_BARS,
         fixed_seed=SEED,
         base_data_key="ohlcv_15m",
@@ -59,28 +56,14 @@ def run_benchmark():
     }
 
     # 4. Signal Template (SMA Crossover)
-    signal_template = SignalTemplate(
-        entry_long=SignalGroup(
-            logic=LogicOp.AND,
-            comparisons=["sma_fast,ohlcv_15m,0 x> sma_slow,ohlcv_15m,0"],
-        ),
-        entry_short=SignalGroup(
-            logic=LogicOp.AND,
-            comparisons=["sma_fast,ohlcv_15m,0 x< sma_slow,ohlcv_15m,0"],
-        ),
-        exit_long=SignalGroup(
-            logic=LogicOp.AND,
-            comparisons=["sma_fast,ohlcv_15m,0 x< sma_slow,ohlcv_15m,0"],
-        ),
-        exit_short=SignalGroup(
-            logic=LogicOp.AND,
-            comparisons=["sma_fast,ohlcv_15m,0 x> sma_slow,ohlcv_15m,0"],
-        ),
+    signal_template = make_ma_cross_template(
+        fast_name="sma_fast",
+        slow_name="sma_slow",
+        source_key="ohlcv_15m",
     )
 
     # 5. Backtest Params
-    backtest_params = BacktestParams(
-        initial_capital=10000.0,
+    backtest_params = make_backtest_params(
         fee_fixed=0.0,
         fee_pct=0.0005,
         sl_pct=Param(0.02, min=0.01, max=0.05, optimize=True),
@@ -107,13 +90,13 @@ def run_benchmark():
     )
 
     # 7. Engine Settings
-    engine_settings = SettingContainer(
+    engine_settings = make_engine_settings(
         execution_stage=ExecutionStage.Performance,
         return_only_final=True,
     )
 
     # 8. Init Backtest
-    bt = Backtest(
+    bt = make_backtest_runner(
         enable_timing=False,  # Disable internal timing to reduce noise
         data_source=data_config,
         indicators=indicators_params,
@@ -132,21 +115,7 @@ def run_benchmark():
     logger.info("---------------------------------------------------------")
     logger.info("[Rust Optimizer] Starting...")
 
-    rust_config = OptimizerConfig(
-        max_samples=N_ITERATIONS,
-        samples_per_round=N_ITERATIONS,  # One big round to match Optuna batching roughly or let it manage
-        # actually, to force exactly N samples roughly, we can set max_samples.
-        # But Rust logic might stop early if patience hits. Let's increase patience.
-        stop_patience=N_ITERATIONS,  # No early stopping
-        min_samples=N_ITERATIONS,
-        max_rounds=1,  # Single batch optimization for fair speed comparison?
-        # Or let it run multi-round. Optuna is usually sequential or batch.
-        # Let's set max_rounds=5, samples_per_round=N_ITERATIONS/5 for genetic behavior
-        # But user said "analyze 1000 times".
-        # Let's try to mimic standard behavior
-        optimize_metric=OptimizeMetric.CalmarRatioRaw,
-    )
-    # Rust optimizer default is multi-round. Let's use 10 rounds of 100
+    # Rust optimizer 使用 10 轮 * 100 样本，总样本与 Optuna 对齐。
     rust_config = OptimizerConfig(
         max_samples=N_ITERATIONS,
         samples_per_round=100,

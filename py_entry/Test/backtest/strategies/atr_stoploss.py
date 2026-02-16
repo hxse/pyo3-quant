@@ -10,16 +10,17 @@ ATR 止损止盈策略
 使用 reversal_extreme 的信号模板来覆盖更多状态机状态
 """
 
-from py_entry.data_generator import DataGenerationParams
-from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 from py_entry.types import (
-    BacktestParams,
     Param,
     LogicOp,
     SignalGroup,
     SignalTemplate,
-    SettingContainer,
     ExecutionStage,
+)
+from py_entry.Test.shared import (
+    make_backtest_params,
+    make_data_generation_params,
+    make_engine_settings,
 )
 
 from . import register_strategy
@@ -30,9 +31,8 @@ from .base import StrategyConfig
 def get_config() -> StrategyConfig:
     """返回 ATR 止损止盈策略配置"""
 
-    data_config = DataGenerationParams(
+    data_config = make_data_generation_params(
         timeframes=["15m", "1h"],
-        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
         num_bars=10000,
         fixed_seed=123,
         base_data_key="ohlcv_15m",
@@ -50,8 +50,7 @@ def get_config() -> StrategyConfig:
     signal_params = {}
 
     # 只使用 ATR 止损止盈 + ATR 追踪止损
-    backtest_params = BacktestParams(
-        initial_capital=10000.0,
+    backtest_params = make_backtest_params(
         fee_fixed=1,
         fee_pct=0.001,
         sl_exit_in_bar=True,
@@ -96,7 +95,7 @@ def get_config() -> StrategyConfig:
         exit_short=exit_short_group,
     )
 
-    engine_settings = SettingContainer(
+    engine_settings = make_engine_settings(
         execution_stage=ExecutionStage.Performance,
         return_only_final=False,
     )

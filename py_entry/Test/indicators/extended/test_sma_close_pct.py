@@ -23,8 +23,6 @@ def test_sma_close_pct_column_names(data_dict):
     indicators_df = indicators_results["ohlcv_15m"]
     actual_cols = indicators_df.columns
 
-    print(f"\nActual columns: {actual_cols}")
-
     # 验证单输出列名是否与 key 完全一致
     assert "sma-close-pct_0" in actual_cols
     assert "sma-close-pct_fast" in actual_cols

@@ -19,7 +19,6 @@ class TestPriceDrivenState:
             col for col in required_price_cols if col not in backtest_df.columns
         ]
         assert len(missing_cols) == 0, f"缺少价格列: {missing_cols}"
-        print("✅ 所有价格列存在")
 
     def test_state_inference_logic(self, backtest_df):
         """测试状态推断逻辑（基于价格组合）"""
@@ -55,22 +54,6 @@ class TestPriceDrivenState:
         )
 
         total_rows = len(backtest_df)
-        print(f"📊 状态分布（总行数{total_rows}）:")
-        print(
-            f"  - 无仓位: {len(no_position)}行 ({len(no_position) / total_rows * 100:.1f}%)"
-        )
-        print(
-            f"  - 持有多头: {len(hold_long)}行 ({len(hold_long) / total_rows * 100:.1f}%)"
-        )
-        print(
-            f"  - 持有空头: {len(hold_short)}行 ({len(hold_short) / total_rows * 100:.1f}%)"
-        )
-        print(
-            f"  - 离场多头: {len(exit_long)}行 ({len(exit_long) / total_rows * 100:.1f}%)"
-        )
-        print(
-            f"  - 离场空头: {len(exit_short)}行 ({len(exit_short) / total_rows * 100:.1f}%)"
-        )
 
 
 class TestFinancialSmoke:
@@ -111,8 +94,6 @@ class TestDataIntegrity:
         }
         assert len(cols_with_nulls) == 0, f"发现空值: {cols_with_nulls}"
 
-        print("✅ 必需列无空值")
-
     def test_row_count_consistency(self, backtest_df):
         """测试行数一致性"""
         # 所有列应该有相同的行数
@@ -120,4 +101,3 @@ class TestDataIntegrity:
         unique_counts = set(row_counts.values())
 
         assert len(unique_counts) == 1, f"列长度不一致: {row_counts}"
-        print(f"✅ 所有列长度一致: {list(unique_counts)[0]}行")

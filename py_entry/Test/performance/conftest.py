@@ -1,29 +1,25 @@
 import pytest
-from py_entry.runner import Backtest
-from py_entry.data_generator import DataGenerationParams
-from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 from py_entry.types import (
-    BacktestParams,
     Param,
     PerformanceParams,
     PerformanceMetric,
-    LogicOp,
-    SignalGroup,
-    SignalTemplate,
-    SettingContainer,
     ExecutionStage,
+)
+from py_entry.Test.shared import (
+    make_backtest_params,
+    make_backtest_runner,
+    make_data_generation_params,
+    make_engine_settings,
+    make_ma_cross_template,
 )
 
 
 @pytest.fixture(scope="module")
 def full_performance_result():
     """运行一个包含所有指标的完整回测"""
-    # br = BacktestRunner() # Removed
-
     # 1000根15m K线，约10.4天
-    simulated_data_config = DataGenerationParams(
+    simulated_data_config = make_data_generation_params(
         timeframes=["15m"],
-        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
         num_bars=1000,
         fixed_seed=42,
         base_data_key="ohlcv_15m",
@@ -36,39 +32,17 @@ def full_performance_result():
         },
     }
 
-    backtest_params = BacktestParams(
-        initial_capital=10000.0,
+    backtest_params = make_backtest_params(
         fee_fixed=0,
         fee_pct=0.001,
-        sl_exit_in_bar=False,
-        tp_exit_in_bar=False,
-        sl_trigger_mode=False,
-        tp_trigger_mode=False,
-        tsl_trigger_mode=False,
-        sl_anchor_mode=False,
-        tp_anchor_mode=False,
-        tsl_anchor_mode=False,
         sl_pct=Param(2),
         tp_pct=Param(5),
     )
 
-    signal_template = SignalTemplate(
-        entry_long=SignalGroup(
-            logic=LogicOp.AND,
-            comparisons=["sma_fast, ohlcv_15m, 0 > sma_slow, ohlcv_15m, 0"],
-        ),
-        entry_short=SignalGroup(
-            logic=LogicOp.AND,
-            comparisons=["sma_fast, ohlcv_15m, 0 < sma_slow, ohlcv_15m, 0"],
-        ),
-        exit_long=SignalGroup(
-            logic=LogicOp.AND,
-            comparisons=["sma_fast, ohlcv_15m, 0 < sma_slow, ohlcv_15m, 0"],
-        ),
-        exit_short=SignalGroup(
-            logic=LogicOp.AND,
-            comparisons=["sma_fast, ohlcv_15m, 0 > sma_slow, ohlcv_15m, 0"],
-        ),
+    signal_template = make_ma_cross_template(
+        fast_name="sma_fast",
+        slow_name="sma_slow",
+        source_key="ohlcv_15m",
     )
 
     performance_params = PerformanceParams(
@@ -94,20 +68,20 @@ def full_performance_result():
         leverage_safety_factor=0.8,
     )
 
-    engine_settings = SettingContainer(
+    engine_settings = make_engine_settings(
         execution_stage=ExecutionStage.Performance,
         return_only_final=False,
     )
 
-    # 7. 创建并运行 Backtest
-    bt = Backtest(
+    # 创建并运行 Backtest
+    bt = make_backtest_runner(
         data_source=simulated_data_config,
         indicators=indicators_params,
         signal={},
         backtest=backtest_params,
-        performance=performance_params,
         signal_template=signal_template,
         engine_settings=engine_settings,
+        performance=performance_params,
     )
 
     result = bt.run()

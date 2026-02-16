@@ -17,9 +17,13 @@
 import pytest
 from polars.testing import assert_frame_equal
 
-from py_entry.data_generator import DataGenerationParams, OtherParams
-from py_entry.runner import Backtest
-from py_entry.types import SettingContainer, ExecutionStage
+from py_entry.data_generator import OtherParams
+from py_entry.types import ExecutionStage
+from py_entry.Test.shared import (
+    make_backtest_runner,
+    make_data_generation_params,
+    make_engine_settings,
+)
 
 from py_entry.Test.signal.scenarios import get_all_scenarios
 from py_entry.Test.signal.utils import (
@@ -32,7 +36,7 @@ from py_entry.Test.signal.utils import (
 @pytest.fixture(scope="module")
 def setting_container():
     """设置容器（所有场景共享）"""
-    return SettingContainer(
+    return make_engine_settings(
         execution_stage=ExecutionStage.Performance,  # 使用PERFORMANCE而不是SIGNAL
     )
 
@@ -51,14 +55,9 @@ def test_signal_scenario(scenario, setting_container):
         data_gen_params: 数据生成参数 fixture
         setting_container: 设置容器 fixture
     """
-    print("\n" + "=" * 60)
-    print(f"测试场景: {scenario.name}")
-    print(f"描述: {scenario.description}")
-    print("=" * 60)
 
-    data_gen_params = DataGenerationParams(
+    data_gen_params = make_data_generation_params(
         timeframes=["15m", "1h", "4h"],
-        start_time=None,  # 使用默认时间
         num_bars=10000,  # 生成10000根K线
         fixed_seed=42,  # 使用固定种子保证可重现
         base_data_key="ohlcv_15m",  # 基础数据键
@@ -75,7 +74,7 @@ def test_signal_scenario(scenario, setting_container):
     if scenario.expected_exception is None:
         # 预期成功的场景
 
-        runner = Backtest(
+        runner = make_backtest_runner(
             data_source=data_gen_params,
             other_params=other_params,
             indicators=scenario.indicators_params,
@@ -128,9 +127,7 @@ def test_signal_scenario(scenario, setting_container):
                 else engine_signals
             )
             assert_frame_equal(engine_signals_to_compare, manual_signals)
-            print(f"\n✓ 场景 {scenario.name} 测试通过！")
         except AssertionError:
-            print(f"\n✗ 场景 {scenario.name} 测试失败！")
             print_comparison_details(engine_signals, manual_signals)
             raise
     else:
@@ -138,7 +135,7 @@ def test_signal_scenario(scenario, setting_container):
 
         # 3. 运行回测，预期会报错
         with pytest.raises(scenario.expected_exception) as exc_info:
-            runner = Backtest(
+            runner = make_backtest_runner(
                 data_source=data_gen_params,
                 indicators=scenario.indicators_params,
                 signal=scenario.signal_params,
@@ -149,7 +146,6 @@ def test_signal_scenario(scenario, setting_container):
 
         # 4. 验证错误信息包含相关关键词
         error_message = str(exc_info.value)
-        print(f"捕获到预期错误: {error_message}")
 
         # 根据场景类型验证错误信息
         if "mixed_logic" in scenario.name:
@@ -171,12 +167,7 @@ def test_signal_scenario(scenario, setting_container):
                 for keyword in ["parse", "invalid", "negative"]
             ), "负数offset错误应该包含解析相关关键词"
 
-        print(f"✓ 场景 {scenario.name} 错误验证通过！")
-
 
 def test_all_scenarios_loaded():
     """验证至少加载了一些测试场景"""
     assert len(all_scenarios) > 0, "应该至少有一个测试场景"
-    print(f"\n加载了 {len(all_scenarios)} 个测试场景:")
-    for scenario in all_scenarios:
-        print(f"  - {scenario.name}: {scenario.description}")

@@ -313,6 +313,47 @@ BacktestParams(None, None, None, None, None, None, None, None, None, None, False
 - `sl_pct=None`、`tp_atr=None` 等是合法输入。
 - 不再依赖 `**kwargs` 的反射式提取逻辑。
 
+### 4.3 `set_*` 接口现状（重要）
+
+当前 PyO3 接口里，`set_*` 能力分为两类：
+
+1. **显式方法（可直接调用）**
+   - `SingleParamSet`
+     - `set_indicators_params`
+     - `set_signal_params`
+     - `set_backtest_params`
+     - `set_performance_params`
+     - `set_indicator_param`
+     - `set_signal_param`
+     - `set_backtest_optimizable_param`
+     - `set_backtest_bool_param`
+     - `set_backtest_f64_param`
+     - `set_performance_metrics`
+     - `set_performance_risk_free_rate`
+     - `set_performance_leverage_safety_factor`
+   - `BacktestParams`
+     - `set_optimizable_param`
+     - `set_bool_param`
+     - `set_f64_param`
+
+2. **属性 setter（不是可直接调用的 `set_xxx()` 方法）**
+   - `DataContainer`
+     - `mapping = ...`
+     - `skip_mask = ...`
+     - `source = ...`
+     - `base_data_key = ...`
+     - `skip_mapping = ...`
+   - `BacktestSummary`
+     - `indicators = ...`
+     - `signals = ...`
+     - `backtest_result = ...`
+     - `performance = ...`
+
+注意：
+
+- 在 Rust 代码里，这些属性 setter 的实现函数名可能是 `set_source`、`set_indicators`，但 Python 侧不会暴露同名可调用方法；
+- Python 侧要触发它们，必须使用属性赋值语法，而不是 `obj.set_source(...)`。
+
 ---
 
 ## 5. 数据对象语义与可变性

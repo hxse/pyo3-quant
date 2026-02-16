@@ -9,6 +9,11 @@ import traitlets
 from typing import Dict, Any
 from pathlib import Path
 
+_ASSET_DIR = Path(__file__).parent
+# 直接内嵌 ESM/CSS 字符串，避免 marimo 在动态加载 @file 模块时偶发 404。
+_ESM_SOURCE = (_ASSET_DIR / "chart_widget.js").read_text(encoding="utf-8")
+_CSS_SOURCE = (_ASSET_DIR / "chart_widget.css").read_text(encoding="utf-8")
+
 
 class ChartDashboardWidget(anywidget.AnyWidget):
     """图表仪表盘 Widget
@@ -24,6 +29,8 @@ class ChartDashboardWidget(anywidget.AnyWidget):
     config = traitlets.Dict(default_value={}).tag(sync=True)
 
     # 容器样式配置
+    # 目标环境：jupyter / marimo
+    target = traitlets.Unicode(default_value="jupyter").tag(sync=True)
     width = traitlets.Unicode(default_value="100%").tag(sync=True)
     aspect_ratio = traitlets.Unicode(default_value="16/9").tag(sync=True)
 
@@ -41,16 +48,17 @@ class ChartDashboardWidget(anywidget.AnyWidget):
     css_content = traitlets.Unicode(default_value="").tag(sync=True)
 
     # JavaScript 模块（ESM）
-    _esm = Path(__file__).parent / "chart_widget.js"
+    _esm = _ESM_SOURCE
 
     # CSS 样式
-    _css = Path(__file__).parent / "chart_widget.css"
+    _css = _CSS_SOURCE
 
     def __init__(
         self,
         *,
         zip_data: bytes,
         config: Dict[str, Any],
+        target: str = "jupyter",
         width: str = "100%",
         aspect_ratio: str = "16/9",
         lib_path: str = "",
@@ -63,6 +71,7 @@ class ChartDashboardWidget(anywidget.AnyWidget):
         super().__init__(
             zip_data=zip_data,
             config=config,
+            target=target,
             width=width,
             aspect_ratio=aspect_ratio,
             lib_path=lib_path,

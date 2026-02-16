@@ -55,6 +55,7 @@ class DisplayConfig(BaseModel):
     推荐配置组合：
     - embed_data=False, embed_files=True: Jupyter 环境最佳（默认）
     - embed_data=True, embed_files=True: 导出自包含 HTML
+    - target="marimo": Marimo 环境（强制 anywidget 模式，自动 mo.ui.anywidget 包装）
 
     路径说明：
     - lib_path 和 css_path 支持相对路径和绝对路径
@@ -63,6 +64,11 @@ class DisplayConfig(BaseModel):
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    # 目标环境
+    # "jupyter": 默认，支持 anywidget 和 HTML 内嵌两种模式
+    # "marimo": 强制使用 anywidget 模式，并用 mo.ui.anywidget() 包装（忽略 embed_data）
+    target: Literal["jupyter", "marimo"] = "jupyter"
 
     # 仪表盘覆盖配置
     override: Optional[DashboardOverride] = None

@@ -16,6 +16,7 @@
 
 ## 3. 开发工作流
 *   **Just 命令优先**：务必先阅读 `justfile`，优先使用 `just` 运行相关指令，避免由于直接执行底层工具导致的环境与配置问题。
+*   **Git 只读默认**：AI 默认只允许执行 Git 只读命令（如 `git status`、`git diff`、`git log`、`git show`、`git blame`）。除非用户明确授权，否则严禁执行任何会修改 Git 状态的命令（如 `git add`、`git commit`、`git stash`、`git reset`、`git checkout`、`git rebase`、`git merge`、`git cherry-pick`、`git tag`、`git push`、`git pull` 等）。
 *   **状态同步机制**：严禁一边修改代码一边运行 `just check`。应在逻辑修改完成后统一提交检查，避免开发进程混乱。
 *   **指令执行耐心**：必须耐心等待，确保命令明确运行完毕，再进行下一步操作。严禁在命令执行期间或尚未完成时，擅自作出错误判断并盲目修改代码，避免造成逻辑混乱。
 *   **串行验证顺序**：

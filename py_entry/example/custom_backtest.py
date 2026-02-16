@@ -138,9 +138,17 @@ engine_settings = SettingContainer(
 )
 
 
-def run_custom_backtest() -> RunResult:
+def run_custom_backtest(
+    *,
+    save_result: bool = True,
+    upload_result: bool = True,
+) -> RunResult:
     """
     运行自定义回测流程
+
+    Args:
+        save_result: 是否保存结果到本地目录。
+        upload_result: 是否尝试上传结果到远端服务。
     """
     # 配置logger
 
@@ -161,33 +169,36 @@ def run_custom_backtest() -> RunResult:
         engine_settings=engine_settings,
     )
 
-    # 运行 -> 格式化 -> 保存
+    # 运行并格式化（图表展示依赖导出缓存）
     result = bt.run()
+    result = result.format_for_export(FormatResultsConfig(dataframe_format="csv"))
 
-    result.format_for_export(FormatResultsConfig(dataframe_format="csv")).save(
-        SaveConfig(
-            output_dir="my_strategy",
-        )
-    )
-
-    # 尝试读取配置文件并上传
-    try:
-        from py_entry.io import load_local_config
-
-        request_cfg = load_local_config()
-
-        logger.info("正在上传结果...")
-        result.upload(
-            UploadConfig(
-                request_config=request_cfg,
-                server_dir="my_strategy",
-                zip_name="results.zip",
+    if save_result:
+        result.save(
+            SaveConfig(
+                output_dir="my_strategy",
             )
         )
-    except FileNotFoundError:
-        logger.warning("跳过上传：未找到配置文件 config.json")
-    except Exception as e:
-        logger.error(f"上传失败: {e}")
+
+    # 根据开关决定是否上传，避免在无网络/无凭证环境中产生副作用。
+    if upload_result:
+        try:
+            from py_entry.io import load_local_config
+
+            request_cfg = load_local_config()
+
+            logger.info("正在上传结果...")
+            result.upload(
+                UploadConfig(
+                    request_config=request_cfg,
+                    server_dir="my_strategy",
+                    zip_name="results.zip",
+                )
+            )
+        except FileNotFoundError:
+            logger.warning("跳过上传：未找到配置文件 config.json")
+        except Exception as e:
+            logger.error(f"上传失败: {e}")
 
     # 获取结果用于打印
     # RunResult.summary contains the summary

@@ -29,6 +29,7 @@ from py_entry.runner.params import FormatResultsConfig
 if TYPE_CHECKING:
     from py_entry.runner.display.chart_widget import ChartDashboardWidget
     from IPython.display import HTML
+    from marimo._plugins.ui._impl.from_anywidget import anywidget as MarimoAnyWidget
 
 # Lazy import display to avoid circular dependency if possible, or import at top if safe.
 # Assuming display doesn't import run_result.
@@ -181,7 +182,7 @@ class RunResult:
 
     def display(
         self, config: DisplayConfig | None = None
-    ) -> Union["HTML", "ChartDashboardWidget"]:
+    ) -> Union["HTML", "ChartDashboardWidget", "MarimoAnyWidget"]:
         """显示图表"""
         # Create a temporary runner-like object or modify display_dashboard to accept RunResult
         # Since _display.display_dashboard expects a runner, we can pass self if we duck-type enough attributes.

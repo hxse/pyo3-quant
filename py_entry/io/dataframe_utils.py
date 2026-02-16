@@ -49,7 +49,9 @@ def add_contextual_columns_to_dataframes(
     """
     time_source_provider = None
     if data_dict is not None and data_dict.source is not None:
-        # 创建一个 source 的浅拷贝，专门用于提供未经修改的时间列数据
+        # 这里必须先拿到“原始 source 快照”。
+        # 注意：DataContainer.source 在 pyo3 对象上通常返回的是拷贝字典，
+        # 不能依赖原地修改 dict[key] 写回对象。
         time_source_provider = data_dict.source.copy()
 
     if data_dict is not None:
@@ -79,8 +81,10 @@ def add_contextual_columns_to_dataframes(
 
         # 处理 source 中的所有 DataFrame
         if data_dict.source is not None:
+            # 对 pyo3 返回的拷贝字典做“重建 + 整体赋回”，确保修改生效。
+            processed_source: dict[str, pl.DataFrame] = {}
             for key, df in data_dict.source.items():
-                data_dict.source[key] = process_dataframe(
+                processed_source[key] = process_dataframe(
                     df,
                     add_index,
                     add_time,
@@ -89,11 +93,14 @@ def add_contextual_columns_to_dataframes(
                     data_dict,
                     time_source_provider,
                 )
+            data_dict.source = processed_source
 
     # 处理单个 result（删除了循环）
     if result.indicators is not None:
+        # 与 source 同理：不能原地改 dict[key]，要整体赋回 result.indicators。
+        processed_indicators: dict[str, pl.DataFrame] = {}
         for key, df in result.indicators.items():
-            result.indicators[key] = process_dataframe(
+            processed_indicators[key] = process_dataframe(
                 df,
                 add_index,
                 add_time,
@@ -102,6 +109,7 @@ def add_contextual_columns_to_dataframes(
                 data_dict,
                 time_source_provider,
             )
+        result.indicators = processed_indicators
 
     if result.signals is not None and data_dict is not None:
         result.signals = process_dataframe(

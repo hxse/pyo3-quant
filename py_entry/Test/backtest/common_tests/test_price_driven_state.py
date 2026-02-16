@@ -73,70 +73,15 @@ class TestPriceDrivenState:
         )
 
 
-class TestFinancialCalculation:
-    """测试资金计算逻辑"""
+class TestFinancialSmoke:
+    """资金相关轻量 smoke（公式级验证由 precision_tests 统一负责）"""
 
-    def test_balance_equity_relationship(self, backtest_df):
-        """测试balance和equity的关系"""
-        # 当无仓位时，equity应等于balance
-        no_position_rows = backtest_df.filter(
-            pl.col("entry_long_price").is_nan() & pl.col("entry_short_price").is_nan()
-        )
-
-        if len(no_position_rows) > 0:
-            # 验证无仓位时 equity == balance
-            assert (no_position_rows["equity"] == no_position_rows["balance"]).all(), (
-                "无仓位时equity应完全等于balance"
-            )
-            print("✅ 无仓位时balance=equity关系正确")
-
-    def test_fee_calculation(self, backtest_df):
-        """测试手续费计算"""
-        # 筛选有离场的记录
-        exit_rows = backtest_df.filter(
-            (pl.col("exit_long_price").is_not_nan())
-            | (pl.col("exit_short_price").is_not_nan())
-        )
-
-        if len(exit_rows) > 0:
-            # 验证所有离场都有费用
-            zero_fee_exits = exit_rows.filter(pl.col("fee") == 0)
-
-            if len(zero_fee_exits) > 0:
-                print("\n⚠️ 发现fee为0的离场记录:")
-                print(
-                    zero_fee_exits.select(
-                        [
-                            "entry_long_price",
-                            "exit_long_price",
-                            "entry_short_price",
-                            "exit_short_price",
-                            "fee",
-                            "balance",
-                        ]
-                    ).head()
-                )
-
-            assert len(zero_fee_exits) == 0, (
-                f"离场应该产生手续费，发现{len(zero_fee_exits)}笔0费用交易"
-            )
-
-            # 验证累计手续费是递增的
-            assert backtest_df["fee_cum"].is_sorted(), "累计手续费应单调递增"
-
-            total_fees = backtest_df["fee_cum"].max()
-            print(f"✅ 手续费计算正确，总手续费: {total_fees:.2f}")
-
-    def test_current_drawdown_tracking(self, backtest_df):
-        """测试当前回撤跟踪"""
-        # current_drawdown 应该始终 >= 0
+    def test_current_drawdown_non_negative(self, backtest_df):
+        """只保留最小不变量：current_drawdown 必须非负。"""
+        # 该断言成本低且价值高，用于快速发现异常值写入。
         assert (backtest_df["current_drawdown"] >= 0).all(), (
             "current_drawdown 应始终 >= 0"
         )
-
-        # 验证是否存在非零回撤（证明计算生效）
-        max_dd = backtest_df["current_drawdown"].max()
-        print(f"✅ current_drawdown 跟踪正确，最大回撤: {max_dd:.4f}")
 
 
 class TestDataIntegrity:
@@ -153,8 +98,6 @@ class TestDataIntegrity:
                 "entry_short_price",
                 "exit_long_price",
                 "exit_short_price",
-                "risk_exit_long_price",
-                "risk_exit_short_price",
             ]
         ]
 

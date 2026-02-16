@@ -60,6 +60,9 @@ performance_analyzer/
 | 夏普比率 | `sharpe_ratio` | `(mean_ret × ann_factor - rf) / (std_ret × √ann_factor)` |
 | 索提诺比率 | `sortino_ratio` | 同夏普，分母仅用下行波动率 |
 | 卡尔马比率 | `calmar_ratio` | `annualized_return / MDD` |
+| 非年化夏普比率 | `sharpe_ratio_raw` | `(mean_ret - rf_per_bar) / std_ret` |
+| 非年化索提诺比率 | `sortino_ratio_raw` | 同上，分母仅用下行波动率 |
+| 非年化卡尔马比率 | `calmar_ratio_raw` | `total_return / MDD` |
 
 ### 3.3 回撤指标
 
@@ -159,12 +162,12 @@ from py_entry.data_conversion.types import PerformanceParams, PerformanceMetric
 # 使用 dataclass 构造绩效参数
 performance_params = PerformanceParams(
     metrics=[
-        PerformanceMetric.TOTAL_RETURN,
-        PerformanceMetric.MAX_DRAWDOWN,
-        PerformanceMetric.SHARPE_RATIO,
-        PerformanceMetric.CALMAR_RATIO,
-        PerformanceMetric.ANNUALIZATION_FACTOR,
-        PerformanceMetric.HAS_LEADING_NAN_COUNT,
+        PerformanceMetric.TotalReturn,
+        PerformanceMetric.MaxDrawdown,
+        PerformanceMetric.SharpeRatio,
+        PerformanceMetric.CalmarRatio,
+        PerformanceMetric.AnnualizationFactor,
+        PerformanceMetric.HasLeadingNanCount,
     ],
     risk_free_rate=0.02,         # 2% 无风险利率
     leverage_safety_factor=0.8,  # 杠杆安全系数

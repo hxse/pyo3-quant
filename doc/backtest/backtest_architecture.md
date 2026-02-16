@@ -353,6 +353,7 @@ def should_skip_current_bar():
 #### 可选风控价格列
 - `sl_pct_price_long/short`, `tp_pct_price_long/short`, `tsl_pct_price_long/short`
 - `sl_atr_price_long/short`, `tp_atr_price_long/short`, `tsl_atr_price_long/short`
+- `tsl_psar_price_long/short`
 
 ---
 
@@ -374,7 +375,6 @@ src/backtest_engine/backtester/
 ├── data_preparer.rs          # 数据准备 (PreparedData 结构体)
 ├── signal_preprocessor.rs    # 信号预处理（R1-R5 冲突解决、屏蔽规则）
 ├── atr_calculator.rs         # ATR 指标计算
-├── write_config.rs           # 写入配置 (决定可选列是否输出)
 ├── output/                   # 输出缓冲区模块
 │   ├── mod.rs                    # 模块导出
 │   ├── output_struct.rs          # OutputBuffers 结构体定义（固定列与可选列）

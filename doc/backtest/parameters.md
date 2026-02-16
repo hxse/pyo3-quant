@@ -100,7 +100,7 @@ PSAR (Parabolic SAR) 是一种特殊的跟踪止损算法。以下三个参数**
 |--------|------|:------:|------|
 | `metrics` | `list[str]` | - | **需要计算的指标列表**。可选值见下表。 |
 | `risk_free_rate` | `float` | `0.0` | **无风险利率**。用于计算夏普比率和索提诺比率。 |
-| `leverage_safety_factor` | `Optional[float]` | `0.8` | **杠杆安全系数**。用于计算 `max_safe_leverage = safety_factor / max_drawdown`。 |
+| `leverage_safety_factor` | `Optional[float]` | `None` | **杠杆安全系数**。用于计算 `max_safe_leverage = safety_factor / max_drawdown`。当为 `None` 时，计算阶段使用 `0.8`。 |
 
 ### 可选指标 (Metrics)
 
@@ -112,6 +112,9 @@ PSAR (Parabolic SAR) 是一种特殊的跟踪止损算法。以下三个参数**
 | `sharpe_ratio` | 夏普比率 |
 | `sortino_ratio` | 索提诺比率 |
 | `calmar_ratio` | 卡尔马比率 |
+| `sharpe_ratio_raw` | 非年化夏普比率 |
+| `sortino_ratio_raw` | 非年化索提诺比率 |
+| `calmar_ratio_raw` | 非年化卡尔马比率 |
 | `total_trades` | 总交易次数 |
 | `avg_daily_trades` | 日均交易次数 |
 | `win_rate` | 胜率 |
@@ -163,3 +166,12 @@ PSAR (Parabolic SAR) 是一种特殊的跟踪止损算法。以下三个参数**
 
 > [!NOTE]
 > 参数值为 `None` 或 `<= 0.0` 时，对应功能**不会启用**，但**不会报错**。
+
+### 6.4 组合约束验证
+
+`BacktestParams::validate()` 还会额外验证以下组合：
+
+- `sl_exit_in_bar = true` 时，要求 `sl_trigger_mode = true`
+- `tp_exit_in_bar = true` 时，要求 `tp_trigger_mode = true`
+
+原因：`*_exit_in_bar` 依赖 High/Low 触发检测，不能与 Close 触发模式同时启用。

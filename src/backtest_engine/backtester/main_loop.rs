@@ -16,10 +16,6 @@ pub fn run_main_loop(
     // 创建输出缓冲区
     let mut buffers = OutputBuffers::new(backtest_params, data_length);
 
-    if data_length <= 2 {
-        return Ok(buffers);
-    }
-
     // 初始化回测状态
     let mut state = BacktestState::new(backtest_params, &prepared_data);
 
@@ -28,6 +24,10 @@ pub fn run_main_loop(
 
     // 初始化第0行和第1行
     initialize_buffer_rows_0_and_1(&mut buffers, &mut state, &prepared_data, &config);
+
+    if data_length <= 2 {
+        return Ok(buffers);
+    }
 
     // 从第2行开始主循环
     // 使用迭代器模式避免边界检查

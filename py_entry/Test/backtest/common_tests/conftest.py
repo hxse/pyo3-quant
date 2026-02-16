@@ -70,12 +70,10 @@ def required_fixed_cols():
         "entry_short_price",
         "exit_long_price",
         "exit_short_price",
-        # Risk 状态列 (新架构)
-        "risk_exit_long_price",
-        "risk_exit_short_price",
+        # Risk 状态列
         "risk_in_bar_direction",  # i8 类型 (0, 1, -1)
         "first_entry_side",  # i8 类型 (0, 1, -1)
-        "frame_state",  # u8 类型 (0-15)
+        "frame_state",  # u8 类型 (0-16)
         # 资金状态列
         "balance",
         "equity",
@@ -104,6 +102,8 @@ def optional_cols():
         "tp_atr_price_short": "ATR止盈价格(空)",
         "tsl_atr_price_long": "ATR跟踪止损价格(多)",
         "tsl_atr_price_short": "ATR跟踪止损价格(空)",
+        "tsl_psar_price_long": "PSAR跟踪止损价格(多)",
+        "tsl_psar_price_short": "PSAR跟踪止损价格(空)",
     }
 
 

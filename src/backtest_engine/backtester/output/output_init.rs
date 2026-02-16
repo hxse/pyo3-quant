@@ -63,7 +63,11 @@ impl OutputBuffers {
                 None
             },
             // ATR相关列
-            atr: None,
+            atr: if params.has_any_atr_param() {
+                Some(vec![0.0; capacity])
+            } else {
+                None
+            },
             sl_atr_price_long: if params.is_sl_atr_param_valid() {
                 Some(vec![0.0; capacity])
             } else {

@@ -9,13 +9,13 @@ class TestStateWhitelist:
     验证每一行的状态组合都在合法状态白名单中。
 
     通过价格字段组合可推断出 15 种通用持仓状态。
-    第 16 种特殊状态 gap_blocked 的价格字段与 no_position 相同，
-    通过 frame_state 列(值=15)区分，在 TestFrameStateCrossValidation 中验证。
+    另有 2 种特殊状态（gap_blocked / capital_exhausted）通过 frame_state 区分，
+    在 TestFrameStateCrossValidation 中验证。
 
     白名单基于约束体系推导，详见 doc/backtest/state_machine_constraints.md
     """
 
-    # 15 种通过价格可推测的合法状态白名单
+    # 15 种通过价格可推测的合法状态白名单（特殊状态通过 frame_state 单独校验）
     # 格式: (entry_long, exit_long, entry_short, exit_short, in_bar_direction, first_entry_side)
     # True = 有值, False = 无值 (NaN)
     VALID_STATES = [

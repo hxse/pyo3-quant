@@ -219,7 +219,7 @@
                                                         │
                                                         ▼
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│ 15 种合法状态   │ ◀── │   价格字段组合  │ ◀── │   运行时约束    │
+│ 17 种合法状态   │ ◀── │   价格字段组合  │ ◀── │   运行时约束    │
 │   (白名单)      │     │ + in_bar_dir    │     │ (仓位计算逻辑)  │
 │                 │     │ + first_entry   │     │                 │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
@@ -228,13 +228,13 @@
 
 ## 7. 测试覆盖
 
-15 种状态均有对应的自动化测试验证其合法性。
+17 种状态均有对应的自动化测试验证其合法性。
 
 ### 测试文件
 
 | 文件 | 说明 |
 |-----|------|
-| [test_state_whitelist.py](file:///home/hxse/pyo3-quant/py_entry/Test/backtest/common_tests/test_state_whitelist.py) | 白名单验证：检测每行状态是否在 15 种合法状态中 |
+| [test_state_whitelist.py](file:///home/hxse/pyo3-quant/py_entry/Test/backtest/common_tests/test_state_whitelist.py) | 白名单验证：检测每行状态是否在 17 种合法状态中 |
 | [test_price_driven_state.py](file:///home/hxse/pyo3-quant/py_entry/Test/backtest/common_tests/test_price_driven_state.py) | 价格驱动状态推断逻辑测试 |
 
 ### 运行测试

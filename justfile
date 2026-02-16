@@ -34,8 +34,9 @@ develop:
     just stub
 
 # 生成 Python 类型存根 (.pyi)
-stub:
+stub: stub-clean
     uv run --no-sync cargo run --bin stub_gen
+    just fmt-py
 
 # 清理生成的 Python 类型存根
 stub-clean:

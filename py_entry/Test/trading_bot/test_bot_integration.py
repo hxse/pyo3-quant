@@ -7,6 +7,7 @@ from py_entry.trading_bot import (
     SignalAction,
 )
 from .test_mocks import MockCallbacks
+from py_entry.trading_bot.models import PositionStructure
 
 
 class TestEntryFlow:
@@ -70,6 +71,38 @@ class TestExitFlow:
         methods = [c["method"] for c in mock.call_log]
         assert "close_position" in methods
         assert "cancel_all_orders" in methods
+
+    def test_reversal_should_not_be_short_circuited_by_duplicate_entry_check(self):
+        """反手信号不应被重复开仓检查提前短路。"""
+        mock = MockCallbacks()
+        # 当前有多头仓位，信号要反手做空。
+        mock.positions = [
+            PositionStructure(symbol="BTC/USDT", contracts=0.1, side="long")
+        ]
+
+        bot = TradingBot(callbacks=mock)
+        params = StrategyParams(base_data_key="ohlcv_15m", symbol="BTC/USDT")
+        signal = SignalState(
+            actions=[
+                SignalAction(action_type="close_position", symbol="BTC/USDT"),
+                SignalAction(action_type="cancel_all_orders", symbol="BTC/USDT"),
+                SignalAction(
+                    action_type="create_limit_order",
+                    symbol="BTC/USDT",
+                    side="short",
+                    price=48000.0,
+                ),
+            ],
+            has_exit=True,
+        )
+
+        result = bot.run_single_step(params, signal=signal)
+        assert result.success is True
+
+        methods = [c["method"] for c in mock.call_log]
+        assert "close_position" in methods
+        assert "cancel_all_orders" in methods
+        assert "create_limit_order" in methods
 
 
 class TestFailFast:

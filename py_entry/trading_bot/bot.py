@@ -61,8 +61,11 @@ class TradingBot:
         """判断是否到达新周期"""
         now = self.time_func()
         period_minutes = self._parse_period_minutes(params.base_data_key)
+        period_seconds = period_minutes * 60
 
-        if now.minute % period_minutes != 0:
+        # 只允许在周期起点后的前 5 秒内触发。
+        now_ts = int(now.timestamp())
+        if now_ts % period_seconds > 5:
             return False
         if now.second > 5:
             return False
@@ -71,8 +74,10 @@ class TradingBot:
         if not last_run:
             return True
 
-        period_start = now.replace(second=0, microsecond=0)
-        return last_run < period_start
+        # 通过时间桶比较，支持任意分钟级周期（含 4h/1d）。
+        now_bucket = now_ts // period_seconds
+        last_bucket = int(last_run.timestamp()) // period_seconds
+        return now_bucket > last_bucket
 
     def _mark_period_executed(self, params: StrategyParams):
         """标记本周期已执行"""

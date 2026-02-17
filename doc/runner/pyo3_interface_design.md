@@ -490,6 +490,51 @@ bt.params.indicators = ind
 - `stub_gen`
 - Python 类型检查（`ty check`）
 
+### 9.3 自定义 `.pyi` 签名策略（`py_*` 函数）
+
+当前有一组 Rust 侧以 `py_*` 命名的导出函数，使用了 `#[gen_stub_pyfunction(..., python = r#"..."#)]` 手写 Python 签名，而不是完全依赖自动推导。
+
+典型位置：
+
+- `src/backtest_engine/top_level_api.rs`
+  - `py_run_backtest_engine`
+  - `py_run_single_backtest`
+- `src/backtest_engine/walk_forward/runner.rs`
+  - `py_run_walk_forward`
+- `src/backtest_engine/sensitivity/runner.rs`
+  - `py_run_sensitivity_test`
+- `src/backtest_engine/optimizer/py_bindings.rs`
+  - `py_run_optimizer`
+
+这样做的目的：
+
+1. 避免复杂泛型返回值在宏自动推导阶段触发编译冲突（见 10.6）。
+2. 明确 Python 侧最终签名，避免跨模块类型名解析偏差（如 `_pyo3_quant.Xxx` 与 `pyo3_quant.Xxx` 的混淆）。
+3. 保证 `ty/basedpyright` 侧看到的接口稳定、可预测。
+
+注意：
+
+- Rust 内部函数名保留 `py_*` 只是绑定层命名约定；
+- Python 对外 API 名称可通过 `#[pyfunction(name = "...")]` 暴露为不带 `py_` 的业务名称。
+
+### 9.4 `errors` 子模块的自定义 `.pyi` 机制
+
+`errors` 不是普通 `#[pyclass]` 路径，而是基于 `create_exception!` 动态创建异常类型。默认情况下，`pyo3-stub-gen` 会把这类异常退化为内建类型信息，导致继承链在 `.pyi` 中不完整或不准确。
+
+当前通过 `src/error/mod.rs` 中的自定义 `define_exception!` 宏解决：
+
+1. 创建真实 PyO3 异常类型。
+2. 为异常补充 `PyStubType` 实现。
+3. 通过 `inventory` 注册 `PyClassInfo`，显式声明 module 与 base class。
+
+结果是 `python/pyo3_quant/errors/__init__.pyi` 可以正确表达异常继承关系（例如 `PyBacktestError(Exception)`、`PyValidationError(PyBacktestError)`），并支持 Python 侧精确捕获与静态检查。
+
+工程约束：
+
+- 该策略是当前稳定方案；
+- 曾尝试升级相关依赖以规避这类自定义逻辑，但出现版本冲突；
+- 在冲突未被验证消除前，保持现状（自定义异常 stub + 手写关键函数签名）是当前项目的基线做法。
+
 ---
 
 ## 10. 常见错误清单（高频）
@@ -521,6 +566,39 @@ bt.params.indicators = ind
 
 现象：运行正常但 IDE/类型检查报错。
 修复：执行 `just stub` 或直接 `just check`。
+
+### 10.6 编译冲突 `E0034`（`multiple _PYO3_DEF`）
+
+现象（示例）：
+
+```text
+error[E0034]: multiple applicable items found
+... #[pyfunction(name = "run_backtest_engine")]
+... multiple `_PYO3_DEF` found
+```
+
+触发背景（高频组合）：
+
+1. 同一个函数同时使用 `#[pyfunction]` + `#[gen_stub_pyfunction]`。
+2. 函数签名包含复杂泛型（例如 `PyResult<Vec<BacktestSummary>>`）。
+3. `pyo3-stub-gen` 走自动签名推导时，与 PyO3 宏展开产物在内部定义上产生冲突。
+
+根因可理解为：
+
+- 自动推导在复杂类型上需要额外辅助推断；
+- 辅助推断代码与 PyO3 内部导出元数据（`_PYO3_DEF`）在特定宏展开路径下发生“重复可见”，最终触发 E0034。
+
+当前项目的处理方式（稳定可用）：
+
+1. 对冲突函数改为 `gen_stub_pyfunction(python = r#"..."#)` 手写签名。
+2. 让存根生成器直接采用给定签名，绕过自动推导。
+3. 保留 `#[pyfunction]` 负责实际导出，二者职责分离。
+
+结论：
+
+- 这里的 E0034 本质上是“自动推导极限问题”，不是业务逻辑错误；
+- 手写签名是当前最稳妥方案，优先保证编译稳定与 `.pyi` 精准性；
+- 在依赖版本冲突未解决前，不建议回退到全自动推导。
 
 ---
 

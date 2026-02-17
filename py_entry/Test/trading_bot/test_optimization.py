@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
+from datetime import datetime, timezone
 
 from py_entry.trading_bot import (
     CallbackResult,
@@ -165,3 +166,23 @@ class TestTimeframeParsing:
         _, kwargs = call_args
 
         assert kwargs["timeframe"] == "1h"
+
+    def test_is_new_period_should_respect_large_timeframe_bucket(self):
+        """4h/1d 周期必须按时间桶判定，不能每小时都触发。"""
+        mock_cb = MagicMock(spec=Callbacks)
+        bot = TradingBot(
+            callbacks=mock_cb,
+            time_func=lambda: datetime(2026, 2, 16, 1, 0, 3, tzinfo=timezone.utc),
+        )
+
+        params_4h = StrategyParams(base_data_key="trade_4h", symbol="BTC/USDT")
+        params_1d = StrategyParams(base_data_key="trade_1d", symbol="BTC/USDT")
+
+        assert bot.is_new_period(params_4h) is False
+        assert bot.is_new_period(params_1d) is False
+
+        aligned_bot = TradingBot(
+            callbacks=mock_cb,
+            time_func=lambda: datetime(2026, 2, 16, 4, 0, 3, tzinfo=timezone.utc),
+        )
+        assert aligned_bot.is_new_period(params_4h) is True

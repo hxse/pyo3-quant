@@ -1,57 +1,45 @@
 import time
 from loguru import logger
-from py_entry.runner import Backtest
+
 from py_entry.data_generator import DataGenerationParams
+from py_entry.data_generator.time_utils import get_utc_timestamp_ms
+from py_entry.runner import Backtest, RunResult
+
+
+def run_basic_backtest() -> RunResult:
+    """运行基础回测，供 ipynb 导入调用。"""
+    simulated_data_config = DataGenerationParams(
+        timeframes=["15m", "1h"],
+        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
+        num_bars=3000,
+        fixed_seed=42,
+        base_data_key="ohlcv_15m",
+    )
+
+    bt = Backtest(
+        enable_timing=True,
+        data_source=simulated_data_config,
+    )
+    return bt.run()
+
+
+def format_result_for_ai(result: RunResult, elapsed_seconds: float) -> str:
+    """输出给 AI 读取的结构化摘要。"""
+    lines: list[str] = []
+    lines.append("=== BASIC_BACKTEST_RESULT ===")
+    lines.append(f"elapsed_seconds={elapsed_seconds:.4f}")
+    if result.summary is None:
+        lines.append("summary=None")
+    else:
+        lines.append("summary=present")
+        lines.append(f"performance={result.summary.performance}")
+    return "\n".join(lines)
+
 
 if __name__ == "__main__":
-    simulated_data_config = DataGenerationParams(
-        timeframes=["15m"], start_time=1000, num_bars=100, base_data_key="ohlcv_15m"
-    )
+    # 脚本直跑用于 AI 调试与结果读取。
     start_time = time.perf_counter()
-
-    # 创建 Backtest
-    bt = Backtest(
-        data_source=simulated_data_config,  # Simulated data needs to be imported, wait, basic_backtest doesn't have it?
-        # Ah, basic_backtest.py code above didn't show config?
-        # Let me check basic_backtest.py imports.
-        # It imported SetupConfig. But where is simulated_data_config coming from?
-        # Ah, view_file showed lines 1-22. It truncated the top imports?
-        # No, line 1 is import time.
-        # Wait, lines 1-22 showed the whole file?
-        # basic_backtest.py in the view only showed:
-        # 1: import time
-        # ...
-        # 14: br.setup(SetupConfig(enable_timing=True)).run()
-        # SetupConfig doesn't have arguments?
-        # SetupConfig default is None for fields.
-        # So it runs with empty config? That would fail validation in BacktestRunner.
-        # Unless BacktestRunner handles None gracefully?
-        # BacktestRunner checks data_dict exists.
-        # So likely basic_backtest.py as shown is BROKEN or I missed something.
-        # But I should just update it to new API syntax, whatever valid code it had.
-        # Line 14: br.setup(SetupConfig(enable_timing=True)).run()
-        # This implies SetupConfig can be init with just enable_timing?
-    )
-    # The view showed:
-    # 14: br.setup(SetupConfig(enable_timing=True)).run()
-    # If I change it to `bt = Backtest(enable_timing=True, ...)`
-    # Backtest init requires data_source unless optional.
-    # Backtest signature: `def __init__(self, data_source: DataSourceConfig, ...)`
-    # So `data_source` is required.
-    # If basic_backtest.py didn't pass data_source, how did it work?
-    # Maybe SetupConfig allows Nones, but `perform_setup` might fail or use defaults?
-    # Or maybe it relies on existing state if reused? (Not relevant here).
-    # Maybe `basic_backtest.py` is an incomplete example.
-
-    # I should assume `basic_backtest.py` is just a skeleton.
-    # I will verify the file content again.
-    # If it is incomplete, I'll just update it to look correct.
-
-    result = bt.run()
-    # print(result.summary) # Commented out as print(result) might be verbose?
-    # result works.
-
-    if result.summary:
-        logger.info(f"performance: {result.summary.performance}")
-
-    logger.info(f"总耗时 {time.perf_counter() - start_time:.4f}秒")
+    run_result = run_basic_backtest()
+    elapsed_seconds = time.perf_counter() - start_time
+    logger.info(f"总耗时 {elapsed_seconds:.4f}秒")
+    print(format_result_for_ai(run_result, elapsed_seconds))

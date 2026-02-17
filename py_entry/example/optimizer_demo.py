@@ -17,7 +17,8 @@ from py_entry.data_generator import DataGenerationParams
 from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 
 
-def main():
+def run_optimizer_demo() -> dict[str, object]:
+    """运行优化演示，返回摘要结果供 notebook 或脚本调用。"""
     logger.info("启动增强型优化器演示...")
 
     # 1. 模拟数据配置
@@ -239,11 +240,39 @@ def main():
 
     tsl_atr = opt_result.best_backtest_params.tsl_atr
     print(f"TSL ATR Multiplier: {tsl_atr.value if tsl_atr else 'N/A'}")
+    # Rust 绑定枚举在 Python 侧不保证存在 `.value`，统一转字符串最稳妥。
+    optimize_metric_text = str(opt_result.optimize_metric)
     print(f"总采样次数: {opt_result.total_samples} | 迭代轮数: {opt_result.rounds}")
-    print(
-        f"优化目标: {opt_result.optimize_metric.value} | 最优值: {opt_result.optimize_value:.4f}"
+    print(f"优化目标: {optimize_metric_text} | 最优值: {opt_result.optimize_value:.4f}")
+
+    # 返回结构化摘要，便于 notebook 与 __main__ 复用。
+    return {
+        "baseline_performance": baseline_perf,
+        "optimized_performance": optimized_perf,
+        "best_optimize_value": opt_result.optimize_value,
+        "optimize_metric": optimize_metric_text,
+        "total_samples": opt_result.total_samples,
+        "rounds": opt_result.rounds,
+    }
+
+
+def format_result_for_ai(summary: dict[str, object]) -> str:
+    """输出给 AI 读取的结构化摘要。"""
+    lines: list[str] = []
+    lines.append("=== OPTIMIZER_DEMO_RESULT ===")
+    lines.append(
+        f"optimize_metric={summary.get('optimize_metric')},"
+        f" best_optimize_value={summary.get('best_optimize_value')}"
     )
+    lines.append(
+        f"total_samples={summary.get('total_samples')}, rounds={summary.get('rounds')}"
+    )
+    lines.append(f"baseline_performance={summary.get('baseline_performance')}")
+    lines.append(f"optimized_performance={summary.get('optimized_performance')}")
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":
-    main()
+    # 脚本直跑用于 AI 调试与结果读取。
+    run_summary = run_optimizer_demo()
+    print(format_result_for_ai(run_summary))

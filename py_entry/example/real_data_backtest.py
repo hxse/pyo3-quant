@@ -43,8 +43,8 @@ def run_real_data_backtest() -> RunResult | None:
         market="future",
         symbol="BTC/USDT",
         timeframes=["15m", "1h", "4h"],
-        start_time=get_utc_timestamp_ms("2025-12-01 00:00:00"),
-        count=5000,  # 只需要少量数据做演示
+        since=get_utc_timestamp_ms("2025-12-01 00:00:00"),
+        limit=5000,  # 只需要少量数据做演示
         enable_cache=True,
         mode="sandbox",
         base_data_key="ohlcv_15m",
@@ -130,5 +130,25 @@ def run_real_data_backtest() -> RunResult | None:
     return result
 
 
+def format_result_for_ai(result: RunResult | None, elapsed_seconds: float) -> str:
+    """输出给 AI 读取的结构化摘要。"""
+    lines: list[str] = []
+    lines.append("=== REAL_DATA_BACKTEST_RESULT ===")
+    lines.append(f"elapsed_seconds={elapsed_seconds:.4f}")
+    if result is None:
+        lines.append("result=None")
+    elif result.summary is None:
+        lines.append("result=present")
+        lines.append("summary=None")
+    else:
+        lines.append("result=present")
+        lines.append(f"performance={result.summary.performance}")
+    return "\n".join(lines)
+
+
 if __name__ == "__main__":
-    run_real_data_backtest()
+    # 脚本直跑用于 AI 调试与结果读取。
+    main_start_time = time.perf_counter()
+    main_result = run_real_data_backtest()
+    main_elapsed_seconds = time.perf_counter() - main_start_time
+    print(format_result_for_ai(main_result, main_elapsed_seconds))

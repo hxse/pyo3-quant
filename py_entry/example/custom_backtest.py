@@ -210,5 +210,25 @@ def run_custom_backtest(
     return result
 
 
+def format_result_for_ai(result: RunResult, elapsed_seconds: float) -> str:
+    """将回测结果整理为便于 AI 读取的纯文本摘要。"""
+    lines: list[str] = []
+    lines.append("=== CUSTOM_BACKTEST_RESULT ===")
+    lines.append(f"elapsed_seconds={elapsed_seconds:.4f}")
+
+    # 统一输出 summary，避免 AI 读取日志时遗漏关键指标。
+    if result.summary is None:
+        lines.append("summary=None")
+    else:
+        lines.append("summary=present")
+        lines.append(f"performance={result.summary.performance}")
+
+    return "\n".join(lines)
+
+
 if __name__ == "__main__":
-    run_custom_backtest()
+    # 脚本直跑场景仅用于结果阅读，默认禁用保存/上传副作用。
+    main_start_time = time.perf_counter()
+    main_result = run_custom_backtest(save_result=False, upload_result=False)
+    main_elapsed_seconds = time.perf_counter() - main_start_time
+    print(format_result_for_ai(main_result, main_elapsed_seconds))

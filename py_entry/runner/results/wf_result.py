@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, cast
 from py_entry.types import WalkForwardResult, SingleParamSet, OptimizeMetric
 from py_entry.io import DisplayConfig
 
@@ -32,7 +32,8 @@ class WalkForwardResultWrapper:
     @property
     def optimize_metric(self) -> OptimizeMetric:
         """优化目标指标类型"""
-        return OptimizeMetric(self._raw.optimize_metric)
+        # Rust 侧已返回枚举实例，这里直接透传，避免重复构造导致 TypeError。
+        return cast(OptimizeMetric, self._raw.optimize_metric)
 
     @property
     def raw(self) -> WalkForwardResult:

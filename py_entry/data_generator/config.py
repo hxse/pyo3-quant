@@ -42,8 +42,8 @@ class OhlcvDataFetchConfig(BaseModel):
     market: MarketType = "future"
     symbol: str = "BTC/USDT"
     timeframes: list[str]
-    start_time: int | None = None
-    count: int | None = None
+    since: int | None = None
+    limit: int | None = None
     enable_cache: bool = True
     enable_test: bool = False
     mode: ModeType = "sandbox"
@@ -58,9 +58,9 @@ class OhlcvRequestParams:
     exchange_name: str
     market: MarketType
     symbol: str
-    period: str  # 注意：这里是单周期，从 timeframes 展开
-    start_time: int | None = None
-    count: int | None = None
+    timeframe: str  # 注意：这里是单周期，从 timeframes 展开
+    since: int | None = None
+    limit: int | None = None
     enable_cache: bool = True
     enable_test: bool = False
     mode: ModeType = "sandbox"

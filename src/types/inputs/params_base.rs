@@ -10,6 +10,36 @@ pub enum ParamType {
     Boolean,
 }
 
+#[gen_stub_pymethods]
+#[pymethods]
+impl ParamType {
+    /// 返回枚举变体名（用于展示/日志）
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Float => "Float",
+            Self::Integer => "Integer",
+            Self::Boolean => "Boolean",
+        }
+    }
+
+    /// 返回稳定的业务键名（用于程序逻辑）
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Float => "float",
+            Self::Integer => "integer",
+            Self::Boolean => "boolean",
+        }
+    }
+
+    fn __str__(&self) -> String {
+        self.name().to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("ParamType.{}", self.name())
+    }
+}
+
 impl PyStubType for ParamType {
     fn type_output() -> pyo3_stub_gen::TypeInfo {
         pyo3_stub_gen::TypeInfo::locally_defined("ParamType", pyo3_stub_gen::ModuleRef::Default)

@@ -35,15 +35,15 @@ def get_ohlcv_data(
             "market": ohlcv_config.market,
             "mode": ohlcv_config.mode,
             "symbol": ohlcv_config.symbol,
-            "period": ohlcv_config.period,
-            "start_time": ohlcv_config.start_time,
-            "count": ohlcv_config.count,
+            "timeframe": ohlcv_config.timeframe,
+            "since": ohlcv_config.since,
+            "limit": ohlcv_config.limit,
             "enable_cache": ohlcv_config.enable_cache,
             "enable_test": ohlcv_config.enable_test,
         }
 
         response = client.get(
-            f"{ohlcv_config.config.auth.server_url}/ccxt/ohlcv",
+            f"{ohlcv_config.config.auth.server_url}/ccxt/fetch_ohlcv",
             params=params,
             headers=headers,
         )
@@ -108,9 +108,9 @@ if __name__ == "__main__":
         exchange_name="binance",
         market="future",
         symbol="BTC/USDT",
-        period="15m",
-        start_time=1740787200000,
-        count=10,
+        timeframe="15m",
+        since=1740787200000,
+        limit=10,
         enable_cache=True,
     )
     result = get_ohlcv_data(ohlcv_config)

@@ -48,6 +48,38 @@ impl BenchmarkFunction {
     }
 }
 
+#[gen_stub_pymethods]
+#[pymethods]
+impl BenchmarkFunction {
+    /// 返回枚举变体名（用于展示/日志）
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Sphere => "Sphere",
+            Self::Rosenbrock => "Rosenbrock",
+            Self::Rastrigin => "Rastrigin",
+            Self::Ackley => "Ackley",
+        }
+    }
+
+    /// 返回稳定的业务键名（用于程序逻辑）
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Sphere => "sphere",
+            Self::Rosenbrock => "rosenbrock",
+            Self::Rastrigin => "rastrigin",
+            Self::Ackley => "ackley",
+        }
+    }
+
+    fn __str__(&self) -> String {
+        self.name().to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("BenchmarkFunction.{}", self.name())
+    }
+}
+
 impl PyStubType for BenchmarkFunction {
     fn type_output() -> pyo3_stub_gen::TypeInfo {
         pyo3_stub_gen::TypeInfo::locally_defined(
@@ -101,6 +133,22 @@ pub enum OptimizeMetric {
 #[gen_stub_pymethods]
 #[pymethods]
 impl OptimizeMetric {
+    /// 返回枚举变体名（用于展示/日志）
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::SharpeRatio => "SharpeRatio",
+            Self::SortinoRatio => "SortinoRatio",
+            Self::CalmarRatio => "CalmarRatio",
+            Self::SharpeRatioRaw => "SharpeRatioRaw",
+            Self::SortinoRatioRaw => "SortinoRatioRaw",
+            Self::CalmarRatioRaw => "CalmarRatioRaw",
+            Self::ProfitLossRatio => "ProfitLossRatio",
+            Self::WinRate => "WinRate",
+            Self::MaxDrawdown => "MaxDrawdown",
+            Self::TotalReturn => "TotalReturn",
+        }
+    }
+
     /// 转换为对应的性能指标键名
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -115,6 +163,14 @@ impl OptimizeMetric {
             Self::MaxDrawdown => "max_drawdown",
             Self::TotalReturn => "total_return",
         }
+    }
+
+    fn __str__(&self) -> String {
+        self.name().to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("OptimizeMetric.{}", self.name())
     }
 }
 

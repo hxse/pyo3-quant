@@ -20,7 +20,8 @@ from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 import time
 
 
-def main():
+def run_optuna_optimizer_demo() -> dict[str, object]:
+    """运行 Optuna 优化示例，返回摘要结果供 notebook 或脚本调用。"""
     logger.info("启动 Optuna 优化器演示...")
 
     # 1. 模拟数据配置
@@ -218,6 +219,34 @@ def main():
     print(f"Total Trials: {opt_result.n_trials}")
     print(f"Best Value: {opt_result.best_value:.4f} (CalmarRatioRaw)")
 
+    # 返回结构化摘要，便于 notebook 与 __main__ 复用。
+    return {
+        "baseline_performance": baseline_perf,
+        "optimized_performance": optimized_perf,
+        "best_value": opt_result.best_value,
+        "n_trials": opt_result.n_trials,
+        "best_params": opt_result.best_params,
+        "best_backtest_params": opt_result.best_backtest_params,
+        "elapsed_seconds": elapsed,
+    }
+
+
+def format_result_for_ai(summary: dict[str, object]) -> str:
+    """输出给 AI 读取的结构化摘要。"""
+    lines: list[str] = []
+    lines.append("=== OPTUNA_OPTIMIZER_DEMO_RESULT ===")
+    lines.append(
+        f"n_trials={summary.get('n_trials')}, best_value={summary.get('best_value')}, "
+        f"elapsed_seconds={summary.get('elapsed_seconds')}"
+    )
+    lines.append(f"baseline_performance={summary.get('baseline_performance')}")
+    lines.append(f"optimized_performance={summary.get('optimized_performance')}")
+    lines.append(f"best_params={summary.get('best_params')}")
+    lines.append(f"best_backtest_params={summary.get('best_backtest_params')}")
+    return "\n".join(lines)
+
 
 if __name__ == "__main__":
-    main()
+    # 脚本直跑用于 AI 调试与结果读取。
+    run_summary = run_optuna_optimizer_demo()
+    print(format_result_for_ai(run_summary))

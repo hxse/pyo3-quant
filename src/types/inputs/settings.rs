@@ -13,6 +13,40 @@ pub enum ExecutionStage {
     Performance,
 }
 
+#[gen_stub_pymethods]
+#[pymethods]
+impl ExecutionStage {
+    /// 返回枚举变体名（用于展示/日志）
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Idle => "Idle",
+            Self::Indicator => "Indicator",
+            Self::Signals => "Signals",
+            Self::Backtest => "Backtest",
+            Self::Performance => "Performance",
+        }
+    }
+
+    /// 返回稳定的业务键名（用于程序逻辑）
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Idle => "idle",
+            Self::Indicator => "indicator",
+            Self::Signals => "signals",
+            Self::Backtest => "backtest",
+            Self::Performance => "performance",
+        }
+    }
+
+    fn __str__(&self) -> String {
+        self.name().to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("ExecutionStage.{}", self.name())
+    }
+}
+
 impl PyStubType for ExecutionStage {
     fn type_output() -> pyo3_stub_gen::TypeInfo {
         pyo3_stub_gen::TypeInfo::locally_defined(

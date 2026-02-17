@@ -193,3 +193,55 @@ Python 层负责策略配置、数据管理、实盘逻辑和结果分析。
 *   **核心逻辑**: `src/backtest_engine/mod.rs` (调度), `src/backtest_engine/backtester/main_loop.rs` (撮合)
 *   **接口定义**: `pyo3_quant.pyi` (Rust -> Python)
 *   **任务脚本**: `justfile` (常用命令)
+
+## 4. PyO3 Python 接口统一规范
+
+为避免 Python 侧出现“某些枚举有 `.value`、某些没有”的不一致行为，所有 Rust -> Python 暴露接口应遵循以下统一规范。
+
+### 4.1 总体原则
+
+*   **Rust 为唯一事实源**：类型定义、字段语义、默认值、约束全部在 Rust 端定义。
+*   **Python 只消费，不镜像重定义**：Python 不维护同构的枚举/结构体副本。
+*   **可读性优先于技巧**：接口命名与返回值语义必须直观，不依赖隐式行为。
+
+### 4.2 枚举（Enum）规范
+
+所有暴露给 Python 的枚举（如 `OptimizeMetric`、`PerformanceMetric`、`ExecutionStage`）必须统一提供：
+
+*   `as_str() -> str`：返回稳定的业务键名（建议 `snake_case`），用于程序逻辑与字典键。
+*   `name() -> str`：返回枚举变体名（如 `CalmarRatioRaw`），用于展示与日志。
+*   `__str__()`：返回稳定可读字符串，默认建议等价于 `name()`。
+*   `__repr__()`：返回明确调试信息（含类型名与值），用于日志和 REPL。
+
+禁止在 Python 业务代码中依赖 `.value`、`.name` 这类“仅某些绑定实现才存在”的隐式属性。
+
+### 4.3 结构体（Struct / PyClass）规范
+
+*   字段命名统一使用 `snake_case`。
+*   字段可见性遵循单一约定：`#[pyclass(get_all)]` 或 `#[pyclass(get_all, set_all)]`，避免同类对象行为不一致。
+*   可选字段统一使用 `Option[T] <-> None`，禁止自定义哨兵值（如 `-1`、空字符串）表达缺失。
+
+### 4.4 异常与错误规范
+
+*   Rust 错误必须映射为明确 Python 异常类型，不返回“状态码 + 字符串”。
+*   禁止吞异常；必须让调用方可判定、可记录、可测试。
+
+### 4.5 文档与存根同步规范
+
+接口变更流程固定为：
+
+1. 修改 Rust 类型与 PyO3 暴露方法。
+2. 执行 `just stub` 更新 `.pyi`。
+3. 执行 `just check` 校验类型与语法。
+4. 同步更新示例脚本与文档说明。
+
+### 4.6 Python 侧推荐调用示例
+
+```python
+# 推荐：稳定、可迁移
+metric_key = opt_result.optimize_metric.as_str()
+metric_name = str(opt_result.optimize_metric)
+
+# 不推荐：依赖绑定实现细节，跨版本不稳定
+# metric_value = opt_result.optimize_metric.value
+```

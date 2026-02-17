@@ -22,7 +22,8 @@ from py_entry.types import (
 )
 
 
-def run_sensitivity_demo():
+def run_sensitivity_demo() -> dict[str, object]:
+    """运行敏感性分析示例，返回摘要结果供 notebook 或脚本调用。"""
     logger.info("Starting Sensitivity Analysis Demo...")
 
     # 1. Setup Data Source (Simulated)
@@ -105,7 +106,33 @@ def run_sensitivity_demo():
         print(f"  Sample {i}: Values={sample.values}, Metric={sample.metric_value:.4f}")
 
     print("\nSuccess!")
+    return {
+        "target_metric": str(result.target_metric),
+        "original_value": result.original_value,
+        "mean": result.mean,
+        "std": result.std,
+        "cv": result.cv,
+        "min": result.min,
+        "max": result.max,
+        "sample_count": len(result.samples),
+    }
+
+
+def format_result_for_ai(summary: dict[str, object]) -> str:
+    """输出给 AI 读取的结构化摘要。"""
+    lines: list[str] = []
+    lines.append("=== SENSITIVITY_DEMO_RESULT ===")
+    lines.append(f"target_metric={summary.get('target_metric')}")
+    lines.append(
+        f"original_value={summary.get('original_value')}, mean={summary.get('mean')}, "
+        f"std={summary.get('std')}, cv={summary.get('cv')}"
+    )
+    lines.append(f"min={summary.get('min')}, max={summary.get('max')}")
+    lines.append(f"sample_count={summary.get('sample_count')}")
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":
-    run_sensitivity_demo()
+    # 脚本直跑用于 AI 调试与结果读取。
+    run_summary = run_sensitivity_demo()
+    print(format_result_for_ai(run_summary))

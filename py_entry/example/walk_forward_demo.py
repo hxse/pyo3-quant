@@ -19,7 +19,8 @@ from py_entry.data_generator import DataGenerationParams
 from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 
 
-def main():
+def run_walk_forward_demo() -> dict[str, object]:
+    """运行 Walk Forward 演示，返回摘要结果供 notebook 或脚本调用。"""
     logger.info("启动向前滚动优化 (Walk Forward) 演示...")
 
     # 1. 模拟数据配置 (较长的数据以支持滚动)
@@ -164,7 +165,8 @@ def main():
     print(
         f"\nAvg Test Calmar: {wf_result.aggregate_test_metrics.get('calmar_ratio', 0.0):.4f}"
     )
-    print(f"Optimization Metric: {wf_result.optimize_metric.value}")
+    optimize_metric_text = str(wf_result.optimize_metric)
+    print(f"Optimization Metric: {optimize_metric_text}")
     print("-----------------------------------------------------")
     for w in wf_result.raw.windows:
         print(f"Window {w.window_id}:")
@@ -174,6 +176,31 @@ def main():
         print(f"  Best Params:  {w.best_params}")
     print("=====================================================")
 
+    # 返回结构化摘要，便于 notebook 与 __main__ 复用。
+    return {
+        "elapsed_seconds": elapsed,
+        "optimize_metric": optimize_metric_text,
+        "avg_test_calmar": wf_result.aggregate_test_metrics.get("calmar_ratio", 0.0),
+        "window_count": len(wf_result.raw.windows),
+    }
+
+
+def format_result_for_ai(summary: dict[str, object]) -> str:
+    """输出给 AI 读取的结构化摘要。"""
+    lines: list[str] = []
+    lines.append("=== WALK_FORWARD_DEMO_RESULT ===")
+    lines.append(
+        f"elapsed_seconds={summary.get('elapsed_seconds')}, "
+        f"window_count={summary.get('window_count')}"
+    )
+    lines.append(
+        f"optimize_metric={summary.get('optimize_metric')}, "
+        f"avg_test_calmar={summary.get('avg_test_calmar')}"
+    )
+    return "\n".join(lines)
+
 
 if __name__ == "__main__":
-    main()
+    # 脚本直跑用于 AI 调试与结果读取。
+    run_summary = run_walk_forward_demo()
+    print(format_result_for_ai(run_summary))

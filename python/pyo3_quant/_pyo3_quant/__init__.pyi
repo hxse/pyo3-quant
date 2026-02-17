@@ -1170,6 +1170,17 @@ class BenchmarkFunction(enum.Enum):
     Ackley
     """
 
+    def name(self) -> builtins.str:
+        r"""
+        返回枚举变体名（用于展示/日志）
+        """
+    def as_str(self) -> builtins.str:
+        r"""
+        返回稳定的业务键名（用于程序逻辑）
+        """
+    def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...
+
 @typing.final
 class ExecutionStage(enum.Enum):
     r"""
@@ -1197,6 +1208,17 @@ class ExecutionStage(enum.Enum):
     性能评估
     """
 
+    def name(self) -> builtins.str:
+        r"""
+        返回枚举变体名（用于展示/日志）
+        """
+    def as_str(self) -> builtins.str:
+        r"""
+        返回稳定的业务键名（用于程序逻辑）
+        """
+    def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...
+
 @typing.final
 class LogicOp(enum.Enum):
     r"""
@@ -1211,6 +1233,17 @@ class LogicOp(enum.Enum):
     r"""
     逻辑或
     """
+
+    def name(self) -> builtins.str:
+        r"""
+        返回枚举变体名（用于展示/日志）
+        """
+    def as_str(self) -> builtins.str:
+        r"""
+        返回稳定的业务键名（用于程序逻辑）
+        """
+    def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...
 
 @typing.final
 class OptimizeMetric(enum.Enum):
@@ -1259,10 +1292,16 @@ class OptimizeMetric(enum.Enum):
     最大回撤
     """
 
+    def name(self) -> builtins.str:
+        r"""
+        返回枚举变体名（用于展示/日志）
+        """
     def as_str(self) -> builtins.str:
         r"""
         转换为对应的性能指标键名
         """
+    def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...
 
 @typing.final
 class ParamType(enum.Enum):
@@ -1282,6 +1321,17 @@ class ParamType(enum.Enum):
     r"""
     布尔值
     """
+
+    def name(self) -> builtins.str:
+        r"""
+        返回枚举变体名（用于展示/日志）
+        """
+    def as_str(self) -> builtins.str:
+        r"""
+        返回稳定的业务键名（用于程序逻辑）
+        """
+    def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...
 
 @typing.final
 class PerformanceMetric(enum.Enum):
@@ -1369,3 +1419,6 @@ class PerformanceMetric(enum.Enum):
     r"""
     前置无效数据计数
     """
+
+    def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...

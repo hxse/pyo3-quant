@@ -105,7 +105,7 @@ check-rust:
 
 # 运行 Python 类型检查 (ty)
 check-py: develop
-    uvx ty check --exclude py_entry/scanner/strategies/legacy
+    uvx ty check
 
 check: check-rust check-py
 

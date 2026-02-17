@@ -1,4 +1,5 @@
 use pyo3::prelude::*;
+use pyo3_stub_gen::derive::*;
 use pyo3_stub_gen::PyStubType;
 
 #[pyclass(eq, eq_int, hash, frozen)]
@@ -33,6 +34,32 @@ pub enum PerformanceMetric {
 }
 
 impl PerformanceMetric {
+    /// 返回枚举变体名（用于展示/日志）
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::TotalReturn => "TotalReturn",
+            Self::MaxDrawdown => "MaxDrawdown",
+            Self::MaxDrawdownDuration => "MaxDrawdownDuration",
+            Self::SharpeRatio => "SharpeRatio",
+            Self::SortinoRatio => "SortinoRatio",
+            Self::CalmarRatio => "CalmarRatio",
+            Self::SharpeRatioRaw => "SharpeRatioRaw",
+            Self::SortinoRatioRaw => "SortinoRatioRaw",
+            Self::CalmarRatioRaw => "CalmarRatioRaw",
+            Self::TotalTrades => "TotalTrades",
+            Self::AvgDailyTrades => "AvgDailyTrades",
+            Self::WinRate => "WinRate",
+            Self::ProfitLossRatio => "ProfitLossRatio",
+            Self::AvgHoldingDuration => "AvgHoldingDuration",
+            Self::AvgEmptyDuration => "AvgEmptyDuration",
+            Self::MaxHoldingDuration => "MaxHoldingDuration",
+            Self::MaxEmptyDuration => "MaxEmptyDuration",
+            Self::MaxSafeLeverage => "MaxSafeLeverage",
+            Self::AnnualizationFactor => "AnnualizationFactor",
+            Self::HasLeadingNanCount => "HasLeadingNanCount",
+        }
+    }
+
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::TotalReturn => "total_return",
@@ -56,6 +83,18 @@ impl PerformanceMetric {
             Self::AnnualizationFactor => "annualization_factor",
             Self::HasLeadingNanCount => "has_leading_nan_count",
         }
+    }
+}
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl PerformanceMetric {
+    fn __str__(&self) -> String {
+        self.name().to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("PerformanceMetric.{}", self.name())
     }
 }
 

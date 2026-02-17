@@ -46,3 +46,12 @@
 *   **拒绝异常吞噬**：严禁滥用 `try: except Exception: pass`。异常捕捉必须精细化，或至少打印详细的项目报错日志。
 *   **拒绝冗长防御**：不搞过度复杂的防御性编程。本项目推崇直接报错（Exception），通过明确的报错约束来引导用户使用唯一的正确写法。
 *   **明确性胜过容错**：在回测引擎中，不搞折中的回退逻辑或警告，直接报错是保证逻辑唯一性与系统稳健性的最佳方式。
+
+## 7. Notebook 与策略脚本分层设计
+*   **职责分离**：`.py` 是给 AI 调试的，`ipynb` 是给人调试的。
+*   **AI 调试入口**：`.py` 必须实现 `__main__`，并输出可读结果，供 AI 查看和调试。
+*   **AI 读取约束**：AI 默认不得直接读取 `ipynb`；只有在用户给出明确指令时，才允许读取 `ipynb` 内容。
+*   **Notebook 调用入口**：`.py` 中的策略封装函数（如 `run_xxx_backtest()`）是给 `ipynb` 导入和调用的。
+*   **示例路径**：
+    *   `.py`：`py_entry/example/custom_backtest.py`
+    *   `.ipynb`：`py_entry/example/custom_backtest.ipynb`

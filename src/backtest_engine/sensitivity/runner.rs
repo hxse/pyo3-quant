@@ -17,6 +17,15 @@ use rand_distr::{Distribution, Normal};
 use rayon::prelude::*;
 use std::collections::HashMap;
 
+fn quantile_from_sorted(sorted_values: &[f64], q: f64) -> f64 {
+    if sorted_values.is_empty() {
+        return 0.0;
+    }
+    let clamped_q = q.clamp(0.0, 1.0);
+    let idx = ((sorted_values.len() - 1) as f64 * clamped_q).round() as usize;
+    sorted_values[idx]
+}
+
 /// 生成抖动采样点
 fn generate_jitter_samples(
     original_values: &[f64],
@@ -99,6 +108,7 @@ pub fn run_sensitivity_test(
     // 4. 并行执行回测
     let metric_key = config.metric.as_str();
 
+    let total_samples_requested = sample_points.len();
     let results: Vec<Result<SensitivitySample, QuantError>> = sample_points
         .into_par_iter()
         .map(|vals| {
@@ -132,9 +142,15 @@ pub fn run_sensitivity_test(
         })
         .collect();
 
-    // 5. 聚合结果
-    let successful_samples: Vec<SensitivitySample> =
-        results.into_iter().collect::<Result<Vec<_>, _>>()?;
+    // 5. 聚合结果（失败样本不直接中断，统一做失败统计）
+    let mut successful_samples: Vec<SensitivitySample> = Vec::new();
+    let mut failed_samples: usize = 0;
+    for r in results {
+        match r {
+            Ok(sample) => successful_samples.push(sample),
+            Err(_) => failed_samples += 1,
+        }
+    }
 
     if successful_samples.is_empty() {
         return Err(QuantError::InfrastructureError(
@@ -163,6 +179,10 @@ pub fn run_sensitivity_test(
     let mut sorted_values = values.clone();
     sorted_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     let median = sorted_values[sorted_values.len() / 2];
+    let p05 = quantile_from_sorted(&sorted_values, 0.05);
+    let p25 = quantile_from_sorted(&sorted_values, 0.25);
+    let p75 = quantile_from_sorted(&sorted_values, 0.75);
+    let p95 = quantile_from_sorted(&sorted_values, 0.95);
 
     let cv = if mean.abs() > 1e-6 {
         std / mean.abs()
@@ -170,16 +190,49 @@ pub fn run_sensitivity_test(
         0.0
     };
 
+    let successful_count = successful_samples.len();
+    let failed_sample_rate = if total_samples_requested > 0 {
+        failed_samples as f64 / total_samples_requested as f64
+    } else {
+        0.0
+    };
+
+    let mut by_metric_desc = successful_samples.clone();
+    by_metric_desc.sort_by(|a, b| {
+        b.metric_value
+            .partial_cmp(&a.metric_value)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let top_k_samples: Vec<SensitivitySample> = by_metric_desc.into_iter().take(5).collect();
+
+    let mut by_metric_asc = successful_samples.clone();
+    by_metric_asc.sort_by(|a, b| {
+        a.metric_value
+            .partial_cmp(&b.metric_value)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let bottom_k_samples: Vec<SensitivitySample> = by_metric_asc.into_iter().take(5).collect();
+
     Ok(SensitivityResult {
         target_metric: metric_key.to_string(),
         original_value,
         samples: successful_samples,
+        total_samples_requested,
+        successful_samples: successful_count,
+        failed_samples,
+        failed_sample_rate,
         mean,
         std,
         min,
         max,
         median,
+        p05,
+        p25,
+        p75,
+        p95,
         cv,
+        top_k_samples,
+        bottom_k_samples,
     })
 }
 

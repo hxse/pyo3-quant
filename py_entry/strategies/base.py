@@ -5,7 +5,7 @@
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, Type
+from typing import Dict, Any, Optional, Type, TYPE_CHECKING
 
 from py_entry.data_generator import DataSourceConfig
 from py_entry.types import (
@@ -15,7 +15,8 @@ from py_entry.types import (
     PerformanceParams,
 )
 
-from backtesting import Strategy
+if TYPE_CHECKING:
+    from backtesting import Strategy
 
 # 类型别名
 IndicatorsParams = Dict[str, Dict[str, Dict[str, Any]]]
@@ -49,7 +50,7 @@ class StrategyConfig:
     signal_template: SignalTemplate
     engine_settings: SettingContainer
     performance_params: Optional[PerformanceParams] = None
-    btp_strategy_class: Optional[Type[Strategy]] = None
+    btp_strategy_class: Optional[Type["Strategy"]] = None
     custom_params: Optional[Dict[str, Any]] = None
 
     def __repr__(self) -> str:

@@ -11,6 +11,7 @@ from py_entry.data_generator import DataGenerationParams
 from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 from py_entry.strategies import get_strategy
 from py_entry.strategies.base import StrategyConfig
+from py_entry.constants import GLOBAL_SEED
 from py_entry.types import (
     PerformanceParams,
     SensitivityConfig,
@@ -37,7 +38,7 @@ def get_sensitivity_demo_config() -> StrategyConfig:
             "timeframes": ["15m"],
             "start_time": get_utc_timestamp_ms("2025-01-01 00:00:00"),
             "num_bars": 1000,
-            "fixed_seed": 42,
+            "fixed_seed": GLOBAL_SEED,
             "base_data_key": "ohlcv_15m",
         }
     )
@@ -90,7 +91,7 @@ def get_sensitivity_config() -> SensitivityConfig:
         n_samples=20,  # 20 samples for demo
         distribution="normal",
         metric=OptimizeMetric.CalmarRatioRaw,  # or TotalReturn
-        seed=42,
+        seed=GLOBAL_SEED,
     )
 
 

@@ -12,6 +12,7 @@ __all__ = [
     "DataContainer",
     "ExecutionStage",
     "LogicOp",
+    "MetricDistributionStats",
     "OptimizationResult",
     "OptimizeMetric",
     "OptimizerConfig",
@@ -413,6 +414,26 @@ class DataContainer:
     ) -> DataContainer: ...
 
 @typing.final
+class MetricDistributionStats:
+    r"""
+    统计分布摘要
+    """
+    @property
+    def mean(self) -> builtins.float: ...
+    @property
+    def median(self) -> builtins.float: ...
+    @property
+    def std(self) -> builtins.float: ...
+    @property
+    def min(self) -> builtins.float: ...
+    @property
+    def max(self) -> builtins.float: ...
+    @property
+    def p05(self) -> builtins.float: ...
+    @property
+    def p95(self) -> builtins.float: ...
+
+@typing.final
 class OptimizationResult:
     @property
     def best_params(self) -> SingleParamSet:
@@ -804,6 +825,26 @@ class SensitivityResult:
     @property
     def samples(self) -> builtins.list[SensitivitySample]: ...
     @property
+    def total_samples_requested(self) -> builtins.int:
+        r"""
+        请求采样总数（配置中的 n_samples）
+        """
+    @property
+    def successful_samples(self) -> builtins.int:
+        r"""
+        实际成功样本数
+        """
+    @property
+    def failed_samples(self) -> builtins.int:
+        r"""
+        失败样本数（回测报错或计算失败）
+        """
+    @property
+    def failed_sample_rate(self) -> builtins.float:
+        r"""
+        失败率 = failed / total_requested
+        """
+    @property
     def mean(self) -> builtins.float: ...
     @property
     def std(self) -> builtins.float: ...
@@ -814,7 +855,25 @@ class SensitivityResult:
     @property
     def median(self) -> builtins.float: ...
     @property
+    def p05(self) -> builtins.float: ...
+    @property
+    def p25(self) -> builtins.float: ...
+    @property
+    def p75(self) -> builtins.float: ...
+    @property
+    def p95(self) -> builtins.float: ...
+    @property
     def cv(self) -> builtins.float: ...
+    @property
+    def top_k_samples(self) -> builtins.list[SensitivitySample]:
+        r"""
+        最好样本（按目标指标降序，最多 5）
+        """
+    @property
+    def bottom_k_samples(self) -> builtins.list[SensitivitySample]:
+        r"""
+        最差样本（按目标指标升序，最多 5）
+        """
     def report(self) -> builtins.str:
         r"""
         生成敏感性分析报告文本
@@ -1049,6 +1108,16 @@ class WalkForwardConfig:
         训练窗口长度（占总数据的比例），默认 0.60
         """
     @property
+    def transition_ratio(self) -> builtins.float:
+        r"""
+        过渡窗口长度（占总数据的比例）
+        """
+    @transition_ratio.setter
+    def transition_ratio(self, value: builtins.float) -> None:
+        r"""
+        过渡窗口长度（占总数据的比例）
+        """
+    @property
     def test_ratio(self) -> builtins.float:
         r"""
         测试窗口长度（占总数据的比例），默认 0.20
@@ -1057,16 +1126,6 @@ class WalkForwardConfig:
     def test_ratio(self, value: builtins.float) -> None:
         r"""
         测试窗口长度（占总数据的比例），默认 0.20
-        """
-    @property
-    def step_ratio(self) -> builtins.float:
-        r"""
-        滚动步长（占总数据的比例），默认 0.10
-        """
-    @step_ratio.setter
-    def step_ratio(self, value: builtins.float) -> None:
-        r"""
-        滚动步长（占总数据的比例），默认 0.10
         """
     @property
     def inherit_prior(self) -> builtins.bool:
@@ -1091,9 +1150,9 @@ class WalkForwardConfig:
     def __new__(
         cls,
         *,
-        train_ratio: builtins.float = 0.6,
-        test_ratio: builtins.float = 0.2,
-        step_ratio: builtins.float = 0.1,
+        train_ratio: builtins.float,
+        transition_ratio: builtins.float,
+        test_ratio: builtins.float,
         inherit_prior: builtins.bool = True,
         optimizer_config: typing.Optional[OptimizerConfig] = None,
     ) -> WalkForwardConfig: ...
@@ -1106,11 +1165,38 @@ class WalkForwardResult:
     @property
     def windows(self) -> builtins.list[WindowResult]: ...
     @property
-    def optimize_metric(self) -> builtins.str: ...
+    def optimize_metric(self) -> OptimizeMetric: ...
     @property
     def aggregate_test_metrics(self) -> builtins.dict[builtins.str, builtins.float]:
         r"""
-        样本外总体平均指标
+        样本外总体指标（基于拼接后的 OOS equity 曲线）
+        """
+    @property
+    def window_metric_stats(
+        self,
+    ) -> builtins.dict[builtins.str, MetricDistributionStats]:
+        r"""
+        窗口级测试指标分布统计
+        """
+    @property
+    def stitched_time(self) -> builtins.list[builtins.int]:
+        r"""
+        拼接后样本外资金曲线时间轴（UTC ms）
+        """
+    @property
+    def stitched_equity(self) -> builtins.list[builtins.float]:
+        r"""
+        拼接后样本外资金曲线（起点固定为 1.0）
+        """
+    @property
+    def best_window_id(self) -> builtins.int:
+        r"""
+        测试集表现最优窗口 ID
+        """
+    @property
+    def worst_window_id(self) -> builtins.int:
+        r"""
+        测试集表现最差窗口 ID
         """
 
 @typing.final
@@ -1123,6 +1209,8 @@ class WindowResult:
     @property
     def train_range(self) -> tuple[builtins.int, builtins.int]: ...
     @property
+    def transition_range(self) -> tuple[builtins.int, builtins.int]: ...
+    @property
     def test_range(self) -> tuple[builtins.int, builtins.int]: ...
     @property
     def best_params(self) -> SingleParamSet:
@@ -1130,7 +1218,7 @@ class WindowResult:
         最优参数集 (完整结构)
         """
     @property
-    def optimize_metric(self) -> builtins.str:
+    def optimize_metric(self) -> OptimizeMetric:
         r"""
         优化目标
         """
@@ -1143,6 +1231,21 @@ class WindowResult:
     def test_metrics(self) -> builtins.dict[builtins.str, builtins.float]:
         r"""
         测试集指标
+        """
+    @property
+    def train_test_gap_metrics(self) -> builtins.dict[builtins.str, builtins.float]:
+        r"""
+        训练/测试指标差值（train - test）
+        """
+    @property
+    def test_times(self) -> builtins.list[builtins.int]:
+        r"""
+        当前窗口测试期逐 bar 时间戳（UTC ms）
+        """
+    @property
+    def test_returns(self) -> builtins.list[builtins.float]:
+        r"""
+        当前窗口测试期逐 bar 收益率序列
         """
     @property
     def history(self) -> typing.Optional[builtins.list[RoundSummary]]: ...

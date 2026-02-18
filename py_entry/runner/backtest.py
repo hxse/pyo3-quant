@@ -194,13 +194,12 @@ class Backtest:
 
     def walk_forward(
         self,
-        config: Optional[WalkForwardConfig] = None,
+        config: WalkForwardConfig,
         params_override: Optional[SingleParamSet] = None,
     ) -> WalkForwardResultWrapper:
         """向前测试"""
         start_time = time.perf_counter() if self.enable_timing else None
 
-        config = config or WalkForwardConfig()
         target_params = params_override or self.params
 
         raw_result = pyo3_quant.backtest_engine.walk_forward.run_walk_forward(

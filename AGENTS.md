@@ -51,6 +51,7 @@
 *   **职责分离**：`.py` 是给 AI 调试的，`ipynb` 是给人调试的。
 *   **AI 调试入口**：`.py` 必须实现 `__main__`，并输出可读结果，供 AI 查看和调试。
 *   **AI 读取约束**：AI 默认不得直接读取 `ipynb`；只有在用户给出明确指令时，才允许读取 `ipynb` 内容。
+*   **AI 执行优先级**：AI 调试策略时应优先走命令行执行（优先 `just run <py_file>`），而不是读取 `ipynb` 输出。
 *   **Notebook 调用入口**：`.py` 中的策略封装函数（如 `run_xxx_backtest()`）是给 `ipynb` 导入和调用的。
 *   **示例路径**：
     *   `.py`：`py_entry/example/custom_backtest.py`

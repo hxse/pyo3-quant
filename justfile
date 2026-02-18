@@ -100,10 +100,10 @@ check-py: develop
     uvx ty check
 
 # 检查 private research/live 同名策略文件是否一致（research 不存在时自动跳过）
-live-sync-check:
+live-sync-check: fmt-py
     uv run --no-sync python scripts/live_sync_check.py
 
-check: check-rust check-py live-sync-check
+check: check-rust check-py
 
 # ==================== 代码格式化 ====================
 

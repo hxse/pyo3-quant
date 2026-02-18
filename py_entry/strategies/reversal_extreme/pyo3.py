@@ -21,7 +21,6 @@ from py_entry.data_generator import DataGenerationParams
 from .. import register_strategy
 from ..base import StrategyConfig
 from .config import CONFIG as C
-from .btp import ReversalExtremeBtp
 
 BASE_DATA_KEY = f"ohlcv_{C.timeframe}"
 
@@ -29,6 +28,8 @@ BASE_DATA_KEY = f"ohlcv_{C.timeframe}"
 @register_strategy("reversal_extreme")
 def get_config() -> StrategyConfig:
     """返回极端反手策略配置"""
+    # 惰性导入，避免仅注册策略时触发 backtesting 依赖加载。
+    from .btp import ReversalExtremeBtp
 
     # 数据配置 - 使用共享参数
     data_config = DataGenerationParams(

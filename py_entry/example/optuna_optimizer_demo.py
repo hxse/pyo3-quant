@@ -18,6 +18,7 @@ from py_entry.data_generator import DataGenerationParams
 from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 from py_entry.strategies import get_strategy
 from py_entry.strategies.base import StrategyConfig
+from py_entry.constants import GLOBAL_SEED
 
 import time
 
@@ -34,7 +35,7 @@ def get_optuna_optimizer_demo_config() -> StrategyConfig:
             "timeframes": ["15m"],
             "start_time": get_utc_timestamp_ms("2025-01-01 00:00:00"),
             "num_bars": 5000,
-            "fixed_seed": 42,
+            "fixed_seed": GLOBAL_SEED,
             "base_data_key": "ohlcv_15m",
         }
     )
@@ -140,7 +141,7 @@ def get_optuna_config() -> OptunaConfig:
         metric=OptimizeMetric.CalmarRatioRaw,
         direction="maximize",
         sampler="TPE",  # 使用 TPE 采样器
-        seed=42,  # 固定种子以便复现
+        seed=GLOBAL_SEED,  # 固定种子以便复现
         show_progress_bar=False,  # 隐藏详细进度条
     )
 

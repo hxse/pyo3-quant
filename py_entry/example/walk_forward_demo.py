@@ -19,6 +19,7 @@ from py_entry.data_generator import DataGenerationParams
 from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 from py_entry.strategies import get_strategy
 from py_entry.strategies.base import StrategyConfig
+from py_entry.constants import GLOBAL_SEED
 
 
 def get_walk_forward_demo_config() -> StrategyConfig:
@@ -33,7 +34,7 @@ def get_walk_forward_demo_config() -> StrategyConfig:
             "timeframes": ["15m"],
             "start_time": get_utc_timestamp_ms("2025-01-01 00:00:00"),
             "num_bars": 10000,  # 增加数据量
-            "fixed_seed": 42,
+            "fixed_seed": GLOBAL_SEED,
             "base_data_key": "ohlcv_15m",
         }
     )
@@ -146,11 +147,12 @@ def get_walk_forward_config() -> WalkForwardConfig:
         stop_patience=3,
         min_samples=50,
         max_rounds=10,
+        seed=GLOBAL_SEED,
     )
     return WalkForwardConfig(
         train_ratio=0.5,
+        transition_ratio=0.1,
         test_ratio=0.25,
-        step_ratio=0.25,
         inherit_prior=True,
         optimizer_config=opt_config,
     )
@@ -201,7 +203,12 @@ def run_walk_forward_demo(
     print("-----------------------------------------------------")
     for w in wf_result.raw.windows:
         print(f"Window {w.window_id}:")
-        print(f"  Range: Train={w.train_range}, Test={w.test_range}")
+        print(
+            "  Range: "
+            f"Train={w.train_range}, "
+            f"Transition={w.transition_range}, "
+            f"Test={w.test_range}"
+        )
         print(f"  Train Calmar: {w.train_metrics.get('calmar_ratio', 0.0):.4f}")
         print(f"  Test Calmar:  {w.test_metrics.get('calmar_ratio', 0.0):.4f}")
         print(f"  Best Params:  {w.best_params}")

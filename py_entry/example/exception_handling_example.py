@@ -4,6 +4,7 @@ from loguru import logger
 from py_entry.data_generator import DataGenerationParams
 from py_entry.runner import Backtest
 from py_entry.types import Param
+from py_entry.constants import GLOBAL_SEED
 
 
 def run_exception_handling_demo() -> tuple[bool, str]:
@@ -15,7 +16,7 @@ def run_exception_handling_demo() -> tuple[bool, str]:
         timeframes=["15m", "1h"],
         start_time=1735689600000,
         num_bars=1000,
-        fixed_seed=42,
+        fixed_seed=GLOBAL_SEED,
         base_data_key="ohlcv_15m",
     )
 

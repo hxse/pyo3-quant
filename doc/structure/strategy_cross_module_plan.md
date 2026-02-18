@@ -18,6 +18,7 @@
 4. `live` 至少保留骨架：`__init__.py` + 一个示例策略文件。
 5. 示例策略仅加载不启用（`enabled=False`），只用于复制写法骨架。
 6. 默认使用真实网络数据（`OhlcvDataFetchConfig`），保证研究与实盘数据口径一致。
+7. 阶段执行逻辑统一放在 `py_entry/private_strategies/stage_tools.py`，策略文件只负责参数定义与传参调用（便于人工审阅）。
 
 ### 2.2 `py_entry/strategies`
 
@@ -31,6 +32,7 @@
 1. `.py`：AI 调试入口（`__main__` 输出摘要）。
 2. `ipynb`：人类图表与交互调试入口。
 3. `example/example.ipynb` 作为 research notebook 模板来源。
+4. AI 默认不读取 `ipynb`；应优先通过命令行执行策略脚本（优先 `just run <py_file>`）获取结果。
 
 ### 2.4 `py_entry/Test`
 
@@ -66,6 +68,7 @@
 3. 新增策略只改导入与映射项，不改执行主流程。
 4. 模板默认支持 `StrategyConfig` 与 `LiveStrategyConfig` 两种输入。
 5. `ipynb` 内不写具体策略实现，只做策略加载与图表展示，保证模板通用性。
+6. `research/*.py` 采用“薄策略文件”写法：只定义 `rc/rt` 与各阶段配置函数，阶段执行由 `stage_tools.py` 统一承载。
 
 ## 4.1 example `.py` / `.ipynb` 写法规范
 
@@ -120,6 +123,7 @@ result = run_from_config(cfg)
 3. 复制后固定执行硬清单：`just live-sync-check` -> `just check` -> `live smoke test` -> 接入机器人。
 4. 再由机器人通过 `LiveStrategyCallbacks` 执行 live 策略。
 5. 日常门禁顺序：先 `just check`，后 `just test`。
+6. AI 调试策略时，默认走命令行执行路径：优先 `just run <py_file>`，而不是读取 notebook 输出。
 
 ## 7. 最小示例
 

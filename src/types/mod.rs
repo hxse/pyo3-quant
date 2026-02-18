@@ -11,6 +11,6 @@ pub use self::inputs::{
 
 pub use self::outputs::{
     BacktestSummary, IndicatorResults, OptimizationResult, PerformanceMetrics, RoundSummary,
-    SamplePoint, SensitivityResult, SensitivitySample, WalkForwardResult, WindowResult,
+    SamplePoint, SensitivityResult, SensitivitySample, MetricDistributionStats, WalkForwardResult, WindowResult,
 };
 pub use self::utils::*;

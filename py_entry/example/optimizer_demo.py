@@ -17,6 +17,7 @@ from py_entry.data_generator import DataGenerationParams
 from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 from py_entry.strategies import get_strategy
 from py_entry.strategies.base import StrategyConfig
+from py_entry.constants import GLOBAL_SEED
 
 
 def get_optimizer_demo_config() -> StrategyConfig:
@@ -31,7 +32,7 @@ def get_optimizer_demo_config() -> StrategyConfig:
             "timeframes": ["15m"],
             "start_time": get_utc_timestamp_ms("2025-01-01 00:00:00"),
             "num_bars": 10000,
-            "fixed_seed": 42,
+            "fixed_seed": GLOBAL_SEED,
             "base_data_key": "ohlcv_15m",
         }
     )
@@ -137,6 +138,7 @@ def get_optimizer_demo_optimizer_config() -> OptimizerConfig:
         max_samples=2000,
         explore_ratio=0.4,
         stop_patience=10,
+        seed=GLOBAL_SEED,
     )
 
 

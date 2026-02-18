@@ -22,7 +22,6 @@ from py_entry.data_generator import DataGenerationParams
 from .. import register_strategy
 from ..base import StrategyConfig
 from .config import CONFIG as C
-from .btp import SmaCrossoverBtp
 
 BASE_DATA_KEY = f"ohlcv_{C.timeframe}"
 
@@ -30,6 +29,8 @@ BASE_DATA_KEY = f"ohlcv_{C.timeframe}"
 @register_strategy("sma_crossover")
 def get_config() -> StrategyConfig:
     """返回双均线交叉策略配置"""
+    # 惰性导入，避免仅注册策略时触发 backtesting 依赖加载。
+    from .btp import SmaCrossoverBtp
 
     # 数据配置 - 使用共享参数
     data_config = DataGenerationParams(

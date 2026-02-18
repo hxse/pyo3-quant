@@ -105,3 +105,16 @@ assert result.summary is not None
 2. `just test`
 
 与项目 `AGENTS.md` 保持一致。
+
+## 7. 导入副作用约束（重要）
+
+为避免测试与 notebook 场景被意外拉起 `backtesting`（触发 Bokeh/Jupyter 副作用）：
+
+1. 策略注册链路中的 `pyo3.py` 禁止顶层导入 `btp.py` 或 `backtesting`。
+2. 若需要 `btp_strategy_class`，必须在 `get_config()` 内惰性导入（函数内 `from .btp import ...`）。
+3. `py_entry/strategies/__init__.py` 不应在模块顶层导入 `backtesting` 或调用 `set_bokeh_output(...)`。
+
+检查建议：
+
+1. 新增/修改策略后，至少验证一次仅导入策略配置不会触发 Bokeh 警告。
+2. 保持 `just check` 通过，避免因导入链路变化引入隐式回归。

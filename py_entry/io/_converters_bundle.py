@@ -72,14 +72,6 @@ def convert_backtest_data_to_buffers(
                 )
             )
 
-        if data_dict.skip_mapping is not None:
-            data_list.append(
-                (
-                    Path("data_dict/skip_mapping.json"),
-                    io.BytesIO(dumps_json_bytes(data_dict.skip_mapping)),
-                )
-            )
-
         if data_dict.source is not None:
             for key, df in data_dict.source.items():
                 data_list.append(

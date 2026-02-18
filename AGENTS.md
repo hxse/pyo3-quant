@@ -56,3 +56,17 @@
 *   **示例路径**：
     *   `.py`：`py_entry/example/custom_backtest.py`
     *   `.ipynb`：`py_entry/example/custom_backtest.ipynb`
+
+## 8. 策略调试评估口径（强约束，仅限 research）
+*   **适用范围**：本节仅适用于 `py_entry/private_strategies/research` 目录下的研究策略，不直接约束 `example`、`test`、`live`。
+*   **流程顺序**：统一按 `backtest -> optimize -> sensitivity -> walk_forward` 执行；AI 通过 `just run <strategy.py>` 查看完整阶段输出。
+*   **指标主次**：策略优劣优先看 `walk_forward` 的三个主指标：
+    *   `walk_forward.total_return`
+    *   `walk_forward.max_drawdown`
+    *   `walk_forward.calmar_ratio`
+*   **决策规则**：默认优先选择 `walk_forward.calmar_ratio` 更高的策略；其余指标（如 `samples/rounds/top_k`）仅用于辅助解释，不作为主排序依据。
+*   **语义澄清**：
+    *   `backtest.*` 是默认参数单次回测结果（不是优化后结果）。
+    *   `optimize.*` 是全局优化阶段产物。
+    *   `walk_forward.*` 是按窗口“训练优化后测试”并拼接 OOS 曲线的汇总结果。
+*   **输出要求**：策略脚本 `__main__` 必须保证上述三项 `walk_forward` 主指标可直接读到，方便 AI 与人快速对齐判断。

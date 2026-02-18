@@ -12,7 +12,6 @@ pub type DataSource = HashMap<String, DataFrame>;
 pub struct DataContainer {
     pub(crate) mapping: DataFrame,
     pub(crate) skip_mask: Option<DataFrame>,
-    pub skip_mapping: HashMap<String, bool>,
     pub(crate) source: DataSource,
     pub base_data_key: String,
 }
@@ -24,7 +23,6 @@ impl DataContainer {
     pub fn new(
         mapping: Bound<'_, PyAny>,
         skip_mask: Option<Bound<'_, PyAny>>,
-        skip_mapping: HashMap<String, bool>,
         source: HashMap<String, Bound<'_, PyAny>>,
         base_data_key: String,
     ) -> PyResult<Self> {
@@ -42,7 +40,6 @@ impl DataContainer {
         Ok(Self {
             mapping: mapping.into(),
             skip_mask: skip_mask.map(|df| df.into()),
-            skip_mapping,
             source: source_inner,
             base_data_key,
         })
@@ -114,15 +111,5 @@ impl DataContainer {
     #[setter]
     pub fn set_base_data_key(&mut self, value: String) {
         self.base_data_key = value;
-    }
-
-    #[getter]
-    pub fn skip_mapping(&self) -> HashMap<String, bool> {
-        self.skip_mapping.clone()
-    }
-
-    #[setter]
-    pub fn set_skip_mapping(&mut self, value: HashMap<String, bool>) {
-        self.skip_mapping = value;
     }
 }

@@ -39,6 +39,53 @@ Walk-Forward 的核心执行链路是：
 
 这条链路是性能与口径一致性的关键：训练期“多次并发”，评估期“单次验证”。
 
+### 2.2 多周期映射口径（新增硬约束）
+
+1. `mapping` 统一在 Rust 端计算并维护，值语义为“行号索引”。
+2. 每个 source（包含 base）都必须有对应 mapping 列；base 列为自然序列 `0..n-1`。
+3. 窗口切分时，必须返回窗口级独立 `DataContainer`，禁止就地修改。
+4. 窗口内 mapping 必须与窗口内 source 保持同一索引空间（local index）。
+5. 若检测到 mapping 索引越界，直接报错（fail-fast），禁止静默修复。
+6. `walk_forward` 必须复用 Rust `data_ops` 的切片能力，禁止在 Python 层重复实现切窗映射逻辑。
+
+### 2.3 映射与分窗计算过程（新增）
+
+为避免多周期切窗后的索引错位，采用以下固定计算流程：
+
+1. 全量映射构建（Rust/Polars）：
+   - 对每个 source 生成一列 mapping。
+   - base 列：`mapping_base[i] = i`（自然序列）。
+   - 非 base 列：`mapping_src[i] = argmax(j)`，满足 `time_src[j] <= time_base[i]`（asof backward）。
+2. 生成窗口（基于 base 行号）：
+   - `train_len = floor(N * train_ratio)`
+   - `transition_len = floor(N * transition_ratio)`
+   - `test_len = floor(N * test_ratio)`
+   - `step_len = test_len`（硬约束）
+   - 窗口区间：`[start, start + train + transition + test)`
+3. 窗口级 DataContainer 构建（非就地）：
+   - 先切 `mapping_window = mapping.slice(start, win_len)`。
+   - 对每个 source 列取窗口内 `min_idx/max_idx`，反推最小覆盖区间：
+     - `src_start = min_idx`
+     - `src_len = max_idx - min_idx + 1`
+   - 切 `source_window[src] = source[src].slice(src_start, src_len)`。
+4. 映射重基（local index）：
+   - `mapping_window[src] = mapping_window[src] - src_start`
+   - 重基后保证：`0 <= mapping_window[src][i] < source_window[src].height`
+5. 运行时 fast-path：
+   - 若某列映射是自然序列 `0..n-1`，可跳过 `take`，直接使用原序列（提升性能）。
+
+实现落地说明：
+
+1. `build_time_mapping` 与 `slice_data_container` 都在 Rust `data_ops` 子模块实现，并通过 PyO3 暴露给 Python 调试/测试。
+2. `walk_forward` 在 Rust 内部直接调用切片函数，不经过 PyO3 回调路径。
+3. Python 暴露接口的用途是验证与最小复现，不是生产链路主执行路径。
+4. `build_time_mapping` 默认启用 `align_to_base_range=True`：先按 base 时间范围裁剪其他 source，并保留 `base_start` 前最后一根，保证 `backward asof` 不被裁剪破坏。
+
+说明：
+
+1. 上述流程保证“窗口内映射索引”和“窗口内 source 行号”始终同一坐标系。
+2. 即使多周期（如 30m + 4h），也不会出现 `gather indices out of bounds`。
+
 ## 3. 评估口径（强约束）
 
 1. 过渡期不计分，只用于预热与状态衔接。
@@ -83,6 +130,22 @@ Walk-Forward 的核心执行链路是：
 
 1. 过渡期可先从 1 个自然周期开始（如 15m 策略先用 1~3 天）。
 2. 数据不足时直接报错，不允许自动退化到 `transition=0`。
+
+### 6.1 窗口有效性检查（新增）
+
+每个窗口在执行前必须校验：
+
+1. `mapping` 各列最大索引 `<` 对应 source 行数；
+2. `mapping` 各列最小索引 `>= 0`；
+3. base 列若为自然序列可直接走 fast-path（跳过 take）。
+
+任一条件不满足时，直接报错并终止该次 WF。
+
+测试建议（新增）：
+
+1. 用 Python 侧 `data_ops.build_time_mapping` 做映射语义回归（包含 base 列与非 base 列）。
+2. 用 Python 侧 `data_ops.slice_data_container` 做窗口重基回归（确保 local index 不越界）。
+3. 多周期策略回归需覆盖 `train/transition/test` 多窗口场景，避免只测单窗口。
 
 ## 7. 输出结果建议
 

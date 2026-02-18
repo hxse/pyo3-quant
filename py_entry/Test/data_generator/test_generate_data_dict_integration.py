@@ -17,7 +17,6 @@ class TestGenerateDataDictIntegration:
 
         # 验证 DataContainer 的基本结构
         assert hasattr(data_container, "mapping")
-        assert hasattr(data_container, "skip_mapping")
         assert hasattr(data_container, "source")
         assert hasattr(data_container, "base_data_key")
 
@@ -25,23 +24,12 @@ class TestGenerateDataDictIntegration:
         base_key = data_container.base_data_key
         assert base_key in data_container.source
 
-        # 验证基准列被正确跳过
-        assert base_key in data_container.skip_mapping
-        assert data_container.skip_mapping[base_key] is True
-
-        # 验证基准列不在映射 DataFrame 中
-        assert base_key not in data_container.mapping.columns
-
-        # 验证 skip_mapping 中的所有列在映射 DataFrame 中的状态一致
-        for col_name, should_skip in data_container.skip_mapping.items():
-            if should_skip:
-                assert col_name not in data_container.mapping.columns, (
-                    f"列 {col_name} 被标记为跳过但仍存在于映射 DataFrame 中"
-                )
-            else:
-                assert col_name in data_container.mapping.columns, (
-                    f"列 {col_name} 未被标记为跳过但不存在于映射 DataFrame 中"
-                )
+        # 验证映射表包含基准列与全部 source 列
+        assert base_key in data_container.mapping.columns
+        for col_name in data_container.source.keys():
+            assert col_name in data_container.mapping.columns, (
+                f"列 {col_name} 不存在于映射 DataFrame 中"
+            )
 
     def test_generate_data_dict_empty_timeframes(self, data_container):
         """测试 generate_data_dict 函数 - 正常时间周期列表"""
@@ -52,9 +40,7 @@ class TestGenerateDataDictIntegration:
         assert len(ohlcv_keys) > 0
 
         base_key = data_container.base_data_key
-        assert base_key in data_container.skip_mapping
-        assert data_container.skip_mapping[base_key] is True
-        assert base_key not in data_container.mapping.columns
+        assert base_key in data_container.mapping.columns
 
     def test_generate_data_dict_small_num_bars(self, basic_start_time):
         """测试 generate_data_dict 函数 - 小数量 K 线"""
@@ -78,9 +64,7 @@ class TestGenerateDataDictIntegration:
         assert len(data_container.source["ohlcv_15m"]) == num_bars
 
         base_key = "ohlcv_15m"
-        assert base_key in data_container.skip_mapping
-        assert data_container.skip_mapping[base_key] is True
-        assert base_key not in data_container.mapping.columns
+        assert base_key in data_container.mapping.columns
 
     def test_generate_data_dict_with_ha_renko(self, basic_start_time):
         """测试 generate_data_dict 函数 - 生成 HA 和 Renko 数据"""

@@ -34,13 +34,6 @@ from .heikin_ashi_generator import generate_ha, calculate_heikin_ashi
 # 导入Renko生成器
 from .renko_generator import generate_renko, calculate_renko
 
-# 导入时间映射相关函数
-from .time_mapping import (
-    generate_time_mapping,
-    is_natural_sequence,
-    process_dataframe_mapping,
-)
-
 # 导出所有主要函数，以便兼容原有导入方式
 __all__ = [
     "DataGenerationParams",
@@ -60,9 +53,6 @@ __all__ = [
     "calculate_heikin_ashi",
     "generate_renko",
     "calculate_renko",
-    "generate_time_mapping",
-    "process_dataframe_mapping",
-    "is_natural_sequence",
     "time_format",
     "fixed_cols",
 ]

@@ -239,18 +239,3 @@ def assert_time_series_continuity(df, start_time, interval_ms, expected_length=N
     assert np.array_equal(df["time"].to_numpy(), expected_times), (
         "时间序列不连续或不正确"
     )
-
-
-def assert_skip_mapping_result(
-    skip_mapping, expected_skip_columns, expected_include_columns
-):
-    """验证跳过映射结果的辅助函数"""
-    # 验证应该跳过的列
-    for col in expected_skip_columns:
-        assert col in skip_mapping, f"列 {col} 应在 skip_mapping 中"
-        assert skip_mapping[col] is True, f"列 {col} 应被标记为跳过"
-
-    # 验证不应该跳过的列
-    for col in expected_include_columns:
-        if col in skip_mapping:  # 列可能在 skip_mapping 中但不应被跳过
-            assert skip_mapping[col] is False, f"列 {col} 不应被标记为跳过"

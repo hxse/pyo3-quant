@@ -24,6 +24,7 @@
 
 pub mod action_resolver;
 pub mod backtester;
+pub mod data_ops;
 pub mod indicators;
 pub mod optimizer;
 mod performance_analyzer;

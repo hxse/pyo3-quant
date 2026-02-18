@@ -10,7 +10,8 @@ pub use self::inputs::{
 };
 
 pub use self::outputs::{
-    BacktestSummary, IndicatorResults, OptimizationResult, PerformanceMetrics, RoundSummary,
-    SamplePoint, SensitivityResult, SensitivitySample, MetricDistributionStats, WalkForwardResult, WindowResult,
+    BacktestSummary, IndicatorResults, MetricDistributionStats, OptimizationResult,
+    PerformanceMetrics, RoundSummary, SamplePoint, SensitivityResult, SensitivitySample,
+    WalkForwardResult, WindowResult,
 };
 pub use self::utils::*;

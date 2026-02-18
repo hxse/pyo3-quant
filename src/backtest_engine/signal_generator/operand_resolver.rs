@@ -1,3 +1,4 @@
+use crate::backtest_engine::data_ops::is_natural_mapping_for_source;
 use crate::error::{QuantError, SignalError};
 
 use super::types::{OffsetType, ParamOperand, SignalDataOperand, SignalRightOperand};
@@ -33,7 +34,9 @@ fn apply_mapping_if_needed(
 ) -> Result<Series, SignalError> {
     let key = source_key;
 
-    if let Some(false) = processed_data.skip_mapping.get(key) {
+    let should_skip_mapping = is_natural_mapping_for_source(processed_data, key)
+        .map_err(|e| SignalError::MappingApplyError(e.to_string()))?;
+    if !should_skip_mapping {
         // 执行映射逻辑
         let mapping_df = &processed_data.mapping;
         let index_series = mapping_df

@@ -4,6 +4,7 @@
 import pyo3_quant
 from . import action_resolver
 from . import backtester
+from . import data_ops
 from . import indicators
 from . import optimizer
 from . import performance_analyzer
@@ -14,6 +15,7 @@ from . import walk_forward
 __all__ = [
     "action_resolver",
     "backtester",
+    "data_ops",
     "indicators",
     "optimizer",
     "performance_analyzer",

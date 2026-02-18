@@ -4,6 +4,7 @@
 
 import polars as pl
 import numpy as np
+import pyo3_quant
 from datetime import datetime
 from typing import cast
 
@@ -23,7 +24,6 @@ from .time_utils import parse_timeframe
 from .ohlcv_generator import generate_multi_timeframe_ohlcv
 from .heikin_ashi_generator import calculate_heikin_ashi
 from .renko_generator import calculate_renko
-from .time_mapping import generate_time_mapping
 from py_entry.types import DataContainer
 from py_entry.io import (
     get_ohlcv_data,
@@ -146,19 +146,17 @@ def generate_data_dict(
                 source_dict[ohlcv_key], other_params.brick_size
             )
 
-    mapping_df, skip_mapping = generate_time_mapping(source_dict, base_data_key)
-
     # skip_mask 占位,暂时全为 False
     # 使用基准数据的长度
     base_len = len(source_dict[base_data_key])
     skip_mask_df = pl.DataFrame(
         {"skip": pl.Series("skip", np.zeros(base_len), dtype=pl.Boolean)}
     )
-
-    return DataContainer(
-        mapping=mapping_df,
+    # 中文注释：mapping 统一迁移到 Rust 端构建，Python 不再维护 mapping 算法。
+    container = DataContainer(
+        mapping=pl.DataFrame(),
         skip_mask=skip_mask_df,
-        skip_mapping=skip_mapping,
         source=source_dict,
         base_data_key=base_data_key,
     )
+    return pyo3_quant.backtest_engine.data_ops.build_time_mapping(container)

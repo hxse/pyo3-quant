@@ -1,3 +1,4 @@
+use crate::backtest_engine::data_ops::slice_data_container_by_base_window;
 use crate::backtest_engine::execute_single_backtest;
 use crate::backtest_engine::optimizer::run_optimization;
 use crate::backtest_engine::walk_forward::data_splitter::generate_windows;
@@ -21,18 +22,17 @@ pub fn run_walk_forward(
     settings: &SettingContainer,
     config: &WalkForwardConfig,
 ) -> Result<WalkForwardResult, QuantError> {
-    let total_bars = if let Some(first_df) = data_dict.source.values().next() {
-        first_df.height()
-    } else {
-        return Err(OptimizerError::NoData.into());
-    };
+    let total_bars = data_dict
+        .source
+        .get(&data_dict.base_data_key)
+        .ok_or(OptimizerError::NoData)?
+        .height();
 
     let windows = generate_windows(total_bars, config)?;
     if windows.is_empty() {
-        return Err(OptimizerError::InvalidConfig(
-            "No walk-forward windows generated".into(),
-        )
-        .into());
+        return Err(
+            OptimizerError::InvalidConfig("No walk-forward windows generated".into()).into(),
+        );
     }
 
     let mut window_results = Vec::new();
@@ -45,7 +45,8 @@ pub fn run_walk_forward(
 
     for window in windows {
         let train_len = window.train_range.1 - window.train_range.0;
-        let train_data = slice_data_container(data_dict, window.train_range.0, train_len);
+        let train_data =
+            slice_data_container_by_base_window(data_dict, window.train_range.0, train_len)?;
 
         let mut opt_config = config.optimizer_config.clone();
         if config.inherit_prior {
@@ -63,14 +64,18 @@ pub fn run_walk_forward(
         let transition_len = window.transition_range.1 - window.transition_range.0;
         let test_len = window.test_range.1 - window.test_range.0;
 
-        let eval_data = slice_data_container(data_dict, eval_start, eval_len);
+        let eval_data = slice_data_container_by_base_window(data_dict, eval_start, eval_len)?;
 
         let mut eval_settings = settings.clone();
         eval_settings.execution_stage = ExecutionStage::Performance;
         eval_settings.return_only_final = false;
 
-        let eval_summary =
-            execute_single_backtest(&eval_data, &train_result.best_params, template, &eval_settings)?;
+        let eval_summary = execute_single_backtest(
+            &eval_data,
+            &train_result.best_params,
+            template,
+            &eval_settings,
+        )?;
 
         let eval_backtest_df = eval_summary.backtest.ok_or_else(|| {
             OptimizerError::SamplingFailed(
@@ -79,7 +84,8 @@ pub fn run_walk_forward(
         })?;
 
         let test_backtest_df = eval_backtest_df.slice(transition_len as i64, test_len);
-        let test_data = slice_data_container(data_dict, window.test_range.0, test_len);
+        let test_data =
+            slice_data_container_by_base_window(data_dict, window.test_range.0, test_len)?;
 
         let test_metrics = crate::backtest_engine::performance_analyzer::analyze_performance(
             &test_data,
@@ -87,7 +93,8 @@ pub fn run_walk_forward(
             &train_result.best_params.performance,
         )?;
 
-        let train_test_gap_metrics = build_train_test_gap_metrics(&train_result.metrics, &test_metrics);
+        let train_test_gap_metrics =
+            build_train_test_gap_metrics(&train_result.metrics, &test_metrics);
 
         let test_times = extract_base_times(&eval_data)?
             .into_iter()
@@ -131,12 +138,11 @@ pub fn run_walk_forward(
         println!("Window {} Finished.", window.id);
     }
 
-    let aggregate_test_metrics = compute_stitched_aggregate_metrics(&stitched_time, &stitched_equity);
+    let aggregate_test_metrics =
+        compute_stitched_aggregate_metrics(&stitched_time, &stitched_equity);
     let window_metric_stats = compute_window_metric_stats(&window_results);
-    let (best_window_id, worst_window_id) = select_best_worst_window(
-        &window_results,
-        config.optimizer_config.optimize_metric,
-    )?;
+    let (best_window_id, worst_window_id) =
+        select_best_worst_window(&window_results, config.optimizer_config.optimize_metric)?;
 
     Ok(WalkForwardResult {
         windows: window_results,
@@ -346,7 +352,11 @@ fn append_to_stitched_curve(
         } else {
             let prev = test_equity[idx - 1];
             let curr = test_equity[idx];
-            if prev > 0.0 { curr / prev } else { 1.0 }
+            if prev > 0.0 {
+                curr / prev
+            } else {
+                1.0
+            }
         };
 
         *last_global_equity *= growth;
@@ -388,7 +398,11 @@ fn compute_stitched_aggregate_metrics(
     let n = stitched_time.len();
     let span_ms = (stitched_time[n - 1] - stitched_time[0]) as f64;
     let ms_per_year = 365.25 * 24.0 * 3600.0 * 1000.0;
-    let span_years = if span_ms > 0.0 { span_ms / ms_per_year } else { 0.0 };
+    let span_years = if span_ms > 0.0 {
+        span_ms / ms_per_year
+    } else {
+        0.0
+    };
     let annualization_factor = if span_years > 0.0 {
         n as f64 / span_years
     } else {
@@ -418,29 +432,6 @@ fn compute_stitched_aggregate_metrics(
     metrics.insert("calmar_ratio_raw".to_string(), calmar_ratio_raw);
     metrics.insert("calmar_ratio".to_string(), calmar_ratio);
     metrics
-}
-
-fn slice_data_container(data: &DataContainer, start: usize, len: usize) -> DataContainer {
-    let sliced_source: std::collections::HashMap<_, _> = data
-        .source
-        .iter()
-        .map(|(k, df)| (k.clone(), df.slice(start as i64, len)))
-        .collect();
-
-    let sliced_mapping = data.mapping.slice(start as i64, len);
-
-    let sliced_skip_mask = data
-        .skip_mask
-        .as_ref()
-        .map(|df| df.slice(start as i64, len));
-
-    DataContainer {
-        source: sliced_source,
-        mapping: sliced_mapping,
-        skip_mask: sliced_skip_mask,
-        skip_mapping: data.skip_mapping.clone(),
-        base_data_key: data.base_data_key.clone(),
-    }
 }
 
 use pyo3_stub_gen::derive::*;

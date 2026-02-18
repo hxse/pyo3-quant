@@ -1,6 +1,7 @@
 """测试工具函数 - 数据映射相关"""
 
 import polars as pl
+from pyo3_quant.backtest_engine.data_ops import is_natural_mapping_column
 
 
 def extract_indicator_data(indicators_df, indicator_name):
@@ -26,8 +27,8 @@ def apply_mapping_if_needed(series, source_key, processed_data):
     if processed_data is None:
         return series
 
-    # 检查是否需要跳过映射
-    if processed_data.skip_mapping.get(source_key, False):
+    # 中文注释：统一调用 Rust helper 判定自然序列 fast-path。
+    if is_natural_mapping_column(processed_data, source_key):
         # 不需要映射，直接返回原始Series
         return series
 
@@ -56,8 +57,8 @@ def apply_mapping_to_dataframe(df, source_key, processed_data):
     if processed_data is None:
         return df
 
-    # 检查是否需要跳过映射
-    if processed_data.skip_mapping.get(source_key, False):
+    # 中文注释：统一调用 Rust helper 判定自然序列 fast-path。
+    if is_natural_mapping_column(processed_data, source_key):
         return df
 
     # 对每一列应用映射
@@ -106,7 +107,6 @@ def prepare_mapped_data(data_container, backtest_summary):
     mapped_data_container = DataContainer(
         mapping=data_container.mapping,
         skip_mask=data_container.skip_mask,
-        skip_mapping=data_container.skip_mapping,
         source=mapped_source,
         base_data_key=data_container.base_data_key,
     )

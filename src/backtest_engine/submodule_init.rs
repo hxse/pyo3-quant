@@ -1,6 +1,6 @@
 use super::{
-    action_resolver, backtester, indicators, optimizer, performance_analyzer, sensitivity,
-    signal_generator, walk_forward,
+    action_resolver, backtester, data_ops, indicators, optimizer, performance_analyzer,
+    sensitivity, signal_generator, walk_forward,
 };
 use pyo3::prelude::*;
 
@@ -119,6 +119,15 @@ pub(super) fn register_all_submodules(m: &Bound<'_, PyModule>) -> PyResult<()> {
         py,
         "pyo3_quant.backtest_engine.sensitivity",
         &sensitivity_submodule,
+    )?;
+
+    let data_ops_submodule = PyModule::new(py, "data_ops")?;
+    data_ops::register_py_module(&data_ops_submodule)?;
+    m.add_submodule(&data_ops_submodule)?;
+    register_submodule_in_sys_modules(
+        py,
+        "pyo3_quant.backtest_engine.data_ops",
+        &data_ops_submodule,
     )?;
 
     Ok(())

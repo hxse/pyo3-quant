@@ -172,6 +172,36 @@
     - 输入：`state_id: int`
     - 返回：`str`
 
+#### C. 数据映射与窗口分割入口（已落地）
+
+> 目标已实现：mapping 计算与窗口切片统一收敛到 Rust，Python 不再维护映射算法细节。
+
+1. `pyo3_quant.backtest_engine.data_ops.build_time_mapping`
+   - 输入：
+     - `data_dict: DataContainer`
+   - 返回：`DataContainer`
+   - 语义：
+     - 始终生成每个 source 的映射列（包含 base 列）。
+     - base 列映射为自然序列 `0..n-1`。
+     - 非 base 列采用 `backward asof` 语义（最后一个 `time_src <= time_base`）。
+
+2. `pyo3_quant.backtest_engine.data_ops.slice_data_container`
+   - 输入：
+     - `data_dict: DataContainer`
+     - `start: int`
+     - `length: int`
+   - 返回：`DataContainer`
+   - 语义：
+     - 按 base 窗口切片并返回独立 `DataContainer`（非就地修改）。
+     - 对每个 source 按窗口映射反推最小覆盖区间。
+     - 返回窗口内重基（local index）的 mapping，保证窗口内索引自洽。
+     - 若映射越界直接报错（fail-fast）。
+
+说明（关键）：
+
+1. `walk_forward` 在 Rust 内部直接调用同一套切片函数，不通过 PyO3 往返调用。
+2. Python 侧暴露该函数仅用于测试与调试（例如构造最小复现、验证窗口切片正确性）。
+
 ---
 
 ## 3. 类型系统设计
@@ -220,7 +250,7 @@
 2. `BacktestParams(*, ...)`
 3. `PerformanceParams(*, ...)`
 4. `SingleParamSet(*, indicators=None, signal=None, backtest=None, performance=None)`
-5. `DataContainer(mapping, skip_mask, skip_mapping, source, base_data_key)`
+5. `DataContainer(mapping, skip_mask, source, base_data_key)`
 6. `TemplateContainer(signal: SignalTemplate)`
 7. `SignalGroup(*, logic, comparisons=None, sub_groups=None)`
 8. `SignalTemplate(*, entry_long=None, exit_long=None, entry_short=None, exit_short=None)`
@@ -228,6 +258,15 @@
 10. `OptimizerConfig(*, ...)`
 11. `WalkForwardConfig(*, ..., optimizer_config=None)`
 12. `SensitivityConfig(*, ...)`
+
+### 3.6 DataContainer 口径约束（新增）
+
+1. `mapping` 列统一使用“行号索引”，不是 `time`。
+2. `mapping` 始终包含所有 source 对应列（包含 base 列）。
+3. base 列映射值为 `0..n-1` 自然序列，运行时可快速判定并跳过 `take`（性能优化）。
+4. 窗口分割禁止就地修改原始 `DataContainer`，必须返回新对象。
+5. Python 侧只负责“取数适配”（模拟/网络/直喂），不负责 mapping 算法本身。
+6. `walk_forward` 的窗口切片逻辑复用 Rust `data_ops`，不再在 Python 层重复实现。
 
 调试建议：
 
@@ -253,22 +292,35 @@
    - `top_k_samples: list[SamplePoint]`
 3. `WalkForwardResult`
    - `windows: list[WindowResult]`
-   - `optimize_metric: str`
+   - `optimize_metric: OptimizeMetric`
    - `aggregate_test_metrics: dict[str, float]`
+   - `window_metric_stats: dict[str, MetricDistributionStats]`
+   - `stitched_time: list[int]`
+   - `stitched_equity: list[float]`
+   - `best_window_id: int`
+   - `worst_window_id: int`
 4. `WindowResult`
    - `window_id: int`
    - `train_range: tuple[int, int]`
+   - `transition_range: tuple[int, int]`
    - `test_range: tuple[int, int]`
    - `best_params: SingleParamSet`
-   - `optimize_metric: str`
+   - `optimize_metric: OptimizeMetric`
    - `train_metrics: dict[str, float]`
    - `test_metrics: dict[str, float]`
+   - `train_test_gap_metrics: dict[str, float]`
+   - `test_times: list[int]`
+   - `test_returns: list[float]`
    - `history: Optional[list[RoundSummary]]`
 5. `SensitivityResult`
    - `target_metric: str`
    - `original_value: float`
    - `samples: list[SensitivitySample]`
-   - `mean/std/min/max/median/cv: float`
+   - `total_samples_requested/successful_samples/failed_samples: int`
+   - `failed_sample_rate: float`
+   - `mean/std/min/max/median/p05/p25/p75/p95/cv: float`
+   - `top_k_samples: list[SensitivitySample]`
+   - `bottom_k_samples: list[SensitivitySample]`
    - `report() -> str`
 
 ---
@@ -342,7 +394,6 @@ BacktestParams(None, None, None, None, None, None, None, None, None, None, False
      - `skip_mask = ...`
      - `source = ...`
      - `base_data_key = ...`
-     - `skip_mapping = ...`
    - `BacktestSummary`
      - `indicators = ...`
      - `signals = ...`
@@ -353,6 +404,18 @@ BacktestParams(None, None, None, None, None, None, None, None, None, None, False
 
 - 在 Rust 代码里，这些属性 setter 的实现函数名可能是 `set_source`、`set_indicators`，但 Python 侧不会暴露同名可调用方法；
 - Python 侧要触发它们，必须使用属性赋值语法，而不是 `obj.set_source(...)`。
+
+### 4.4 `data_ops` 当前 `.pyi` 合同（已落地）
+
+1. `build_time_mapping(data_dict: DataContainer, align_to_base_range: bool = True) -> DataContainer`
+2. `slice_data_container(data_dict: DataContainer, start: int, length: int) -> DataContainer`
+3. `is_natural_mapping_column(data_dict: DataContainer, source_key: str) -> bool`
+
+说明：
+
+1. `walk_forward` 在 Rust 内部直接复用同一切片逻辑，不通过 PyO3 往返调用。
+2. Python 暴露这三个接口主要用于测试、调试和最小复现。
+3. `align_to_base_range=True` 时，会先按 base 时间范围裁剪其他 source，并额外保留“base_start 前最后一根”用于 `backward asof` 衔接，避免剪过头。
 
 ---
 

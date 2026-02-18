@@ -398,17 +398,10 @@ class DataContainer:
     def base_data_key(self) -> builtins.str: ...
     @base_data_key.setter
     def base_data_key(self, value: builtins.str) -> None: ...
-    @property
-    def skip_mapping(self) -> builtins.dict[builtins.str, builtins.bool]: ...
-    @skip_mapping.setter
-    def skip_mapping(
-        self, value: builtins.dict[builtins.str, builtins.bool]
-    ) -> None: ...
     def __new__(
         cls,
         mapping: typing.Any,
         skip_mask: typing.Optional[typing.Any],
-        skip_mapping: typing.Mapping[builtins.str, builtins.bool],
         source: typing.Mapping[builtins.str, typing.Any],
         base_data_key: builtins.str,
     ) -> DataContainer: ...

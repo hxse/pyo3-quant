@@ -6,10 +6,10 @@ OHLCV 数据生成工具
 
 import pandas as pd
 from py_entry.data_generator import (
+    DataGenerationParams,
     generate_data_dict,
 )
 from py_entry.Test.backtest.correlation_analysis.config import CommonConfig
-from py_entry.Test.shared import make_data_generation_params
 
 
 def generate_ohlcv_for_backtestingpy(
@@ -25,9 +25,9 @@ def generate_ohlcv_for_backtestingpy(
         Pandas DataFrame with columns: Open, High, Low, Close, Volume
     """
     # 使用 DataGenerationParams 生成数据
-    data_config = make_data_generation_params(
+    data_config = DataGenerationParams(
         timeframes=[config.timeframe],
-        start_time_ms=config.start_time,
+        start_time=config.start_time,
         num_bars=config.bars,
         fixed_seed=config.seed,
         base_data_key=f"ohlcv_{config.timeframe}",

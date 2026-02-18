@@ -1,5 +1,5 @@
-use super::config::TRConfig;
 use super::super::utils::null_when_expr;
+use super::config::TRConfig;
 use crate::error::QuantError;
 use polars::lazy::dsl::{col, lit, max_horizontal};
 use polars::prelude::*;

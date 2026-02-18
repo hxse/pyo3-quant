@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from py_entry.Test.backtest.strategies import get_strategy
+from py_entry.strategies import get_strategy
 from py_entry.runner import Backtest
 
 

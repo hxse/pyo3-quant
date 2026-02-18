@@ -4,10 +4,10 @@ mod types;
 pub use resolver::{resolve_actions, ResolverParams};
 // pub use types::{SignalAction, SignalState};
 
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use pyo3::PyErr;
-use pyo3::exceptions::PyValueError;
 use std::collections::HashMap;
 
 use pyo3_stub_gen::derive::*;

@@ -20,7 +20,7 @@ from py_entry.Test.backtest.correlation_analysis.analysis.correlation import (
 )
 
 
-from py_entry.Test.backtest.strategies import get_all_strategies
+from py_entry.strategies import get_all_strategies
 from py_entry.Test.backtest.correlation_analysis.config import (
     build_config_from_strategy,
 )

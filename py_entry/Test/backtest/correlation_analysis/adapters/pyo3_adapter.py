@@ -1,7 +1,7 @@
 """
 pyo3-quant 回测引擎适配器
 
-封装 BacktestRunner，提供统一接口用于相关性分析
+封装 Backtest，提供统一接口用于相关性分析
 """
 
 import polars as pl
@@ -10,9 +10,10 @@ from dataclasses import dataclass
 from typing import Optional
 
 from py_entry.runner import Backtest
-from py_entry.Test.backtest.strategies import get_strategy
+from py_entry.data_generator import DataGenerationParams
+from py_entry.strategies import get_strategy
 from py_entry.Test.backtest.correlation_analysis.config import CommonConfig
-from py_entry.Test.shared import make_backtest_runner, make_data_generation_params
+from py_entry.Test.shared import make_backtest_runner
 
 
 @dataclass
@@ -47,9 +48,9 @@ class Pyo3Adapter:
         strategy = get_strategy(strategy_name)
 
         # 根据 CommonConfig 生成独立数据配置，避免修改策略原对象。
-        data_config = make_data_generation_params(
+        data_config = DataGenerationParams(
             timeframes=[self.config.timeframe],
-            start_time_ms=self.config.start_time,
+            start_time=self.config.start_time,
             num_bars=self.config.bars,
             fixed_seed=self.config.seed,
             base_data_key=f"ohlcv_{self.config.timeframe}",

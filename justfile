@@ -48,19 +48,11 @@ clean: stub-clean
 
 # ==================== 运行 ====================
 
-# 运行任意 Python 模块 (支持斜杠或点号格式)
-# 例: just run py_entry/example/basic_backtest
-# 例: just run py_entry.example.basic_backtest
-run path: develop
+# 运行 Python 示例；默认运行 custom_backtest
+# 例: just run
+# 例: just run path=py_entry/example/real_data_backtest.py
+run path="py_entry/example/custom_backtest.py": develop
     uv run --no-sync python {{ path }}
-
-# 运行基础回测示例
-run-basic: develop
-    uv run --no-sync python py_entry/example/basic_backtest.py
-
-# 运行自定义回测示例
-run-custom: develop
-    uv run --no-sync python py_entry/example/custom_backtest.py
 
 # 运行性能基准测试 (pyo3-quant vs VectorBT)
 benchmark: develop
@@ -107,7 +99,11 @@ check-rust:
 check-py: develop
     uvx ty check
 
-check: check-rust check-py
+# 检查 private research/live 同名策略文件是否一致（research 不存在时自动跳过）
+live-sync-check:
+    uv run --no-sync python scripts/live_sync_check.py
+
+check: check-rust check-py live-sync-check
 
 # ==================== 代码格式化 ====================
 

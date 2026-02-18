@@ -5,9 +5,9 @@ from py_entry.types import (
     LogicOp,
     SignalTemplate,
 )
+from py_entry.data_generator import DataGenerationParams
 from py_entry.Test.shared import (
     make_backtest_runner,
-    make_data_generation_params,
     make_engine_settings,
 )
 
@@ -20,8 +20,9 @@ def test_leading_nan_tracking():
     # 1. 准备数据生成参数
     # 生成足够长的数据以平摊指标预热期
     num_bars = 100
-    data_gen_params = make_data_generation_params(
+    data_gen_params = DataGenerationParams(
         timeframes=["15m", "1h", "4h"],
+        start_time=1735689600000,
         num_bars=num_bars,
         fixed_seed=42,
         base_data_key="ohlcv_15m",

@@ -1,6 +1,6 @@
+use super::super::utils::null_to_nan_expr;
 use super::config::TRConfig;
 use super::expr::tr_expr;
-use super::super::utils::null_to_nan_expr;
 use crate::error::QuantError;
 use polars::lazy::dsl::col;
 use polars::prelude::*;

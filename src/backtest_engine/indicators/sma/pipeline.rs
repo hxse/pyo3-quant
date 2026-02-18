@@ -1,6 +1,6 @@
+use super::super::utils::null_to_nan_expr;
 use super::config::SMAConfig;
 use super::expr::sma_expr;
-use super::super::utils::null_to_nan_expr;
 use crate::error::{IndicatorError, QuantError};
 use polars::lazy::dsl::col;
 use polars::prelude::*;

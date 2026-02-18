@@ -15,7 +15,10 @@ where
         builder.append_null();
     }
 
-    let vals: Vec<f64> = ca.into_iter().map(|value| value.unwrap_or(f64::NAN)).collect();
+    let vals: Vec<f64> = ca
+        .into_iter()
+        .map(|value| value.unwrap_or(f64::NAN))
+        .collect();
     let mut window_buffer: Vec<f64> = Vec::with_capacity(period);
 
     for i in (period - 1)..vals.len() {
@@ -70,10 +73,8 @@ pub fn cci_expr(config: &CCIConfig) -> Result<Expr, QuantError> {
     let mad_expr = tp_expr.clone().map_many(
         move |series| {
             let source_series = series[0].as_materialized_series();
-            let mad_series =
-                calculate_mad(source_series, period as usize).map_err(|error| {
-                    PolarsError::ComputeError(error.to_string().into())
-                })?;
+            let mad_series = calculate_mad(source_series, period as usize)
+                .map_err(|error| PolarsError::ComputeError(error.to_string().into()))?;
             Ok(mad_series.into())
         },
         &[],

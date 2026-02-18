@@ -9,7 +9,12 @@ from typing import List, Dict, Callable
 from pathlib import Path
 import importlib
 
+import backtesting
+
 from .base import StrategyConfig
+
+# 全局关闭 backtesting 在 Notebook 环境下的 Bokeh 自动输出提示。
+backtesting.set_bokeh_output(notebook=False)
 
 
 # 策略注册表：策略名称 -> 获取配置的函数

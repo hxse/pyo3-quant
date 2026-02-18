@@ -16,21 +16,27 @@ from py_entry.types import (
 )
 from py_entry.data_generator import DataGenerationParams
 from py_entry.data_generator.time_utils import get_utc_timestamp_ms
+from py_entry.strategies import get_strategy
+from py_entry.strategies.base import StrategyConfig
 
 import time
 
 
-def run_optuna_optimizer_demo() -> dict[str, object]:
-    """运行 Optuna 优化示例，返回摘要结果供 notebook 或脚本调用。"""
-    logger.info("启动 Optuna 优化器演示...")
+def get_optuna_optimizer_demo_config() -> StrategyConfig:
+    """获取 optuna_optimizer_demo 示例的完整策略配置。"""
+    cfg = get_strategy("mtf_bbands_rsi_sma")
+    if not isinstance(cfg.data_config, DataGenerationParams):
+        raise TypeError("mtf_bbands_rsi_sma.data_config 必须为 DataGenerationParams")
 
     # 1. 模拟数据配置
-    simulated_data_config = DataGenerationParams(
-        timeframes=["15m"],
-        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
-        num_bars=5000,
-        fixed_seed=42,
-        base_data_key="ohlcv_15m",
+    simulated_data_config = cfg.data_config.model_copy(
+        update={
+            "timeframes": ["15m"],
+            "start_time": get_utc_timestamp_ms("2025-01-01 00:00:00"),
+            "num_bars": 5000,
+            "fixed_seed": 42,
+            "base_data_key": "ohlcv_15m",
+        }
     )
 
     # 2. 构建指标参数 (双均线策略)
@@ -113,17 +119,52 @@ def run_optuna_optimizer_demo() -> dict[str, object]:
         return_only_final=True,
     )
 
+    return StrategyConfig(
+        name="optuna_optimizer_demo",
+        description="Optuna 参数优化示例",
+        data_config=simulated_data_config,
+        indicators_params=indicators_params,
+        signal_params=signal_params,
+        backtest_params=backtest_params,
+        signal_template=signal_template,
+        engine_settings=engine_settings,
+        performance_params=performance_params,
+    )
+
+
+def get_optuna_config() -> OptunaConfig:
+    """获取 Optuna 优化参数配置。"""
+    return OptunaConfig(
+        n_trials=1000,  # 总共尝试 1000 次
+        batch_size=50,  # 每批并发 50 个
+        metric=OptimizeMetric.CalmarRatioRaw,
+        direction="maximize",
+        sampler="TPE",  # 使用 TPE 采样器
+        seed=42,  # 固定种子以便复现
+        show_progress_bar=False,  # 隐藏详细进度条
+    )
+
+
+def run_optuna_optimizer_demo(
+    *,
+    config: StrategyConfig | None = None,
+    optuna_config: OptunaConfig | None = None,
+) -> dict[str, object]:
+    """运行 Optuna 优化示例，返回摘要结果供 notebook 或脚本调用。"""
+    logger.info("启动 Optuna 优化器演示...")
+    cfg = config if config is not None else get_optuna_optimizer_demo_config()
+
     # --- 第一阶段: 基准回测 ---
     logger.info("执行基准回测 (使用初始参数)...")
     bt = Backtest(
         enable_timing=True,
-        data_source=simulated_data_config,
-        indicators=indicators_params,
-        signal=signal_params,
-        backtest=backtest_params,
-        performance=performance_params,
-        signal_template=signal_template,
-        engine_settings=engine_settings,
+        data_source=cfg.data_config,
+        indicators=cfg.indicators_params,
+        signal=cfg.signal_params,
+        backtest=cfg.backtest_params,
+        performance=cfg.performance_params,
+        signal_template=cfg.signal_template,
+        engine_settings=cfg.engine_settings,
     )
     result = bt.run()
 
@@ -135,15 +176,7 @@ def run_optuna_optimizer_demo() -> dict[str, object]:
 
     # --- 第二阶段: Optuna 参数优化 ---
     logger.info("启动 Optuna 参数优化 (1000次)...")
-    opt_config = OptunaConfig(
-        n_trials=1000,  # 总共尝试 1000 次
-        batch_size=50,  # 每批并发 50 个
-        metric=OptimizeMetric.CalmarRatioRaw,
-        direction="maximize",
-        sampler="TPE",  # 使用 TPE 采样器
-        seed=42,  # 固定种子以便复现
-        show_progress_bar=False,  # 隐藏详细进度条
-    )
+    opt_config = optuna_config if optuna_config is not None else get_optuna_config()
 
     start_time = time.perf_counter()
     opt_result = bt.optimize_with_optuna(opt_config)
@@ -156,7 +189,7 @@ def run_optuna_optimizer_demo() -> dict[str, object]:
     logger.info("使用 Optuna 最优参数进行最终验证...")
 
     # 构建最优参数集
-    final_indicators = indicators_params.copy()
+    final_indicators = cfg.indicators_params.copy()
     # 1. 应用指标参数
     for tf, groups in opt_result.best_params.items():
         for group, params in groups.items():
@@ -164,7 +197,7 @@ def run_optuna_optimizer_demo() -> dict[str, object]:
                 final_indicators[tf][group][p_name].value = val
 
     # 2. 应用回测参数
-    final_backtest = backtest_params
+    final_backtest = cfg.backtest_params
     for p_name, val in opt_result.best_backtest_params.items():
         if hasattr(final_backtest, p_name):
             p_obj = getattr(final_backtest, p_name)
@@ -173,13 +206,13 @@ def run_optuna_optimizer_demo() -> dict[str, object]:
 
     bt_final = Backtest(
         enable_timing=True,
-        data_source=simulated_data_config,
+        data_source=cfg.data_config,
         indicators=final_indicators,
-        signal=signal_params,
+        signal=cfg.signal_params,
         backtest=final_backtest,
-        performance=performance_params,
-        signal_template=signal_template,
-        engine_settings=engine_settings,
+        performance=cfg.performance_params,
+        signal_template=cfg.signal_template,
+        engine_settings=cfg.engine_settings,
     )
     result_final = bt_final.run()
 

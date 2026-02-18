@@ -1,126 +1,107 @@
-# Pytest 测试统一方案说明
+# Pytest 测试约定（当前版）
 
 ## 1. 目标
 
-本次统一的目标是减少 `py_entry/Test` 下重复的“数据配置 + 回测配置 + 引擎配置 + runner 组装”代码，降低以下问题：
+在不过度工程化的前提下，保持测试策略来源清晰、执行路径稳定。
 
-- 同一默认值在多个测试文件中漂移（尤其是回测执行开关默认值）
-- 新增参数后多处漏改
-- 同类测试模块写法不一致，阅读成本高
+## 2. 测试中的两类策略来源
 
-统一原则：
+## 2.1 公共回归策略
 
-- 保持测试语义与断言逻辑不变，只收敛“构造与组装”层
-- 允许特例参数透传，不强行抹平场景差异
-- 优先在 fixture 与 helper 层收敛，避免改动每条测试断言
+来源：`py_entry/strategies` 注册表。
 
-## 2. 共享入口
+用途：
 
-共享模块路径：`py_entry/Test/shared/`
+1. 通用回归。
+2. 跨模块共享行为验证。
+3. 稳定基线样板。
 
-当前核心入口：
+## 2.2 自定义测试场景策略
 
-- `py_entry/Test/shared/backtest_builders.py`
-- `py_entry/Test/shared/strategy_runner.py`
+来源：测试文件内最小构造（`Backtest(...)` 或 `make_backtest_runner(...)`）。
 
-### 2.1 backtest_builders
+用途：
 
-- `make_data_generation_params(...)`
-  - 统一 `DataGenerationParams` 的常用默认值
-  - 支持 `**extra_fields` 透传（例如 `allow_gaps`）
-- `make_backtest_params(...)`
-  - 统一 `BacktestParams` 默认值
-  - 默认执行相关布尔开关为 `False`
-- `make_engine_settings(...)`
-  - 统一 `SettingContainer` 创建
-- `make_ma_cross_template(...)`
-  - 统一常用均线交叉模板
-- `make_backtest_runner(...)`
-  - 统一 `Backtest(...)` 组装
-- `make_optimizer_sma_atr_components(...)`
-  - 统一 optimizer benchmark 场景常用组件（indicators/template/backtest）
+1. 边界条件。
+2. 回归 bug 最小复现。
+3. 指标/信号局部精确断言。
 
-### 2.2 strategy_runner
+说明：
 
-- `run_strategy_backtest(strategy)`
-  - 统一策略注册表场景的回测执行入口
-- `extract_backtest_df_with_close(results, data_dict)`
-  - 统一从结果中提取 `backtest_result`，并在可用时补 `close` 列
+1. 这类策略不追求复用，追求定位效率。
+2. 策略实现层（`example` / `py_entry/strategies` / `py_entry/private_strategies`）优先直接使用配置类型（如 `DataGenerationParams` / `DirectDataConfig`）。
+3. 测试统一常量放在 `py_entry/Test/shared/constants.py`（例如 `TEST_START_TIME_MS`）。
 
-## 3. 当前已迁移模块
+## 3. 数据源约定（`DataSourceConfig`）
 
-- `py_entry/Test/backtest/common_tests/conftest.py`
-- `py_entry/Test/backtest/precision_tests/conftest.py`
-- `py_entry/Test/backtest/common_tests/test_backtest_regression_guards.py`
-- `py_entry/Test/backtest/strategies/*.py`（pyo3 配置侧）
-- `py_entry/Test/backtest/correlation_analysis/*`
-- `py_entry/Test/performance/conftest.py`
-- `py_entry/Test/result_export/conftest.py`
-- `py_entry/Test/sensitivity/test_sensitivity.py`
-- `py_entry/Test/execution_control/test_execution_control.py`
-- `py_entry/Test/optimizer_benchmark/*`（核心测试与基准脚本）
-- `py_entry/Test/signal/test_signal_generation.py`
-- `py_entry/Test/signal/test_leading_nan.py`
-- `py_entry/Test/signal/test_zone_cross_boundary.py`
-- `py_entry/Test/indicators/conftest.py`
-- `py_entry/Test/indicators/extended/test_opening_bar.py`
-- `py_entry/Test/data_generator/conftest.py`
-- `py_entry/Test/data_generator/test_generate_data_dict_integration.py`
+测试里构造 `Backtest(data_source=...)` 时，`data_source` 可以是三种：
 
-## 4. 暂未迁移（建议后续批次）
+1. `DataGenerationParams`（模拟数据）
+2. `OhlcvDataFetchConfig`（服务端拉取）
+3. `DirectDataConfig`（直接喂 DataFrame）
 
-以下模块保持独立场景特征，建议后续按需迁移：
+建议：
 
-- `py_entry/Test/backtest/strategies/*.py`
-  - 已迁移到 shared 构造器，策略语义保持显式定义
-- `py_entry/Test/data_generator/*`
-  - 仅部分迁移（参数构造层），其余用例保持数据生成器本体导向
-- `py_entry/Test/backtest/correlation_analysis/*`
-  - 已完成核心迁移，后续仅保留小范围优化
+1. 单元测试优先 `DataGenerationParams` 或 `DirectDataConfig`。
+2. 涉及接口联调时再用 `OhlcvDataFetchConfig`。
 
-## 5. 使用建议
+## 4. private live 策略默认规则
 
-新测试优先使用 shared 入口，避免重复拼装：
+对于 `py_entry/private_strategies/live` 中已注册策略：
+
+1. 默认在 `Test` 跑一遍最小 smoke（防低级错误）。
+2. 默认可被交易机器人执行。
+
+说明：`live` 是实盘策略区，不要求稳定，可高频改动。
+
+当前实现建议：
+
+1. 使用 `py_entry.trading_bot.LiveStrategyCallbacks` 读取 live 注册并桥接给机器人。
+2. 在 `py_entry/Test/trading_bot/test_live_strategy_callbacks.py` 维持最小 smoke。
+
+## 5. 最小示例
+
+## 5.1 公共回归策略
 
 ```python
-from py_entry.Test.shared import (
-    make_data_generation_params,
-    make_backtest_params,
-    make_engine_settings,
-    make_backtest_runner,
-)
+from py_entry.strategies import get_strategy
+from py_entry.runner import Backtest
+
+cfg = get_strategy("sma_crossover")
+result = Backtest(
+    data_source=cfg.data_config,
+    indicators=cfg.indicators_params,
+    signal=cfg.signal_params,
+    backtest=cfg.backtest_params,
+    signal_template=cfg.signal_template,
+    engine_settings=cfg.engine_settings,
+    performance=cfg.performance_params,
+).run()
+
+assert result.summary is not None
 ```
 
-典型模式：
+## 5.2 自定义测试场景
 
 ```python
-data = make_data_generation_params(timeframes=["15m"], num_bars=500)
-params = make_backtest_params(fee_pct=0.0005)
-settings = make_engine_settings(return_only_final=True)
+from py_entry.runner import Backtest
+from py_entry.data_generator import DataGenerationParams
 
-bt = make_backtest_runner(
-    data_source=data,
-    indicators={"ohlcv_15m": {"sma": {"period": Param(20)}}},
-    backtest=params,
-    engine_settings=settings,
+data_source = DataGenerationParams(
+    timeframes=["15m"],
+    start_time=None,
+    num_bars=300,
+    fixed_seed=42,
+    base_data_key="ohlcv_15m",
 )
+
+result = Backtest(data_source=data_source).run()
+assert result.summary is not None
 ```
 
-## 6. 验证与执行注意事项
-
-串行验证顺序：
+## 6. 执行顺序
 
 1. `just check`
 2. `just test`
 
-实践注意：
-
-- 不要并行运行多个 `just test-py ...`（尤其在本地同进程并发时）
-- 并发触发 `maturin develop` 可能导致临时构建产物竞争，出现 `.so malformed` 类错误
-- 出现该类错误时，直接串行重跑目标测试即可恢复
-
-## 7. 后续演进建议
-
-- 为 `py_entry/Test/shared` 增加更细粒度场景工厂（例如 signal 专用）
-- 在 PR 审查中新增一条约束：新增测试不得手写重复的 `Backtest(...)` 组装样板
-- 在文档与代码同步更新时，优先调整 shared 层默认值，避免多点手改
+与项目 `AGENTS.md` 保持一致。

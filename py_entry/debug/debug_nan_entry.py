@@ -15,7 +15,7 @@
 
 import polars as pl
 from py_entry.runner import Backtest
-from py_entry.Test.backtest.strategies.sma_crossover.pyo3 import get_config
+from py_entry.strategies.sma_crossover.pyo3 import get_config
 from py_entry.types import SettingContainer, ExecutionStage
 from typing import cast
 

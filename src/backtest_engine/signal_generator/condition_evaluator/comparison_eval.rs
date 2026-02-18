@@ -123,7 +123,13 @@ pub(super) fn perform_zone_cross(
 
     let ((ooz_end, end_mask), (ooz_activate, activate_mask)) = match op {
         CompareOp::CGT => (
-            perform_comparison(left_s, end_resolved, 0, |a, b| a.gt_eq(b), |a, v| a.gt_eq(v))?,
+            perform_comparison(
+                left_s,
+                end_resolved,
+                0,
+                |a, b| a.gt_eq(b),
+                |a, v| a.gt_eq(v),
+            )?,
             perform_comparison(
                 left_s,
                 right_resolved,
@@ -137,7 +143,13 @@ pub(super) fn perform_zone_cross(
             perform_comparison(left_s, right_resolved, 0, |a, b| a.lt(b), |a, v| a.lt(v))?,
         ),
         CompareOp::CLT => (
-            perform_comparison(left_s, end_resolved, 0, |a, b| a.lt_eq(b), |a, v| a.lt_eq(v))?,
+            perform_comparison(
+                left_s,
+                end_resolved,
+                0,
+                |a, b| a.lt_eq(b),
+                |a, v| a.lt_eq(v),
+            )?,
             perform_comparison(
                 left_s,
                 right_resolved,

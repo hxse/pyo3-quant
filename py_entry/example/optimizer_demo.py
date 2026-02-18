@@ -15,19 +15,25 @@ from py_entry.types import (
 )
 from py_entry.data_generator import DataGenerationParams
 from py_entry.data_generator.time_utils import get_utc_timestamp_ms
+from py_entry.strategies import get_strategy
+from py_entry.strategies.base import StrategyConfig
 
 
-def run_optimizer_demo() -> dict[str, object]:
-    """运行优化演示，返回摘要结果供 notebook 或脚本调用。"""
-    logger.info("启动增强型优化器演示...")
+def get_optimizer_demo_config() -> StrategyConfig:
+    """获取 optimizer_demo 示例的完整策略配置。"""
+    cfg = get_strategy("mtf_bbands_rsi_sma")
+    if not isinstance(cfg.data_config, DataGenerationParams):
+        raise TypeError("mtf_bbands_rsi_sma.data_config 必须为 DataGenerationParams")
 
     # 1. 模拟数据配置
-    simulated_data_config = DataGenerationParams(
-        timeframes=["15m"],
-        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
-        num_bars=10000,
-        fixed_seed=42,
-        base_data_key="ohlcv_15m",
+    simulated_data_config = cfg.data_config.model_copy(
+        update={
+            "timeframes": ["15m"],
+            "start_time": get_utc_timestamp_ms("2025-01-01 00:00:00"),
+            "num_bars": 10000,
+            "fixed_seed": 42,
+            "base_data_key": "ohlcv_15m",
+        }
     )
 
     # 2. 构建指标参数 (双均线策略)
@@ -110,17 +116,50 @@ def run_optimizer_demo() -> dict[str, object]:
         return_only_final=True,
     )
 
+    return StrategyConfig(
+        name="optimizer_demo",
+        description="增强型优化器示例（双均线 + ATR 参数优化）",
+        data_config=simulated_data_config,
+        indicators_params=indicators_params,
+        signal_params=signal_params,
+        backtest_params=backtest_params,
+        signal_template=signal_template,
+        engine_settings=engine_settings,
+        performance_params=performance_params,
+    )
+
+
+def get_optimizer_demo_optimizer_config() -> OptimizerConfig:
+    """获取 optimizer_demo 的优化器配置。"""
+    return OptimizerConfig(
+        samples_per_round=50,
+        min_samples=1000,
+        max_samples=2000,
+        explore_ratio=0.4,
+        stop_patience=10,
+    )
+
+
+def run_optimizer_demo(
+    *,
+    config: StrategyConfig | None = None,
+    optimizer_config: OptimizerConfig | None = None,
+) -> dict[str, object]:
+    """运行优化演示，返回摘要结果供 notebook 或脚本调用。"""
+    logger.info("启动增强型优化器演示...")
+    cfg = config if config is not None else get_optimizer_demo_config()
+
     # --- 第一阶段: 基准回测 ---
     logger.info("执行基准回测 (使用初始参数)...")
     bt = Backtest(
         enable_timing=True,
-        data_source=simulated_data_config,
-        indicators=indicators_params,
-        signal=signal_params,
-        backtest=backtest_params,
-        performance=performance_params,
-        signal_template=signal_template,
-        engine_settings=engine_settings,
+        data_source=cfg.data_config,
+        indicators=cfg.indicators_params,
+        signal=cfg.signal_params,
+        backtest=cfg.backtest_params,
+        performance=cfg.performance_params,
+        signal_template=cfg.signal_template,
+        engine_settings=cfg.engine_settings,
     )
     result = bt.run()
 
@@ -132,12 +171,10 @@ def run_optimizer_demo() -> dict[str, object]:
 
     # --- 第二阶段: 参数优化 ---
     logger.info("启动参数优化...")
-    opt_config = OptimizerConfig(
-        samples_per_round=50,
-        min_samples=1000,
-        max_samples=2000,
-        explore_ratio=0.4,
-        stop_patience=10,
+    opt_config = (
+        optimizer_config
+        if optimizer_config is not None
+        else get_optimizer_demo_optimizer_config()
     )
 
     opt_result = bt.optimize(opt_config)
@@ -165,7 +202,7 @@ def run_optimizer_demo() -> dict[str, object]:
     # 这里简单处理：将 opt_result 的参数应用回 indicators_params 等
     # 我们可以通过 br.setup 重新配置
 
-    final_indicators = indicators_params.copy()
+    final_indicators = cfg.indicators_params.copy()
     # 合并指标参数
     # 合并指标参数
     # best_params is SingleParamSet
@@ -175,9 +212,7 @@ def run_optimizer_demo() -> dict[str, object]:
                 final_indicators[tf][group][p_name].value = param.value
 
     # 合并回测参数
-    final_backtest = backtest_params
-    # 合并回测参数
-    final_backtest = backtest_params
+    final_backtest = cfg.backtest_params
     # opt_result.best_backtest_params is BacktestParams object
     best_bt = opt_result.best_backtest_params
     # We can iterate over fields or copy common fields
@@ -194,13 +229,13 @@ def run_optimizer_demo() -> dict[str, object]:
 
     bt_final = Backtest(
         enable_timing=True,
-        data_source=simulated_data_config,
+        data_source=cfg.data_config,
         indicators=final_indicators,
-        signal=signal_params,
+        signal=cfg.signal_params,
         backtest=final_backtest,
-        performance=performance_params,
-        signal_template=signal_template,
-        engine_settings=engine_settings,
+        performance=cfg.performance_params,
+        signal_template=cfg.signal_template,
+        engine_settings=cfg.engine_settings,
     )
     result_final = bt_final.run()
 

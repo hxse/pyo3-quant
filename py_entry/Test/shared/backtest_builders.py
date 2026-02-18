@@ -6,10 +6,9 @@
 2. 允许各模块按需覆盖，避免复制粘贴大段配置。
 """
 
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Optional
 
-from py_entry.data_generator import DataGenerationParams, DataSourceConfig
-from py_entry.data_generator.time_utils import get_utc_timestamp_ms
+from py_entry.data_generator import DataSourceConfig
 from py_entry.runner import Backtest
 from py_entry.types import (
     BacktestParams,
@@ -21,37 +20,6 @@ from py_entry.types import (
     SignalTemplate,
     SettingContainer,
 )
-
-
-DEFAULT_TEST_START_TIME = "2025-01-01 00:00:00"
-
-
-def make_data_generation_params(
-    *,
-    timeframes: Sequence[str] = ("15m",),
-    num_bars: int = 1000,
-    fixed_seed: int = 42,
-    base_data_key: Optional[str] = None,
-    start_time_ms: Optional[int] = None,
-    **extra_fields: Any,
-) -> DataGenerationParams:
-    """创建统一的数据生成参数，减少各测试模块重复定义。"""
-    normalized_timeframes = list(timeframes)
-    resolved_base_key = base_data_key or f"ohlcv_{normalized_timeframes[0]}"
-    resolved_start_time = (
-        start_time_ms
-        if start_time_ms is not None
-        else get_utc_timestamp_ms(DEFAULT_TEST_START_TIME)
-    )
-    return DataGenerationParams(
-        timeframes=normalized_timeframes,
-        start_time=resolved_start_time,
-        num_bars=num_bars,
-        fixed_seed=fixed_seed,
-        base_data_key=resolved_base_key,
-        # 透传测试场景特有配置（如 allow_gaps），避免共享层阻塞特例。
-        **extra_fields,
-    )
 
 
 def make_backtest_params(**overrides: Any) -> BacktestParams:

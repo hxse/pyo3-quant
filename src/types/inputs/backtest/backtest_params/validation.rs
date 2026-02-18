@@ -5,7 +5,9 @@ use super::BacktestParams;
 impl BacktestParams {
     /// 检查是否有任一ATR参数（sl_atr、tp_atr、tsl_atr）有效。
     pub fn has_any_atr_param(&self) -> bool {
-        self.is_sl_atr_param_valid() || self.is_tp_atr_param_valid() || self.is_tsl_atr_param_valid()
+        self.is_sl_atr_param_valid()
+            || self.is_tp_atr_param_valid()
+            || self.is_tsl_atr_param_valid()
     }
 
     /// 验证ATR参数的一致性。
@@ -98,7 +100,8 @@ impl BacktestParams {
             return Err(BacktestError::InvalidParameter {
                 param_name: "sl_exit_in_bar".to_string(),
                 value: "true".to_string(),
-                reason: "sl_exit_in_bar 不能在 sl_trigger_mode 为 false (Close 模式) 时启用".to_string(),
+                reason: "sl_exit_in_bar 不能在 sl_trigger_mode 为 false (Close 模式) 时启用"
+                    .to_string(),
             });
         }
 
@@ -106,7 +109,8 @@ impl BacktestParams {
             return Err(BacktestError::InvalidParameter {
                 param_name: "tp_exit_in_bar".to_string(),
                 value: "true".to_string(),
-                reason: "tp_exit_in_bar 不能在 tp_trigger_mode 为 false (Close 模式) 时启用".to_string(),
+                reason: "tp_exit_in_bar 不能在 tp_trigger_mode 为 false (Close 模式) 时启用"
+                    .to_string(),
             });
         }
 

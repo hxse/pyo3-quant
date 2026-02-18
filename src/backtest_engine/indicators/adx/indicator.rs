@@ -1,6 +1,6 @@
+use super::super::registry::Indicator;
 use super::config::ADXConfig;
 use super::pipeline::adx_eager;
-use super::super::registry::Indicator;
 use crate::error::{IndicatorError, QuantError};
 use crate::types::Param;
 use polars::prelude::*;

@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
 from typing import Callable, Optional
+from collections import Counter
 
 from loguru import logger
 
@@ -34,10 +35,10 @@ class TradingBot:
         # 运行时状态。
         self._last_run_times: dict[str, datetime] = {}
         self._running = False
+        self._log_handler_id: Optional[int] = None
 
-        # 统一日志输出格式。
-        logger.remove()
-        logger.add(
+        # 仅添加当前 bot 的日志 handler，避免全局移除影响其他模块日志。
+        self._log_handler_id = logger.add(
             lambda msg: print(msg, end=""),
             level=self.config.log_level,
             format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | {message}",
@@ -48,14 +49,26 @@ class TradingBot:
         try:
             period_str = base_data_key.split("_")[-1]
             if period_str.endswith("m"):
-                return int(period_str[:-1])
+                value = int(period_str[:-1])
+                if value <= 0:
+                    raise ValueError
+                return value
             if period_str.endswith("h"):
-                return int(period_str[:-1]) * 60
+                value = int(period_str[:-1])
+                if value <= 0:
+                    raise ValueError
+                return value * 60
             if period_str.endswith("d"):
-                return int(period_str[:-1]) * 60 * 24
-            return 15
+                value = int(period_str[:-1])
+                if value <= 0:
+                    raise ValueError
+                return value * 60 * 24
+            raise ValueError
         except (IndexError, ValueError):
-            return 15
+            raise ValueError(
+                f"无效的 base_data_key 周期格式: {base_data_key}。"
+                "期望格式如 ohlcv_15m / ohlcv_4h / ohlcv_1d"
+            )
 
     def is_new_period(self, params: StrategyParams) -> bool:
         """判断是否到达新周期"""
@@ -103,6 +116,17 @@ class TradingBot:
             return
 
         strategy_list = params_result.data or []
+        # 强约束：同一 symbol 只能对应一个策略，避免调度与仓位状态冲突。
+        symbol_counts = Counter(params.symbol for params in strategy_list)
+        duplicated_symbols = sorted(
+            symbol for symbol, count in symbol_counts.items() if count > 1
+        )
+        if duplicated_symbols:
+            raise ValueError(
+                "检测到同品种多策略配置。当前机器人仅支持同品种单策略。"
+                f"重复 symbol: {duplicated_symbols}"
+            )
+
         for params in strategy_list:
             if not self.is_new_period(params):
                 continue
@@ -154,3 +178,7 @@ class TradingBot:
         """停止主循环"""
         self._running = False
         logger.info("交易机器人停止")
+        # 移除当前 bot 自己添加的日志 handler，避免重复输出。
+        if self._log_handler_id is not None:
+            logger.remove(self._log_handler_id)
+            self._log_handler_id = None

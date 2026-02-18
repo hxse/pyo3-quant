@@ -3,10 +3,11 @@ from py_entry.types import (
     Param,
     ExecutionStage,
 )
+from py_entry.data_generator import DataGenerationParams
 from py_entry.Test.shared import (
+    TEST_START_TIME_MS,
     make_backtest_params,
     make_backtest_runner,
-    make_data_generation_params,
     make_engine_settings,
 )
 from py_entry.types import LogicOp, SignalGroup, SignalTemplate
@@ -20,8 +21,9 @@ def runner_with_results():
     """
 
     # 1. 创建 DataGenerationParams 对象
-    simulated_data_config = make_data_generation_params(
+    simulated_data_config = DataGenerationParams(
         timeframes=["15m", "1h", "4h"],
+        start_time=TEST_START_TIME_MS,
         num_bars=1000,  # 测试用 1000 根 BAR 足够
         fixed_seed=42,
         base_data_key="ohlcv_15m",

@@ -85,12 +85,20 @@ pub(super) fn register_all_submodules(m: &Bound<'_, PyModule>) -> PyResult<()> {
         &optimizer_submodule
     )?)?;
     m.add_submodule(&optimizer_submodule)?;
-    register_submodule_in_sys_modules(py, "pyo3_quant.backtest_engine.optimizer", &optimizer_submodule)?;
+    register_submodule_in_sys_modules(
+        py,
+        "pyo3_quant.backtest_engine.optimizer",
+        &optimizer_submodule,
+    )?;
 
     let wf_submodule = PyModule::new(py, "walk_forward")?;
     walk_forward::register_py_module(&wf_submodule)?;
     m.add_submodule(&wf_submodule)?;
-    register_submodule_in_sys_modules(py, "pyo3_quant.backtest_engine.walk_forward", &wf_submodule)?;
+    register_submodule_in_sys_modules(
+        py,
+        "pyo3_quant.backtest_engine.walk_forward",
+        &wf_submodule,
+    )?;
 
     let action_resolver_submodule = PyModule::new(py, "action_resolver")?;
     action_resolver::register_py_module(&action_resolver_submodule)?;
@@ -107,7 +115,11 @@ pub(super) fn register_all_submodules(m: &Bound<'_, PyModule>) -> PyResult<()> {
         &sensitivity_submodule
     )?)?;
     m.add_submodule(&sensitivity_submodule)?;
-    register_submodule_in_sys_modules(py, "pyo3_quant.backtest_engine.sensitivity", &sensitivity_submodule)?;
+    register_submodule_in_sys_modules(
+        py,
+        "pyo3_quant.backtest_engine.sensitivity",
+        &sensitivity_submodule,
+    )?;
 
     Ok(())
 }

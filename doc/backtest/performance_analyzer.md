@@ -154,10 +154,11 @@ let profit_loss_ratio = wins.mean().unwrap_or(0.0) / losses.mean().unwrap_or(0.0
 
 ## 7. Python 接口
 
-### 7.1 推荐方式：通过 BacktestRunner（使用 dataclass）
+### 7.1 推荐方式：通过 Backtest（使用 dataclass）
 
 ```python
-from py_entry.data_conversion.types import PerformanceParams, PerformanceMetric
+from py_entry.runner import Backtest
+from py_entry.types import PerformanceParams, PerformanceMetric
 
 # 使用 dataclass 构造绩效参数
 performance_params = PerformanceParams(
@@ -173,8 +174,9 @@ performance_params = PerformanceParams(
     leverage_safety_factor=0.8,  # 杠杆安全系数
 )
 
-# 通过 BacktestRunner 执行回测后自动调用绩效分析
-result = br.results[0].performance
+# 通过 Backtest 执行回测后自动调用绩效分析
+run_result = Backtest(..., performance=performance_params).run()
+result = run_result.summary.performance if run_result.summary else None
 # result: dict[str, float]
 # 例如 {"total_return": 0.25, "max_drawdown": 0.15, "sharpe_ratio": 1.5, ...}
 ```

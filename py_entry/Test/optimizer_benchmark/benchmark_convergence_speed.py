@@ -9,9 +9,9 @@ from py_entry.types import (
     OptimizeMetric,
     ExecutionStage,
 )
+from py_entry.data_generator import DataGenerationParams
 from py_entry.Test.shared import (
     make_backtest_runner,
-    make_data_generation_params,
     make_engine_settings,
     make_optimizer_sma_atr_components,
 )
@@ -19,8 +19,9 @@ from py_entry.Test.shared import (
 
 def create_backtest():
     """创建标准测试回测配置"""
-    data_config = make_data_generation_params(
+    data_config = DataGenerationParams(
         timeframes=["15m"],
+        start_time=1735689600000,
         num_bars=6000,
         fixed_seed=42,
         base_data_key="ohlcv_15m",

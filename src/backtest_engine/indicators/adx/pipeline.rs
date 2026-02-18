@@ -22,7 +22,9 @@ pub fn adx_eager(
     config: &ADXConfig,
 ) -> Result<(Series, Series, Series, Series), QuantError> {
     let lazy_df = df.clone().lazy();
-    let df_with_adx = adx_lazy(lazy_df, config)?.collect().map_err(QuantError::from)?;
+    let df_with_adx = adx_lazy(lazy_df, config)?
+        .collect()
+        .map_err(QuantError::from)?;
 
     let adx_series = df_with_adx
         .column(&config.adx_alias)?

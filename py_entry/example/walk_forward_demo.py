@@ -17,19 +17,25 @@ from py_entry.types import (
 )
 from py_entry.data_generator import DataGenerationParams
 from py_entry.data_generator.time_utils import get_utc_timestamp_ms
+from py_entry.strategies import get_strategy
+from py_entry.strategies.base import StrategyConfig
 
 
-def run_walk_forward_demo() -> dict[str, object]:
-    """运行 Walk Forward 演示，返回摘要结果供 notebook 或脚本调用。"""
-    logger.info("启动向前滚动优化 (Walk Forward) 演示...")
+def get_walk_forward_demo_config() -> StrategyConfig:
+    """获取 walk_forward_demo 示例的完整策略配置。"""
+    cfg = get_strategy("mtf_bbands_rsi_sma")
+    if not isinstance(cfg.data_config, DataGenerationParams):
+        raise TypeError("mtf_bbands_rsi_sma.data_config 必须为 DataGenerationParams")
 
     # 1. 模拟数据配置 (较长的数据以支持滚动)
-    simulated_data_config = DataGenerationParams(
-        timeframes=["15m"],
-        start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
-        num_bars=10000,  # 增加数据量
-        fixed_seed=42,
-        base_data_key="ohlcv_15m",
+    simulated_data_config = cfg.data_config.model_copy(
+        update={
+            "timeframes": ["15m"],
+            "start_time": get_utc_timestamp_ms("2025-01-01 00:00:00"),
+            "num_bars": 10000,  # 增加数据量
+            "fixed_seed": 42,
+            "base_data_key": "ohlcv_15m",
+        }
     )
 
     # 2. 构建指标参数
@@ -119,24 +125,21 @@ def run_walk_forward_demo() -> dict[str, object]:
         return_only_final=True,
     )
 
-    # 7. 配置 Backtest
-    bt = Backtest(
-        enable_timing=True,
-        data_source=simulated_data_config,
-        indicators=indicators_params,
-        backtest=backtest_params,
-        performance=performance_params,
+    return StrategyConfig(
+        name="walk_forward_demo",
+        description="Walk Forward 优化示例",
+        data_config=simulated_data_config,
+        indicators_params=indicators_params,
+        signal_params={},
+        backtest_params=backtest_params,
         signal_template=signal_template,
         engine_settings=engine_settings,
-        signal={},  # Added dummy signal to match Init signature if needed (Backtest init expects signal param if not optional? Wait, check Backtest signature)
-        # Backtest init: signal: Optional[SignalParams] = None
-        # So it's optional.
-        # But setup logic required it?
-        # Let's check logic. Backtest(..., signal=None) -> build_signal_params(None) -> returns SignalParams(params={}) (empty).
-        # So it works.
+        performance_params=performance_params,
     )
 
-    # 8. 配置 Walk Forward
+
+def get_walk_forward_config() -> WalkForwardConfig:
+    """获取 Walk Forward 配置。"""
     opt_config = OptimizerConfig(
         max_samples=200,
         samples_per_round=50,
@@ -144,13 +147,41 @@ def run_walk_forward_demo() -> dict[str, object]:
         min_samples=50,
         max_rounds=10,
     )
-
-    wf_config = WalkForwardConfig(
+    return WalkForwardConfig(
         train_ratio=0.5,
         test_ratio=0.25,
         step_ratio=0.25,
         inherit_prior=True,
         optimizer_config=opt_config,
+    )
+
+
+def run_walk_forward_demo(
+    *,
+    config: StrategyConfig | None = None,
+    walk_forward_config: WalkForwardConfig | None = None,
+) -> dict[str, object]:
+    """运行 Walk Forward 演示，返回摘要结果供 notebook 或脚本调用。"""
+    logger.info("启动向前滚动优化 (Walk Forward) 演示...")
+    cfg = config if config is not None else get_walk_forward_demo_config()
+
+    # 7. 配置 Backtest
+    bt = Backtest(
+        enable_timing=True,
+        data_source=cfg.data_config,
+        indicators=cfg.indicators_params,
+        backtest=cfg.backtest_params,
+        performance=cfg.performance_params,
+        signal_template=cfg.signal_template,
+        engine_settings=cfg.engine_settings,
+        signal=cfg.signal_params,
+    )
+
+    # 8. 配置 Walk Forward
+    wf_config = (
+        walk_forward_config
+        if walk_forward_config is not None
+        else get_walk_forward_config()
     )
 
     logger.info("开始执行 Walk Forward Optimization...")

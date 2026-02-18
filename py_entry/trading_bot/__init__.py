@@ -33,6 +33,7 @@ from .bot import TradingBot, StepResult
 from .runtime_checks import RuntimeChecks
 from .executor import ActionExecutor
 from .optimization import OptimizationCallbacks
+from .live_strategy_callbacks import LiveStrategyCallbacks
 
 __all__ = [
     # Callback
@@ -77,4 +78,5 @@ __all__ = [
     "RuntimeChecks",
     "ActionExecutor",
     "OptimizationCallbacks",
+    "LiveStrategyCallbacks",
 ]

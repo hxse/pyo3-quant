@@ -9,19 +9,19 @@ RSI 均值回归策略
 
 from py_entry.types import (
     Param,
+    BacktestParams,
     LogicOp,
     SignalGroup,
     SignalTemplate,
+    SettingContainer,
     ExecutionStage,
 )
-from py_entry.Test.shared import (
-    make_backtest_params,
-    make_data_generation_params,
-    make_engine_settings,
-)
+from py_entry.data_generator import DataGenerationParams
 
 from . import register_strategy
 from .base import StrategyConfig
+
+BASE_DATA_KEY = "ohlcv_15m"
 
 
 @register_strategy("rsi_mean_reversion")
@@ -29,16 +29,17 @@ def get_config() -> StrategyConfig:
     """返回 RSI 均值回归策略配置"""
 
     # 数据配置
-    data_config = make_data_generation_params(
-        timeframes=["15m", "1h", "4h"],
+    data_config = DataGenerationParams(
+        timeframes=["15m"],
+        start_time=1735689600000,
         num_bars=10000,
         fixed_seed=42,
-        base_data_key="ohlcv_15m",
+        base_data_key=BASE_DATA_KEY,
     )
 
     # 指标参数
     indicators_params = {
-        "ohlcv_15m": {
+        BASE_DATA_KEY: {
             "rsi": {"period": Param(14)},
         },
     }
@@ -47,7 +48,8 @@ def get_config() -> StrategyConfig:
     signal_params = {}
 
     # 回测参数（带风控）
-    backtest_params = make_backtest_params(
+    backtest_params = BacktestParams(
+        initial_capital=10000.0,
         fee_fixed=1,
         fee_pct=0.001,
         sl_exit_in_bar=False,
@@ -71,25 +73,25 @@ def get_config() -> StrategyConfig:
     # RSI < 30 进多
     entry_long_group = SignalGroup(
         logic=LogicOp.AND,
-        comparisons=["rsi, ohlcv_15m, 0 < 30"],
+        comparisons=[f"rsi, {BASE_DATA_KEY}, 0 < 30"],
     )
 
     # RSI > 70 进空
     entry_short_group = SignalGroup(
         logic=LogicOp.AND,
-        comparisons=["rsi, ohlcv_15m, 0 > 70"],
+        comparisons=[f"rsi, {BASE_DATA_KEY}, 0 > 70"],
     )
 
     # RSI > 50 离多
     exit_long_group = SignalGroup(
         logic=LogicOp.AND,
-        comparisons=["rsi, ohlcv_15m, 0 > 50"],
+        comparisons=[f"rsi, {BASE_DATA_KEY}, 0 > 50"],
     )
 
     # RSI < 50 离空
     exit_short_group = SignalGroup(
         logic=LogicOp.AND,
-        comparisons=["rsi, ohlcv_15m, 0 < 50"],
+        comparisons=[f"rsi, {BASE_DATA_KEY}, 0 < 50"],
     )
 
     signal_template = SignalTemplate(
@@ -100,7 +102,7 @@ def get_config() -> StrategyConfig:
     )
 
     # 引擎设置
-    engine_settings = make_engine_settings(
+    engine_settings = SettingContainer(
         execution_stage=ExecutionStage.Performance,
         return_only_final=False,
     )

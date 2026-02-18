@@ -1,5 +1,5 @@
-use super::config::RSIConfig;
 use super::super::utils::null_when_expr;
+use super::config::RSIConfig;
 use crate::backtest_engine::indicators::rma::{rma_expr, RMAConfig};
 use crate::error::QuantError;
 use polars::lazy::dsl::{col, lit, when};

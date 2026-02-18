@@ -2,37 +2,34 @@ import pyo3_quant
 from loguru import logger
 
 from py_entry.data_generator import DataGenerationParams
-from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 from py_entry.runner import Backtest
 from py_entry.types import Param
-
-
-# 创建 DataGenerationParams 对象
-simulated_data_config = DataGenerationParams(
-    timeframes=["15m", "1h"],
-    start_time=get_utc_timestamp_ms("2025-01-01 00:00:00"),
-    num_bars=10000,
-    fixed_seed=42,
-    base_data_key="ohlcv_15m",
-)
-
-# 构建指标参数
-indicators_params = {
-    "ohlcv_15m": {
-        "sma_0": {"period": Param(14, min=5, max=50, step=1)},
-        "sma_1": {
-            "period": Param(200, min=100, max=300, step=10),
-        },
-    },
-    "ohlcv_4h": {  # 数据没有4h, 预期报错
-        "sma_0": {"period": Param(14, min=5, max=50, step=1)},
-    },
-}
 
 
 def run_exception_handling_demo() -> tuple[bool, str]:
     """运行异常处理示例，返回是否按预期捕获异常。"""
     logger.info("开始执行异常处理示例")
+
+    # 自包含示例：只提供 15m/1h 数据。
+    simulated_data_config = DataGenerationParams(
+        timeframes=["15m", "1h"],
+        start_time=1735689600000,
+        num_bars=1000,
+        fixed_seed=42,
+        base_data_key="ohlcv_15m",
+    )
+
+    # 故意制造错误：指标引用了 ohlcv_4h，但数据源没有 4h。
+    indicators_params = {
+        "ohlcv_15m": {
+            "sma_fast": {"period": Param(8)},
+            "sma_slow": {"period": Param(21)},
+        },
+        "ohlcv_4h": {
+            "rsi": {"period": Param(14)},
+        },
+    }
+
     try:
         Backtest(
             enable_timing=False,

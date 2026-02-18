@@ -1,5 +1,5 @@
-mod config;
 mod cci_indicator;
+mod config;
 mod expr;
 mod macd_indicator;
 mod rsi_indicator;

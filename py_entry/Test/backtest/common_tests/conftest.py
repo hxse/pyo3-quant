@@ -6,8 +6,8 @@
 
 import pytest
 
-from py_entry.Test.backtest.strategies import get_all_strategies
-from py_entry.Test.backtest.strategies.base import StrategyConfig
+from py_entry.strategies import get_all_strategies
+from py_entry.strategies.base import StrategyConfig
 from py_entry.Test.shared import run_strategy_backtest
 
 

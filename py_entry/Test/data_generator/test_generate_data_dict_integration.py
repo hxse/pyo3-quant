@@ -4,9 +4,9 @@
 
 import pytest
 from py_entry.data_generator import (
+    DataGenerationParams,
     generate_data_dict,
 )
-from py_entry.Test.shared import make_data_generation_params
 
 
 class TestGenerateDataDictIntegration:
@@ -63,9 +63,9 @@ class TestGenerateDataDictIntegration:
         num_bars = 5  # 很小的数量
 
         # 创建模拟数据配置
-        simulated_data_config = make_data_generation_params(
+        simulated_data_config = DataGenerationParams(
             timeframes=timeframes,
-            start_time_ms=basic_start_time,
+            start_time=basic_start_time,
             num_bars=num_bars,
             base_data_key="ohlcv_15m",
         )
@@ -89,9 +89,9 @@ class TestGenerateDataDictIntegration:
         timeframes = ["15m", "1h"]
         num_bars = 10
 
-        simulated_data_config = make_data_generation_params(
+        simulated_data_config = DataGenerationParams(
             timeframes=timeframes,
-            start_time_ms=basic_start_time,
+            start_time=basic_start_time,
             num_bars=num_bars,
             base_data_key="ohlcv_15m",
         )
@@ -121,9 +121,9 @@ class TestGenerateDataDictIntegration:
         timeframes = ["15m"]
         num_bars = 10
 
-        simulated_data_config = make_data_generation_params(
+        simulated_data_config = DataGenerationParams(
             timeframes=timeframes,
-            start_time_ms=basic_start_time,
+            start_time=basic_start_time,
             num_bars=num_bars,
             base_data_key="ohlcv_15m",
         )

@@ -1,6 +1,6 @@
+use super::super::registry::Indicator;
 use super::config::CCIConfig;
 use super::pipeline::cci_eager;
-use super::super::registry::Indicator;
 use crate::error::{IndicatorError, QuantError};
 use crate::types::Param;
 use polars::prelude::*;

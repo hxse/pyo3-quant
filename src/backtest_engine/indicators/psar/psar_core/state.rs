@@ -142,9 +142,11 @@ pub(crate) fn psar_update(
     let mut reversal_val = 0.0;
 
     let next_psar_raw_candidate = if new_state.is_long {
-        new_state.current_psar + new_state.current_af * (new_state.current_ep - new_state.current_psar)
+        new_state.current_psar
+            + new_state.current_af * (new_state.current_ep - new_state.current_psar)
     } else {
-        new_state.current_psar - new_state.current_af * (new_state.current_psar - new_state.current_ep)
+        new_state.current_psar
+            - new_state.current_af * (new_state.current_psar - new_state.current_ep)
     };
 
     new_state.current_psar = if new_state.is_long {

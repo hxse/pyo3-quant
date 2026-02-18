@@ -21,9 +21,9 @@ from py_entry.data_generator import OtherParams
 from py_entry.types import ExecutionStage
 from py_entry.Test.shared import (
     make_backtest_runner,
-    make_data_generation_params,
     make_engine_settings,
 )
+from py_entry.data_generator import DataGenerationParams
 
 from py_entry.Test.signal.scenarios import get_all_scenarios
 from py_entry.Test.signal.utils import (
@@ -56,8 +56,9 @@ def test_signal_scenario(scenario, setting_container):
         setting_container: 设置容器 fixture
     """
 
-    data_gen_params = make_data_generation_params(
+    data_gen_params = DataGenerationParams(
         timeframes=["15m", "1h", "4h"],
+        start_time=1735689600000,
         num_bars=10000,  # 生成10000根K线
         fixed_seed=42,  # 使用固定种子保证可重现
         base_data_key="ohlcv_15m",  # 基础数据键

@@ -27,7 +27,7 @@ from py_entry.Test.backtest.correlation_analysis.adapters.pyo3_adapter import (
 from py_entry.Test.backtest.correlation_analysis.config import (
     build_config_from_strategy,
 )
-from py_entry.Test.backtest.strategies.reversal_extreme.config import CONFIG as C
+from py_entry.strategies.reversal_extreme.config import CONFIG as C
 
 from backtesting import Backtest
 from backtesting.lib import crossover, TrailingStrategy

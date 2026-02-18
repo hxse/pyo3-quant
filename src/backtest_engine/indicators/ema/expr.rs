@@ -22,12 +22,20 @@ pub fn ema_expr(config: &EMAConfig) -> Result<(Expr, Expr), QuantError> {
 
     let initial_idx = start_offset + period - 1;
 
-    let processed_expr = when(col(index_col_name).cast(DataType::Int64).lt(lit(initial_idx)))
-        .then(lit(NULL))
-        .when(col(index_col_name).cast(DataType::Int64).eq(lit(initial_idx)))
-        .then(sma_initial_value_expr)
-        .otherwise(col(col_name).cast(DataType::Float64))
-        .alias(processed_column_alias);
+    let processed_expr = when(
+        col(index_col_name)
+            .cast(DataType::Int64)
+            .lt(lit(initial_idx)),
+    )
+    .then(lit(NULL))
+    .when(
+        col(index_col_name)
+            .cast(DataType::Int64)
+            .eq(lit(initial_idx)),
+    )
+    .then(sma_initial_value_expr)
+    .otherwise(col(col_name).cast(DataType::Float64))
+    .alias(processed_column_alias);
 
     let ema_expr = col(processed_column_alias)
         .ewm_mean(EWMOptions {

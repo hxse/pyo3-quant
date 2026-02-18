@@ -6,63 +6,121 @@ app = marimo.App(width="full")
 
 @app.cell
 def _():
-    import marimo as mo
+    import sys
+    from pathlib import Path
 
-    return (mo,)
+    # Jupyter Notebook 环境下的路径处理
+    try:
+        # 尝试使用 __file__ (在脚本环境中)
+        root_path = next(
+            (
+                p
+                for p in Path(__file__).resolve().parents
+                if (p / "pyproject.toml").is_file()
+            ),
+            None,
+        )
+    except NameError:
+        # 在 Notebook/交互环境中，使用当前工作目录
+        current_dir = Path.cwd()
+        root_path = next(
+            (
+                p
+                for p in [current_dir] + list(current_dir.parents)
+                if (p / "pyproject.toml").is_file()
+            ),
+            None,
+        )
 
-
-@app.cell
-def _(mo):
-    run_button = mo.ui.run_button(label="运行 custom backtest")
-    run_button
-    return (run_button,)
-
-
-@app.cell
-def _(mo):
-    # 使用内存态保存回测结果，避免 run_button 在后续重算时导致结果被清空。
-    get_result, set_result = mo.state(None)
-    return get_result, set_result
-
-
-@app.cell
-def _(get_result, run_button, set_result):
-    from py_entry.example.custom_backtest import run_custom_backtest
-
-    if run_button.value:
-        # marimo 示例仅用于交互可视化，禁用保存/上传以减少副作用。
-        new_result = run_custom_backtest(save_result=False, upload_result=False)
-        set_result(new_result)
-    result = get_result()
-    return (result,)
-
-
-@app.cell
-def _(mo, result):
-    mo.stop(result is None, mo.md("点击上方按钮运行回测。"))
-
-    if result.summary:
-        mo.md(f"### Performance\n\n`{result.summary.performance}`")
-    else:
-        mo.md("回测已执行，但 summary 为空。")
+    if root_path and str(root_path) not in sys.path:
+        sys.path.insert(0, str(root_path))
     return
 
 
 @app.cell
-def _(mo, result):
-    from py_entry.io import DisplayConfig
+def _():
+    from py_entry.private_strategies.live.base import LiveStrategyConfig
+    from py_entry.runner import Backtest, FormatResultsConfig, RunResult
+    from py_entry.strategies.base import StrategyConfig
 
-    mo.stop(result is None)
+    def normalize_strategy_config(
+        cfg_like: StrategyConfig | LiveStrategyConfig,
+    ) -> StrategyConfig:
+        """兼容 StrategyConfig / LiveStrategyConfig 两种返回类型。"""
+        if isinstance(cfg_like, LiveStrategyConfig):
+            return cfg_like.strategy
+        if isinstance(cfg_like, StrategyConfig):
+            return cfg_like
+        raise TypeError(f"不支持的策略配置类型: {type(cfg_like)}")
 
-    # 先使用默认可见配置，避免 override 把主图序列隐藏导致“渲染成功但画面空白”。
+    def run_from_config(cfg_like: StrategyConfig | LiveStrategyConfig) -> RunResult:
+        """从统一配置对象执行回测。"""
+        cfg = normalize_strategy_config(cfg_like)
+        bt = Backtest(
+            data_source=cfg.data_config,
+            indicators=cfg.indicators_params,
+            signal=cfg.signal_params,
+            backtest=cfg.backtest_params,
+            signal_template=cfg.signal_template,
+            engine_settings=cfg.engine_settings,
+            performance=cfg.performance_params,
+        )
+        result = bt.run()
+        return result.format_for_export(FormatResultsConfig(dataframe_format="csv"))
+
+    return (run_from_config,)
+
+
+@app.cell
+def _(run_from_config):
+    from py_entry.example.custom_backtest import get_custom_backtest_config
+    from py_entry.example.real_data_backtest import get_real_data_backtest_config
+    from py_entry.example.reversal_extreme_backtest import get_reversal_extreme_config
+
+    strategy_configs = {
+        "mtf_bbands_rsi_sma": get_custom_backtest_config,
+        "real_data_backtest": get_real_data_backtest_config,
+        "reversal_extreme": get_reversal_extreme_config,
+    }
+
+    STRATEGY = "mtf_bbands_rsi_sma"
+    STRATEGY = "real_data_backtest"
+    STRATEGY = "reversal_extreme"
+
+    if STRATEGY not in strategy_configs:
+        raise ValueError(f"未知策略: {STRATEGY}, 可选: {list(strategy_configs)}")
+
+    cfg = strategy_configs[STRATEGY]()
+    result = run_from_config(cfg)
+    assert result, f"result 不存在, {result}"
+    print(f"运行策略: {STRATEGY}")
+    return (result,)
+
+
+@app.cell
+def _(result):
+    print(f"Performance: {result.summary.performance}")
+    return
+
+
+@app.cell
+def _(result):
+    from py_entry.io import DashboardOverride, DisplayConfig
+
     config = DisplayConfig(
+        embed_data=False,
         target="marimo",
         width="100%",
         aspect_ratio="16/9",
+        override=DashboardOverride(
+            show=["0,0,0,1"],
+            showInLegend=["0,0,0,1"],
+            showRiskLegend="1,1,1,1",
+            showLegendInAll=True,
+        ).to_dict(),
     )
-    # 直接输出 widget，避免额外布局封装影响可见性。
-    chart_widget = result.display(config=config)
-    chart_widget
+
+    result.display(config=config)
     return
 
 

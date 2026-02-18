@@ -1,6 +1,6 @@
+use super::super::registry::Indicator;
 use super::config::TRConfig;
 use super::pipeline::tr_eager;
-use super::super::registry::Indicator;
 use crate::error::QuantError;
 use crate::types::Param;
 use polars::prelude::*;

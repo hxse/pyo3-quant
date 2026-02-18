@@ -10,8 +10,8 @@ from py_entry.types import (
     BacktestSummary,
 )
 from py_entry.Test.shared import (
+    TEST_START_TIME_MS,
     make_backtest_runner,
-    make_data_generation_params,
     make_engine_settings,
 )
 
@@ -53,8 +53,9 @@ def run_indicator_backtest(
 def data_dict():
     """生成指标测试所需的测试数据"""
     timeframes = ["15m", "1h"]
-    return make_data_generation_params(
+    return DataGenerationParams(
         timeframes=timeframes,
+        start_time=TEST_START_TIME_MS,
         num_bars=5000,
         fixed_seed=42,
         base_data_key="ohlcv_15m",

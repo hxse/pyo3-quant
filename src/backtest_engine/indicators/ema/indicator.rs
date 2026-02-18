@@ -1,6 +1,6 @@
+use super::super::registry::Indicator;
 use super::config::EMAConfig;
 use super::pipeline::ema_eager;
-use super::super::registry::Indicator;
 use crate::error::{IndicatorError, QuantError};
 use crate::types::Param;
 use polars::prelude::*;

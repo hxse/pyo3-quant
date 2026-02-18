@@ -9,21 +9,21 @@
 
 from py_entry.types import (
     Param,
+    BacktestParams,
     LogicOp,
     SignalGroup,
     SignalTemplate,
+    SettingContainer,
     ExecutionStage,
 )
-from py_entry.Test.shared import (
-    make_backtest_params,
-    make_data_generation_params,
-    make_engine_settings,
-)
+from py_entry.data_generator import DataGenerationParams
 
 from .. import register_strategy
 from ..base import StrategyConfig
 from .config import CONFIG as C
 from .btp import ReversalExtremeBtp
+
+BASE_DATA_KEY = f"ohlcv_{C.timeframe}"
 
 
 @register_strategy("reversal_extreme")
@@ -31,18 +31,18 @@ def get_config() -> StrategyConfig:
     """返回极端反手策略配置"""
 
     # 数据配置 - 使用共享参数
-    data_config = make_data_generation_params(
+    data_config = DataGenerationParams(
         timeframes=[C.timeframe],
-        start_time_ms=C.start_time,
+        start_time=C.start_time,
         num_bars=C.num_bars,
         fixed_seed=C.fixed_seed,
-        base_data_key=f"ohlcv_{C.timeframe}",
+        base_data_key=BASE_DATA_KEY,
         allow_gaps=C.allow_gaps,  # 使用统一配置
     )
 
     # 指标参数 - 使用共享参数
     indicators_params = {
-        f"ohlcv_{C.timeframe}": {
+        BASE_DATA_KEY: {
             "bbands": {
                 "period": Param(C.bbands_period),
                 "std": Param(C.bbands_std),
@@ -53,7 +53,7 @@ def get_config() -> StrategyConfig:
     signal_params = {}
 
     # 回测参数 - 使用共享参数
-    backtest_params = make_backtest_params(
+    backtest_params = BacktestParams(
         initial_capital=C.initial_capital,
         fee_fixed=C.fee_fixed,
         fee_pct=C.fee_pct,
@@ -75,31 +75,27 @@ def get_config() -> StrategyConfig:
     # 信号模板
     entry_long_group = SignalGroup(
         logic=LogicOp.AND,
-        comparisons=[
-            f"close, ohlcv_{C.timeframe}, 0 x> bbands_middle, ohlcv_{C.timeframe}, 0"
-        ],
+        comparisons=[f"close, {BASE_DATA_KEY}, 0 x> bbands_middle, {BASE_DATA_KEY}, 0"],
     )
 
     entry_short_group = SignalGroup(
         logic=LogicOp.AND,
-        comparisons=[
-            f"close, ohlcv_{C.timeframe}, 0 x< bbands_middle, ohlcv_{C.timeframe}, 0"
-        ],
+        comparisons=[f"close, {BASE_DATA_KEY}, 0 x< bbands_middle, {BASE_DATA_KEY}, 0"],
     )
 
     exit_long_group = SignalGroup(
         logic=LogicOp.OR,
         comparisons=[
-            f"close, ohlcv_{C.timeframe}, 0 x> bbands_upper, ohlcv_{C.timeframe}, 0",
-            f"close, ohlcv_{C.timeframe}, 0 x< bbands_middle, ohlcv_{C.timeframe}, 0",  # Reversal
+            f"close, {BASE_DATA_KEY}, 0 x> bbands_upper, {BASE_DATA_KEY}, 0",
+            f"close, {BASE_DATA_KEY}, 0 x< bbands_middle, {BASE_DATA_KEY}, 0",  # Reversal
         ],
     )
 
     exit_short_group = SignalGroup(
         logic=LogicOp.OR,
         comparisons=[
-            f"close, ohlcv_{C.timeframe}, 0 x< bbands_lower, ohlcv_{C.timeframe}, 0",
-            f"close, ohlcv_{C.timeframe}, 0 x> bbands_middle, ohlcv_{C.timeframe}, 0",  # Reversal
+            f"close, {BASE_DATA_KEY}, 0 x< bbands_lower, {BASE_DATA_KEY}, 0",
+            f"close, {BASE_DATA_KEY}, 0 x> bbands_middle, {BASE_DATA_KEY}, 0",  # Reversal
         ],
     )
 
@@ -110,7 +106,7 @@ def get_config() -> StrategyConfig:
         exit_short=exit_short_group,
     )
 
-    engine_settings = make_engine_settings(
+    engine_settings = SettingContainer(
         execution_stage=ExecutionStage.Performance,
         return_only_final=False,
     )

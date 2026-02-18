@@ -2,10 +2,10 @@ import pytest
 import numpy as np
 import polars as pl
 from py_entry.data_generator import (
+    DataGenerationParams,
     generate_data_dict,
     generate_multi_timeframe_ohlcv,
 )
-from py_entry.Test.shared import make_data_generation_params
 
 
 @pytest.fixture(scope="module")
@@ -29,9 +29,9 @@ def basic_num_bars():
 @pytest.fixture(scope="module")
 def data_generation_params(basic_timeframes, basic_start_time, basic_num_bars):
     """数据生成参数配置"""
-    return make_data_generation_params(
+    return DataGenerationParams(
         timeframes=basic_timeframes,
-        start_time_ms=basic_start_time,
+        start_time=basic_start_time,
         num_bars=basic_num_bars,
         base_data_key="ohlcv_15m",
     )

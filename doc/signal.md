@@ -261,7 +261,7 @@ SignalGroup(
 
 ## 4. 信号生成输出
 
-`BacktestRunner.run()` 执行完成后，信号生成器会返回一个 `DataFrame`，其中包含以下固定列：
+`Backtest.run()` 执行完成后，信号生成器会返回一个 `DataFrame`，其中包含以下固定列：
 
 | 列名 | 类型 | 描述 |
 | :--- | :--- | :--- |

@@ -9,10 +9,10 @@ from py_entry.types import (
     SignalGroup,
     LogicOp,
 )
+from py_entry.data_generator import DataGenerationParams
 from py_entry.Test.shared import (
     make_backtest_params,
     make_backtest_runner,
-    make_data_generation_params,
     make_engine_settings,
 )
 
@@ -21,8 +21,9 @@ from py_entry.Test.shared import (
 def sensitivity_setup():
     """Setup a basic backtest instance for testing"""
     # 1. Setup Data Source (Simulated)
-    data_config = make_data_generation_params(
+    data_config = DataGenerationParams(
         timeframes=["15m"],
+        start_time=1735689600000,
         num_bars=5000,  # Small number for fast tests
         fixed_seed=42,
         base_data_key="ohlcv_15m",
@@ -119,8 +120,9 @@ def test_different_seeds_different_results(sensitivity_setup):
 def test_no_optimizable_params(sensitivity_setup):
     """Test that error is raised when no params are optimizable"""
     # Create backtest with NO optimizable params
-    data_config = make_data_generation_params(
+    data_config = DataGenerationParams(
         timeframes=["15m"],
+        start_time=1735689600000,
         num_bars=100,
         fixed_seed=42,
         base_data_key="ohlcv_15m",

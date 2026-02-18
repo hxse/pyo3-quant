@@ -7,7 +7,7 @@
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, Type
 
-from py_entry.data_generator import DataGenerationParams
+from py_entry.data_generator import DataSourceConfig
 from py_entry.types import (
     BacktestParams,
     SignalTemplate,
@@ -30,7 +30,7 @@ class StrategyConfig:
     Attributes:
         name: 策略唯一标识符（用于测试报告）
         description: 描述
-        data_config: 数据生成参数
+        data_config: 数据源配置（支持模拟/拉取/直喂）
         indicators_params: 指标参数
         signal_params: 信号参数
         backtest_params: 回测参数
@@ -42,7 +42,7 @@ class StrategyConfig:
 
     name: str
     description: str
-    data_config: DataGenerationParams
+    data_config: DataSourceConfig
     indicators_params: IndicatorsParams
     signal_params: SignalParams
     backtest_params: BacktestParams

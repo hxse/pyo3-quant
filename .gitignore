@@ -12,6 +12,14 @@ source_ref/ta-lib/
 source_ref/example_source/
 
 py_entry/example/data
+# private_strategies 默认不上传；仅保留 live 桥接骨架文件
+py_entry/private_strategies/*
+!py_entry/private_strategies/__init__.py
+!py_entry/private_strategies/live/
+py_entry/private_strategies/live/*
+!py_entry/private_strategies/live/__init__.py
+!py_entry/private_strategies/live/base.py
+!py_entry/private_strategies/live/example_strategy.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,9 +1,9 @@
 use polars::prelude::*;
 use std::collections::HashMap;
 
+use super::super::registry::Indicator;
 use super::config::BBandsConfig;
 use super::pipeline::bbands_eager;
-use super::super::registry::Indicator;
 use crate::error::{IndicatorError, QuantError};
 use crate::types::Param;
 

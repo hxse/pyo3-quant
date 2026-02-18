@@ -1,5 +1,5 @@
-use super::config::MACDConfig;
 use super::super::utils::null_to_nan_expr;
+use super::config::MACDConfig;
 use crate::backtest_engine::indicators::ema::{ema_expr, EMAConfig};
 use crate::error::QuantError;
 use polars::lazy::dsl::{col, lit, when, Expr};
@@ -83,9 +83,7 @@ pub(crate) fn final_null_to_nan_exprs(config: &MACDConfig) -> (Expr, Expr, Expr)
 }
 
 /// 将 warmup 区间置空。
-pub(crate) fn warmup_mask_exprs(
-    config: &MACDConfig,
-) -> (Expr, Expr, Expr, i64, i64) {
+pub(crate) fn warmup_mask_exprs(config: &MACDConfig) -> (Expr, Expr, Expr, i64, i64) {
     let mut slow_period = config.slow_period;
     let mut fast_period = config.fast_period;
     if slow_period < fast_period {
@@ -118,5 +116,11 @@ pub(crate) fn warmup_mask_exprs(
         .cast(DataType::Float64)
         .alias(&config.signal_alias);
 
-    (mask_macd_before_slow, mask_macd, mask_signal, total_lookback, slow_ema_lookback)
+    (
+        mask_macd_before_slow,
+        mask_macd,
+        mask_signal,
+        total_lookback,
+        slow_ema_lookback,
+    )
 }

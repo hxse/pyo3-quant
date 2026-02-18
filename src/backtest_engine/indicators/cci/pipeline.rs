@@ -47,5 +47,8 @@ pub fn cci_eager(ohlcv_df: &DataFrame, config: &CCIConfig) -> Result<Series, Qua
         .collect()
         .map_err(QuantError::from)?;
 
-    Ok(df.column(&config.alias_name)?.as_materialized_series().clone())
+    Ok(df
+        .column(&config.alias_name)?
+        .as_materialized_series()
+        .clone())
 }

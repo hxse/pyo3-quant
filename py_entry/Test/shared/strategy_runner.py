@@ -8,7 +8,7 @@
 from typing import Any
 
 from py_entry.runner import Backtest
-from py_entry.Test.backtest.strategies.base import StrategyConfig
+from py_entry.strategies.base import StrategyConfig
 
 
 def run_strategy_backtest(

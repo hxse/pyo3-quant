@@ -8,7 +8,7 @@ from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 
 
 @dataclass
-class StrategyConfig:
+class ReversalExtremeParams:
     """策略共享参数"""
 
     # ========== 数据配置 ==========
@@ -25,7 +25,7 @@ class StrategyConfig:
 
     # ========== 风控参数 ==========
     sl_pct: float = 0.02  # 2% 止损
-    tp_atr: float = 3.0  # 4×ATR 止盈
+    tp_atr: float = 3.0  # 3×ATR 止盈
     tsl_atr: float = 2.0  # 2.0×ATR 跟踪止损 (Relaxed for correlation stability)
 
     # ========== 引擎特性 (pyo3) ==========
@@ -49,8 +49,8 @@ class StrategyConfig:
     fee_fixed: float = 0.0
     fee_pct: float = 0.001
 
-    equity_cutoff_ratio: float = 0.10  # 20% equity cutoff for correlation test
+    equity_cutoff_ratio: float = 0.10  # 10% equity cutoff for correlation test
 
 
 # 默认配置实例
-CONFIG = StrategyConfig()
+CONFIG = ReversalExtremeParams()

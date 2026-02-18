@@ -26,7 +26,8 @@
 
 ### 1.2 参数与注入
 
-- **策略参数接口** (`get_strategy_params`) 特殊：支持返回列表（`List[Callable]`），以支持多策略（但在当前版本建议每个 Bot 实例仅用于单品种单策略）。
+- **策略参数接口** (`get_strategy_params`) 特殊：返回 `List[StrategyParams]`，语义是“多品种策略条目列表”。
+- **硬约束**：列表中不允许出现重复 `symbol`；若同一 symbol 出现多个策略条目，机器人会直接报错并拒绝执行。
 - **其他接口**：均为**单个**函数。
 - **调用方注入**：调用方在实例化机器人时注入所有回调函数。
 
@@ -49,7 +50,7 @@
 
 | 回调 | 签名 | 用途 |
 |------|------|------|
-| `get_strategy_params` | `() → CallbackResult[List[StrategyParams]]` | 返回策略参数（数组形式，每个元素对应一个策略） |
+| `get_strategy_params` | `() → CallbackResult[List[StrategyParams]]` | 返回策略参数（数组形式，每个元素对应一个品种策略条目；不允许同 symbol 重复） |
 | `run_backtest` | `(StrategyParams, DataFrame) → CallbackResult[BacktestData]` | 运行回测获取信号 |
 | `parse_signal` | `(df: DataFrame, params: StrategyParams, index: int = -1) → CallbackResult[SignalState]` | 解析回测结果，支持指定行索引（默认 -1） |
 

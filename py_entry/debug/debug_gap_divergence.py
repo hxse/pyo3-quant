@@ -14,7 +14,7 @@ from py_entry.Test.backtest.correlation_analysis.config import CommonConfig
 from py_entry.Test.backtest.correlation_analysis.data_utils import (
     generate_ohlcv_for_backtestingpy,
 )
-from py_entry.Test.backtest.strategies.reversal_extreme.btp import ReversalExtremeBtp
+from py_entry.strategies.reversal_extreme.btp import ReversalExtremeBtp
 from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 
 

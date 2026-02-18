@@ -13,7 +13,9 @@ from py_entry.types import (
     SignalGroup,
     SignalTemplate,
 )
-from py_entry.Test.shared import make_data_generation_params, make_engine_settings
+from py_entry.data_generator import DataGenerationParams
+from py_entry.Test.shared import make_engine_settings
+from py_entry.Test.shared.constants import TEST_START_TIME_MS
 
 
 def _build_minimal_runner(
@@ -27,8 +29,9 @@ def _build_minimal_runner(
     base_key = f"ohlcv_{timeframe}"
 
     # 这里固定 seed，确保回归测试结果稳定可复现。
-    data_source = make_data_generation_params(
+    data_source = DataGenerationParams(
         timeframes=[timeframe],
+        start_time=TEST_START_TIME_MS,
         num_bars=num_bars,
         fixed_seed=7,
         base_data_key=base_key,

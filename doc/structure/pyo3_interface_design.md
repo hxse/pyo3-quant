@@ -202,6 +202,24 @@
 1. `walk_forward` 在 Rust 内部直接调用同一套切片函数，不通过 PyO3 往返调用。
 2. Python 侧暴露该函数仅用于测试与调试（例如构造最小复现、验证窗口切片正确性）。
 
+#### D. WF 完整产物接口（已落地）
+
+当前已直接通过以下接口返回完整产物：
+
+1. `run_walk_forward(...) -> WalkForwardResult`
+   - 语义：返回 `window_results[] + stitched_result` 的完整对象。
+2. 相关类型：
+   - `WalkForwardResult`
+   - `WindowArtifact`
+   - `StitchedArtifact`
+   - `NextWindowHint`
+
+说明：
+
+1. 时间字段统一返回 UTC 毫秒时间戳。
+2. 日期字符串转换留在 Python 展示层。
+3. 返回结构遵循 `doc/optimizer/walk_forward_artifacts_architecture.md` 的最小字段表。
+
 ---
 
 ## 3. 类型系统设计
@@ -227,7 +245,7 @@
 
 - `BacktestSummary`
 - `OptimizationResult` / `RoundSummary` / `SamplePoint`
-- `WalkForwardResult` / `WindowResult`
+- `WalkForwardResult` / `WindowArtifact` / `StitchedArtifact` / `NextWindowHint`
 - `SensitivityResult` / `SensitivitySample`
 
 ### 3.3 枚举类型
@@ -273,6 +291,62 @@
 - 若入口函数报 `TypeError`，优先核对以上对象的构造签名与字段类型。
 - 若行为不符合预期，优先检查 `SingleParamSet` 内四个容器字段是否都已正确落值。
 
+---
+
+## 4. 错误体系与 PyO3 映射（当前实现）
+
+Rust 统一错误入口：
+
+1. `QuantError`（`src/error/quant_error.rs`）
+2. 子错误：
+   - `BacktestError`
+   - `IndicatorError`
+   - `SignalError`
+   - `OptimizerError`
+
+PyO3 转换入口：
+
+1. `impl From<QuantError> for PyErr`（`src/error/py_interface.rs`）
+2. 子错误各自 `convert_*_error(...)`。
+
+### 4.1 BacktestError -> Python 异常（已实现）
+
+关键映射（示例）：
+
+1. `BacktestError::ValidationError` -> `pyo3_quant.errors.PyValidationError`
+2. `BacktestError::DataValidationError` -> `pyo3_quant.errors.PyDataValidationError`
+3. `BacktestError::MissingColumn` -> `pyo3_quant.errors.PyMissingColumnError`
+4. `BacktestError::ArrayLengthMismatch` -> `pyo3_quant.errors.PyArrayLengthMismatchError`
+
+设计建议（用于 WF 新接口）：
+
+1. 复用现有错误体系，不新建平行异常系统。
+2. WF 拼接失败优先落在 `BacktestError::ValidationError`（或新增更细粒度 variant 后映射到专用异常）。
+3. 错误信息必须包含上下文（函数名/字段名/窗口编号）。
+
+---
+
+## 5. 工具函数 PyO3 暴露策略（测试与调试优先）
+
+原则：
+
+1. 生产链路在 Rust 内部直接调用工具函数。
+2. Python 暴露用于测试/调试/最小复现，不改变生产执行路径。
+
+已暴露：
+
+1. `data_ops.build_time_mapping`
+2. `data_ops.slice_data_container`
+3. `data_ops.slice_backtest_summary(...)`
+4. `data_ops.concat_backtest_summaries(...)`
+5. `data_ops.rebuild_stitched_capital_columns(...)`
+
+这些函数暴露后，Python 侧可直接做：
+
+1. 窗口切片正确性测试
+2. 拼接一致性测试
+3. 资金重建回归测试
+
 ### 3.5 调试索引：核心返回对象字段
 
 1. `BacktestSummary`
@@ -291,28 +365,35 @@
    - `top_k_params: list[SingleParamSet]`
    - `top_k_samples: list[SamplePoint]`
 3. `WalkForwardResult`
-   - `windows: list[WindowResult]`
    - `optimize_metric: OptimizeMetric`
-   - `aggregate_test_metrics: dict[str, float]`
-   - `window_metric_stats: dict[str, MetricDistributionStats]`
-   - `stitched_time: list[int]`
-   - `stitched_equity: list[float]`
-   - `best_window_id: int`
-   - `worst_window_id: int`
-4. `WindowResult`
+   - `window_results: list[WindowArtifact]`
+   - `stitched_result: StitchedArtifact`
+4. `WindowArtifact`
    - `window_id: int`
+   - `time_range: tuple[int, int]`
+   - `bar_range: tuple[int, int]`
+   - `span_ms/span_days/span_months: int/float/float`
+   - `bars: int`
    - `train_range: tuple[int, int]`
    - `transition_range: tuple[int, int]`
    - `test_range: tuple[int, int]`
+   - `data: DataContainer`
+   - `summary: BacktestSummary`
    - `best_params: SingleParamSet`
    - `optimize_metric: OptimizeMetric`
-   - `train_metrics: dict[str, float]`
-   - `test_metrics: dict[str, float]`
-   - `train_test_gap_metrics: dict[str, float]`
-   - `test_times: list[int]`
-   - `test_returns: list[float]`
-   - `history: Optional[list[RoundSummary]]`
-5. `SensitivityResult`
+   - `has_cross_boundary_position: bool`
+5. `StitchedArtifact`
+   - `time_range: tuple[int, int]`
+   - `bar_range: tuple[int, int]`
+   - `span_ms/span_days/span_months: int/float/float`
+   - `bars: int`
+   - `window_count: int`
+   - `first_test_time_ms/last_test_time_ms: int/int`
+   - `rolling_every_days: float`
+   - `next_window_hint: NextWindowHint`
+   - `data: DataContainer`
+   - `summary: BacktestSummary`
+6. `SensitivityResult`
    - `target_metric: str`
    - `original_value: float`
    - `samples: list[SensitivitySample]`
@@ -407,7 +488,7 @@ BacktestParams(None, None, None, None, None, None, None, None, None, None, False
 
 ### 4.4 `data_ops` 当前 `.pyi` 合同（已落地）
 
-1. `build_time_mapping(data_dict: DataContainer, align_to_base_range: bool = True) -> DataContainer`
+1. `build_time_mapping(data_dict: DataContainer, align_to_base_range: bool = False) -> DataContainer`
 2. `slice_data_container(data_dict: DataContainer, start: int, length: int) -> DataContainer`
 3. `is_natural_mapping_column(data_dict: DataContainer, source_key: str) -> bool`
 
@@ -416,6 +497,16 @@ BacktestParams(None, None, None, None, None, None, None, None, None, None, False
 1. `walk_forward` 在 Rust 内部直接复用同一切片逻辑，不通过 PyO3 往返调用。
 2. Python 暴露这三个接口主要用于测试、调试和最小复现。
 3. `align_to_base_range=True` 时，会先按 base 时间范围裁剪其他 source，并额外保留“base_start 前最后一根”用于 `backward asof` 衔接，避免剪过头。
+4. 当前默认值已统一为 `False`（Rust/Python 一致）；这是破坏性默认口径，若需要旧行为必须显式传 `True`。
+
+`align_to_base_range` 模块级使用口径（与策略结构文档对齐）：
+
+1. 三种数据源配置（`DataGenerationParams` / `OhlcvDataFetchConfig` / `DirectDataConfig`）默认统一 `False`。
+2. `private_strategies`（research/live）默认 `False`，保证研究与实盘口径一致，不做隐式裁剪。
+3. `example` 默认 `False`，保持示例行为与主链路一致。
+4. `Test` 默认 `False`，仅“明确验证对齐裁剪行为”的专项测试显式传 `True`。
+5. `trading_bot` 默认沿用策略配置（通常 `False`）；如需裁剪，必须在策略里显式声明，禁止依赖默认值。
+6. 结论：`True` 是显式专项开关，不是常规运行默认。
 
 ---
 

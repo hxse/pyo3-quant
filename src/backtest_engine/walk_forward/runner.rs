@@ -1,20 +1,24 @@
-use crate::backtest_engine::data_ops::slice_data_container_by_base_window;
+use crate::backtest_engine::data_ops::{
+    concat_backtest_summaries, rebuild_capital_columns_for_stitched_backtest,
+    slice_backtest_summary_by_base_window, slice_data_container_by_base_window,
+};
 use crate::backtest_engine::execute_single_backtest;
 use crate::backtest_engine::optimizer::run_optimization;
+use crate::backtest_engine::utils::BacktestContext;
 use crate::backtest_engine::walk_forward::data_splitter::generate_windows;
 use crate::error::{OptimizerError, QuantError};
 use crate::types::WalkForwardConfig;
 use crate::types::{
-    DataContainer, ExecutionStage, MetricDistributionStats, OptimizeMetric, SettingContainer,
-    SingleParamSet, TemplateContainer,
+    DataContainer, ExecutionStage, NextWindowHint, SettingContainer, SingleParamSet,
+    StitchedArtifact, TemplateContainer, WalkForwardResult, WindowArtifact,
 };
-use crate::types::{WalkForwardResult, WindowResult};
 use polars::prelude::*;
 use pyo3::prelude::*;
-use std::cmp::Ordering;
-use std::collections::HashMap;
 
-/// 运行向前滚动优化
+const MS_PER_DAY: f64 = 86_400_000.0;
+const DAYS_PER_MONTH: f64 = 30.44;
+
+/// 运行向前滚动优化（完整产物返回）
 pub fn run_walk_forward(
     data_dict: &DataContainer,
     param: &SingleParamSet,
@@ -22,11 +26,8 @@ pub fn run_walk_forward(
     settings: &SettingContainer,
     config: &WalkForwardConfig,
 ) -> Result<WalkForwardResult, QuantError> {
-    let total_bars = data_dict
-        .source
-        .get(&data_dict.base_data_key)
-        .ok_or(OptimizerError::NoData)?
-        .height();
+    let base_times = extract_base_times(data_dict)?;
+    let total_bars = base_times.len();
 
     let windows = generate_windows(total_bars, config)?;
     if windows.is_empty() {
@@ -35,15 +36,15 @@ pub fn run_walk_forward(
         );
     }
 
-    let mut window_results = Vec::new();
+    // 中文注释：训练优化阶段统一只保留最终绩效，降低并发内存占用。
+    let mut optimize_settings = settings.clone();
+    optimize_settings.execution_stage = ExecutionStage::Performance;
+    optimize_settings.return_only_final = true;
+
+    let mut window_results: Vec<WindowArtifact> = Vec::new();
     let mut prev_top_k: Option<Vec<Vec<f64>>> = None;
 
-    let mut stitched_time: Vec<i64> = Vec::new();
-    let mut stitched_equity: Vec<f64> = Vec::new();
-    let mut last_global_equity = 1.0_f64;
-    let mut last_time: Option<i64> = None;
-
-    for window in windows {
+    for window in &windows {
         let train_len = window.train_range.1 - window.train_range.0;
         let train_data =
             slice_data_container_by_base_window(data_dict, window.train_range.0, train_len)?;
@@ -57,7 +58,13 @@ pub fn run_walk_forward(
             }
         }
 
-        let train_result = run_optimization(&train_data, param, template, settings, &opt_config)?;
+        let train_result = run_optimization(
+            &train_data,
+            param,
+            template,
+            &optimize_settings,
+            &opt_config,
+        )?;
 
         let eval_start = window.transition_range.0;
         let eval_len = window.test_range.1 - window.transition_range.0;
@@ -66,66 +73,91 @@ pub fn run_walk_forward(
 
         let eval_data = slice_data_container_by_base_window(data_dict, eval_start, eval_len)?;
 
+        // 中文注释：第一次评估只需要到回测阶段，拿到完整 indicators/signals/backtest 给二次注入评估使用。
         let mut eval_settings = settings.clone();
-        eval_settings.execution_stage = ExecutionStage::Performance;
+        eval_settings.execution_stage = ExecutionStage::Backtest;
         eval_settings.return_only_final = false;
 
-        let eval_summary = execute_single_backtest(
+        let first_eval_summary = execute_single_backtest(
             &eval_data,
             &train_result.best_params,
             template,
             &eval_settings,
         )?;
 
-        let eval_backtest_df = eval_summary.backtest.ok_or_else(|| {
+        let first_eval_backtest_df = first_eval_summary.backtest.clone().ok_or_else(|| {
             OptimizerError::SamplingFailed(
-                "Walk-forward evaluation requires full backtest dataframe".into(),
+                "Walk-forward first evaluation requires full backtest dataframe".into(),
+            )
+        })?;
+        let first_eval_signals_df = first_eval_summary.signals.clone().ok_or_else(|| {
+            OptimizerError::SamplingFailed(
+                "Walk-forward first evaluation requires full signals dataframe".into(),
             )
         })?;
 
-        let test_backtest_df = eval_backtest_df.slice(transition_len as i64, test_len);
+        let (injected_signals_df, has_cross_boundary_position) = build_injected_signals_for_window(
+            &first_eval_signals_df,
+            &first_eval_backtest_df,
+            transition_len,
+            test_len,
+        )?;
+
+        // 中文注释：第二次评估手动链路，复用第一次 indicators，只替换注入后的 signals。
+        let mut second_ctx = BacktestContext::new();
+        second_ctx.indicator_dfs = first_eval_summary.indicators.clone();
+        second_ctx.signals_df = Some(injected_signals_df);
+        second_ctx.execute_backtest_if_needed(
+            ExecutionStage::Backtest,
+            false,
+            &eval_data,
+            &train_result.best_params.backtest,
+        )?;
+        let second_eval_summary = second_ctx.into_summary(false, ExecutionStage::Backtest);
+
+        // 中文注释：窗口级对象只保留 test 段，summary 切片后强制重算 performance。
         let test_data =
             slice_data_container_by_base_window(data_dict, window.test_range.0, test_len)?;
+        let mut test_summary = slice_backtest_summary_by_base_window(
+            &second_eval_summary,
+            &eval_data,
+            transition_len,
+            test_len,
+        )?;
+
+        let test_backtest_df = test_summary.backtest.as_ref().ok_or_else(|| {
+            OptimizerError::SamplingFailed(
+                "Walk-forward test summary requires full backtest dataframe".into(),
+            )
+        })?;
+        validate_window_capital_series(test_backtest_df)?;
 
         let test_metrics = crate::backtest_engine::performance_analyzer::analyze_performance(
             &test_data,
-            &test_backtest_df,
-            &train_result.best_params.performance,
+            test_backtest_df,
+            &param.performance,
         )?;
+        test_summary.performance = Some(test_metrics);
 
-        let train_test_gap_metrics =
-            build_train_test_gap_metrics(&train_result.metrics, &test_metrics);
+        let (time_range, span_ms, span_days, span_months, bars) =
+            build_range_identity(&test_data, window.test_range)?;
 
-        let test_times = extract_base_times(&eval_data)?
-            .into_iter()
-            .skip(transition_len)
-            .take(test_len)
-            .collect::<Vec<_>>();
-        let test_equity = extract_equity_series(&test_backtest_df)?;
-        let test_returns = compute_returns_from_equity(&test_equity);
-
-        append_to_stitched_curve(
-            &test_times,
-            &test_equity,
-            &mut stitched_time,
-            &mut stitched_equity,
-            &mut last_global_equity,
-            &mut last_time,
-        )?;
-
-        window_results.push(WindowResult {
+        window_results.push(WindowArtifact {
+            data: test_data,
+            summary: test_summary,
+            time_range,
+            bar_range: window.test_range,
+            span_ms,
+            span_days,
+            span_months,
+            bars,
             window_id: window.id,
             train_range: window.train_range,
             transition_range: window.transition_range,
             test_range: window.test_range,
             best_params: train_result.best_params,
             optimize_metric: config.optimizer_config.optimize_metric,
-            train_metrics: train_result.metrics,
-            test_metrics,
-            train_test_gap_metrics,
-            test_times,
-            test_returns,
-            history: Some(train_result.history.clone()),
+            has_cross_boundary_position,
         });
 
         let current_top_k: Vec<Vec<f64>> = train_result
@@ -138,146 +170,163 @@ pub fn run_walk_forward(
         println!("Window {} Finished.", window.id);
     }
 
-    let aggregate_test_metrics =
-        compute_stitched_aggregate_metrics(&stitched_time, &stitched_equity);
-    let window_metric_stats = compute_window_metric_stats(&window_results);
-    let (best_window_id, worst_window_id) =
-        select_best_worst_window(&window_results, config.optimizer_config.optimize_metric)?;
+    let stitched_result =
+        build_stitched_artifact(data_dict, param, &base_times, &windows, &window_results)?;
 
     Ok(WalkForwardResult {
-        windows: window_results,
         optimize_metric: config.optimizer_config.optimize_metric,
-        aggregate_test_metrics,
-        window_metric_stats,
-        stitched_time,
-        stitched_equity,
-        best_window_id,
-        worst_window_id,
+        window_results,
+        stitched_result,
     })
 }
 
-fn select_best_worst_window(
-    windows: &[WindowResult],
-    optimize_metric: OptimizeMetric,
-) -> Result<(usize, usize), QuantError> {
-    let key = optimize_metric.as_str();
-    let mut scored: Vec<(usize, f64)> = windows
-        .iter()
-        .map(|w| {
-            let score = w
-                .test_metrics
-                .get(key)
-                .copied()
-                .or_else(|| w.test_metrics.get("total_return").copied())
-                .unwrap_or(0.0);
-            (w.window_id, score)
-        })
-        .collect();
-
-    if scored.is_empty() {
-        return Err(OptimizerError::SamplingFailed("No windows for scoring".into()).into());
-    }
-
-    scored.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
-    let worst = scored
+fn build_stitched_artifact(
+    data_dict: &DataContainer,
+    param: &SingleParamSet,
+    base_times: &[i64],
+    windows: &[crate::backtest_engine::walk_forward::data_splitter::WindowSpec],
+    window_results: &[WindowArtifact],
+) -> Result<StitchedArtifact, QuantError> {
+    let first = windows
         .first()
-        .map(|x| x.0)
-        .ok_or_else(|| OptimizerError::SamplingFailed("No worst window".into()))?;
-    let best = scored
+        .ok_or_else(|| OptimizerError::InvalidConfig("no windows".into()))?;
+    let last = windows
         .last()
-        .map(|x| x.0)
-        .ok_or_else(|| OptimizerError::SamplingFailed("No best window".into()))?;
+        .ok_or_else(|| OptimizerError::InvalidConfig("no windows".into()))?;
 
-    Ok((best, worst))
+    let stitched_start = first.test_range.0;
+    let stitched_end = last.test_range.1;
+    let stitched_len = stitched_end - stitched_start;
+
+    let stitched_data =
+        slice_data_container_by_base_window(data_dict, stitched_start, stitched_len)?;
+    let stitched_times = extract_base_times(&stitched_data)?;
+    assert_time_strictly_increasing(&stitched_times)?;
+
+    let summaries: Vec<crate::types::BacktestSummary> =
+        window_results.iter().map(|w| w.summary.clone()).collect();
+    let mut stitched_summary = concat_backtest_summaries(&summaries)?;
+
+    let stitched_backtest_local = stitched_summary.backtest.as_ref().ok_or_else(|| {
+        OptimizerError::SamplingFailed("stitched summary missing backtest dataframe".into())
+    })?;
+    if stitched_backtest_local.height() != stitched_len {
+        return Err(OptimizerError::InvalidConfig(format!(
+            "stitched backtest length mismatch: backtest={}, expected={}",
+            stitched_backtest_local.height(),
+            stitched_len
+        ))
+        .into());
+    }
+
+    let rebuilt_backtest = rebuild_capital_columns_for_stitched_backtest(
+        stitched_backtest_local,
+        param.backtest.initial_capital,
+    )?;
+    let stitched_metrics = crate::backtest_engine::performance_analyzer::analyze_performance(
+        &stitched_data,
+        &rebuilt_backtest,
+        &param.performance,
+    )?;
+
+    stitched_summary.backtest = Some(rebuilt_backtest);
+    stitched_summary.performance = Some(stitched_metrics);
+
+    let time_range = (
+        *stitched_times
+            .first()
+            .ok_or_else(|| OptimizerError::InvalidConfig("stitched time empty".into()))?,
+        *stitched_times
+            .last()
+            .ok_or_else(|| OptimizerError::InvalidConfig("stitched time empty".into()))?,
+    );
+    let span_ms = time_range.1 - time_range.0;
+    let span_days = span_ms as f64 / MS_PER_DAY;
+    let span_months = span_days / DAYS_PER_MONTH;
+
+    let next_window_hint = build_next_window_hint(base_times, windows)?;
+    let rolling_every_days = next_window_hint.eta_days;
+
+    Ok(StitchedArtifact {
+        data: stitched_data,
+        summary: stitched_summary,
+        time_range,
+        bar_range: (stitched_start, stitched_end),
+        span_ms,
+        span_days,
+        span_months,
+        bars: stitched_len,
+        window_count: windows.len(),
+        first_test_time_ms: time_range.0,
+        last_test_time_ms: time_range.1,
+        rolling_every_days,
+        next_window_hint,
+    })
 }
 
-fn compute_window_metric_stats(
-    windows: &[WindowResult],
-) -> HashMap<String, MetricDistributionStats> {
-    let mut metric_values: HashMap<String, Vec<f64>> = HashMap::new();
+fn build_next_window_hint(
+    base_times: &[i64],
+    windows: &[crate::backtest_engine::walk_forward::data_splitter::WindowSpec],
+) -> Result<NextWindowHint, QuantError> {
+    let last_window = windows
+        .last()
+        .ok_or_else(|| OptimizerError::InvalidConfig("no windows".into()))?;
 
-    for window in windows {
-        for (k, v) in &window.test_metrics {
-            metric_values.entry(k.clone()).or_default().push(*v);
-        }
-    }
+    let train_start = time_at(base_times, last_window.train_range.0)?;
+    let train_end = time_at(base_times, last_window.train_range.1 - 1)?;
+    let transition_start = time_at(base_times, last_window.transition_range.0)?;
+    let transition_end = time_at(base_times, last_window.transition_range.1 - 1)?;
+    let test_start = time_at(base_times, last_window.test_range.0)?;
+    let test_end = time_at(base_times, last_window.test_range.1 - 1)?;
 
-    metric_values
-        .into_iter()
-        .map(|(k, values)| (k, summarize_distribution(&values)))
-        .collect()
+    let train_span_ms = (train_end - train_start).max(0);
+    let transition_span_ms = (transition_end - transition_start).max(0);
+    let rolling_span_ms = (test_end - test_start).max(0);
+
+    let expected_test_start_time_ms = test_end;
+    let expected_test_end_time_ms = test_end + rolling_span_ms;
+    let expected_transition_start_time_ms = expected_test_start_time_ms - transition_span_ms;
+    let expected_train_start_time_ms = expected_transition_start_time_ms - train_span_ms;
+    let expected_window_ready_time_ms = expected_test_end_time_ms;
+    let eta_days = rolling_span_ms as f64 / MS_PER_DAY;
+
+    Ok(NextWindowHint {
+        expected_train_start_time_ms,
+        expected_transition_start_time_ms,
+        expected_test_start_time_ms,
+        expected_test_end_time_ms,
+        expected_window_ready_time_ms,
+        eta_days,
+        based_on_window_id: last_window.id,
+    })
 }
 
-fn summarize_distribution(values: &[f64]) -> MetricDistributionStats {
-    if values.is_empty() {
-        return MetricDistributionStats {
-            mean: 0.0,
-            median: 0.0,
-            std: 0.0,
-            min: 0.0,
-            max: 0.0,
-            p05: 0.0,
-            p95: 0.0,
-        };
-    }
-
-    let n = values.len() as f64;
-    let mean = values.iter().sum::<f64>() / n;
-    let var = if values.len() > 1 {
-        values
-            .iter()
-            .map(|v| {
-                let d = *v - mean;
-                d * d
-            })
-            .sum::<f64>()
-            / n
-    } else {
-        0.0
-    };
-
-    let mut sorted = values.to_vec();
-    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-
-    MetricDistributionStats {
-        mean,
-        median: percentile_linear(&sorted, 0.50),
-        std: var.sqrt(),
-        min: *sorted.first().unwrap_or(&0.0),
-        max: *sorted.last().unwrap_or(&0.0),
-        p05: percentile_linear(&sorted, 0.05),
-        p95: percentile_linear(&sorted, 0.95),
-    }
+fn time_at(times: &[i64], idx: usize) -> Result<i64, QuantError> {
+    times.get(idx).copied().ok_or_else(|| {
+        OptimizerError::InvalidConfig(format!(
+            "time index out of bounds: idx={idx}, len={}",
+            times.len()
+        ))
+        .into()
+    })
 }
 
-fn percentile_linear(sorted: &[f64], p: f64) -> f64 {
-    if sorted.is_empty() {
-        return 0.0;
-    }
-    if sorted.len() == 1 {
-        return sorted[0];
-    }
-
-    let rank = p.clamp(0.0, 1.0) * (sorted.len() as f64 - 1.0);
-    let lo = rank.floor() as usize;
-    let hi = rank.ceil() as usize;
-    if lo == hi {
-        return sorted[lo];
-    }
-    let weight = rank - lo as f64;
-    sorted[lo] * (1.0 - weight) + sorted[hi] * weight
-}
-
-fn build_train_test_gap_metrics(
-    train_metrics: &HashMap<String, f64>,
-    test_metrics: &HashMap<String, f64>,
-) -> HashMap<String, f64> {
-    let mut gap = HashMap::new();
-    for (k, test_val) in test_metrics {
-        let train_val = train_metrics.get(k).copied().unwrap_or(0.0);
-        gap.insert(k.clone(), train_val - test_val);
-    }
-    gap
+fn build_range_identity(
+    data: &DataContainer,
+    bar_range: (usize, usize),
+) -> Result<((i64, i64), i64, f64, f64, usize), QuantError> {
+    let base_times = extract_base_times(data)?;
+    let start = *base_times
+        .first()
+        .ok_or_else(|| OptimizerError::InvalidConfig("base times empty".into()))?;
+    let end = *base_times
+        .last()
+        .ok_or_else(|| OptimizerError::InvalidConfig("base times empty".into()))?;
+    let span_ms = end - start;
+    let span_days = span_ms as f64 / MS_PER_DAY;
+    let span_months = span_days / DAYS_PER_MONTH;
+    let bars = bar_range.1 - bar_range.0;
+    Ok(((start, end), span_ms, span_days, span_months, bars))
 }
 
 fn extract_base_times(data: &DataContainer) -> Result<Vec<i64>, QuantError> {
@@ -289,149 +338,177 @@ fn extract_base_times(data: &DataContainer) -> Result<Vec<i64>, QuantError> {
 
     let mut out = Vec::with_capacity(time_col.len());
     for v in time_col.into_iter() {
-        out.push(v.unwrap_or(0));
+        let ts = v.ok_or_else(|| {
+            OptimizerError::InvalidConfig("base time column contains null".into())
+        })?;
+        out.push(ts);
     }
     Ok(out)
 }
 
-fn extract_equity_series(backtest_df: &DataFrame) -> Result<Vec<f64>, QuantError> {
-    let equity_col = backtest_df.column("equity")?.f64()?;
-    let mut out = Vec::with_capacity(equity_col.len());
-    for v in equity_col.into_iter() {
-        out.push(v.unwrap_or(0.0));
+fn assert_time_strictly_increasing(times: &[i64]) -> Result<(), QuantError> {
+    if times.is_empty() {
+        return Err(OptimizerError::InvalidConfig("stitched time is empty".into()).into());
     }
-    Ok(out)
-}
-
-fn compute_returns_from_equity(equity: &[f64]) -> Vec<f64> {
-    if equity.len() < 2 {
-        return Vec::new();
-    }
-    let mut out = Vec::with_capacity(equity.len() - 1);
-    for i in 1..equity.len() {
-        let prev = equity[i - 1];
-        let curr = equity[i];
-        if prev > 0.0 {
-            out.push(curr / prev - 1.0);
-        } else {
-            out.push(0.0);
+    for i in 1..times.len() {
+        if times[i] <= times[i - 1] {
+            return Err(OptimizerError::InvalidConfig(format!(
+                "stitched time must be strictly increasing: idx={} {} <= {}",
+                i,
+                times[i],
+                times[i - 1]
+            ))
+            .into());
         }
     }
-    out
+    Ok(())
 }
 
-fn append_to_stitched_curve(
-    test_times: &[i64],
-    test_equity: &[f64],
-    stitched_time: &mut Vec<i64>,
-    stitched_equity: &mut Vec<f64>,
-    last_global_equity: &mut f64,
-    last_time: &mut Option<i64>,
-) -> Result<(), QuantError> {
-    if test_times.len() != test_equity.len() {
+fn validate_window_capital_series(backtest_df: &DataFrame) -> Result<(), QuantError> {
+    let equity = backtest_df.column("equity")?.f64()?;
+    if equity.is_empty() {
+        return Err(OptimizerError::InvalidConfig("test equity is empty".into()).into());
+    }
+    for (idx, v) in equity.into_iter().enumerate() {
+        let value = v.unwrap_or(f64::NAN);
+        validate_capital_value(value, idx)?;
+    }
+    Ok(())
+}
+
+fn validate_capital_value(v: f64, idx: usize) -> Result<(), QuantError> {
+    if !v.is_finite() {
+        return Err(
+            OptimizerError::InvalidConfig(format!("equity non-finite at idx={idx}: {v}")).into(),
+        );
+    }
+    if v < 0.0 {
+        return Err(
+            OptimizerError::InvalidConfig(format!("equity negative at idx={idx}: {v}")).into(),
+        );
+    }
+    Ok(())
+}
+
+fn build_injected_signals_for_window(
+    signals_df: &DataFrame,
+    backtest_df: &DataFrame,
+    transition_len: usize,
+    test_len: usize,
+) -> Result<(DataFrame, bool), QuantError> {
+    if transition_len < 2 {
         return Err(OptimizerError::InvalidConfig(
-            "test_times and test_equity length mismatch".into(),
+            "transition_len must be >= 2 for boundary signal injection".into(),
+        )
+        .into());
+    }
+    if test_len < 2 {
+        return Err(OptimizerError::InvalidConfig(
+            "test_len must be >= 2 for boundary signal injection".into(),
         )
         .into());
     }
 
-    for idx in 0..test_times.len() {
-        let t = test_times[idx];
-        if let Some(prev_t) = *last_time {
-            if t <= prev_t {
-                return Err(OptimizerError::InvalidConfig(format!(
-                    "overlapping or non-increasing test time detected: {} <= {}",
-                    t, prev_t
-                ))
-                .into());
-            }
-        }
-
-        let growth = if idx == 0 {
-            1.0
-        } else {
-            let prev = test_equity[idx - 1];
-            let curr = test_equity[idx];
-            if prev > 0.0 {
-                curr / prev
-            } else {
-                1.0
-            }
-        };
-
-        *last_global_equity *= growth;
-        stitched_time.push(t);
-        stitched_equity.push(*last_global_equity);
-        *last_time = Some(t);
+    let expected_len = transition_len + test_len;
+    if signals_df.height() != expected_len || backtest_df.height() != expected_len {
+        return Err(OptimizerError::InvalidConfig(format!(
+            "eval length mismatch: signals={}, backtest={}, expected={}",
+            signals_df.height(),
+            backtest_df.height(),
+            expected_len
+        ))
+        .into());
     }
 
-    Ok(())
+    let mut entry_long = bool_vec_from_column(signals_df, "entry_long")?;
+    let mut exit_long = bool_vec_from_column(signals_df, "exit_long")?;
+    let mut entry_short = bool_vec_from_column(signals_df, "entry_short")?;
+    let mut exit_short = bool_vec_from_column(signals_df, "exit_short")?;
+
+    // 中文注释：过渡期开仓钳制是强制规则，先清零整个 transition 段进场信号。
+    for i in 0..transition_len {
+        entry_long[i] = false;
+        entry_short[i] = false;
+    }
+
+    let transition_exit_idx = transition_len - 2;
+    let test_exit_idx = transition_len + test_len - 2;
+
+    // 中文注释：离场注入采用全平语义，不依赖当前方向。
+    exit_long[transition_exit_idx] = true;
+    exit_short[transition_exit_idx] = true;
+    exit_long[test_exit_idx] = true;
+    exit_short[test_exit_idx] = true;
+
+    let transition_last_idx = transition_len - 1;
+    let cross_side = detect_cross_boundary_side(backtest_df, transition_last_idx)?;
+    if let Some(ref side) = cross_side {
+        // 中文注释：跨边界持仓只允许同向进场。
+        match side {
+            CrossSide::Long => {
+                entry_long[transition_last_idx] = true;
+                entry_short[transition_last_idx] = false;
+            }
+            CrossSide::Short => {
+                entry_long[transition_last_idx] = false;
+                entry_short[transition_last_idx] = true;
+            }
+        }
+    }
+
+    let mut out = signals_df.clone();
+    out.with_column(Series::new("entry_long".into(), entry_long))?;
+    out.with_column(Series::new("exit_long".into(), exit_long))?;
+    out.with_column(Series::new("entry_short".into(), entry_short))?;
+    out.with_column(Series::new("exit_short".into(), exit_short))?;
+    Ok((out, cross_side.is_some()))
 }
 
-fn compute_stitched_aggregate_metrics(
-    stitched_time: &[i64],
-    stitched_equity: &[f64],
-) -> HashMap<String, f64> {
-    let mut metrics = HashMap::new();
-    if stitched_time.len() < 2 || stitched_equity.len() < 2 {
-        return metrics;
+fn bool_vec_from_column(df: &DataFrame, col_name: &str) -> Result<Vec<bool>, QuantError> {
+    let col = df.column(col_name).map_err(|_| {
+        OptimizerError::InvalidConfig(format!("signals missing required column: {col_name}"))
+    })?;
+    let ca = col.bool().map_err(|_| {
+        OptimizerError::InvalidConfig(format!("signals column must be bool: {col_name}"))
+    })?;
+    Ok(ca.into_iter().map(|v| v.unwrap_or(false)).collect())
+}
+
+enum CrossSide {
+    Long,
+    Short,
+}
+
+fn detect_cross_boundary_side(
+    backtest_df: &DataFrame,
+    boundary_idx: usize,
+) -> Result<Option<CrossSide>, QuantError> {
+    let entry_long = backtest_df.column("entry_long_price")?.f64()?;
+    let exit_long = backtest_df.column("exit_long_price")?.f64()?;
+    let entry_short = backtest_df.column("entry_short_price")?.f64()?;
+    let exit_short = backtest_df.column("exit_short_price")?.f64()?;
+
+    let el = entry_long.get(boundary_idx).unwrap_or(f64::NAN);
+    let xl = exit_long.get(boundary_idx).unwrap_or(f64::NAN);
+    let es = entry_short.get(boundary_idx).unwrap_or(f64::NAN);
+    let xs = exit_short.get(boundary_idx).unwrap_or(f64::NAN);
+
+    let long_cross = !el.is_nan() && xl.is_nan();
+    let short_cross = !es.is_nan() && xs.is_nan();
+
+    if long_cross && short_cross {
+        return Err(OptimizerError::InvalidConfig(format!(
+            "cross-boundary side conflict at idx={boundary_idx}: both long and short active"
+        ))
+        .into());
     }
-
-    let first = stitched_equity[0];
-    let last = stitched_equity[stitched_equity.len() - 1];
-    let total_return = if first > 0.0 { last / first - 1.0 } else { 0.0 };
-
-    let mut peak = stitched_equity[0];
-    let mut max_drawdown = 0.0;
-    for &v in stitched_equity {
-        if v > peak {
-            peak = v;
-        }
-        if peak > 0.0 {
-            let dd = 1.0 - (v / peak);
-            if dd > max_drawdown {
-                max_drawdown = dd;
-            }
-        }
+    if long_cross {
+        return Ok(Some(CrossSide::Long));
     }
-
-    let n = stitched_time.len();
-    let span_ms = (stitched_time[n - 1] - stitched_time[0]) as f64;
-    let ms_per_year = 365.25 * 24.0 * 3600.0 * 1000.0;
-    let span_years = if span_ms > 0.0 {
-        span_ms / ms_per_year
-    } else {
-        0.0
-    };
-    let annualization_factor = if span_years > 0.0 {
-        n as f64 / span_years
-    } else {
-        1.0
-    };
-    let annualized_return = if span_years > 0.0 {
-        (1.0 + total_return).powf(1.0 / span_years) - 1.0
-    } else {
-        total_return
-    };
-
-    let calmar_ratio_raw = if max_drawdown > 0.0 {
-        total_return / max_drawdown
-    } else {
-        0.0
-    };
-    let calmar_ratio = if max_drawdown > 0.0 {
-        annualized_return / max_drawdown
-    } else {
-        0.0
-    };
-
-    metrics.insert("total_return".to_string(), total_return);
-    metrics.insert("max_drawdown".to_string(), max_drawdown);
-    metrics.insert("annualization_factor".to_string(), annualization_factor);
-    metrics.insert("annualized_return".to_string(), annualized_return);
-    metrics.insert("calmar_ratio_raw".to_string(), calmar_ratio_raw);
-    metrics.insert("calmar_ratio".to_string(), calmar_ratio);
-    metrics
+    if short_cross {
+        return Ok(Some(CrossSide::Short));
+    }
+    Ok(None)
 }
 
 use pyo3_stub_gen::derive::*;

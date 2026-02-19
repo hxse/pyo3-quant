@@ -129,6 +129,12 @@ PSAR (Parabolic SAR) 是一种特殊的跟踪止损算法。以下三个参数**
 
 ---
 
+> [!NOTE]
+> **Walk-Forward / 优化器口径建议**：同资产、同周期比较时，优先使用 `calmar_ratio_raw` 作为主排序指标。
+> 原因：`calmar_ratio` 含年化换算，在样本较短时更容易产生放大偏移；`calmar_ratio_raw` 与优化器目标更容易保持一致。
+
+---
+
 ## 6. 参数验证规则
 
 引擎在回测开始前会验证参数有效性（`BacktestParams::validate()` 方法）。

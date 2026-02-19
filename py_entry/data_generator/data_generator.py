@@ -34,6 +34,7 @@ from py_entry.io import (
 def generate_data_dict(
     data_source: DataSourceConfig,
     other_params: OtherParams | None = None,
+    align_to_base_range: bool | None = None,
 ) -> DataContainer:
     """
     生成完整的数据字典
@@ -50,6 +51,7 @@ def generate_data_dict(
     """
     source_dict: dict[str, pl.DataFrame] = {}
     base_data_key: str = ""
+    align_to_base_for_mapping = False
 
     if is_simulated_data(data_source):
         # 使用模拟数据配置生成数据
@@ -82,6 +84,7 @@ def generate_data_dict(
             source_dict[f"ohlcv_{tf}"] = df
 
         base_data_key = simulated_data_config.base_data_key
+        align_to_base_for_mapping = simulated_data_config.align_to_base_range
 
     elif is_fetched_data(data_source):
         # 从服务器获取OHLCV数据
@@ -109,12 +112,15 @@ def generate_data_dict(
                 raise ValueError(f"无法从服务器获取时间周期 {timeframe} 的OHLCV数据")
 
         base_data_key = ohlcv_data_config.base_data_key
+        align_to_base_for_mapping = ohlcv_data_config.align_to_base_range
 
     elif is_predefined_data(data_source):
         # 使用预定义的OHLCV数据
         config = data_source
         source_dict = config.data
         base_data_key = config.base_data_key
+        # 中文注释：DirectDataConfig 可按场景控制是否按 base 时间范围裁剪。
+        align_to_base_for_mapping = config.align_to_base_range
     else:
         raise ValueError("不支持的数据源类型")
 
@@ -152,6 +158,10 @@ def generate_data_dict(
     skip_mask_df = pl.DataFrame(
         {"skip": pl.Series("skip", np.zeros(base_len), dtype=pl.Boolean)}
     )
+    # 中文注释：调用参数优先级高于配置，便于特殊场景临时覆盖。
+    if align_to_base_range is not None:
+        align_to_base_for_mapping = align_to_base_range
+
     # 中文注释：mapping 统一迁移到 Rust 端构建，Python 不再维护 mapping 算法。
     container = DataContainer(
         mapping=pl.DataFrame(),
@@ -159,4 +169,8 @@ def generate_data_dict(
         source=source_dict,
         base_data_key=base_data_key,
     )
-    return pyo3_quant.backtest_engine.data_ops.build_time_mapping(container)
+    # 中文注释：默认按 base 对齐；scanner 等多周期研究场景可关闭保留完整高周期历史。
+    return pyo3_quant.backtest_engine.data_ops.build_time_mapping(
+        container,
+        align_to_base_range=align_to_base_for_mapping,
+    )

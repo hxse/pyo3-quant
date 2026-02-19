@@ -12,7 +12,7 @@ __all__ = [
     "DataContainer",
     "ExecutionStage",
     "LogicOp",
-    "MetricDistributionStats",
+    "NextWindowHint",
     "OptimizationResult",
     "OptimizeMetric",
     "OptimizerConfig",
@@ -29,10 +29,11 @@ __all__ = [
     "SignalGroup",
     "SignalTemplate",
     "SingleParamSet",
+    "StitchedArtifact",
     "TemplateContainer",
     "WalkForwardConfig",
     "WalkForwardResult",
-    "WindowResult",
+    "WindowArtifact",
 ]
 
 @typing.final
@@ -407,24 +408,24 @@ class DataContainer:
     ) -> DataContainer: ...
 
 @typing.final
-class MetricDistributionStats:
+class NextWindowHint:
     r"""
-    统计分布摘要
+    下次窗口时间提示（UTC ms）
     """
     @property
-    def mean(self) -> builtins.float: ...
+    def expected_train_start_time_ms(self) -> builtins.int: ...
     @property
-    def median(self) -> builtins.float: ...
+    def expected_transition_start_time_ms(self) -> builtins.int: ...
     @property
-    def std(self) -> builtins.float: ...
+    def expected_test_start_time_ms(self) -> builtins.int: ...
     @property
-    def min(self) -> builtins.float: ...
+    def expected_test_end_time_ms(self) -> builtins.int: ...
     @property
-    def max(self) -> builtins.float: ...
+    def expected_window_ready_time_ms(self) -> builtins.int: ...
     @property
-    def p05(self) -> builtins.float: ...
+    def eta_days(self) -> builtins.float: ...
     @property
-    def p95(self) -> builtins.float: ...
+    def based_on_window_id(self) -> builtins.int: ...
 
 @typing.final
 class OptimizationResult:
@@ -1078,6 +1079,38 @@ class SingleParamSet:
         """
 
 @typing.final
+class StitchedArtifact:
+    r"""
+    拼接级完整产物
+    """
+    @property
+    def data(self) -> DataContainer: ...
+    @property
+    def summary(self) -> BacktestSummary: ...
+    @property
+    def time_range(self) -> tuple[builtins.int, builtins.int]: ...
+    @property
+    def bar_range(self) -> tuple[builtins.int, builtins.int]: ...
+    @property
+    def span_ms(self) -> builtins.int: ...
+    @property
+    def span_days(self) -> builtins.float: ...
+    @property
+    def span_months(self) -> builtins.float: ...
+    @property
+    def bars(self) -> builtins.int: ...
+    @property
+    def window_count(self) -> builtins.int: ...
+    @property
+    def first_test_time_ms(self) -> builtins.int: ...
+    @property
+    def last_test_time_ms(self) -> builtins.int: ...
+    @property
+    def rolling_every_days(self) -> builtins.float: ...
+    @property
+    def next_window_hint(self) -> NextWindowHint: ...
+
+@typing.final
 class TemplateContainer:
     @property
     def signal(self) -> SignalTemplate: ...
@@ -1153,50 +1186,36 @@ class WalkForwardConfig:
 @typing.final
 class WalkForwardResult:
     r"""
-    整体向前滚动结果
+    向前测试完整结果（破坏性更新）
     """
-    @property
-    def windows(self) -> builtins.list[WindowResult]: ...
     @property
     def optimize_metric(self) -> OptimizeMetric: ...
     @property
-    def aggregate_test_metrics(self) -> builtins.dict[builtins.str, builtins.float]:
-        r"""
-        样本外总体指标（基于拼接后的 OOS equity 曲线）
-        """
+    def window_results(self) -> builtins.list[WindowArtifact]: ...
     @property
-    def window_metric_stats(
-        self,
-    ) -> builtins.dict[builtins.str, MetricDistributionStats]:
-        r"""
-        窗口级测试指标分布统计
-        """
-    @property
-    def stitched_time(self) -> builtins.list[builtins.int]:
-        r"""
-        拼接后样本外资金曲线时间轴（UTC ms）
-        """
-    @property
-    def stitched_equity(self) -> builtins.list[builtins.float]:
-        r"""
-        拼接后样本外资金曲线（起点固定为 1.0）
-        """
-    @property
-    def best_window_id(self) -> builtins.int:
-        r"""
-        测试集表现最优窗口 ID
-        """
-    @property
-    def worst_window_id(self) -> builtins.int:
-        r"""
-        测试集表现最差窗口 ID
-        """
+    def stitched_result(self) -> StitchedArtifact: ...
 
 @typing.final
-class WindowResult:
+class WindowArtifact:
     r"""
-    单窗口优化结果
+    窗口级完整产物
     """
+    @property
+    def data(self) -> DataContainer: ...
+    @property
+    def summary(self) -> BacktestSummary: ...
+    @property
+    def time_range(self) -> tuple[builtins.int, builtins.int]: ...
+    @property
+    def bar_range(self) -> tuple[builtins.int, builtins.int]: ...
+    @property
+    def span_ms(self) -> builtins.int: ...
+    @property
+    def span_days(self) -> builtins.float: ...
+    @property
+    def span_months(self) -> builtins.float: ...
+    @property
+    def bars(self) -> builtins.int: ...
     @property
     def window_id(self) -> builtins.int: ...
     @property
@@ -1206,42 +1225,11 @@ class WindowResult:
     @property
     def test_range(self) -> tuple[builtins.int, builtins.int]: ...
     @property
-    def best_params(self) -> SingleParamSet:
-        r"""
-        最优参数集 (完整结构)
-        """
+    def best_params(self) -> SingleParamSet: ...
     @property
-    def optimize_metric(self) -> OptimizeMetric:
-        r"""
-        优化目标
-        """
+    def optimize_metric(self) -> OptimizeMetric: ...
     @property
-    def train_metrics(self) -> builtins.dict[builtins.str, builtins.float]:
-        r"""
-        训练集指标
-        """
-    @property
-    def test_metrics(self) -> builtins.dict[builtins.str, builtins.float]:
-        r"""
-        测试集指标
-        """
-    @property
-    def train_test_gap_metrics(self) -> builtins.dict[builtins.str, builtins.float]:
-        r"""
-        训练/测试指标差值（train - test）
-        """
-    @property
-    def test_times(self) -> builtins.list[builtins.int]:
-        r"""
-        当前窗口测试期逐 bar 时间戳（UTC ms）
-        """
-    @property
-    def test_returns(self) -> builtins.list[builtins.float]:
-        r"""
-        当前窗口测试期逐 bar 收益率序列
-        """
-    @property
-    def history(self) -> typing.Optional[builtins.list[RoundSummary]]: ...
+    def has_cross_boundary_position(self) -> builtins.bool: ...
 
 @typing.final
 class BenchmarkFunction(enum.Enum):

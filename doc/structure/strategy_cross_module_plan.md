@@ -50,6 +50,15 @@
 3. 仅 `enabled=True` 的 live 策略进入执行链路。
 4. 机器人应当定义为：支持多品种，但同一 `symbol` 仅允许一个策略（硬约束）。
 
+### 2.6 `align_to_base_range` 模块级规则
+
+1. 全局默认值统一为 `False`（`DataGenerationParams` / `OhlcvDataFetchConfig` / `DirectDataConfig` 一致），避免隐式裁剪导致高周期数据长度意外变短。
+2. `private_strategies`（research/live）默认使用 `False`，保证研究与实盘看到的是原始数据覆盖范围。
+3. `example` 默认使用 `False`，确保示例行为与主流程一致，不引入隐藏对齐裁剪副作用。
+4. `Test` 默认使用 `False`，仅在“明确要验证 base 对齐裁剪行为”的专项测试里显式传 `True`。
+5. `trading_bot` 侧默认沿用策略配置的 `False` 口径；如需对齐裁剪，必须在策略中显式声明，不允许依赖默认值。
+6. 规则总结：`True` 只用于“刻意验证/刻意裁剪”的显式场景，不能作为常规配置。
+
 ## 3. live 注册机制（当前实现）
 
 1. `@register_live_strategy(name)` 只做函数标记，不直接写注册表。

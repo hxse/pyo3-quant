@@ -1,5 +1,5 @@
 use crate::error::QuantError;
-use crate::types::DataContainer;
+use crate::types::{BacktestSummary, DataContainer, IndicatorResults};
 use polars::prelude::*;
 use pyo3::prelude::*;
 use pyo3_stub_gen::derive::*;
@@ -234,6 +234,300 @@ pub fn slice_data_container_by_base_window(
     })
 }
 
+fn validate_slice_bounds(
+    height: usize,
+    start: usize,
+    len: usize,
+    name: &str,
+) -> Result<(), QuantError> {
+    if len == 0 {
+        return Err(QuantError::InvalidParam(format!(
+            "{name} 切片长度 len 必须 > 0"
+        )));
+    }
+    if start >= height || start + len > height {
+        return Err(QuantError::InvalidParam(format!(
+            "{name} 切片越界: height={height}, start={start}, len={len}"
+        )));
+    }
+    Ok(())
+}
+
+fn schemas_equal(left: &DataFrame, right: &DataFrame) -> bool {
+    if left.width() != right.width() {
+        return false;
+    }
+    let l_names = left.get_column_names();
+    let r_names = right.get_column_names();
+    if l_names != r_names {
+        return false;
+    }
+    let l_dtypes = left.dtypes();
+    let r_dtypes = right.dtypes();
+    l_dtypes == r_dtypes
+}
+
+fn vstack_dfs_strict(dfs: &[DataFrame], name: &str) -> Result<DataFrame, QuantError> {
+    let first = dfs
+        .first()
+        .ok_or_else(|| QuantError::InvalidParam(format!("{name} 为空，无法拼接")))?;
+    let mut out = first.clone();
+    for (idx, df) in dfs.iter().enumerate().skip(1) {
+        if !schemas_equal(&out, df) {
+            return Err(QuantError::InvalidParam(format!(
+                "{name} schema 不一致，idx={idx} 无法拼接"
+            )));
+        }
+        out.vstack_mut(df).map_err(QuantError::from)?;
+    }
+    Ok(out)
+}
+
+/// 按 base 窗口切片 BacktestSummary（含 indicators mapping 语义切片）。
+pub fn slice_backtest_summary_by_base_window(
+    summary: &BacktestSummary,
+    data: &DataContainer,
+    start: usize,
+    len: usize,
+) -> Result<BacktestSummary, QuantError> {
+    let base_df = data
+        .source
+        .get(&data.base_data_key)
+        .ok_or_else(|| QuantError::InvalidParam("base_data_key 不存在于 source".to_string()))?;
+    validate_slice_bounds(base_df.height(), start, len, "BacktestSummary")?;
+
+    let indicators = match &summary.indicators {
+        Some(ind_map) => {
+            // 中文注释：indicators 与 source 同样是多周期 DataFrame，复用 DataContainer 切片逻辑保持 mapping 一致。
+            let fake = DataContainer {
+                mapping: data.mapping.clone(),
+                skip_mask: None,
+                source: ind_map.clone(),
+                base_data_key: data.base_data_key.clone(),
+            };
+            let sliced = slice_data_container_by_base_window(&fake, start, len)?;
+            Some(sliced.source)
+        }
+        None => None,
+    };
+
+    let signals = match &summary.signals {
+        Some(df) => {
+            validate_slice_bounds(df.height(), start, len, "signals")?;
+            Some(df.slice(start as i64, len))
+        }
+        None => None,
+    };
+    let backtest = match &summary.backtest {
+        Some(df) => {
+            validate_slice_bounds(df.height(), start, len, "backtest")?;
+            Some(df.slice(start as i64, len))
+        }
+        None => None,
+    };
+
+    Ok(BacktestSummary {
+        indicators,
+        signals,
+        backtest,
+        // 中文注释：切片后绩效必须按 test-only 重新计算，这里不沿用旧值。
+        performance: None,
+    })
+}
+
+/// 严格拼接多个窗口 BacktestSummary（不拼接 performance）。
+pub fn concat_backtest_summaries(
+    summaries: &[BacktestSummary],
+) -> Result<BacktestSummary, QuantError> {
+    let first = summaries
+        .first()
+        .ok_or_else(|| QuantError::InvalidParam("summaries 为空，无法拼接".to_string()))?;
+
+    let indicators = match &first.indicators {
+        Some(first_map) => {
+            let mut keys: Vec<String> = first_map.keys().cloned().collect();
+            keys.sort_unstable();
+            let mut out: IndicatorResults = HashMap::new();
+
+            for key in keys {
+                let mut per_key: Vec<DataFrame> = Vec::with_capacity(summaries.len());
+                for (idx, s) in summaries.iter().enumerate() {
+                    let map = s.indicators.as_ref().ok_or_else(|| {
+                        QuantError::InvalidParam(format!(
+                            "indicators 缺失，idx={idx} 无法完成严格拼接"
+                        ))
+                    })?;
+                    let df = map.get(&key).ok_or_else(|| {
+                        QuantError::InvalidParam(format!(
+                            "indicators key 缺失: key={key}, idx={idx}"
+                        ))
+                    })?;
+                    per_key.push(df.clone());
+                }
+                out.insert(
+                    key.clone(),
+                    vstack_dfs_strict(&per_key, &format!("indicators[{key}]"))?,
+                );
+            }
+            Some(out)
+        }
+        None => None,
+    };
+
+    let signals = match &first.signals {
+        Some(_) => {
+            let mut all = Vec::with_capacity(summaries.len());
+            for (idx, s) in summaries.iter().enumerate() {
+                let df = s.signals.as_ref().ok_or_else(|| {
+                    QuantError::InvalidParam(format!("signals 缺失，idx={idx} 无法拼接"))
+                })?;
+                all.push(df.clone());
+            }
+            Some(vstack_dfs_strict(&all, "signals")?)
+        }
+        None => None,
+    };
+
+    let backtest = match &first.backtest {
+        Some(_) => {
+            let mut all = Vec::with_capacity(summaries.len());
+            for (idx, s) in summaries.iter().enumerate() {
+                let df = s.backtest.as_ref().ok_or_else(|| {
+                    QuantError::InvalidParam(format!("backtest 缺失，idx={idx} 无法拼接"))
+                })?;
+                all.push(df.clone());
+            }
+            Some(vstack_dfs_strict(&all, "backtest")?)
+        }
+        None => None,
+    };
+
+    Ok(BacktestSummary {
+        indicators,
+        signals,
+        backtest,
+        performance: None,
+    })
+}
+
+fn validate_local_capital(v: f64, name: &str, idx: usize) -> Result<(), QuantError> {
+    if !v.is_finite() {
+        return Err(QuantError::InvalidParam(format!(
+            "{name} 非法: idx={idx} 出现非有限值 {v}"
+        )));
+    }
+    if v < 0.0 {
+        return Err(QuantError::InvalidParam(format!(
+            "{name} 非法: idx={idx} 出现负值 {v}"
+        )));
+    }
+    Ok(())
+}
+
+/// stitched 回测资金列重建（唯一口径：基于局部资金列增长因子）。
+pub fn rebuild_capital_columns_for_stitched_backtest(
+    backtest_df: &DataFrame,
+    initial_capital: f64,
+) -> Result<DataFrame, QuantError> {
+    if initial_capital <= 0.0 {
+        return Err(QuantError::InvalidParam(format!(
+            "initial_capital 必须 > 0，当前={initial_capital}"
+        )));
+    }
+    let n = backtest_df.height();
+    if n == 0 {
+        return Err(QuantError::InvalidParam(
+            "backtest_df 为空，无法重建资金列".to_string(),
+        ));
+    }
+
+    let balance_local = backtest_df.column("balance")?.f64()?;
+    let equity_local = backtest_df.column("equity")?.f64()?;
+    let fee_local = backtest_df.column("fee")?.f64()?;
+
+    let mut balance = vec![0.0_f64; n];
+    let mut equity = vec![0.0_f64; n];
+    let mut total_return_pct = vec![0.0_f64; n];
+    let mut fee_cum = vec![0.0_f64; n];
+    let mut current_drawdown = vec![0.0_f64; n];
+
+    let mut peak_equity = initial_capital;
+    let fee0 = fee_local.get(0).unwrap_or(0.0);
+    validate_local_capital(fee0, "fee_local", 0)?;
+
+    balance[0] = initial_capital;
+    equity[0] = initial_capital;
+    total_return_pct[0] = 0.0;
+    fee_cum[0] = fee0;
+    current_drawdown[0] = 0.0;
+
+    for i in 1..n {
+        let prev_bal_local = balance_local.get(i - 1).unwrap_or(f64::NAN);
+        let curr_bal_local = balance_local.get(i).unwrap_or(f64::NAN);
+        let prev_eq_local = equity_local.get(i - 1).unwrap_or(f64::NAN);
+        let curr_eq_local = equity_local.get(i).unwrap_or(f64::NAN);
+        let curr_fee = fee_local.get(i).unwrap_or(f64::NAN);
+
+        validate_local_capital(prev_bal_local, "balance_local_prev", i - 1)?;
+        validate_local_capital(curr_bal_local, "balance_local_curr", i)?;
+        validate_local_capital(prev_eq_local, "equity_local_prev", i - 1)?;
+        validate_local_capital(curr_eq_local, "equity_local_curr", i)?;
+        validate_local_capital(curr_fee, "fee_local", i)?;
+
+        let growth_bal = if prev_bal_local > 0.0 {
+            curr_bal_local / prev_bal_local
+        } else if curr_bal_local == 0.0 {
+            0.0
+        } else {
+            return Err(QuantError::InvalidParam(format!(
+                "balance 增长因子非法: idx={i}, prev=0 curr={curr_bal_local}"
+            )));
+        };
+        let growth_eq = if prev_eq_local > 0.0 {
+            curr_eq_local / prev_eq_local
+        } else if curr_eq_local == 0.0 {
+            0.0
+        } else {
+            return Err(QuantError::InvalidParam(format!(
+                "equity 增长因子非法: idx={i}, prev=0 curr={curr_eq_local}"
+            )));
+        };
+
+        if !growth_bal.is_finite() || growth_bal < 0.0 {
+            return Err(QuantError::InvalidParam(format!(
+                "balance 增长因子非法: idx={i}, growth={growth_bal}"
+            )));
+        }
+        if !growth_eq.is_finite() || growth_eq < 0.0 {
+            return Err(QuantError::InvalidParam(format!(
+                "equity 增长因子非法: idx={i}, growth={growth_eq}"
+            )));
+        }
+
+        balance[i] = balance[i - 1] * growth_bal;
+        equity[i] = equity[i - 1] * growth_eq;
+        total_return_pct[i] = equity[i] / initial_capital - 1.0;
+        fee_cum[i] = fee_cum[i - 1] + curr_fee;
+
+        if equity[i] > peak_equity {
+            peak_equity = equity[i];
+        }
+        current_drawdown[i] = if peak_equity > 0.0 {
+            1.0 - (equity[i] / peak_equity)
+        } else {
+            0.0
+        };
+    }
+
+    let mut out = backtest_df.clone();
+    out.with_column(Series::new("balance".into(), balance))?;
+    out.with_column(Series::new("equity".into(), equity))?;
+    out.with_column(Series::new("total_return_pct".into(), total_return_pct))?;
+    out.with_column(Series::new("fee_cum".into(), fee_cum))?;
+    out.with_column(Series::new("current_drawdown".into(), current_drawdown))?;
+    Ok(out)
+}
+
 /// 统一在 Rust 端构建时间映射（行号索引）。
 ///
 /// 规则：
@@ -247,13 +541,13 @@ import pyo3_quant
 
 def build_time_mapping(
     data_dict: pyo3_quant.DataContainer,
-    align_to_base_range: bool = True,
+    align_to_base_range: bool = False,
 ) -> pyo3_quant.DataContainer:
     """在 Rust 端构建 DataContainer.mapping（可选按 base 时间范围对齐）"""
 "#
 )]
 #[pyfunction(name = "build_time_mapping")]
-#[pyo3(signature = (data_dict, align_to_base_range=true))]
+#[pyo3(signature = (data_dict, align_to_base_range=false))]
 pub fn py_build_time_mapping(
     mut data_dict: DataContainer,
     align_to_base_range: bool,
@@ -347,9 +641,75 @@ pub fn py_is_natural_mapping_column(
     is_natural_mapping_for_source(&data_dict, &source_key).map_err(Into::into)
 }
 
+#[gen_stub_pyfunction(
+    module = "pyo3_quant.backtest_engine.data_ops",
+    python = r#"
+import pyo3_quant
+
+def slice_backtest_summary(
+    summary: pyo3_quant.BacktestSummary,
+    data_dict: pyo3_quant.DataContainer,
+    start: int,
+    length: int,
+) -> pyo3_quant.BacktestSummary:
+    """按 base 窗口切 BacktestSummary（含 indicators mapping 语义）"""
+"#
+)]
+#[pyfunction(name = "slice_backtest_summary")]
+pub fn py_slice_backtest_summary(
+    summary: BacktestSummary,
+    data_dict: DataContainer,
+    start: usize,
+    length: usize,
+) -> PyResult<BacktestSummary> {
+    slice_backtest_summary_by_base_window(&summary, &data_dict, start, length).map_err(Into::into)
+}
+
+#[gen_stub_pyfunction(
+    module = "pyo3_quant.backtest_engine.data_ops",
+    python = r#"
+import pyo3_quant
+
+def concat_backtest_summaries(
+    summaries: list[pyo3_quant.BacktestSummary],
+) -> pyo3_quant.BacktestSummary:
+    """严格拼接多个 BacktestSummary（不拼接 performance）"""
+"#
+)]
+#[pyfunction(name = "concat_backtest_summaries")]
+pub fn py_concat_backtest_summaries(summaries: Vec<BacktestSummary>) -> PyResult<BacktestSummary> {
+    concat_backtest_summaries(&summaries).map_err(Into::into)
+}
+
+#[gen_stub_pyfunction(
+    module = "pyo3_quant.backtest_engine.data_ops",
+    python = r#"
+import pyo3_quant
+
+def rebuild_stitched_capital_columns(
+    backtest_df: object,
+    initial_capital: float,
+) -> object:
+    """按 stitched 口径重建资金列（balance/equity/total_return_pct/fee_cum/current_drawdown）"""
+"#
+)]
+#[pyfunction(name = "rebuild_stitched_capital_columns")]
+pub fn py_rebuild_stitched_capital_columns(
+    backtest_df: pyo3_polars::PyDataFrame,
+    initial_capital: f64,
+) -> PyResult<pyo3_polars::PyDataFrame> {
+    let backtest_df_inner: DataFrame = backtest_df.into();
+    let rebuilt =
+        rebuild_capital_columns_for_stitched_backtest(&backtest_df_inner, initial_capital)?;
+    Ok(pyo3_polars::PyDataFrame(rebuilt))
+}
+
 pub fn register_py_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_build_time_mapping, m)?)?;
     m.add_function(wrap_pyfunction!(py_slice_data_container, m)?)?;
     m.add_function(wrap_pyfunction!(py_is_natural_mapping_column, m)?)?;
+    m.add_function(wrap_pyfunction!(py_slice_backtest_summary, m)?)?;
+    m.add_function(wrap_pyfunction!(py_concat_backtest_summaries, m)?)?;
+    m.add_function(wrap_pyfunction!(py_rebuild_stitched_capital_columns, m)?)?;
     Ok(())
 }

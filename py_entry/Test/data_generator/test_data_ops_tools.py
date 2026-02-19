@@ -73,10 +73,10 @@ def test_build_time_mapping_align_to_base_range_keeps_predecessor_for_backward_a
         base_data_key="ohlcv_1m",
     )
 
-    mapped_default = build_time_mapping(raw_data)
-    # 中文注释：默认对齐后，source 会被裁到 [base_start, base_end] 并保留一根前置（9）。
-    assert mapped_default.source["ohlcv_5m"]["time"].to_list() == [9, 10, 11, 12]
-    assert mapped_default.mapping["ohlcv_5m"].to_list() == [1, 2, 3]
+    mapped_aligned = build_time_mapping(raw_data, align_to_base_range=True)
+    # 中文注释：显式开启对齐后，source 会被裁到 [base_start, base_end] 并保留一根前置（9）。
+    assert mapped_aligned.source["ohlcv_5m"]["time"].to_list() == [9, 10, 11, 12]
+    assert mapped_aligned.mapping["ohlcv_5m"].to_list() == [1, 2, 3]
 
 
 def test_build_time_mapping_can_disable_align_to_base_range():

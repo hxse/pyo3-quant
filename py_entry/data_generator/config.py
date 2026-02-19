@@ -30,6 +30,7 @@ class DataGenerationParams(BaseModel):
     extreme_mult: float = 3.0
     # 是否允许跳空 (默认 True, 设为 False 则 Open[i] == Close[i-1])
     allow_gaps: bool = True
+    align_to_base_range: bool = False
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -48,6 +49,7 @@ class OhlcvDataFetchConfig(BaseModel):
     enable_test: bool = False
     mode: ModeType = "sandbox"
     base_data_key: str
+    align_to_base_range: bool = False
 
 
 @dataclass
@@ -71,6 +73,7 @@ class DirectDataConfig(BaseModel):
 
     data: Dict[str, pl.DataFrame]
     base_data_key: str
+    align_to_base_range: bool = False
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 

@@ -31,8 +31,9 @@ fn _pyo3_quant(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<types::RoundSummary>()?;
     m.add_class::<types::SamplePoint>()?;
     m.add_class::<types::OptimizationResult>()?;
-    m.add_class::<types::MetricDistributionStats>()?;
-    m.add_class::<types::WindowResult>()?;
+    m.add_class::<types::NextWindowHint>()?;
+    m.add_class::<types::WindowArtifact>()?;
+    m.add_class::<types::StitchedArtifact>()?;
     m.add_class::<types::WalkForwardResult>()?;
     m.add_class::<types::SensitivitySample>()?;
     m.add_class::<types::SensitivityResult>()?;

@@ -5,15 +5,25 @@ import pyo3_quant
 
 __all__ = [
     "build_time_mapping",
+    "concat_backtest_summaries",
     "is_natural_mapping_column",
+    "rebuild_stitched_capital_columns",
+    "slice_backtest_summary",
     "slice_data_container",
 ]
 
 def build_time_mapping(
-    data_dict: pyo3_quant.DataContainer, align_to_base_range: bool = True
+    data_dict: pyo3_quant.DataContainer, align_to_base_range: bool = False
 ) -> pyo3_quant.DataContainer:
     r"""
     在 Rust 端构建 DataContainer.mapping（可选按 base 时间范围对齐）
+    """
+
+def concat_backtest_summaries(
+    summaries: list[pyo3_quant.BacktestSummary],
+) -> pyo3_quant.BacktestSummary:
+    r"""
+    严格拼接多个 BacktestSummary（不拼接 performance）
     """
 
 def is_natural_mapping_column(
@@ -21,6 +31,23 @@ def is_natural_mapping_column(
 ) -> bool:
     r"""
     判断 mapping[source_key] 是否为 0..n-1 自然序列（fast-path 判定）
+    """
+
+def rebuild_stitched_capital_columns(
+    backtest_df: object, initial_capital: float
+) -> object:
+    r"""
+    按 stitched 口径重建资金列（balance/equity/total_return_pct/fee_cum/current_drawdown）
+    """
+
+def slice_backtest_summary(
+    summary: pyo3_quant.BacktestSummary,
+    data_dict: pyo3_quant.DataContainer,
+    start: int,
+    length: int,
+) -> pyo3_quant.BacktestSummary:
+    r"""
+    按 base 窗口切 BacktestSummary（含 indicators mapping 语义）
     """
 
 def slice_data_container(

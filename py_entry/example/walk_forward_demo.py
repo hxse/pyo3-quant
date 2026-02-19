@@ -195,13 +195,16 @@ def run_walk_forward_demo(
     logger.info(f"Walk Forward 完成，总耗时: {elapsed:.2f}秒")
 
     print("\n================= Walk Forward 结果 =================")
-    print(
-        f"\nAvg Test Calmar: {wf_result.aggregate_test_metrics.get('calmar_ratio', 0.0):.4f}"
-    )
+    agg_metrics = wf_result.aggregate_test_metrics
+    print(f"\nStitched CalmarRaw: {agg_metrics.get('calmar_ratio_raw', 0.0):.4f}")
     optimize_metric_text = str(wf_result.optimize_metric)
     print(f"Optimization Metric: {optimize_metric_text}")
+    print(f"Window Count: {len(wf_result.raw.window_results)}")
+    print(f"Stitched Time Range: {wf_result.stitched_result.time_range}")
+    print(f"Rolling Every Days: {wf_result.stitched_result.rolling_every_days:.4f}")
     print("-----------------------------------------------------")
-    for w in wf_result.raw.windows:
+    for w in wf_result.raw.window_results:
+        metrics = w.summary.performance or {}
         print(f"Window {w.window_id}:")
         print(
             "  Range: "
@@ -209,8 +212,8 @@ def run_walk_forward_demo(
             f"Transition={w.transition_range}, "
             f"Test={w.test_range}"
         )
-        print(f"  Train Calmar: {w.train_metrics.get('calmar_ratio', 0.0):.4f}")
-        print(f"  Test Calmar:  {w.test_metrics.get('calmar_ratio', 0.0):.4f}")
+        print(f"  Has Cross Boundary Position: {w.has_cross_boundary_position}")
+        print(f"  Test CalmarRaw: {metrics.get('calmar_ratio_raw', 0.0):.4f}")
         print(f"  Best Params:  {w.best_params}")
     print("=====================================================")
 
@@ -218,8 +221,8 @@ def run_walk_forward_demo(
     return {
         "elapsed_seconds": elapsed,
         "optimize_metric": optimize_metric_text,
-        "avg_test_calmar": wf_result.aggregate_test_metrics.get("calmar_ratio", 0.0),
-        "window_count": len(wf_result.raw.windows),
+        "stitched_calmar_raw": agg_metrics.get("calmar_ratio_raw", 0.0),
+        "window_count": len(wf_result.raw.window_results),
     }
 
 
@@ -233,7 +236,7 @@ def format_result_for_ai(summary: dict[str, object]) -> str:
     )
     lines.append(
         f"optimize_metric={summary.get('optimize_metric')}, "
-        f"avg_test_calmar={summary.get('avg_test_calmar')}"
+        f"stitched_calmar_raw={summary.get('stitched_calmar_raw')}"
     )
     return "\n".join(lines)
 

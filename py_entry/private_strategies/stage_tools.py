@@ -154,13 +154,24 @@ def run_pipeline(
     summary["sensitivity_stage"] = {"status": "ok"}
 
     wf_result = run_walk_forward_stage(config, wf_cfg)
+    stitched_metrics = wf_result.aggregate_test_metrics
     summary["walk_forward"] = {
         "optimize_metric": str(wf_result.optimize_metric),
-        "aggregate_test_metrics": wf_result.aggregate_test_metrics,
-        "window_metric_stats": serialize_metric_stats(wf_result.window_metric_stats),
+        "aggregate_test_metrics": stitched_metrics,
         "best_window_id": wf_result.best_window_id,
         "worst_window_id": wf_result.worst_window_id,
-        "stitched_points": len(wf_result.stitched_time),
+        "stitched_time_range": wf_result.stitched_result.time_range,
+        "stitched_bars": wf_result.stitched_result.bars,
+        "rolling_every_days": wf_result.stitched_result.rolling_every_days,
+        "next_window_hint": {
+            "expected_train_start_time_ms": wf_result.stitched_result.next_window_hint.expected_train_start_time_ms,
+            "expected_transition_start_time_ms": wf_result.stitched_result.next_window_hint.expected_transition_start_time_ms,
+            "expected_test_start_time_ms": wf_result.stitched_result.next_window_hint.expected_test_start_time_ms,
+            "expected_test_end_time_ms": wf_result.stitched_result.next_window_hint.expected_test_end_time_ms,
+            "expected_window_ready_time_ms": wf_result.stitched_result.next_window_hint.expected_window_ready_time_ms,
+            "eta_days": wf_result.stitched_result.next_window_hint.eta_days,
+            "based_on_window_id": wf_result.stitched_result.next_window_hint.based_on_window_id,
+        },
         "window_best_params": [
             {
                 "window_id": w.window_id,
@@ -168,8 +179,10 @@ def run_pipeline(
                 "transition_range": w.transition_range,
                 "test_range": w.test_range,
                 "best_params": str(w.best_params),
+                "has_cross_boundary_position": w.has_cross_boundary_position,
+                "test_metrics": w.summary.performance or {},
             }
-            for w in wf_result.raw.windows
+            for w in wf_result.raw.window_results
         ],
     }
     summary["walk_forward_stage"] = {"status": "ok"}

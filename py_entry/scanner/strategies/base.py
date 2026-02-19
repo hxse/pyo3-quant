@@ -180,7 +180,12 @@ class ScanContext:
             source_dict[key] = pl_df
 
         # 构造 DirectDataConfig
-        config = DirectDataConfig(data=source_dict, base_data_key=base_dk)
+        config = DirectDataConfig(
+            data=source_dict,
+            base_data_key=base_dk,
+            align_to_base_range=False,
+        )
+        # 中文注释：扫描器需要多周期完整历史用于指标计算，禁止按 base 时间范围裁短高周期数据。
         return generate_data_dict(config)
 
 
@@ -232,7 +237,11 @@ def run_scan_backtest(
         return_only_final=False,
     )
     bt = Backtest(
-        data_source=DirectDataConfig(data=data.source, base_data_key=base_dk),
+        data_source=DirectDataConfig(
+            data=data.source,
+            base_data_key=base_dk,
+            align_to_base_range=False,
+        ),
         indicators=indicators,
         signal_template=signal_template,
         engine_settings=settings,

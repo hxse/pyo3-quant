@@ -1124,34 +1124,34 @@ class WalkForwardConfig:
     向前滚动优化配置
     """
     @property
-    def train_ratio(self) -> builtins.float:
+    def train_bars(self) -> builtins.int:
         r"""
-        训练窗口长度（占总数据的比例），默认 0.60
+        训练窗口长度（固定 bar 数）
         """
-    @train_ratio.setter
-    def train_ratio(self, value: builtins.float) -> None:
+    @train_bars.setter
+    def train_bars(self, value: builtins.int) -> None:
         r"""
-        训练窗口长度（占总数据的比例），默认 0.60
-        """
-    @property
-    def transition_ratio(self) -> builtins.float:
-        r"""
-        过渡窗口长度（占总数据的比例）
-        """
-    @transition_ratio.setter
-    def transition_ratio(self, value: builtins.float) -> None:
-        r"""
-        过渡窗口长度（占总数据的比例）
+        训练窗口长度（固定 bar 数）
         """
     @property
-    def test_ratio(self) -> builtins.float:
+    def transition_bars(self) -> builtins.int:
         r"""
-        测试窗口长度（占总数据的比例），默认 0.20
+        过渡窗口长度（固定 bar 数）
         """
-    @test_ratio.setter
-    def test_ratio(self, value: builtins.float) -> None:
+    @transition_bars.setter
+    def transition_bars(self, value: builtins.int) -> None:
         r"""
-        测试窗口长度（占总数据的比例），默认 0.20
+        过渡窗口长度（固定 bar 数）
+        """
+    @property
+    def test_bars(self) -> builtins.int:
+        r"""
+        测试窗口长度（固定 bar 数）
+        """
+    @test_bars.setter
+    def test_bars(self, value: builtins.int) -> None:
+        r"""
+        测试窗口长度（固定 bar 数）
         """
     @property
     def inherit_prior(self) -> builtins.bool:
@@ -1176,9 +1176,9 @@ class WalkForwardConfig:
     def __new__(
         cls,
         *,
-        train_ratio: builtins.float,
-        transition_ratio: builtins.float,
-        test_ratio: builtins.float,
+        train_bars: builtins.int,
+        transition_bars: builtins.int,
+        test_bars: builtins.int,
         inherit_prior: builtins.bool = True,
         optimizer_config: typing.Optional[OptimizerConfig] = None,
     ) -> WalkForwardConfig: ...

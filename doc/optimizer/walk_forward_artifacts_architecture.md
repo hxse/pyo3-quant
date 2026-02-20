@@ -40,7 +40,8 @@
 1. 训练段用于优化（多次并发评估）。
 2. 评估段使用 `transition + test` 连续回测（单次）。
 3. 只对 `test` 计分。
-4. `transition_ratio` 必须大于 0（本设计不支持无过渡段）。
+4. `transition_bars` 必须大于 0（本设计不支持无过渡段）。
+5. 窗口配置统一使用固定 bar 数（`train_bars/transition_bars/test_bars`），禁止按比例切窗。
 
 ## 3. 返回对象模型（抽象）
 

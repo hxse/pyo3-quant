@@ -169,9 +169,9 @@ def build_sens_cfg() -> SensitivityConfig:
 
 def build_wf_cfg() -> WalkForwardConfig:
     return WalkForwardConfig(
-        train_ratio=0.5,  # 训练窗口比例
-        transition_ratio=0.1,  # 过渡窗口比例
-        test_ratio=0.25,  # 测试窗口比例
+        train_bars=10000,  # 训练窗口 K 线数量
+        transition_bars=2000,  # 过渡窗口 K 线数量
+        test_bars=5000,  # 测试窗口 K 线数量
         optimizer_config=OptimizerConfig(
             min_samples=200,  # WF 每窗口最小采样数
             max_samples=600,  # WF 每窗口最大采样数
@@ -233,9 +233,9 @@ def format_pipeline_summary_for_ai(
             "optimize_samples_per_round": 50,
             "optimize_stop_patience": 6,
             "optimize_seed": GLOBAL_SEED,
-            "wf_train_ratio": 0.5,
-            "wf_transition_ratio": 0.1,
-            "wf_test_ratio": 0.25,
+            "wf_train_bars": 10000,
+            "wf_transition_bars": 2000,
+            "wf_test_bars": 5000,
             "wf_optimize_min_samples": 200,
             "wf_optimize_max_samples": 600,
             "wf_optimize_samples_per_round": 50,

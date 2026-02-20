@@ -23,9 +23,10 @@ pub fn generate_windows(
     config: &WalkForwardConfig,
 ) -> PyResult<Vec<WindowSpec>> {
     let mut windows = Vec::new();
-    let train_len = (total_bars as f64 * config.train_ratio) as usize;
-    let transition_len = (total_bars as f64 * config.transition_ratio) as usize;
-    let test_len = (total_bars as f64 * config.test_ratio) as usize;
+    // 中文注释：破坏性更新后，WF 改为固定 bar 数配置，不再按比例切分。
+    let train_len = config.train_bars;
+    let transition_len = config.transition_bars;
+    let test_len = config.test_bars;
     // 破坏性更新：滚动步长强制等于测试期长度，移除独立 step_ratio。
     let step_len = test_len;
 

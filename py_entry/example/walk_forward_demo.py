@@ -150,9 +150,9 @@ def get_walk_forward_config() -> WalkForwardConfig:
         seed=GLOBAL_SEED,
     )
     return WalkForwardConfig(
-        train_ratio=0.5,
-        transition_ratio=0.1,
-        test_ratio=0.25,
+        train_bars=2500,
+        transition_bars=500,
+        test_bars=1250,
         inherit_prior=True,
         optimizer_config=opt_config,
     )

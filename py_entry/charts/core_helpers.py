@@ -69,12 +69,36 @@ def match_indicator_columns(indicator_name: str, available_columns: set) -> list
         matched.append(indicator_name)
         return matched
 
-    # 模糊匹配：查找所有以 indicator_name_ 开头的列
-    # 例如 "sma" 匹配 "sma_0", "sma_1" 等
-    prefix = f"{indicator_name}_"
-    for col in available_columns:
-        if col.startswith(prefix):
-            matched.append(col)
+    # 按照 indicators_name_rule.md，自定义命名通常为 {基础指标名}_{标识符}_{输出组件名}
+    # 而 INDICATOR_LAYOUT 中定义的 indicator_name 通常是 {基础指标名} 或是 {基础指标名}_{输出组件名}
+    # 例如：
+    # 基础指标名：sma, ema, atr (只有一列且没有专门的 component)
+    # 复合指标名：macd_macd, bbands_upper 等
+    parts = indicator_name.split("_", 1)
+
+    has_component = len(parts) > 1
+
+    if has_component:
+        base_name = parts[0]
+        component_name = parts[1]
+
+        for col in available_columns:
+            # col 期待形如: {base_name}_{标识符}_{component_name}或完全匹配 {base_name}_{component_name}
+            # 例如: macd_htf_macd, bbands_1M_upper
+            if (
+                col.startswith(f"{base_name}_")
+                and col.endswith(f"_{component_name}")
+                and col not in matched
+            ):
+                matched.append(col)
+
+    else:
+        # 类似 sma, ema, rsi 等单输出列的匹配
+        # {基础指标名}_{标识符} 形如 sma_fast, atr_14
+        prefix = f"{indicator_name}_"
+        for col in available_columns:
+            if col.startswith(prefix) and col not in matched:
+                matched.append(col)
 
     # 排序以保证顺序一致性
     return sorted(matched)

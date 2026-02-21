@@ -1,8 +1,8 @@
 import polars as pl
 
-from py_entry.private_strategies.live.base import LiveStrategyConfig
-from py_entry.data_generator import DataGenerationParams
-from py_entry.strategies.base import StrategyConfig
+from py_entry.data_generator import OhlcvDataFetchConfig
+from py_entry.io.types import RequestConfig
+from py_entry.strategies.base import LiveMeta, StrategyConfig
 from py_entry.trading_bot import LiveStrategyCallbacks
 from py_entry.types import (
     BacktestParams,
@@ -48,6 +48,27 @@ def _build_mock_ohlcv(rows: int = 300) -> pl.DataFrame:
     )
 
 
+def _build_live_fetch_config(
+    *,
+    symbol: str,
+    base_data_key: str,
+    timeframe: str,
+) -> OhlcvDataFetchConfig:
+    """构造 live 侧最小 OhlcvDataFetchConfig。"""
+    return OhlcvDataFetchConfig(
+        config=RequestConfig.create(),
+        exchange_name="binance",
+        market="future",
+        symbol=symbol,
+        timeframes=[timeframe],
+        since=None,
+        limit=320,
+        enable_cache=False,
+        mode="live",
+        base_data_key=base_data_key,
+    )
+
+
 class TestLiveStrategyCallbacks:
     """live 注册策略到 bot 回调桥接测试。"""
 
@@ -55,7 +76,7 @@ class TestLiveStrategyCallbacks:
         """默认关闭的 live 策略不应进入机器人参数列表。"""
         callbacks = LiveStrategyCallbacks(
             inner=MockCallbacks(),
-            strategy_names=["btc_sma15_live"],
+            strategy_names=["sma_2tf"],
         )
         result = callbacks.get_strategy_params()
 
@@ -67,7 +88,7 @@ class TestLiveStrategyCallbacks:
         """关闭策略不应被执行，run_backtest 应返回失败。"""
         callbacks = LiveStrategyCallbacks(
             inner=MockCallbacks(),
-            strategy_names=["btc_sma15_live"],
+            strategy_names=["sma_2tf"],
         )
         from py_entry.trading_bot.strategy_params import StrategyParams
 
@@ -81,45 +102,36 @@ class TestLiveStrategyCallbacks:
 
     def test_enabled_strategy_should_run_backtest(self, monkeypatch):
         """开启策略应进入执行链路并返回回测结果。"""
-        entry = LiveStrategyConfig(
-            strategy=StrategyConfig(
-                name="enabled_demo",
-                description="enabled demo",
-                data_config=DataGenerationParams(
-                    timeframes=["15m"],
-                    start_time=None,
-                    num_bars=320,
-                    base_data_key="ohlcv_15m",
+        entry = StrategyConfig(
+            name="enabled_demo",
+            description="enabled demo",
+            data_config=_build_live_fetch_config(
+                symbol="BTC/USDT",
+                base_data_key="ohlcv_15m",
+                timeframe="15m",
+            ),
+            indicators_params={
+                "ohlcv_15m": {
+                    "sma_fast": {"period": Param(8)},
+                    "sma_slow": {"period": Param(21)},
+                }
+            },
+            signal_params={},
+            backtest_params=BacktestParams(),
+            signal_template=SignalTemplate(
+                entry_long=SignalGroup(
+                    logic=LogicOp.AND,
+                    comparisons=["sma_fast, ohlcv_15m, 0 x> sma_slow, ohlcv_15m, 0"],
                 ),
-                indicators_params={
-                    "ohlcv_15m": {
-                        "sma_fast": {"period": Param(8)},
-                        "sma_slow": {"period": Param(21)},
-                    }
-                },
-                signal_params={},
-                backtest_params=BacktestParams(),
-                signal_template=SignalTemplate(
-                    entry_long=SignalGroup(
-                        logic=LogicOp.AND,
-                        comparisons=[
-                            "sma_fast, ohlcv_15m, 0 x> sma_slow, ohlcv_15m, 0"
-                        ],
-                    ),
-                    entry_short=SignalGroup(
-                        logic=LogicOp.AND,
-                        comparisons=[
-                            "sma_fast, ohlcv_15m, 0 x< sma_slow, ohlcv_15m, 0"
-                        ],
-                    ),
-                ),
-                engine_settings=SettingContainer(
-                    execution_stage=ExecutionStage.Performance,
+                entry_short=SignalGroup(
+                    logic=LogicOp.AND,
+                    comparisons=["sma_fast, ohlcv_15m, 0 x< sma_slow, ohlcv_15m, 0"],
                 ),
             ),
-            enabled=True,
-            base_data_key="ohlcv_15m",
-            symbol="BTC/USDT",
+            engine_settings=SettingContainer(
+                execution_stage=ExecutionStage.Performance,
+            ),
+            live_meta=LiveMeta(enabled=True),
         )
 
         monkeypatch.setattr(
@@ -143,72 +155,60 @@ class TestLiveStrategyCallbacks:
 
     def test_should_raise_when_duplicate_symbol_enabled(self, monkeypatch):
         """同一 symbol 多策略启用时必须直接报错。"""
-        entry_a = LiveStrategyConfig(
-            strategy=StrategyConfig(
-                name="enabled_a",
-                description="enabled a",
-                data_config=DataGenerationParams(
-                    timeframes=["15m"],
-                    start_time=None,
-                    num_bars=320,
-                    base_data_key="ohlcv_15m",
-                ),
-                indicators_params={
-                    "ohlcv_15m": {
-                        "sma_fast": {"period": Param(8)},
-                        "sma_slow": {"period": Param(21)},
-                    }
-                },
-                signal_params={},
-                backtest_params=BacktestParams(),
-                signal_template=SignalTemplate(
-                    entry_long=SignalGroup(
-                        logic=LogicOp.AND,
-                        comparisons=[
-                            "sma_fast, ohlcv_15m, 0 x> sma_slow, ohlcv_15m, 0"
-                        ],
-                    ),
-                ),
-                engine_settings=SettingContainer(
-                    execution_stage=ExecutionStage.Performance,
+        entry_a = StrategyConfig(
+            name="enabled_a",
+            description="enabled a",
+            data_config=_build_live_fetch_config(
+                symbol="BTC/USDT",
+                base_data_key="ohlcv_15m",
+                timeframe="15m",
+            ),
+            indicators_params={
+                "ohlcv_15m": {
+                    "sma_fast": {"period": Param(8)},
+                    "sma_slow": {"period": Param(21)},
+                }
+            },
+            signal_params={},
+            backtest_params=BacktestParams(),
+            signal_template=SignalTemplate(
+                entry_long=SignalGroup(
+                    logic=LogicOp.AND,
+                    comparisons=["sma_fast, ohlcv_15m, 0 x> sma_slow, ohlcv_15m, 0"],
                 ),
             ),
-            enabled=True,
-            base_data_key="ohlcv_15m",
-            symbol="BTC/USDT",
+            engine_settings=SettingContainer(
+                execution_stage=ExecutionStage.Performance,
+            ),
+            live_meta=LiveMeta(enabled=True),
         )
 
-        entry_b = LiveStrategyConfig(
-            strategy=StrategyConfig(
-                name="enabled_b",
-                description="enabled b",
-                data_config=DataGenerationParams(
-                    timeframes=["1h"],
-                    start_time=None,
-                    num_bars=320,
-                    base_data_key="ohlcv_1h",
-                ),
-                indicators_params={
-                    "ohlcv_1h": {
-                        "sma_fast": {"period": Param(8)},
-                        "sma_slow": {"period": Param(21)},
-                    }
-                },
-                signal_params={},
-                backtest_params=BacktestParams(),
-                signal_template=SignalTemplate(
-                    entry_long=SignalGroup(
-                        logic=LogicOp.AND,
-                        comparisons=["sma_fast, ohlcv_1h, 0 x> sma_slow, ohlcv_1h, 0"],
-                    ),
-                ),
-                engine_settings=SettingContainer(
-                    execution_stage=ExecutionStage.Performance,
+        entry_b = StrategyConfig(
+            name="enabled_b",
+            description="enabled b",
+            data_config=_build_live_fetch_config(
+                symbol="BTC/USDT",
+                base_data_key="ohlcv_1h",
+                timeframe="1h",
+            ),
+            indicators_params={
+                "ohlcv_1h": {
+                    "sma_fast": {"period": Param(8)},
+                    "sma_slow": {"period": Param(21)},
+                }
+            },
+            signal_params={},
+            backtest_params=BacktestParams(),
+            signal_template=SignalTemplate(
+                entry_long=SignalGroup(
+                    logic=LogicOp.AND,
+                    comparisons=["sma_fast, ohlcv_1h, 0 x> sma_slow, ohlcv_1h, 0"],
                 ),
             ),
-            enabled=True,
-            base_data_key="ohlcv_1h",
-            symbol="BTC/USDT",
+            engine_settings=SettingContainer(
+                execution_stage=ExecutionStage.Performance,
+            ),
+            live_meta=LiveMeta(enabled=True),
         )
 
         monkeypatch.setattr(

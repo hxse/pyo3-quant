@@ -45,18 +45,18 @@
 1. 单元测试优先 `DataGenerationParams` 或 `DirectDataConfig`。
 2. 涉及接口联调时再用 `OhlcvDataFetchConfig`。
 
-## 4. private live 策略默认规则
+## 4. private 策略默认规则
 
-对于 `py_entry/private_strategies/live` 中已注册策略：
+对于 `py_entry/private_strategies` 中被模板自动发现的策略：
 
 1. 默认在 `Test` 跑一遍最小 smoke（防低级错误）。
 2. 默认可被交易机器人执行。
 
-说明：`live` 是实盘策略区，不要求稳定，可高频改动。
+说明：private 策略用于研究与实盘，不要求稳定，可高频改动。
 
 当前实现建议：
 
-1. 使用 `py_entry.trading_bot.LiveStrategyCallbacks` 读取 live 注册并桥接给机器人。
+1. 使用 `py_entry.trading_bot.LiveStrategyCallbacks` 读取 `py_entry.private_strategies.template` 的发现结果并桥接给机器人。
 2. 在 `py_entry/Test/trading_bot/test_live_strategy_callbacks.py` 维持最小 smoke。
 
 ## 5. 最小示例

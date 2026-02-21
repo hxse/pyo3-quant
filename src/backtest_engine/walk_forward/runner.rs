@@ -1,5 +1,5 @@
 use crate::backtest_engine::data_ops::{
-    concat_backtest_summaries, rebuild_capital_columns_for_stitched_backtest,
+    concat_backtest_summaries, rebuild_capital_columns_for_stitched_backtest_with_boundaries,
     slice_backtest_summary_by_base_window, slice_data_container_by_base_window,
 };
 use crate::backtest_engine::execute_single_backtest;
@@ -219,9 +219,35 @@ fn build_stitched_artifact(
         .into());
     }
 
-    let rebuilt_backtest = rebuild_capital_columns_for_stitched_backtest(
+    // 中文注释：窗口边界起点用于 stitched 资金重建时避免跨窗口伪回撤。
+    let mut boundary_starts: Vec<usize> = Vec::new();
+    let mut acc_rows: usize = 0;
+    for (idx, w) in window_results.iter().enumerate() {
+        let h = w
+            .summary
+            .backtest
+            .as_ref()
+            .ok_or_else(|| {
+                OptimizerError::SamplingFailed("window summary missing backtest dataframe".into())
+            })?
+            .height();
+        if idx > 0 {
+            boundary_starts.push(acc_rows);
+        }
+        acc_rows += h;
+    }
+    if acc_rows != stitched_len {
+        return Err(OptimizerError::InvalidConfig(format!(
+            "stitched row accounting mismatch: accumulated={}, expected={}",
+            acc_rows, stitched_len
+        ))
+        .into());
+    }
+
+    let rebuilt_backtest = rebuild_capital_columns_for_stitched_backtest_with_boundaries(
         stitched_backtest_local,
         param.backtest.initial_capital,
+        &boundary_starts,
     )?;
     let stitched_metrics = crate::backtest_engine::performance_analyzer::analyze_performance(
         &stitched_data,

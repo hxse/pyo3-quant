@@ -3,9 +3,12 @@ from typing import Optional
 from py_entry.types import (
     BacktestSummary,
     DataContainer,
+    HorizontalLineLayoutItem,
     HorizontalLineOption,
+    IndicatorLayoutItem,
     SeriesItemConfig,
     SingleParamSet,
+    VerticalLineLayoutItem,
 )
 
 from .core_helpers import get_style_option, init_counter, match_indicator_columns
@@ -42,15 +45,84 @@ def build_chart_groups(
 
         tf_panels: list[list[SeriesItemConfig]] = []
 
-        for panel_layout in layout:
+        for panel_layout in layout.values():
             panel_series: list[SeriesItemConfig] = []
             style_counters: dict[str, int] = {}
 
             for item_config in panel_layout:
                 indicator_name = item_config.indicator
-                item_type = item_config.type
                 show = item_config.show
                 show_in_legend = item_config.showInLegend
+
+                # 中文注释：hline 使用独立类型，值解析与锚点判定都显式处理。
+                if isinstance(item_config, HorizontalLineLayoutItem):
+                    anchor_indicator = item_config.anchorIndicator
+                    if anchor_indicator and not match_indicator_columns(
+                        anchor_indicator, available_columns
+                    ):
+                        continue
+
+                    hline_value: Optional[float] = item_config.value
+                    if hline_value is None and param and param.signal:
+                        param_name = item_config.paramKey or indicator_name
+                        if param_name in param.signal:
+                            hline_value = float(param.signal[param_name].value)
+
+                    if hline_value is None:
+                        continue
+
+                    if item_config.hLineOpt:
+                        hline_opt = item_config.hLineOpt.model_copy(
+                            update={
+                                "value": hline_value,
+                                "label": item_config.hLineOpt.label or indicator_name,
+                                "showLabel": item_config.showLabel,
+                            }
+                        )
+                    else:
+                        color = "#ffffff"
+                        if "upper" in indicator_name:
+                            color = "#ff4d4f"
+                        elif "lower" in indicator_name:
+                            color = "#52c41a"
+                        elif "center" in indicator_name:
+                            color = "#faad14"
+                        elif "zero" in indicator_name:
+                            color = "#808080"
+                        hline_opt = HorizontalLineOption(
+                            value=hline_value,
+                            color=color,
+                            label=indicator_name,
+                            showLabel=item_config.showLabel,
+                        )
+
+                    panel_series.append(
+                        SeriesItemConfig(
+                            type="hline",
+                            hLineOpt=hline_opt,
+                            show=show,
+                            showInLegend=show_in_legend,
+                        )
+                    )
+                    continue
+
+                # 中文注释：vline 使用独立类型，禁止再混入通用指标项处理逻辑。
+                if isinstance(item_config, VerticalLineLayoutItem):
+                    if item_config.vLineOpt:
+                        panel_series.append(
+                            SeriesItemConfig(
+                                type="vline",
+                                vLineOpt=item_config.vLineOpt,
+                                show=show,
+                                showInLegend=show_in_legend,
+                            )
+                        )
+                    continue
+
+                if not isinstance(item_config, IndicatorLayoutItem):
+                    raise TypeError(f"不支持的布局项类型: {type(item_config)}")
+
+                item_type = item_config.type
 
                 if indicator_name == "ohlc" and item_type == "candle":
                     if key in data_dict.source:
@@ -109,66 +181,6 @@ def build_chart_groups(
                             )
                         )
                         style_counters[indicator_name] += 1
-
-                elif item_type == "hline":
-                    indicator_base = (
-                        indicator_name.replace("_upper", "")
-                        .replace("_center", "")
-                        .replace("_lower", "")
-                        .replace("_zero", "")
-                    )
-                    has_related_indicator = any(
-                        col.startswith(indicator_base) for col in available_columns
-                    )
-                    if not has_related_indicator:
-                        continue
-
-                    hline_value: Optional[float] = item_config.value
-                    if hline_value is None and param and param.signal:
-                        param_name = indicator_name
-                        if param_name in param.signal:
-                            hline_value = float(param.signal[param_name].value)
-
-                    if hline_value is not None:
-                        if item_config.hLineOpt:
-                            hline_opt = item_config.hLineOpt
-                        else:
-                            color = "#ffffff"
-                            if "upper" in indicator_name:
-                                color = "#ff4d4f"
-                            elif "lower" in indicator_name:
-                                color = "#52c41a"
-                            elif "center" in indicator_name:
-                                color = "#faad14"
-                            elif "zero" in indicator_name:
-                                color = "#808080"
-                            hline_opt = HorizontalLineOption(
-                                value=hline_value,
-                                color=color,
-                                label=indicator_name,
-                                showLabel=item_config.showLabel,
-                            )
-
-                        panel_series.append(
-                            SeriesItemConfig(
-                                type="hline",
-                                hLineOpt=hline_opt,
-                                show=show,
-                                showInLegend=show_in_legend,
-                            )
-                        )
-
-                elif item_type == "vline":
-                    if item_config.vLineOpt:
-                        vline_opt = item_config.vLineOpt
-                        panel_series.append(
-                            SeriesItemConfig(
-                                type="vline",
-                                vLineOpt=vline_opt,
-                                show=show,
-                                showInLegend=show_in_legend,
-                            )
-                        )
 
                 elif item_type == "line":
                     matched_columns = match_indicator_columns(

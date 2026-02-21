@@ -2,22 +2,22 @@
 live 策略桥接回调。
 
 作用：
-1. 从 py_entry.private_strategies.live 读取已注册的 live 策略；
+1. 从 py_entry.private_strategies.template 读取自动发现的 live 策略；
 2. 输出交易机器人需要的 StrategyParams；
 3. 使用 private live 自定义配置执行回测。
 4. 不依赖 py_entry.strategies.get_strategy（private live 与公共策略解耦）。
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 from collections import Counter
 
 import polars as pl
 from loguru import logger
 
-from py_entry.data_generator import DirectDataConfig
+from py_entry.data_generator import DirectDataConfig, OhlcvDataFetchConfig
 from py_entry.runner import Backtest
-from py_entry.private_strategies.live import get_live_strategy, get_live_strategy_names
-from py_entry.private_strategies.live.base import LiveStrategyConfig
+from py_entry.private_strategies import get_live_strategy, get_live_strategy_names
+from py_entry.strategies.base import StrategyConfig
 
 from .callback_result import CallbackResult
 from .callbacks import Callbacks
@@ -42,11 +42,17 @@ class LiveStrategyCallbacks:
         self._inner = inner
         all_entries = self._load_live_entries(strategy_names)
         # 仅启用策略进入机器人执行链路，关闭策略保留注册但不交易。
-        self._entries = [entry for entry in all_entries if entry.enabled]
+        self._entries = [
+            entry
+            for entry in all_entries
+            if entry.live_meta and entry.live_meta.enabled
+        ]
         if not self._entries:
             logger.warning("未发现任何 enabled live 策略，机器人本轮不会执行交易策略。")
         # 强约束：同一 symbol 只能有一个启用策略。
-        symbol_counts = Counter(entry.symbol for entry in self._entries)
+        symbol_counts = Counter(
+            self._require_ohlcv_data_config(entry).symbol for entry in self._entries
+        )
         duplicated_symbols = sorted(
             symbol for symbol, count in symbol_counts.items() if count > 1
         )
@@ -56,33 +62,56 @@ class LiveStrategyCallbacks:
                 f"重复 symbol: {duplicated_symbols}"
             )
         self._params = [self._to_strategy_params(entry) for entry in self._entries]
-        self._entry_by_key: Dict[Tuple[str, str], LiveStrategyConfig] = {
-            (entry.symbol, entry.base_data_key): entry for entry in self._entries
+        self._entry_by_key: Dict[Tuple[str, str], StrategyConfig] = {
+            (
+                self._require_ohlcv_data_config(entry).symbol,
+                self._require_ohlcv_data_config(entry).base_data_key,
+            ): entry
+            for entry in self._entries
         }
 
     def _load_live_entries(
         self,
         strategy_names: Optional[List[str]],
-    ) -> List[LiveStrategyConfig]:
+    ) -> List[StrategyConfig]:
         """加载并校验 live 策略条目。"""
         names = strategy_names or get_live_strategy_names()
         if not names:
             raise ValueError(
-                "未发现任何 live 策略，请先在 py_entry.private_strategies.live 注册"
+                "未发现任何 private 策略，请先在 py_entry.private_strategies 放置策略模块"
             )
-        return [get_live_strategy(name) for name in names]
+        entries = [get_live_strategy(name) for name in names]
+        for entry in entries:
+            if entry.live_meta is None:
+                raise ValueError(f"live 策略缺少 live_meta: {entry.name}")
+            self._require_ohlcv_data_config(entry)
+        return entries
 
-    def _to_strategy_params(self, entry: LiveStrategyConfig) -> StrategyParams:
+    def _require_ohlcv_data_config(self, entry: StrategyConfig) -> OhlcvDataFetchConfig:
+        """强约束：live 策略必须使用 OhlcvDataFetchConfig。"""
+        data_cfg = entry.data_config
+        if not isinstance(data_cfg, OhlcvDataFetchConfig):
+            raise ValueError(
+                f"live 策略 data_config 必须是 OhlcvDataFetchConfig: {entry.name}"
+            )
+        return data_cfg
+
+    def _to_strategy_params(self, entry: StrategyConfig) -> StrategyParams:
         """将 live 策略配置转换为 bot 运行参数。"""
+        data_cfg = self._require_ohlcv_data_config(entry)
+        live_meta = entry.live_meta
+        if live_meta is None:
+            raise ValueError(f"live 策略缺少 live_meta: {entry.name}")
+        exchange_name = cast(Literal["binance", "kraken"], data_cfg.exchange_name)
         return StrategyParams(
-            base_data_key=entry.base_data_key,
-            symbol=entry.symbol,
-            exchange_name=entry.exchange_name,
-            market=entry.market,
-            mode=entry.mode,
-            position_size_pct=entry.position_size_pct,
-            leverage=entry.leverage,
-            settlement_currency=entry.settlement_currency,
+            base_data_key=data_cfg.base_data_key,
+            symbol=data_cfg.symbol,
+            exchange_name=exchange_name,
+            market=data_cfg.market,
+            mode=data_cfg.mode,
+            position_size_pct=live_meta.position_size_pct,
+            leverage=live_meta.leverage,
+            settlement_currency=live_meta.settlement_currency,
         )
 
     def get_strategy_params(self) -> CallbackResult[List[StrategyParams]]:
@@ -124,12 +153,12 @@ class LiveStrategyCallbacks:
 
             bt = Backtest(
                 data_source=data_source,
-                indicators=entry.strategy.indicators_params,
-                signal=entry.strategy.signal_params,
-                backtest=entry.strategy.backtest_params,
-                signal_template=entry.strategy.signal_template,
-                engine_settings=entry.strategy.engine_settings,
-                performance=entry.strategy.performance_params,
+                indicators=entry.indicators_params,
+                signal=entry.signal_params,
+                backtest=entry.backtest_params,
+                signal_template=entry.signal_template,
+                engine_settings=entry.engine_settings,
+                performance=entry.performance_params,
             )
             run_result = bt.run()
             backtest_df = run_result.summary.backtest_result

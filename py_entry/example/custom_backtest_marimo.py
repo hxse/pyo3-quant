@@ -39,23 +39,11 @@ def _():
 
 @app.cell
 def _():
-    from py_entry.private_strategies.live.base import LiveStrategyConfig
     from py_entry.runner import Backtest, FormatResultsConfig, RunResult
     from py_entry.strategies.base import StrategyConfig
 
-    def normalize_strategy_config(
-        cfg_like: StrategyConfig | LiveStrategyConfig,
-    ) -> StrategyConfig:
-        """兼容 StrategyConfig / LiveStrategyConfig 两种返回类型。"""
-        if isinstance(cfg_like, LiveStrategyConfig):
-            return cfg_like.strategy
-        if isinstance(cfg_like, StrategyConfig):
-            return cfg_like
-        raise TypeError(f"不支持的策略配置类型: {type(cfg_like)}")
-
-    def run_from_config(cfg_like: StrategyConfig | LiveStrategyConfig) -> RunResult:
+    def run_from_config(cfg: StrategyConfig) -> RunResult:
         """从统一配置对象执行回测。"""
-        cfg = normalize_strategy_config(cfg_like)
         bt = Backtest(
             data_source=cfg.data_config,
             indicators=cfg.indicators_params,

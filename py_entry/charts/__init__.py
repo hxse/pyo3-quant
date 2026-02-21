@@ -44,7 +44,7 @@ from .helpers import (
 from .generation import generate_default_chart_config
 
 # 导出设置
-from .settings import IGNORE_COLS, INDICATOR_LAYOUT
+from .settings import IGNORE_COLS, INDICATOR_LAYOUT, base_layout, merge_layout
 
 __all__ = [
     # 选项类
@@ -76,4 +76,6 @@ __all__ = [
     # 设置
     "IGNORE_COLS",
     "INDICATOR_LAYOUT",
+    "base_layout",
+    "merge_layout",
 ]

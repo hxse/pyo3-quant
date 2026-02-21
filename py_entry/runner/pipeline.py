@@ -1,105 +1,57 @@
-"""private_strategies 通用阶段执行工具。"""
+"""Runner 层统一管道执行与摘要输出。"""
+
+from __future__ import annotations
 
 from typing import Any
 
-from py_entry.private_strategies.live.base import LiveStrategyConfig
-from py_entry.runner import Backtest, FormatResultsConfig, RunResult
+from py_entry.runner.backtest import Backtest
 from py_entry.types import OptimizerConfig, SensitivityConfig, WalkForwardConfig
 
 
-# 中文注释：统一构建 Backtest，避免策略文件重复样板代码。
-def build_backtest(config: LiveStrategyConfig) -> Backtest:
-    cfg = config.strategy
-    return Backtest(
-        enable_timing=True,
-        data_source=cfg.data_config,
-        indicators=cfg.indicators_params,
-        signal=cfg.signal_params,
-        backtest=cfg.backtest_params,
-        signal_template=cfg.signal_template,
-        engine_settings=cfg.engine_settings,
-        performance=cfg.performance_params,
-    )
-
-
-# 中文注释：统一序列化 Rust 的统计对象，输出纯数值字典给 AI。
-def serialize_metric_stats(
-    metric_stats: dict[str, object],
-) -> dict[str, dict[str, float]]:
-    out: dict[str, dict[str, float]] = {}
-    for key, stats in metric_stats.items():
-        out[key] = {
-            "mean": float(getattr(stats, "mean", 0.0)),
-            "median": float(getattr(stats, "median", 0.0)),
-            "std": float(getattr(stats, "std", 0.0)),
-            "min": float(getattr(stats, "min", 0.0)),
-            "max": float(getattr(stats, "max", 0.0)),
-            "p05": float(getattr(stats, "p05", 0.0)),
-            "p95": float(getattr(stats, "p95", 0.0)),
-        }
-    return out
-
-
-def run_backtest_stage(config: LiveStrategyConfig) -> RunResult:
-    bt = build_backtest(config)
-    return bt.run().format_for_export(FormatResultsConfig(dataframe_format="csv"))
-
-
-def run_optimization_stage(config: LiveStrategyConfig, opt_cfg: OptimizerConfig):
-    bt = build_backtest(config)
-    return bt.optimize(opt_cfg)
-
-
-def run_sensitivity_stage(config: LiveStrategyConfig, sens_cfg: SensitivityConfig):
-    bt = build_backtest(config)
-    return bt.sensitivity(sens_cfg)
-
-
-def run_walk_forward_stage(config: LiveStrategyConfig, wf_cfg: WalkForwardConfig):
-    bt = build_backtest(config)
-    return bt.walk_forward(wf_cfg)
-
-
-# 中文注释：提取优化后的少量关键参数，避免输出全量参数树。
 def extract_optimize_key_params(
     opt_result: Any, base_data_key: str
 ) -> dict[str, object]:
+    """提取优化关键参数，避免输出全量参数树。"""
     summary: dict[str, object] = {}
 
     indicators = getattr(opt_result.best_params, "indicators", {})
     indicator_group = (
         indicators.get(base_data_key, {}) if isinstance(indicators, dict) else {}
     )
+    for indicator_name, params in indicator_group.items():
+        if not isinstance(params, dict):
+            continue
+        for param_name, param_obj in params.items():
+            value = getattr(param_obj, "value", param_obj)
+            summary[f"{indicator_name}.{param_name}"] = value
 
-    fast = (
-        indicator_group.get("sma_fast", {}) if isinstance(indicator_group, dict) else {}
-    )
-    slow = (
-        indicator_group.get("sma_slow", {}) if isinstance(indicator_group, dict) else {}
-    )
-
-    fast_period = fast.get("period") if isinstance(fast, dict) else None
-    slow_period = slow.get("period") if isinstance(slow, dict) else None
-
-    summary["sma_fast"] = getattr(fast_period, "value", fast_period)
-    summary["sma_slow"] = getattr(slow_period, "value", slow_period)
-
-    for key in ("sl_pct", "tp_pct", "tsl_pct"):
+    # 中文注释：常见回测参数保留显式白名单，避免无关字段过量输出。
+    for key in (
+        "sl_pct",
+        "tp_pct",
+        "tsl_pct",
+        "sl_atr",
+        "tp_atr",
+        "tsl_atr",
+        "atr_period",
+    ):
         param_obj = getattr(opt_result.best_backtest_params, key, None)
-        summary[key] = getattr(param_obj, "value", param_obj)
+        value = getattr(param_obj, "value", param_obj)
+        if value is not None:
+            summary[key] = value
 
     return summary
 
 
 def run_pipeline(
-    config: LiveStrategyConfig,
+    bt: Backtest,
     *,
     base_data_key: str,
     opt_cfg: OptimizerConfig,
     sens_cfg: SensitivityConfig,
     wf_cfg: WalkForwardConfig,
 ) -> dict[str, object]:
-    # 中文注释：非交互式顺序执行全部阶段，避免 CLI 阶段 input 阻塞。
+    """非交互式顺序执行完整研究管道。"""
     summary: dict[str, object] = {
         "backtest": None,
         "optimize": None,
@@ -107,13 +59,13 @@ def run_pipeline(
         "walk_forward": None,
     }
 
-    backtest_result = run_backtest_stage(config)
+    backtest_result = bt.run()
     summary["backtest"] = (
         backtest_result.summary.performance if backtest_result.summary else None
     )
     summary["backtest_stage"] = {"status": "ok"}
 
-    opt_result = run_optimization_stage(config, opt_cfg)
+    opt_result = bt.optimize(opt_cfg)
     summary["optimize"] = {
         "metric": str(opt_result.optimize_metric),
         "value": opt_result.optimize_value,
@@ -123,7 +75,7 @@ def run_pipeline(
     }
     summary["optimize_stage"] = {"status": "ok"}
 
-    sens_result = run_sensitivity_stage(config, sens_cfg)
+    sens_result = bt.sensitivity(sens_cfg)
     summary["sensitivity"] = {
         "target_metric": str(sens_result.target_metric),
         "original_value": sens_result.original_value,
@@ -141,7 +93,6 @@ def run_pipeline(
         "min": sens_result.min,
         "max": sens_result.max,
         "cv": sens_result.cv,
-        # 中文注释：只抽取极值样本的核心字段供 AI 快速诊断，不做二次统计。
         "top_k_samples": [
             {"metric_value": s.metric_value, "values": s.values}
             for s in sens_result.top_k_samples
@@ -153,7 +104,7 @@ def run_pipeline(
     }
     summary["sensitivity_stage"] = {"status": "ok"}
 
-    wf_result = run_walk_forward_stage(config, wf_cfg)
+    wf_result = bt.walk_forward(wf_cfg)
     stitched_metrics = wf_result.aggregate_test_metrics
     summary["walk_forward"] = {
         "optimize_metric": str(wf_result.optimize_metric),
@@ -194,15 +145,13 @@ def format_pipeline_summary_for_ai(
     summary: dict[str, object],
     elapsed_seconds: float,
     runtime_config: dict[str, object] | None = None,
-    runtime_thresholds: dict[str, object] | None = None,
 ) -> str:
+    """格式化管道摘要，供 CLI/AI 统一读取。"""
     lines: list[str] = []
     lines.append("=== RESEARCH_PIPELINE_RESULT ===")
     lines.append(f"elapsed_seconds={elapsed_seconds:.4f}")
     if runtime_config is not None:
         lines.append(f"runtime_config={runtime_config}")
-    if runtime_thresholds is not None:
-        lines.append(f"runtime_thresholds={runtime_thresholds}")
     lines.append(f"backtest={summary.get('backtest')}")
     lines.append(f"optimize={summary.get('optimize')}")
     lines.append(f"sensitivity={summary.get('sensitivity')}")

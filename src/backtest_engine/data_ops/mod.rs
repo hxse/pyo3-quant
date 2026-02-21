@@ -3,7 +3,7 @@ use crate::types::{BacktestSummary, DataContainer, IndicatorResults};
 use polars::prelude::*;
 use pyo3::prelude::*;
 use pyo3_stub_gen::derive::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 fn extract_time_values(df: &DataFrame, source_key: &str) -> Result<Vec<i64>, QuantError> {
     let time_col = df
@@ -429,6 +429,20 @@ pub fn rebuild_capital_columns_for_stitched_backtest(
     backtest_df: &DataFrame,
     initial_capital: f64,
 ) -> Result<DataFrame, QuantError> {
+    rebuild_capital_columns_for_stitched_backtest_with_boundaries(backtest_df, initial_capital, &[])
+}
+
+/// stitched 回测资金列重建（支持窗口边界）。
+///
+/// 说明：
+/// 1. `boundary_starts` 传入每个窗口（除第一个外）在 stitched dataframe 中的起始行索引；
+/// 2. 在这些边界行，强制 growth=1，避免把“窗口局部资金重置”误判为真实回撤；
+/// 3. 窗口内部仍按局部资金列增长因子重建，保持原始口径。
+pub fn rebuild_capital_columns_for_stitched_backtest_with_boundaries(
+    backtest_df: &DataFrame,
+    initial_capital: f64,
+    boundary_starts: &[usize],
+) -> Result<DataFrame, QuantError> {
     if initial_capital <= 0.0 {
         return Err(QuantError::InvalidParam(format!(
             "initial_capital 必须 > 0，当前={initial_capital}"
@@ -450,6 +464,11 @@ pub fn rebuild_capital_columns_for_stitched_backtest(
     let mut total_return_pct = vec![0.0_f64; n];
     let mut fee_cum = vec![0.0_f64; n];
     let mut current_drawdown = vec![0.0_f64; n];
+    let boundary_set: HashSet<usize> = boundary_starts
+        .iter()
+        .copied()
+        .filter(|&idx| idx > 0 && idx < n)
+        .collect();
 
     let mut peak_equity = initial_capital;
     let fee0 = fee_local.get(0).unwrap_or(0.0);
@@ -474,23 +493,29 @@ pub fn rebuild_capital_columns_for_stitched_backtest(
         validate_local_capital(curr_eq_local, "equity_local_curr", i)?;
         validate_local_capital(curr_fee, "fee_local", i)?;
 
-        let growth_bal = if prev_bal_local > 0.0 {
-            curr_bal_local / prev_bal_local
-        } else if curr_bal_local == 0.0 {
-            0.0
+        let (growth_bal, growth_eq) = if boundary_set.contains(&i) {
+            // 中文注释：窗口边界行不跨窗口取比值，避免拼接伪回撤。
+            (1.0_f64, 1.0_f64)
         } else {
-            return Err(QuantError::InvalidParam(format!(
-                "balance 增长因子非法: idx={i}, prev=0 curr={curr_bal_local}"
-            )));
-        };
-        let growth_eq = if prev_eq_local > 0.0 {
-            curr_eq_local / prev_eq_local
-        } else if curr_eq_local == 0.0 {
-            0.0
-        } else {
-            return Err(QuantError::InvalidParam(format!(
-                "equity 增长因子非法: idx={i}, prev=0 curr={curr_eq_local}"
-            )));
+            let gb = if prev_bal_local > 0.0 {
+                curr_bal_local / prev_bal_local
+            } else if curr_bal_local == 0.0 {
+                0.0
+            } else {
+                return Err(QuantError::InvalidParam(format!(
+                    "balance 增长因子非法: idx={i}, prev=0 curr={curr_bal_local}"
+                )));
+            };
+            let ge = if prev_eq_local > 0.0 {
+                curr_eq_local / prev_eq_local
+            } else if curr_eq_local == 0.0 {
+                0.0
+            } else {
+                return Err(QuantError::InvalidParam(format!(
+                    "equity 增长因子非法: idx={i}, prev=0 curr={curr_eq_local}"
+                )));
+            };
+            (gb, ge)
         };
 
         if !growth_bal.is_finite() || growth_bal < 0.0 {

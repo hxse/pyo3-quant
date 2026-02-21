@@ -40,6 +40,12 @@ pyo3-quant/
 - `Test`：消费 `strategies` 做公共回归 + 自定义测试场景
 - `trading_bot`：消费策略配置并执行，不定义策略本体
 
+`private_strategies` 最小骨架：
+
+- `template.py`：策略发现与 CLI/Notebook 调度入口（无隐藏缓存状态）
+- `config.py`：优化/敏感性/WF/数据源通用配置构建器
+- 策略文件统一返回 `StrategyConfig`，live 元信息放在 `strategy.live_meta`
+
 详见：`doc/structure/strategy_cross_module_plan.md`
 
 ## 5. 文档状态说明

@@ -5,6 +5,7 @@ from py_entry.types import (
     SingleParamSet,
     BacktestParams,
 )
+from py_entry.runner.results.log_level import LogLevel
 # To convert dict params to SingleParamSet, we might need helper builders
 # But SingleParamSet expects Pydantic models.
 # OptimizationResult.best_params is a dict.
@@ -64,3 +65,24 @@ class OptimizeResult:
     def optimize_value(self) -> float:
         """优化目标最优值"""
         return self._raw.optimize_value
+
+    def log(self, level: LogLevel = LogLevel.BRIEF) -> None:
+        """打印优化摘要日志。"""
+        if level == LogLevel.BRIEF:
+            out: Dict[str, Any] = {
+                "metric": str(self.optimize_metric),
+                "value": self.optimize_value,
+                "samples": self.total_samples,
+                "rounds": self.rounds,
+            }
+            print(f"optimize.brief={out}")
+            return
+        out = {
+            "metric": str(self.optimize_metric),
+            "value": self.optimize_value,
+            "samples": self.total_samples,
+            "rounds": self.rounds,
+            "best_metrics": self.best_metrics,
+            "best_params": str(self.best_params),
+        }
+        print(f"optimize.detailed={out}")

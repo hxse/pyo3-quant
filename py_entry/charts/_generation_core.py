@@ -10,7 +10,7 @@ from py_entry.types import (
 from ._generation_bottom import build_bottom_row_chart
 from ._generation_panels import build_chart_groups
 from ._generation_template import choose_template
-from .settings import INDICATOR_LAYOUT, IndicatorLayout
+from .settings import IndicatorLayout, merge_layout
 
 
 def generate_default_chart_config(
@@ -21,7 +21,7 @@ def generate_default_chart_config(
     indicator_layout: Optional[IndicatorLayout] = None,
 ) -> ChartConfig:
     """根据回测数据和布局配置生成图表配置。"""
-    layout = indicator_layout if indicator_layout is not None else INDICATOR_LAYOUT
+    layout = merge_layout(indicator_layout)
     if not data_dict.base_data_key:
         return ChartConfig(template="single", chart=[])
 

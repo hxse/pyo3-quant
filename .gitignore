@@ -12,15 +12,21 @@ source_ref/ta-lib/
 source_ref/example_source/
 
 py_entry/example/data
-# private_strategies 默认不上传；仅保留 live 桥接骨架文件
+# private_strategies 默认不上传；仅保留通用骨架与一个示例策略
 py_entry/private_strategies/*
 !py_entry/private_strategies/__init__.py
-!py_entry/private_strategies/stage_tools.py
-!py_entry/private_strategies/live/
-py_entry/private_strategies/live/*
-!py_entry/private_strategies/live/__init__.py
-!py_entry/private_strategies/live/base.py
-!py_entry/private_strategies/live/example_strategy.py
+!py_entry/private_strategies/config.py
+!py_entry/private_strategies/template.py
+!py_entry/private_strategies/demo.ipynb
+!py_entry/private_strategies/sma_2tf.py
+!py_entry/private_strategies/strategy_searcher.py
+!py_entry/private_strategies/search_spaces/
+py_entry/private_strategies/search_spaces/*
+!py_entry/private_strategies/search_spaces/__init__.py
+!py_entry/private_strategies/search_spaces/sma_2tf.py
+!py_entry/private_strategies/search_spaces/trash/
+py_entry/private_strategies/search_spaces/trash/*
+!py_entry/private_strategies/search_spaces/trash/.gitkeep
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

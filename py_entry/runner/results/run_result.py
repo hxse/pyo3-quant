@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, List, Tuple, Self, Union
 from io import BytesIO
 from pathlib import Path
 from loguru import logger
+import polars as pl
 
 from py_entry.types import (
     BacktestSummary,
@@ -24,6 +25,7 @@ from py_entry.io.dataframe_utils import add_contextual_columns_to_dataframes
 from py_entry.io.zip_utils import create_zip_buffer
 from py_entry.charts.generation import generate_default_chart_config
 from py_entry.runner.params import FormatResultsConfig
+from py_entry.runner.results.log_level import LogLevel
 
 # Avoid circular imports for type checking if needed, though mostly using imported types
 if TYPE_CHECKING:
@@ -34,6 +36,46 @@ if TYPE_CHECKING:
 # Lazy import display to avoid circular dependency if possible, or import at top if safe.
 # Assuming display doesn't import run_result.
 from py_entry.runner import display as _display
+
+
+def _clone_optional_df(df: pl.DataFrame | None) -> pl.DataFrame | None:
+    """克隆可选 DataFrame。"""
+    if df is None:
+        return None
+    return df.clone()
+
+
+def _copy_data_container(container: DataContainer) -> DataContainer:
+    """深拷贝 DataContainer，避免导出逻辑污染计算态对象。"""
+    mapping = _clone_optional_df(container.mapping)
+    if mapping is None:
+        mapping = pl.DataFrame()
+    skip_mask = _clone_optional_df(container.skip_mask)
+    source = {k: v.clone() for k, v in container.source.items()}
+    return DataContainer(
+        mapping=mapping,
+        skip_mask=skip_mask,
+        source=source,
+        base_data_key=container.base_data_key,
+    )
+
+
+def _copy_summary(summary: BacktestSummary) -> BacktestSummary:
+    """深拷贝 BacktestSummary，确保 format_for_export 不改原始结果。"""
+    indicators = None
+    if summary.indicators is not None:
+        indicators = {k: v.clone() for k, v in summary.indicators.items()}
+
+    signals = _clone_optional_df(summary.signals)
+    backtest_result = _clone_optional_df(summary.backtest_result)
+    performance = dict(summary.performance) if summary.performance is not None else None
+
+    return BacktestSummary(
+        performance=performance,
+        indicators=indicators,
+        signals=signals,
+        backtest_result=backtest_result,
+    )
 
 
 class RunResult:
@@ -86,49 +128,47 @@ class RunResult:
         """为导出准备数据"""
         start_time = time.perf_counter() if self.enable_timing else None
 
-        # 1. 为 DataFrame 添加上下文列
+        # 1. 导出链路在副本上处理，避免污染计算态 data_dict/summary。
+        export_data = _copy_data_container(self.data_dict)
+        export_summary = _copy_summary(self.summary)
+
+        # 2. 为导出副本添加上下文列
         add_contextual_columns_to_dataframes(
-            self.data_dict,
-            self.summary,
+            export_data,
+            export_summary,
             config.add_index,
             config.add_time,
             config.add_date,
         )
 
-        # 2. ChartConfig
+        # 3. ChartConfig
         if config.chart_config is not None:
             self._chart_config = config.chart_config
-        elif config.indicator_layout is not None:
-            if self.data_dict:
-                self._chart_config = generate_default_chart_config(
-                    self.data_dict,
-                    self.summary,
-                    self.params,
-                    config.dataframe_format,
-                    config.indicator_layout,
-                )
         else:
-            if self.data_dict:
+            # 中文注释：仅使用调用方显式传入布局；不传则由图表层回退到全局默认布局。
+            indicator_layout = config.indicator_layout
+            if export_data:
                 self._chart_config = generate_default_chart_config(
-                    self.data_dict,
-                    self.summary,
+                    export_data,
+                    export_summary,
                     self.params,
                     config.dataframe_format,
+                    indicator_layout,
                 )
 
-        # 3. Convert to buffers
+        # 4. Convert to buffers
         self._export_buffers = convert_backtest_data_to_buffers(
-            self.data_dict,
+            export_data,
             self.params,
             self.template_config,
             self.engine_settings,
-            self.summary,
+            export_summary,
             config.dataframe_format,
             config.parquet_compression,
             self._chart_config,
         )
 
-        # 4. Generate ZIP
+        # 5. Generate ZIP
         if self._export_buffers:
             self._export_zip_buffer = create_zip_buffer(
                 self._export_buffers, compress_level=config.compress_level
@@ -198,3 +238,45 @@ class RunResult:
         # I added properties .results and .param_set to mimic BacktestRunner.
 
         return _display.display_dashboard(self, config)
+
+    def log(self, level: LogLevel = LogLevel.BRIEF) -> None:
+        """打印回测摘要日志。"""
+        perf = self.summary.performance or {}
+        if level == LogLevel.BRIEF:
+            total_trades = perf.get("total_trades")
+            span_days = self._span_days_from_base_source()
+            trades_per_day = None
+            days_per_trade = None
+            if (
+                isinstance(total_trades, (int, float))
+                and total_trades > 0
+                and span_days is not None
+                and span_days > 0
+            ):
+                trades_per_day = float(total_trades) / span_days
+                days_per_trade = span_days / float(total_trades)
+            keys = ("total_return", "max_drawdown", "calmar_ratio_raw", "total_trades")
+            out = {k: perf.get(k) for k in keys if k in perf}
+            out["trades_per_day"] = trades_per_day
+            out["days_per_trade"] = days_per_trade
+            print(f"backtest.brief={out}")
+            return
+        print(f"backtest.detailed={perf}")
+
+    def _span_days_from_base_source(self) -> float | None:
+        """从 base 数据源 time 列估算时间跨度（天）。"""
+        source = self.data_dict.source
+        base_key = self.data_dict.base_data_key
+        if base_key not in source:
+            return None
+        df = source[base_key]
+        if "time" not in df.columns or df.height < 2:
+            return None
+        start = df["time"][0]
+        end = df["time"][-1]
+        if not isinstance(start, int) or not isinstance(end, int):
+            return None
+        span_ms = end - start
+        if span_ms <= 0:
+            return None
+        return span_ms / 86_400_000.0

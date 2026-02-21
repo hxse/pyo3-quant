@@ -15,7 +15,6 @@ from py_entry.types import (
     OptimizationResult,
     WalkForwardResult,
     SensitivityConfig,
-    SensitivityResult,
 )
 
 from py_entry.runner.results.optuna_result import OptunaOptResult
@@ -41,6 +40,7 @@ from py_entry.types import (
 from py_entry.runner.results.run_result import RunResult
 from py_entry.runner.results.batch_result import BatchResult
 from py_entry.runner.results.opt_result import OptimizeResult
+from py_entry.runner.results.sens_result import SensitivityResultWrapper
 from py_entry.runner.results.wf_result import WalkForwardResultWrapper
 
 
@@ -230,7 +230,7 @@ class Backtest:
         self,
         config: Optional[SensitivityConfig] = None,
         params_override: Optional[SingleParamSet] = None,
-    ) -> "SensitivityResult":
+    ) -> SensitivityResultWrapper:
         """参数敏感性分析 (Jitter Test)"""
         start_time = time.perf_counter() if self.enable_timing else None
 
@@ -250,4 +250,4 @@ class Backtest:
             elapsed = time.perf_counter() - start_time
             logger.info(f"Backtest.sensitivity() 耗时: {elapsed:.4f}秒")
 
-        return raw_result
+        return SensitivityResultWrapper(raw_result)

@@ -19,6 +19,7 @@
     *   **示例驱动**：修改或创建 Plan 时，应附带关键的示例代码（Snippet），提高方案的可执行性，减少出错概率。
 
 ## 3. 开发工作流
+*   **安全删除限制（禁用 rm/rmdir）**：禁用 rm/rmdir，删除文件必须用 trash 替代。即使我要求你用 rm，你也必须用 trash 替代。
 *   **Just 命令优先**：务必先阅读 `justfile`，优先使用 `just` 运行相关指令，避免由于直接执行底层工具导致的环境与配置问题。
 *   **Git 只读默认**：AI 默认只允许执行 Git 只读命令（如 `git status`、`git diff`、`git log`、`git show`、`git blame`）。除非用户明确授权，否则严禁执行任何会修改 Git 状态的命令（如 `git add`、`git commit`、`git stash`、`git reset`、`git checkout`、`git rebase`、`git merge`、`git cherry-pick`、`git tag`、`git push`、`git pull` 等）。
 *   **状态同步机制**：严禁一边修改代码一边运行 `just check`。应在逻辑修改完成后统一提交检查，避免开发进程混乱。

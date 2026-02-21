@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Dict, Any, Optional, Type, TYPE_CHECKING
 
 from py_entry.data_generator import DataSourceConfig
+from py_entry.charts.settings import IndicatorLayout
 from py_entry.types import (
     BacktestParams,
     SignalTemplate,
@@ -38,6 +39,7 @@ class StrategyConfig:
         signal_template: 信号模板（进出场规则）
         engine_settings: 引擎设置
         performance_params: 性能指标参数（可选）
+        chart_layout: 图表布局（可选，按 panel 覆盖默认布局）
         btp_strategy_class: backtesting.py 策略类（可选，用于相关性分析）
     """
 
@@ -50,8 +52,20 @@ class StrategyConfig:
     signal_template: SignalTemplate
     engine_settings: SettingContainer
     performance_params: Optional[PerformanceParams] = None
+    chart_layout: Optional[IndicatorLayout] = None
     btp_strategy_class: Optional[Type["Strategy"]] = None
     custom_params: Optional[Dict[str, Any]] = None
+    live_meta: Optional["LiveMeta"] = None
 
     def __repr__(self) -> str:
         return f"StrategyConfig(name='{self.name}')"
+
+
+@dataclass
+class LiveMeta:
+    """实盘元信息，仅在 private/trading_bot 场景使用。"""
+
+    enabled: bool = False
+    position_size_pct: float = 1.0
+    leverage: int = 1
+    settlement_currency: str = "USDT"

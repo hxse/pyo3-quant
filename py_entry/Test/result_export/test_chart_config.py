@@ -83,19 +83,27 @@ def test_chart_config_generation(runner_with_results):
         f"RSI should be in slot 1 or later, found at {rsi_grid_index}"
     )
 
-    # --- 在 RSI Grid Slot 中查找 HLines ---
-    # 收集所有 panes 中的 hline series
-    hlines = []
-    for pane in rsi_grid_slot:
-        hlines.extend([item for item in pane if item.type == "hline"])
-
-    assert len(hlines) >= 3, f"Expected at least 3 hlines, found {len(hlines)}"
-
-    vals = sorted([item.hLineOpt.value for item in hlines if item.hLineOpt is not None])
-    # 应该包含 RSI 的关键水平线: 30, 50, 70
-    assert 30 in vals, f"Expected RSI lower line (30) in {vals}"
-    assert 50 in vals, f"Expected RSI center line (50) in {vals}"
-    assert 70 in vals, f"Expected RSI upper line (70) in {vals}"
+    # --- 默认口径：RSI pane 不内置阈值线 ---
+    rsi_pane = next(
+        (
+            pane
+            for pane in rsi_grid_slot
+            if any(
+                item.type == "line"
+                and item.dataName is not None
+                and (
+                    "rsi" in item.dataName
+                    if isinstance(item.dataName, str)
+                    else any("rsi" in name for name in item.dataName)
+                )
+                for item in pane
+            )
+        ),
+        None,
+    )
+    assert rsi_pane is not None, "RSI pane not found in RSI grid slot"
+    rsi_hlines = [item for item in rsi_pane if item.type == "hline"]
+    assert len(rsi_hlines) == 0, "Default RSI pane should not include hlines"
 
     # 3. Verify ZIP
     zip_bytes = runner.export_zip_buffer

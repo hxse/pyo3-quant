@@ -48,10 +48,23 @@ clean: stub-clean
 
 # ==================== 运行 ====================
 
-# 运行 Python 示例；默认运行 custom_backtest
+# 运行 private_strategies 通用模板（默认完整管道）
 # 例: just run
-# 例: just run path=py_entry/example/real_data_backtest.py
-run path="py_entry/example/custom_backtest.py": develop
+# 例: just run sma_2tf pipeline
+run strategy="sma_2tf" mode="pipeline": develop
+    uv run --no-sync python py_entry/private_strategies/template.py --strategy {{strategy}} --mode {{mode}}
+
+# 运行 private_strategies 策略搜索器（option 透传风格，顺序执行）
+# 例: just search --spaces sma_2tf --mode backtest --positive-only true
+# 例: just search --spaces sma_2tf,rsi30_macd4h --symbols SOL/USDT --mode walk_forward --output tmp/search_result.json
+# 例: just search --spaces sma_2tf --symbols SOL/USDT,BTC/USDT --mode backtest
+search *args: develop
+    uv run --no-sync python py_entry/private_strategies/strategy_searcher.py {{args}}
+
+# 运行 Python example 示例脚本；默认运行 custom_backtest
+# 例: just example
+# 例: just example path=py_entry/example/real_data_backtest.py
+example path="py_entry/example/custom_backtest.py": develop
     uv run --no-sync python {{ path }}
 
 # 运行性能基准测试 (pyo3-quant vs VectorBT)
@@ -98,10 +111,6 @@ check-rust:
 # 运行 Python 类型检查 (ty)
 check-py: develop
     uvx ty check
-
-# 检查 private research/live 同名策略文件是否一致（research 不存在时自动跳过）
-live-sync-check: fmt-py
-    uv run --no-sync python scripts/live_sync_check.py
 
 check: check-rust check-py
 

@@ -36,12 +36,12 @@ def test_opening_bar_logic_alignment():
     )
 
     # 使用 DirectDataConfig 包装数据
-    data_config = DirectDataConfig(data={"test_data": df}, base_data_key="test_data")
+    data_config = DirectDataConfig(data={"ohlcv_5m": df}, base_data_key="ohlcv_5m")
 
     # 2. 测试场景 1: 判定 15 分钟休息不算开盘 (threshold = 900)
     # 预期: T0, T4 是开盘; T1, T2, T3 不是
     indicator_configs = {
-        "test_data": {
+        "ohlcv_5m": {
             "opening-bar_0": {
                 "threshold": Param(900.0)  # 刚好 15 分钟
             }
@@ -57,7 +57,7 @@ def test_opening_bar_logic_alignment():
 
     indicators_results = result.results[0].indicators
     assert indicators_results is not None
-    res_df = indicators_results["test_data"]
+    res_df = indicators_results["ohlcv_5m"]
     signals = res_df.select("opening-bar_0").to_series().to_list()
 
     # T1(300s), T2(300s), T3(900s) 不是开盘 (因为 900 不大于 900)
@@ -67,7 +67,7 @@ def test_opening_bar_logic_alignment():
     # 3. 测试场景 2: 判定 15 分钟休息也是开盘 (threshold = 899)
     # 预期: T0, T3, T4 是开盘
     indicator_configs_2 = {
-        "test_data": {
+        "ohlcv_5m": {
             "opening-bar_1": {
                 "threshold": Param(899.0)  # 小于 15 分钟
             }
@@ -82,7 +82,7 @@ def test_opening_bar_logic_alignment():
 
     indicators_results2 = result2.results[0].indicators
     assert indicators_results2 is not None
-    res_df2 = indicators_results2["test_data"]
+    res_df2 = indicators_results2["ohlcv_5m"]
     signals2 = res_df2.select("opening-bar_1").to_series().to_list()
 
     # T0(第一根) 为 0.0, T3(900 > 899), T4 是开盘

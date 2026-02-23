@@ -44,6 +44,124 @@ fn build_backward_mapping(base_times: &[i64], src_times: &[i64]) -> Vec<Option<u
     out
 }
 
+fn try_parse_interval_ms_from_source_key(source_key: &str) -> Option<i64> {
+    let (_, period_part) = source_key.rsplit_once('_')?;
+
+    let digit_len = period_part
+        .chars()
+        .take_while(|c| c.is_ascii_digit())
+        .count();
+    if digit_len == 0 || digit_len == period_part.len() {
+        return None;
+    }
+
+    let value_str = &period_part[..digit_len];
+    let raw_unit_str = &period_part[digit_len..];
+    let unit_str = raw_unit_str.to_ascii_lowercase();
+    let value = value_str.parse::<i64>().ok()?;
+    if value <= 0 {
+        return None;
+    }
+
+    let unit_ms = if raw_unit_str == "M" {
+        // 中文注释：工程约定 M=28 天下限，用于“间隔不能小于 28 天”的校验语义。
+        28_i64 * 86_400_000_i64
+    } else {
+        match unit_str.as_str() {
+            "ms" => 1_i64,
+            "s" => 1_000_i64,
+            "m" => 60_000_i64,
+            "h" => 3_600_000_i64,
+            "d" => 86_400_000_i64,
+            "w" => 7_i64 * 86_400_000_i64,
+            // 中文注释：工程约定 y=364 天下限，兼容闰年/交易日历差异。
+            "y" => 364_i64 * 86_400_000_i64,
+            _ => return None,
+        }
+    };
+
+    value.checked_mul(unit_ms)
+}
+
+fn min_positive_interval_ms_from_times(times: &[i64], source_key: &str) -> Result<i64, QuantError> {
+    if times.len() < 2 {
+        return Err(QuantError::InvalidParam(format!(
+            "source '{source_key}' 的 time 列至少需要 2 行，当前为 {} 行",
+            times.len()
+        )));
+    }
+
+    let mut min_interval: Option<i64> = None;
+    for pair in times.windows(2) {
+        let diff = pair[1] - pair[0];
+        if diff < 0 {
+            return Err(QuantError::InvalidParam(format!(
+                "source '{source_key}' 的 time 列必须非递减，检测到倒序间隔 {diff}"
+            )));
+        }
+        if diff == 0 {
+            continue;
+        }
+        min_interval = Some(match min_interval {
+            Some(v) => v.min(diff),
+            None => diff,
+        });
+    }
+
+    min_interval.ok_or_else(|| {
+        QuantError::InvalidParam(format!(
+            "source '{source_key}' 的 time 列无法推导最小正间隔（相邻间隔全为 0）"
+        ))
+    })
+}
+
+/// 校验 base_data_key 对应的数据频率是否为全体 source 中最小周期（最细粒度）。
+///
+/// 规则：
+/// 1. 命名可解析为周期（`数据名_周期名`）的 source 才参与周期校验；
+/// 2. 对参与校验的 source，`time` 最小正间隔（跳过 diff=0）必须 >= 声明周期；
+/// 3. `base_data_key` 必须命名规范并可解析周期；
+/// 4. `base_data_key` 的声明周期必须是参与校验 source 中的最小周期。
+pub fn validate_base_data_key_is_smallest_interval(data: &DataContainer) -> Result<(), QuantError> {
+    let base_key = &data.base_data_key;
+    data.source
+        .get(base_key)
+        .ok_or_else(|| QuantError::InvalidParam("base_data_key 不存在于 source".to_string()))?;
+    let base_declared_interval_ms =
+        try_parse_interval_ms_from_source_key(base_key).ok_or_else(|| {
+            QuantError::InvalidParam(format!(
+                "base_data_key '{base_key}' 命名不规范，必须符合 `数据名_周期名`（如 ohlcv_15m）"
+            ))
+        })?;
+
+    for (source_key, src_df) in &data.source {
+        let Some(src_declared_interval_ms) = try_parse_interval_ms_from_source_key(source_key)
+        else {
+            // 中文注释：允许自定义非规范 source 命名，无法解析周期时跳过周期校验。
+            continue;
+        };
+
+        let src_times = extract_time_values(src_df, source_key)?;
+        let src_min_positive_interval_ms =
+            min_positive_interval_ms_from_times(&src_times, source_key)?;
+
+        // 中文注释：只做“过小”校验，允许最小间隔大于命名周期（例如节假日/停盘造成稀疏采样）。
+        if src_min_positive_interval_ms < src_declared_interval_ms {
+            return Err(QuantError::InvalidParam(format!(
+                "source '{source_key}' 的最小正间隔为 {src_min_positive_interval_ms}ms，小于命名周期 {src_declared_interval_ms}ms"
+            )));
+        }
+
+        if src_declared_interval_ms < base_declared_interval_ms {
+            return Err(QuantError::InvalidParam(format!(
+                "base_data_key 必须是最小周期：source '{source_key}' 的命名周期为 {src_declared_interval_ms}ms，小于 base '{base_key}' 的 {base_declared_interval_ms}ms"
+            )));
+        }
+    }
+
+    Ok(())
+}
+
 fn align_sources_to_base_time_range(
     source: &mut HashMap<String, DataFrame>,
     base_key: &str,
@@ -200,6 +318,9 @@ pub fn slice_data_container_by_base_window(
                     }
                     (min_i, max_i - min_i + 1)
                 }
+                // 中文注释：全 None 映射时（窗口内无任何有效 source 索引），
+                // src_len=0 导致 rebased mapping 全填 None。signal generator
+                // 的 is_null() 会安全地检测到这些 null 值并抑制信号输出。
                 _ => (0, 0),
             }
         };
@@ -215,6 +336,18 @@ pub fn slice_data_container_by_base_window(
                 .into_iter()
                 .map(|v| v.map(|x| x - src_start as u32))
                 .collect();
+            // 中文注释：rebase 后校验所有索引均在 source 切片范围内，
+            // 违反说明 mapping 与 source 切片不一致，属于内部逻辑错误。
+            for (row, val) in rebased.iter().enumerate() {
+                if let Some(idx) = val {
+                    if (*idx as usize) >= src_len {
+                        return Err(QuantError::InvalidParam(format!(
+                            "rebase 越界: source='{}', row={}, rebased_idx={}, src_len={}",
+                            source_key, row, idx, src_len
+                        )));
+                    }
+                }
+            }
             Series::new(source_key.clone().into(), rebased)
         };
         rebased_mapping_cols.push(rebased_mapping_series.into_column());
@@ -580,6 +713,7 @@ pub fn py_build_time_mapping(
     if align_to_base_range {
         align_sources_to_base_time_range(&mut data_dict.source, &data_dict.base_data_key)?;
     }
+    validate_base_data_key_is_smallest_interval(&data_dict)?;
 
     let base_key = &data_dict.base_data_key;
     let base_df = data_dict

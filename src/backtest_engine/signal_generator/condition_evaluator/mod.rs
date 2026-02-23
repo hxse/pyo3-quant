@@ -255,5 +255,20 @@ pub fn evaluate_parsed_condition(
         result_series = bool_chunked.not().into_series();
     }
 
+    // 中文注释：negated 取反后必须重新应用 mask，确保 NaN/null 行结果始终为 false。
+    // 问题：NaN 行在 perform_comparison 中被强制为 false，但取反后变为 true，
+    //       导致无效行误产生信号（对 exit 条件尤其危险）。
+    // 修复：`result & !mask` 幂等操作，对非 negated 场景无副作用（(x & !m) & !m = x & !m）。
+    result_series = result_series
+        .bool()
+        .map_err(|_| {
+            QuantError::Signal(SignalError::InvalidInput(
+                "Result is not boolean after mask re-apply".to_string(),
+            ))
+        })?
+        .clone()
+        .bitand(mask.clone().not())
+        .into_series();
+
     Ok((result_series, mask))
 }

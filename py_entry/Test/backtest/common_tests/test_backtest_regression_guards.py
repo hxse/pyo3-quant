@@ -126,15 +126,28 @@ class TestAtrColumnRegression:
 class TestShortDatasetRegression:
     """短样本边界回归测试。"""
 
-    @pytest.mark.parametrize("num_bars", [1, 2])
-    def test_balance_and_equity_initialized_for_short_dataset(self, num_bars: int):
-        """len<=2 时不应返回全零资金列。"""
+    @pytest.mark.parametrize(
+        ("num_bars", "should_raise"),
+        [
+            (1, True),
+            (2, False),
+        ],
+    )
+    def test_balance_and_equity_initialized_for_short_dataset(
+        self, num_bars: int, should_raise: bool
+    ):
+        """短样本契约：1 根数据应被数据层拒绝；2 根数据应完成初始化。"""
         initial_capital = 12_345.0
         params = BacktestParams(
             initial_capital=initial_capital,
             fee_fixed=0.0,
             fee_pct=0.0,
         )
+        if should_raise:
+            with pytest.raises(ValueError, match="至少需要 2 行"):
+                _build_minimal_runner(num_bars=num_bars, backtest_params=params)
+            return
+
         runner = _build_minimal_runner(num_bars=num_bars, backtest_params=params)
         result = runner.run()
         df = result.summary.backtest_result

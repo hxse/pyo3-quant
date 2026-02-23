@@ -202,6 +202,7 @@ fn build_stitched_artifact(
         slice_data_container_by_base_window(data_dict, stitched_start, stitched_len)?;
     let stitched_times = extract_base_times(&stitched_data)?;
     assert_time_strictly_increasing(&stitched_times)?;
+    assert_source_times_non_decreasing(&stitched_data)?;
 
     let summaries: Vec<crate::types::BacktestSummary> =
         window_results.iter().map(|w| w.summary.clone()).collect();
@@ -385,6 +386,42 @@ fn assert_time_strictly_increasing(times: &[i64]) -> Result<(), QuantError> {
                 times[i - 1]
             ))
             .into());
+        }
+    }
+    Ok(())
+}
+
+/// 校验 stitched_data 中每个非 base source 的 time 列是否非递减。
+///
+/// base 时间已由 `assert_time_strictly_increasing` 保证严格递增；
+/// 非 base source 由于 mapping 重排后允许相同时间戳（同一根大周期 bar 映射到多根 base bar），
+/// 但不允许时间倒退。
+fn assert_source_times_non_decreasing(data: &DataContainer) -> Result<(), QuantError> {
+    for (source_key, src_df) in &data.source {
+        if source_key == &data.base_data_key {
+            continue;
+        }
+        let time_col = src_df.column("time").map_err(|_| {
+            OptimizerError::InvalidConfig(format!("stitched source '{}' 缺少 time 列", source_key))
+        })?;
+        let time_i64 = time_col.i64().map_err(|_| {
+            OptimizerError::InvalidConfig(format!(
+                "stitched source '{}' 的 time 列必须是 Int64",
+                source_key
+            ))
+        })?;
+        for i in 1..time_i64.len() {
+            let prev = time_i64.get(i - 1);
+            let curr = time_i64.get(i);
+            if let (Some(p), Some(c)) = (prev, curr) {
+                if c < p {
+                    return Err(OptimizerError::InvalidConfig(format!(
+                        "stitched source '{}' time 非递减校验失败: idx={} {} < {}",
+                        source_key, i, c, p
+                    ))
+                    .into());
+                }
+            }
         }
     }
     Ok(())

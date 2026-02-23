@@ -32,6 +32,10 @@ def apply_mapping_if_needed(series, source_key, processed_data):
         # 不需要映射，直接返回原始Series
         return series
 
+    # 中文注释：与 Rust resolve_data_operand 保持一致：
+    # 非自然映射 source 在映射前先 lookback 一根，避免读取未收盘高周期 bar。
+    series = series.shift(1)
+
     # 执行映射
     mapping_df = processed_data.mapping
     if source_key not in mapping_df.columns:

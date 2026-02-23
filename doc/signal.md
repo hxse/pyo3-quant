@@ -84,6 +84,19 @@ class SignalGroup:
 | `&v1/v2/v3` | 列表 AND | 列表中**所有**偏移都必须满足条件 | `&1/3/5` (偏移1,3,5都需满足)|
 | `\|v1/v2/v3` | 列表 OR | 列表中**任一**偏移满足条件即可 | `\|1/3/5` (偏移1,3,5任一满足) |
 
+> [!IMPORTANT]
+> **多周期新语义（已落地）**：
+> 当数据源是“非自然映射 source”（需要 asof mapping，典型是高周期）时，
+> 系统会在内部自动执行 `effective_offset = user_offset + 1`。
+>
+> 这意味着：
+> - 用户写 `offset=0`，实际读取“最新已收盘”的高周期 bar（而不是时间戳对齐的在建 bar）
+> - 用户写 `offset=1`，实际读取“上一个已收盘”高周期 bar
+> - Base/自然映射 source 不受影响，仍按原始 `offset` 取值
+>
+> 该行为用于消除多周期未来数据泄露（Look-Ahead Bias），用户模板写法无需变化。
+> 详细时序语义与边界约束请参考：`doc/structure/multi_timeframe_data_integrity.md`。
+
 ### 2.2 运算符 (Operators)
 
 支持普通比较和交叉（Cross）比较。
@@ -276,3 +289,27 @@ SignalGroup(
 - 帮助识别中间缺失的数据或计算异常（如除以零产生的 NaN）。
 - **信号完整性**：信号评估逻辑在检测到数据无效时，会同步将该位置的信号设为 `False` 并在 `has_leading_nan` 中标记为 `True`，以保证回测的严格性。
 - **传递性**：该列会被自动复制到回测结果 DataFrame 中，作为绩效分析（如计算 `has_leading_nan_count`）的基础数据。
+
+---
+
+## 5. 多周期数据约束（新增）
+
+为保证 signal 语义可解释且无未来数据泄露，数据层有以下硬约束：
+
+1. `base_data_key` 必须是最小周期（最细粒度）
+2. source 命名规则必须为 `数据名_周期名`（如 `ohlcv_5m`）
+3. 周期字符串可解析为毫秒值（当前支持 `ms/s/m/h/d/w/M/y`）
+4. 工程约定：`M=28d`、`y=364d`，两者均按“最小间隔下限”校验
+5. 各 source 的 `time` 列最小正间隔（跳过 `diff=0`）必须 `>=` 其命名周期毫秒值
+6. 若最小正间隔大于命名周期（如节假日/停盘），允许通过
+7. `time` 列必须非递减（允许相同时间戳，如 Renko 多砖同刻；禁止倒序）
+8. 每个 source 的 `time` 列至少 2 行，不足直接报错
+9. `base_data_key` 的命名周期必须是所有 source 命名周期中的最小值
+10. 若 source 命名不符合 `数据名_周期名`（如 `test_data`），跳过该 source 的周期校验
+11. `base_data_key` 必须命名规范（可解析周期）；不规范直接报错
+
+该约束会在两处执行：
+- `build_time_mapping` 构建映射时校验一次
+- 回测引擎入口（`run_backtest_engine` / `run_single_backtest`）再校验一次
+
+如果违反约束，系统直接报错，不做兼容回退。

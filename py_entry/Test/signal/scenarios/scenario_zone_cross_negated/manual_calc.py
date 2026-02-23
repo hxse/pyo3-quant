@@ -35,21 +35,25 @@ def calculate_entry_long(
         val = rsi[i]
 
         # NaN/Null 处理：
-        # Engine 逻辑：NaN -> result=False -> negated -> result=True.
-        # Mask 会标记这些位置为无效，但 assert_frame_equal 可能直接对比数值。
-        # 为了匹配引擎的原始输出，这里 NaN 应该设为 True (即 not False)。
+        # 修复后引擎逻辑：NaN → result=False → negated → True → mask 重新应用 → False。
+        # 引擎在 condition_evaluator 中 negation 后重新应用 mask，NaN 行结果始终为 false。
         if val is None or math.isnan(val):
             active = False
-            result[i] = True  # negated False is True
+            result[i] = False  # NaN行：mask重新应用后为false（已修复）
             continue
 
         prev_val = rsi[i - 1] if i > 0 else None
 
+        # prev_val 是 NaN/Null 时，crossover 的 prev_mask=true → 整体 mask=true →
+        # negation 后结果为 true，但 mask 重新应用后强制为 false。
+        # active 也同步重置（引擎 zone_cross 在 is_invalid 时重置 active）。
+        if prev_val is None or math.isnan(prev_val):
+            active = False
+            result[i] = False
+            continue
+
         # 1. 检查瞬时穿越 (x> 30): prev <= 30 AND curr > 30
-        is_cross = False
-        if prev_val is not None and not math.isnan(prev_val):
-            if prev_val <= 30 and val > 30:
-                is_cross = True
+        is_cross = prev_val <= 30 and val > 30
 
         # 2. 检查区间脱离 (out_of_zone): val >= 70 OR val <= 30
         is_ooz = val >= 70 or val <= 30

@@ -96,9 +96,17 @@ pub fn resolve_data_operand(
     };
 
     let mut result_series = Vec::with_capacity(offsets.len());
+    let needs_lookback_shift = !is_natural_mapping_for_source(processed_data, source_key)
+        .map_err(|e| SignalError::MappingApplyError(e.to_string()))?;
 
     for offset in offsets {
-        let shifted_series = series.shift(offset);
+        // 中文注释：非自然映射（通常为高周期）统一补偿一根，避免读取未收盘 bar。
+        let effective_offset = if needs_lookback_shift {
+            offset + 1
+        } else {
+            offset
+        };
+        let shifted_series = series.shift(effective_offset);
         let mapped_series = apply_mapping_if_needed(&shifted_series, source_key, processed_data)?;
         result_series.push(mapped_series);
     }

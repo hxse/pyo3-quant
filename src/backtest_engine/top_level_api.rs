@@ -1,3 +1,4 @@
+use crate::backtest_engine::data_ops::validate_base_data_key_is_smallest_interval;
 use crate::backtest_engine::utils;
 use crate::error::QuantError;
 use crate::types::{
@@ -34,6 +35,9 @@ pub fn run_backtest_engine(
     processed_template: &TemplateContainer,
     processed_settings: &SettingContainer,
 ) -> Result<Vec<BacktestSummary>, QuantError> {
+    // 中文注释：回测引擎入口再次校验 base 最小周期约束，防止调用方绕过 mapping 构建流程。
+    validate_base_data_key_is_smallest_interval(processed_data)?;
+
     let total_tasks = processed_params.len();
 
     let results: Vec<BacktestSummary> = if total_tasks == 1 {
@@ -197,6 +201,8 @@ pub fn py_run_single_backtest(
     template: TemplateContainer,
     engine_settings: SettingContainer,
 ) -> PyResult<BacktestSummary> {
+    // 中文注释：单次回测入口与批量入口保持同一数据约束。
+    validate_base_data_key_is_smallest_interval(&data_dict)?;
     let result = execute_single_backtest(&data_dict, &param, &template, &engine_settings)?;
     Ok(result)
 }

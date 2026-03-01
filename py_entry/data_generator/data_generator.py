@@ -5,6 +5,7 @@
 import polars as pl
 import numpy as np
 import pyo3_quant
+import math
 from datetime import datetime
 from typing import cast
 
@@ -29,6 +30,112 @@ from py_entry.io import (
     get_ohlcv_data,
     convert_to_ohlcv_dataframe,
 )
+
+# 中文注释：覆盖补拉轮次上限，防止异常数据源导致死循环。
+_MAX_START_BACKFILL_ROUNDS = 256
+_MAX_END_BACKFILL_ROUNDS = 256
+
+
+def _extract_timeframe_from_data_key(data_key: str) -> str:
+    """从数据键名提取 timeframe（例如 ohlcv_15m -> 15m）。"""
+    if "_" not in data_key:
+        raise ValueError(f"base_data_key 格式非法: {data_key}")
+    return data_key.split("_", 1)[1]
+
+
+def _build_ohlcv_request(
+    cfg: OhlcvDataFetchConfig,
+    timeframe: str,
+    since: int | None,
+    limit: int | None,
+) -> OhlcvRequestParams:
+    """构造单周期请求参数。"""
+    return OhlcvRequestParams(
+        config=cfg.config,
+        exchange_name=cfg.exchange_name,
+        market=cfg.market,
+        symbol=cfg.symbol,
+        timeframe=timeframe,
+        since=since,
+        limit=limit,
+        enable_cache=cfg.enable_cache,
+        enable_test=cfg.enable_test,
+        mode=cfg.mode,
+    )
+
+
+def _fetch_ohlcv_dataframe_or_raise(req: OhlcvRequestParams) -> pl.DataFrame:
+    """执行请求并转换为 DataFrame，失败直接报错。"""
+    result = get_ohlcv_data(req)
+    ohlcv_df = convert_to_ohlcv_dataframe(result)
+    if ohlcv_df is None or ohlcv_df.height == 0:
+        raise ValueError(f"无法从服务器获取时间周期 {req.timeframe} 的OHLCV数据")
+    return ohlcv_df
+
+
+def _fetch_with_coverage_backfill(
+    cfg: OhlcvDataFetchConfig,
+    timeframe: str,
+    base_start_time: int,
+    base_end_time: int,
+) -> pl.DataFrame:
+    """
+    对单个非 base 周期执行覆盖补拉（start/end 双侧）。
+
+    说明：
+    1. 不改变对外请求协议，仍然只用 since + limit；
+    2. 仅在 since/limit 都存在时执行补拉，否则退化为单次请求；
+    3. 最终覆盖仍由 Rust build_time_mapping 做硬校验。
+    """
+    current_since = cfg.since
+    current_limit = cfg.limit
+
+    request = _build_ohlcv_request(cfg, timeframe, current_since, current_limit)
+    source_df = _fetch_ohlcv_dataframe_or_raise(request)
+
+    # 中文注释：若调用方没有显式提供 since/limit，则无法执行可控补拉，直接返回首轮结果。
+    if current_since is None or current_limit is None:
+        return source_df
+
+    source_interval_ms = parse_timeframe(timeframe)
+    if source_interval_ms <= 0:
+        raise ValueError(f"timeframe 解析非法: {timeframe}")
+
+    # start 侧补拉：前移 since 直到 source_start <= base_start。
+    start_round = 0
+    while int(source_df["time"][0]) > base_start_time:
+        start_round += 1
+        if start_round > _MAX_START_BACKFILL_ROUNDS:
+            raise ValueError(
+                f"start 侧补拉超过上限({_MAX_START_BACKFILL_ROUNDS})，timeframe={timeframe}"
+            )
+        current_since -= source_interval_ms
+        request = _build_ohlcv_request(cfg, timeframe, current_since, current_limit)
+        source_df = _fetch_ohlcv_dataframe_or_raise(request)
+
+    # end 侧补拉：增大 limit 直到 source_end + interval > base_end。
+    end_round = 0
+    min_step = max(int(cfg.end_backfill_min_step_bars), 1)
+    while int(source_df["time"][-1]) + source_interval_ms <= base_end_time:
+        end_round += 1
+        if end_round > _MAX_END_BACKFILL_ROUNDS:
+            raise ValueError(
+                f"end 侧补拉超过上限({_MAX_END_BACKFILL_ROUNDS})，timeframe={timeframe}"
+            )
+
+        source_start = int(source_df["time"][0])
+        returned = int(source_df.height)
+        expected_total = int(
+            math.ceil((base_end_time - source_start) / source_interval_ms) + 1
+        )
+        missing = max(expected_total - returned, 0)
+        step = max(missing, min_step)
+        current_limit += step
+
+        request = _build_ohlcv_request(cfg, timeframe, current_since, current_limit)
+        source_df = _fetch_ohlcv_dataframe_or_raise(request)
+
+    return source_df
 
 
 def generate_data_dict(
@@ -89,29 +196,37 @@ def generate_data_dict(
     elif is_fetched_data(data_source):
         # 从服务器获取OHLCV数据
         ohlcv_data_config = cast(OhlcvDataFetchConfig, data_source)  # 类型断言
-
-        for timeframe in ohlcv_data_config.timeframes:
-            # 为每个时间周期创建单独的配置对象
-            single_ohlcv_config = OhlcvRequestParams(
-                config=ohlcv_data_config.config,
-                exchange_name=ohlcv_data_config.exchange_name,
-                market=ohlcv_data_config.market,
-                symbol=ohlcv_data_config.symbol,
-                timeframe=timeframe,
-                since=ohlcv_data_config.since,
-                limit=ohlcv_data_config.limit,
-                enable_cache=ohlcv_data_config.enable_cache,
-                enable_test=ohlcv_data_config.enable_test,
-                mode=ohlcv_data_config.mode,
-            )
-            result = get_ohlcv_data(single_ohlcv_config)
-            ohlcv_df = convert_to_ohlcv_dataframe(result)
-            if ohlcv_df is not None:
-                source_dict[f"ohlcv_{timeframe}"] = ohlcv_df
-            else:
-                raise ValueError(f"无法从服务器获取时间周期 {timeframe} 的OHLCV数据")
-
         base_data_key = ohlcv_data_config.base_data_key
+        base_timeframe = _extract_timeframe_from_data_key(base_data_key)
+        if base_timeframe not in ohlcv_data_config.timeframes:
+            raise ValueError(
+                f"base_data_key={base_data_key} 对应周期 {base_timeframe} 不在 timeframes 中"
+            )
+
+        # 中文注释：先拉 base，得到覆盖目标时间边界。
+        base_req = _build_ohlcv_request(
+            ohlcv_data_config,
+            base_timeframe,
+            ohlcv_data_config.since,
+            ohlcv_data_config.limit,
+        )
+        base_df = _fetch_ohlcv_dataframe_or_raise(base_req)
+        source_dict[base_data_key] = base_df
+        base_start_time = int(base_df["time"][0])
+        base_end_time = int(base_df["time"][-1])
+
+        # 中文注释：非 base 周期执行覆盖补拉；base 已在上面完成，不重复请求。
+        for timeframe in ohlcv_data_config.timeframes:
+            ohlcv_key = f"ohlcv_{timeframe}"
+            if ohlcv_key == base_data_key:
+                continue
+            source_dict[ohlcv_key] = _fetch_with_coverage_backfill(
+                ohlcv_data_config,
+                timeframe,
+                base_start_time,
+                base_end_time,
+            )
+
         align_to_base_for_mapping = ohlcv_data_config.align_to_base_range
 
     elif is_predefined_data(data_source):

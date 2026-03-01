@@ -1,7 +1,7 @@
 use super::config::DivergenceConfig;
 use super::expr::divergence_expr;
 use crate::backtest_engine::indicators::{
-    registry::Indicator,
+    registry::{require_resolved_param, Indicator},
     rsi::{rsi_lazy, RSIConfig},
 };
 use crate::error::QuantError;
@@ -65,5 +65,19 @@ impl Indicator for RsiDivergenceIndicator {
                 .as_materialized_series()
                 .clone(),
         ])
+    }
+
+    fn required_warmup_bars(
+        &self,
+        resolved_params: &HashMap<String, f64>,
+    ) -> Result<usize, QuantError> {
+        // 本指标有效业务列 `_value` 继承 RSI，预热与 RSI 一致。
+        let period = require_resolved_param(resolved_params, "period", "rsi-divergence")? as i64;
+        Ok(period.max(0) as usize)
+    }
+
+    fn warmup_mode(&self) -> crate::backtest_engine::indicators::registry::WarmupMode {
+        // 中文注释：RSI divergence 非预热段不允许中间空值。
+        crate::backtest_engine::indicators::registry::WarmupMode::Strict
     }
 }

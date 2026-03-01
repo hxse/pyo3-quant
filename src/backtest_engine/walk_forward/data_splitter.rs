@@ -1,4 +1,4 @@
-use crate::types::WalkForwardConfig;
+use crate::types::{WalkForwardConfig, WfWarmupMode};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
@@ -10,66 +10,112 @@ pub struct WindowSpec {
     pub test_range: (usize, usize),
 }
 
-/// 生成滚动窗口
+/// 生成滚动窗口（统一支持三模式）。
 ///
-/// # 参数
-/// * `total_bars` - 总K线数量
-/// * `config` - 配置
-///
-/// # 返回
-/// 窗口列表或错误
+/// 参数：
+/// - `total_bars`：base 总 K 线数量。
+/// - `config`：WF 配置。
+/// - `indicator_warmup_bars_base`：base source 的指标预热需求（来自预检）。
 pub fn generate_windows(
     total_bars: usize,
     config: &WalkForwardConfig,
+    indicator_warmup_bars_base: usize,
 ) -> PyResult<Vec<WindowSpec>> {
     let mut windows = Vec::new();
-    // 中文注释：破坏性更新后，WF 改为固定 bar 数配置，不再按比例切分。
-    let train_len = config.train_bars;
-    let transition_len = config.transition_bars;
-    let test_len = config.test_bars;
-    // 破坏性更新：滚动步长强制等于测试期长度，移除独立 step_ratio。
-    let step_len = test_len;
 
-    if train_len == 0 || transition_len == 0 || test_len == 0 {
+    let train_len = config.train_bars;
+    let test_len = config.test_bars;
+    let transition_cfg = config.transition_bars;
+
+    if train_len == 0 || transition_cfg == 0 || test_len == 0 {
         return Err(PyValueError::new_err(format!(
-            "Window size too small: total={}, train={}, transition={}, test={}",
-            total_bars, train_len, transition_len, test_len
+            "窗口参数非法: total={}, train={}, transition={}, test={}",
+            total_bars, train_len, transition_cfg, test_len
+        )));
+    }
+    if test_len < 2 {
+        return Err(PyValueError::new_err(format!(
+            "test_bars 必须 >= 2（用于测试段倒数第二根注入），当前={}",
+            test_len
         )));
     }
 
-    if train_len + transition_len + test_len > total_bars {
-        return Err(PyValueError::new_err(
-            "Initial window size (train + transition + test) exceeds total data size",
-        ));
+    // 中文注释：过渡期有效长度 E 由 warmup_mode 与预检 warmup 共同决定。
+    let effective_transition = match config.wf_warmup_mode {
+        WfWarmupMode::BorrowFromTrain | WfWarmupMode::ExtendTest => {
+            indicator_warmup_bars_base.max(transition_cfg).max(1)
+        }
+        WfWarmupMode::NoWarmup => transition_cfg.max(1),
+    };
+
+    if effective_transition == 0 {
+        return Err(PyValueError::new_err("effective_transition_bars 必须 >= 1"));
     }
 
-    // 窗口生成逻辑
-    // Start from idx 0
-    // Window i:
-    // Train: [start, start + train_len)
-    // Test:  [start + train_len, start + train_len + test_len)
-    // Next start: start + step_len
+    // 中文注释：BorrowFromTrain 会把过渡段放在训练尾部重叠，必须保证 E <= T。
+    if matches!(config.wf_warmup_mode, WfWarmupMode::BorrowFromTrain)
+        && effective_transition > train_len
+    {
+        return Err(PyValueError::new_err(format!(
+            "BorrowFromTrain 非法: effective_transition_bars={} > train_bars={}",
+            effective_transition, train_len
+        )));
+    }
 
-    let mut start_idx = 0;
-    let mut window_id = 0;
+    // 中文注释：滚动步长固定等于测试段长度，保持窗口测试段时间连续。
+    let step_len = test_len;
+    let mut base_start = 0_usize;
+    let mut window_id = 0_usize;
 
-    while start_idx + train_len + transition_len + test_len <= total_bars {
-        let train_start = start_idx;
-        let train_end = start_idx + train_len; // Exclusive
-        let transition_start = train_end;
-        let transition_end = transition_start + transition_len;
-        let test_start = transition_end;
-        let test_end = test_start + test_len; // Exclusive
+    loop {
+        let (train_range, transition_range, test_range) = match config.wf_warmup_mode {
+            WfWarmupMode::BorrowFromTrain => {
+                let train_start = base_start;
+                let train_end = train_start + train_len;
+                let transition_start = train_end - effective_transition;
+                let transition_end = train_end;
+                let test_start = train_end;
+                let test_end = test_start + test_len;
+                (
+                    (train_start, train_end),
+                    (transition_start, transition_end),
+                    (test_start, test_end),
+                )
+            }
+            WfWarmupMode::ExtendTest | WfWarmupMode::NoWarmup => {
+                let train_start = base_start;
+                let train_end = train_start + train_len;
+                let transition_start = train_end;
+                let transition_end = transition_start + effective_transition;
+                let test_start = transition_end;
+                let test_end = test_start + test_len;
+                (
+                    (train_start, train_end),
+                    (transition_start, transition_end),
+                    (test_start, test_end),
+                )
+            }
+        };
+
+        if test_range.1 > total_bars {
+            break;
+        }
 
         windows.push(WindowSpec {
             id: window_id,
-            train_range: (train_start, train_end),
-            transition_range: (transition_start, transition_end),
-            test_range: (test_start, test_end),
+            train_range,
+            transition_range,
+            test_range,
         });
 
-        start_idx += step_len;
+        base_start += step_len;
         window_id += 1;
+    }
+
+    if windows.is_empty() {
+        return Err(PyValueError::new_err(
+            "未生成任何窗口：请检查 train/transition/test 与总样本长度",
+        ));
     }
 
     Ok(windows)

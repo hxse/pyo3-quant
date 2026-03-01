@@ -26,6 +26,8 @@
 3. 策略文件与搜索空间文件统一调用上述构建器，避免两套口径。
 4. 默认策略：优先使用统一默认配置；仅在必要时通过覆盖参数做差异化。
 5. 覆盖规则：允许策略级/搜索空间级覆盖，但禁止复制整段默认配置，必须走“默认 + 覆盖”写法。
+6. WF 相关公共参数必须在这里可见：`train_bars/transition_bars/test_bars/wf_warmup_mode`。
+7. 数据请求相关公共参数必须在这里可见：`since/limit/end_backfill_min_step_bars/base_data_key`。
 
 ### 2.1.1 `strategy_searcher` 设计约束
 
@@ -44,6 +46,7 @@
 9. 明确禁止“多策略 + 多品种”混合搜索（不同品种不同策略），命令级直接报错，不做兼容回退。
 10. `symbols=""`（空字符串）表示“不覆盖品种”，回退为各搜索空间 `build_search_space()` 中定义的默认 `symbol`。
 11. `spaces=""`（空字符串）表示“自动扫描全部搜索空间模块”。
+12. 当 `mode=walk_forward` 时，搜索器必须先显式调用一次 `validate_wf_indicator_readiness(...)`，失败直接中断。
 
 ### 2.2 `py_entry/strategies`
 
@@ -146,18 +149,37 @@ result = run_from_config(cfg)
 
 ## 6. 推荐工作流（执行顺序）
 
+### 6.1 主入口与单一事实源
+
+1. 策略主入口固定为 `py_entry/private_strategies/*.py`。
+2. `demo.ipynb` 仅用于人类交互调试与可视化，不作为配置真值来源。
+3. 配置真值始终在 `.py`（`get_live_config` / `build_*_cfg`）；`ipynb` 只负责调用与展示。
+
+### 6.2 人类调试通道（Notebook）
+
 1. 在 `py_entry/private_strategies` 下新增/维护策略配置文件。
-2. 通过 `py_entry/private_strategies/demo.ipynb` 做人类阶段调试。
-3. 通过 `just run strategy=<module_name>` 执行统一 CLI 管道。
-4. 需要批量筛选时，使用策略搜索器：
+2. 在 `py_entry/private_strategies/demo.ipynb` 中选择策略并运行 `run_from_config(...)`。
+3. 在进入 `walk_forward` 前显式调用一次 `validate_wf_indicator_readiness(...)`。
+4. 只在 notebook 中做观察与参数试验；确认后回写到对应 `.py` 配置函数。
+
+### 6.3 AI 调试通道（CLI）
+
+1. AI 默认不读取 notebook 输出，优先走命令行：
+   - `just run strategy=<module_name>`
+2. 批量筛选时使用搜索器：
    - 单策略多品种：`just search spaces=<space_name> symbols=BTC/USDT,SOL/USDT`
    - 单品种多策略：`just search spaces=<space_a>,<space_b> symbols=BTC/USDT`
-5. 固定执行硬清单：`just check` -> `just test` -> 接入机器人。
-5. 机器人通过 `LiveStrategyCallbacks` 自动发现并执行 `enabled=True` 的策略。
-5. 日常门禁顺序：先 `just check`，后 `just test`。
-6. AI 调试 private 策略时，默认走命令行执行路径：优先 `just run strategy=<module_name>`，而不是读取 notebook 输出。
+3. `mode=walk_forward` 路径必须先做一次显式 WF 预检，再执行正式 WF。
+4. AI 输出与排错都以 `.py` 与 CLI 日志为准，不以 notebook 状态为准。
 
-## 6.1 策略搜索双层验证工作流（防过拟合）
+### 6.4 收口与接入
+
+1. 固定门禁顺序：`just check` -> `just test`。
+2. 通过门禁后，再接入机器人。
+3. 机器人通过 `LiveStrategyCallbacks` 自动发现并执行 `enabled=True` 的策略。
+4. pipeline 入口执行顺序固定为：`WF 预检一次 -> WF 正式执行`，不做隐式重复预检缓存。
+
+### 6.5 策略搜索双层验证工作流（防过拟合）
 
 1. 第一层：默认参数筛选（单市场多策略）
    - 目标：先筛掉“默认参数即无正收益”的弱策略。

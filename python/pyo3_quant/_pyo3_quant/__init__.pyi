@@ -11,6 +11,8 @@ __all__ = [
     "BenchmarkFunction",
     "DataContainer",
     "ExecutionStage",
+    "IndicatorContract",
+    "IndicatorContractReport",
     "LogicOp",
     "NextWindowHint",
     "OptimizationResult",
@@ -33,6 +35,7 @@ __all__ = [
     "TemplateContainer",
     "WalkForwardConfig",
     "WalkForwardResult",
+    "WfWarmupMode",
     "WindowArtifact",
 ]
 
@@ -406,6 +409,52 @@ class DataContainer:
         source: typing.Mapping[builtins.str, typing.Any],
         base_data_key: builtins.str,
     ) -> DataContainer: ...
+
+@typing.final
+class IndicatorContract:
+    r"""
+    单个指标实例的预热契约。
+    """
+    @property
+    def source(self) -> builtins.str: ...
+    @source.setter
+    def source(self, value: builtins.str) -> None: ...
+    @property
+    def warmup_bars(self) -> builtins.int: ...
+    @warmup_bars.setter
+    def warmup_bars(self, value: builtins.int) -> None: ...
+    @property
+    def warmup_mode(self) -> builtins.str: ...
+    @warmup_mode.setter
+    def warmup_mode(self, value: builtins.str) -> None: ...
+    def __new__(
+        cls, source: builtins.str, warmup_bars: builtins.int, warmup_mode: builtins.str
+    ) -> IndicatorContract: ...
+
+@typing.final
+class IndicatorContractReport:
+    r"""
+    指标契约聚合结果（PyO3 对外强类型）。
+    """
+    @property
+    def warmup_bars_by_source(self) -> builtins.dict[builtins.str, builtins.int]: ...
+    @warmup_bars_by_source.setter
+    def warmup_bars_by_source(
+        self, value: builtins.dict[builtins.str, builtins.int]
+    ) -> None: ...
+    @property
+    def contracts_by_indicator(
+        self,
+    ) -> builtins.dict[builtins.str, IndicatorContract]: ...
+    @contracts_by_indicator.setter
+    def contracts_by_indicator(
+        self, value: builtins.dict[builtins.str, IndicatorContract]
+    ) -> None: ...
+    def __new__(
+        cls,
+        warmup_bars_by_source: typing.Mapping[builtins.str, builtins.int],
+        contracts_by_indicator: typing.Mapping[builtins.str, IndicatorContract],
+    ) -> IndicatorContractReport: ...
 
 @typing.final
 class NextWindowHint:
@@ -1154,6 +1203,16 @@ class WalkForwardConfig:
         测试窗口长度（固定 bar 数）
         """
     @property
+    def wf_warmup_mode(self) -> WfWarmupMode:
+        r"""
+        WF 预热模式（BorrowFromTrain / ExtendTest / NoWarmup）
+        """
+    @wf_warmup_mode.setter
+    def wf_warmup_mode(self, value: WfWarmupMode) -> None:
+        r"""
+        WF 预热模式（BorrowFromTrain / ExtendTest / NoWarmup）
+        """
+    @property
     def inherit_prior(self) -> builtins.bool:
         r"""
         是否从上一窗口继承权重先验，默认 true
@@ -1179,6 +1238,7 @@ class WalkForwardConfig:
         train_bars: builtins.int,
         transition_bars: builtins.int,
         test_bars: builtins.int,
+        wf_warmup_mode: WfWarmupMode = WfWarmupMode.ExtendTest,
         inherit_prior: builtins.bool = True,
         optimizer_config: typing.Optional[OptimizerConfig] = None,
     ) -> WalkForwardConfig: ...
@@ -1504,5 +1564,35 @@ class PerformanceMetric(enum.Enum):
     前置无效数据计数
     """
 
+    def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class WfWarmupMode(enum.Enum):
+    r"""
+    WF 预热模式枚举
+    """
+
+    BorrowFromTrain = ...
+    r"""
+    借训练尾部作为过渡预热
+    """
+    ExtendTest = ...
+    r"""
+    训练后扩展过渡区再进入测试
+    """
+    NoWarmup = ...
+    r"""
+    关闭指标预热补全，仅保留最小过渡锚点
+    """
+
+    def name(self) -> builtins.str:
+        r"""
+        返回枚举变体名（用于展示/日志）。
+        """
+    def as_str(self) -> builtins.str:
+        r"""
+        返回稳定业务键名（用于程序逻辑）。
+        """
     def __str__(self) -> builtins.str: ...
     def __repr__(self) -> builtins.str: ...

@@ -3,6 +3,7 @@ pub mod adx;
 pub mod atr;
 pub mod bbands;
 pub mod cci;
+pub mod contracts;
 pub mod ema;
 pub mod er;
 pub mod macd;
@@ -16,8 +17,13 @@ pub mod utils;
 pub mod extended;
 
 pub mod registry;
+use self::contracts::resolve_indicator_contracts;
 use self::registry::get_indicator_registry;
-use crate::types::{DataContainer, IndicatorResults, IndicatorsParams, Param};
+use self::registry::WarmupMode;
+use crate::types::{
+    DataContainer, IndicatorContract, IndicatorContractReport, IndicatorResults, IndicatorsParams,
+    Param,
+};
 
 use crate::error::{IndicatorError, QuantError};
 use polars::prelude::*;
@@ -99,4 +105,32 @@ pub fn py_calculate_indicators(
     }
 
     Ok(py_result_map)
+}
+
+/// 计算并返回指标契约聚合结果（供 Python/WF 预检消费）。
+#[gen_stub_pyfunction(module = "pyo3_quant.backtest_engine.indicators")]
+#[pyfunction(name = "resolve_indicator_contracts")]
+pub fn py_resolve_indicator_contracts(
+    indicators_params: IndicatorsParams,
+) -> PyResult<IndicatorContractReport> {
+    let report = resolve_indicator_contracts(&indicators_params)?;
+
+    let mut contracts_by_indicator = HashMap::new();
+    for (instance_key, (source, warmup_bars, mode)) in &report.contracts_by_indicator {
+        let contract = IndicatorContract {
+            source: source.clone(),
+            warmup_bars: *warmup_bars,
+            warmup_mode: match mode {
+                WarmupMode::Strict => "Strict",
+                WarmupMode::Relaxed => "Relaxed",
+            }
+            .to_string(),
+        };
+        contracts_by_indicator.insert(instance_key.clone(), contract);
+    }
+
+    Ok(IndicatorContractReport {
+        warmup_bars_by_source: report.warmup_bars_by_source,
+        contracts_by_indicator,
+    })
 }

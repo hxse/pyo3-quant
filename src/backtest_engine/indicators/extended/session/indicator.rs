@@ -34,4 +34,17 @@ impl Indicator for OpeningBarIndicator {
         let s = opening_bar_eager(ohlcv_df, &config)?;
         Ok(vec![s])
     }
+
+    fn required_warmup_bars(
+        &self,
+        _resolved_params: &HashMap<String, f64>,
+    ) -> Result<usize, QuantError> {
+        // opening-bar 不依赖传统 lookback，预热为 0。
+        Ok(0)
+    }
+
+    fn warmup_mode(&self) -> crate::backtest_engine::indicators::registry::WarmupMode {
+        // 中文注释：opening-bar 非预热段不允许中间空值。
+        crate::backtest_engine::indicators::registry::WarmupMode::Strict
+    }
 }

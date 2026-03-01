@@ -50,6 +50,8 @@ class OhlcvDataFetchConfig(BaseModel):
     mode: ModeType = "sandbox"
     base_data_key: str
     align_to_base_range: bool = False
+    # 中文注释：end 侧每轮最小补拉 bars，防止缺口很小时多轮小步请求影响效率。
+    end_backfill_min_step_bars: int = 5
 
 
 @dataclass

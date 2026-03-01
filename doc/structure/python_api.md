@@ -1,6 +1,7 @@
 # Python 接口文档（当前版）
 
 本文档描述当前 Python 侧的核心入口与常用类型。
+以下内容已对齐 2026-02-27 任务口径（WF 预检 + warmup 模式）。
 
 ## 1. 核心入口：`Backtest`
 
@@ -31,6 +32,15 @@ result = bt.run()
 - `optimize_with_optuna(config: Optional[OptunaConfig] = None, params_override: Optional[SingleParamSet] = None) -> OptunaOptResult`
 - `walk_forward(config: Optional[WalkForwardConfig] = None, params_override: Optional[SingleParamSet] = None) -> WalkForwardResultWrapper`
 - `sensitivity(config: Optional[SensitivityConfig] = None, params_override: Optional[SingleParamSet] = None) -> SensitivityResult`
+- `resolve_indicator_contracts(params_override: Optional[SingleParamSet] = None) -> IndicatorContractReport`
+- `validate_wf_indicator_readiness(wf_cfg: WalkForwardConfig, params_override: Optional[SingleParamSet] = None) -> dict`
+
+`validate_wf_indicator_readiness(...)` 返回关键字段：
+- `base_data_key`
+- `indicator_warmup_bars_base`
+- `effective_transition_bars`
+- `warmup_bars_by_source`
+- `contracts_by_indicator`
 
 ## 3. `RunResult` 常用方法
 
@@ -80,6 +90,7 @@ data_source = OhlcvDataFetchConfig(
     timeframes=["15m", "1h"],
     since=None,
     limit=3000,
+    end_backfill_min_step_bars=5,
     enable_cache=True,
     mode="sandbox",
     base_data_key="ohlcv_15m",
@@ -114,6 +125,7 @@ data_source = DirectDataConfig(
 - `SignalGroup`, `SignalTemplate`, `LogicOp`
 - `SettingContainer`, `ExecutionStage`
 - `OptimizerConfig`, `OptunaConfig`, `WalkForwardConfig`, `SensitivityConfig`
+- `WfWarmupMode`
 
 枚举调用建议：优先使用 `str(enum)` 或 `enum.as_str()`，不要依赖 `.value`。
 
@@ -136,6 +148,17 @@ result = bt.run()
 
 if result.summary is not None:
     print(result.summary.performance)
+```
+
+## 6.1 WF 推荐调用顺序
+
+```python
+wf_cfg = ...
+precheck = bt.validate_wf_indicator_readiness(wf_cfg)
+print(precheck["effective_transition_bars"])
+
+wf = bt.walk_forward(wf_cfg)
+print(wf.aggregate_test_metrics)
 ```
 
 ## 7. 与策略/Notebook 分层的关系

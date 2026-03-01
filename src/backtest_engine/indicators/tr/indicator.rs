@@ -21,4 +21,17 @@ impl Indicator for TrIndicator {
         let result_series = tr_eager(ohlcv_df, &config)?;
         Ok(vec![result_series])
     }
+
+    fn required_warmup_bars(
+        &self,
+        _resolved_params: &HashMap<String, f64>,
+    ) -> Result<usize, QuantError> {
+        // TR 依赖前一根 close，首根为预热。
+        Ok(1)
+    }
+
+    fn warmup_mode(&self) -> crate::backtest_engine::indicators::registry::WarmupMode {
+        // 中文注释：TR 非预热段不允许中间空值。
+        crate::backtest_engine::indicators::registry::WarmupMode::Strict
+    }
 }

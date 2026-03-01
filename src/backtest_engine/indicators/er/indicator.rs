@@ -1,4 +1,4 @@
-use super::super::registry::Indicator;
+use super::super::registry::{require_resolved_param, Indicator};
 use super::config::ERConfig;
 use super::pipeline::er_eager;
 use crate::error::{IndicatorError, QuantError};
@@ -31,5 +31,19 @@ impl Indicator for ErIndicator {
 
         let series = er_eager(ohlcv_df, &config)?;
         Ok(vec![series])
+    }
+
+    fn required_warmup_bars(
+        &self,
+        resolved_params: &HashMap<String, f64>,
+    ) -> Result<usize, QuantError> {
+        // ER 以 length 作为最小预热需求。
+        let length = require_resolved_param(resolved_params, "length", "er")? as i64;
+        Ok(length.max(0) as usize)
+    }
+
+    fn warmup_mode(&self) -> crate::backtest_engine::indicators::registry::WarmupMode {
+        // 中文注释：ER 非预热段不允许中间空值。
+        crate::backtest_engine::indicators::registry::WarmupMode::Strict
     }
 }

@@ -2,6 +2,7 @@ use crate::backtest_engine::data_ops::{
     concat_backtest_summaries, rebuild_capital_columns_for_stitched_backtest_with_boundaries,
     slice_backtest_summary_by_base_window, slice_data_container_by_base_window,
 };
+use crate::backtest_engine::indicators::contracts::resolve_indicator_contracts;
 use crate::backtest_engine::execute_single_backtest;
 use crate::backtest_engine::optimizer::run_optimization;
 use crate::backtest_engine::utils::BacktestContext;
@@ -29,7 +30,19 @@ pub fn run_walk_forward(
     let base_times = extract_base_times(data_dict)?;
     let total_bars = base_times.len();
 
-    let windows = generate_windows(total_bars, config)?;
+    let contracts = resolve_indicator_contracts(&param.indicators)?;
+    let indicator_warmup_bars_base = contracts
+        .warmup_bars_by_source
+        .get(&data_dict.base_data_key)
+        .copied()
+        .ok_or_else(|| {
+            OptimizerError::InvalidConfig(format!(
+                "预检 warmup 缺少 base_data_key='{}' 的聚合结果",
+                data_dict.base_data_key
+            ))
+        })?;
+
+    let windows = generate_windows(total_bars, config, indicator_warmup_bars_base)?;
     if windows.is_empty() {
         return Err(
             OptimizerError::InvalidConfig("No walk-forward windows generated".into()).into(),
@@ -43,6 +56,7 @@ pub fn run_walk_forward(
 
     let mut window_results: Vec<WindowArtifact> = Vec::new();
     let mut prev_top_k: Option<Vec<Vec<f64>>> = None;
+    let mut prev_test_last_position: Option<CrossSide> = None;
 
     for window in &windows {
         let train_len = window.train_range.1 - window.train_range.0;
@@ -66,30 +80,29 @@ pub fn run_walk_forward(
             &opt_config,
         )?;
 
-        let eval_start = window.transition_range.0;
-        let eval_len = window.test_range.1 - window.transition_range.0;
+        let test_with_warmup_start = window.transition_range.0;
+        let test_with_warmup_len = window.test_range.1 - window.transition_range.0;
         let transition_len = window.transition_range.1 - window.transition_range.0;
         let test_len = window.test_range.1 - window.test_range.0;
 
-        let eval_data = slice_data_container_by_base_window(data_dict, eval_start, eval_len)?;
+        let test_with_warmup_data = slice_data_container_by_base_window(
+            data_dict,
+            test_with_warmup_start,
+            test_with_warmup_len,
+        )?;
 
-        // 中文注释：第一次评估只需要到回测阶段，拿到完整 indicators/signals/backtest 给二次注入评估使用。
+        // 中文注释：第一次评估只跑到 Signals，作为注入前信号基线。
         let mut eval_settings = settings.clone();
-        eval_settings.execution_stage = ExecutionStage::Backtest;
+        eval_settings.execution_stage = ExecutionStage::Signals;
         eval_settings.return_only_final = false;
 
         let first_eval_summary = execute_single_backtest(
-            &eval_data,
+            &test_with_warmup_data,
             &train_result.best_params,
             template,
             &eval_settings,
         )?;
 
-        let first_eval_backtest_df = first_eval_summary.backtest.clone().ok_or_else(|| {
-            OptimizerError::SamplingFailed(
-                "Walk-forward first evaluation requires full backtest dataframe".into(),
-            )
-        })?;
         let first_eval_signals_df = first_eval_summary.signals.clone().ok_or_else(|| {
             OptimizerError::SamplingFailed(
                 "Walk-forward first evaluation requires full signals dataframe".into(),
@@ -98,9 +111,9 @@ pub fn run_walk_forward(
 
         let (injected_signals_df, has_cross_boundary_position) = build_injected_signals_for_window(
             &first_eval_signals_df,
-            &first_eval_backtest_df,
             transition_len,
             test_len,
+            prev_test_last_position,
         )?;
 
         // 中文注释：第二次评估手动链路，复用第一次 indicators，只替换注入后的 signals。
@@ -110,7 +123,7 @@ pub fn run_walk_forward(
         second_ctx.execute_backtest_if_needed(
             ExecutionStage::Backtest,
             false,
-            &eval_data,
+            &test_with_warmup_data,
             &train_result.best_params.backtest,
         )?;
         let second_eval_summary = second_ctx.into_summary(false, ExecutionStage::Backtest);
@@ -120,7 +133,7 @@ pub fn run_walk_forward(
             slice_data_container_by_base_window(data_dict, window.test_range.0, test_len)?;
         let mut test_summary = slice_backtest_summary_by_base_window(
             &second_eval_summary,
-            &eval_data,
+            &test_with_warmup_data,
             transition_len,
             test_len,
         )?;
@@ -138,6 +151,10 @@ pub fn run_walk_forward(
             &param.performance,
         )?;
         test_summary.performance = Some(test_metrics);
+
+        // 中文注释：跨窗状态只看“当前窗口测试段最后一根”，供下一窗口注入使用。
+        let test_last_idx = test_len - 1;
+        prev_test_last_position = detect_cross_boundary_side(test_backtest_df, test_last_idx)?;
 
         let (time_range, span_ms, span_days, span_months, bars) =
             build_range_identity(&test_data, window.test_range)?;
@@ -455,15 +472,14 @@ fn validate_capital_value(v: f64, idx: usize) -> Result<(), QuantError> {
 
 fn build_injected_signals_for_window(
     signals_df: &DataFrame,
-    backtest_df: &DataFrame,
     transition_len: usize,
     test_len: usize,
+    prev_test_last_position: Option<CrossSide>,
 ) -> Result<(DataFrame, bool), QuantError> {
-    if transition_len < 2 {
-        return Err(OptimizerError::InvalidConfig(
-            "transition_len must be >= 2 for boundary signal injection".into(),
-        )
-        .into());
+    if transition_len < 1 {
+        return Err(
+            OptimizerError::InvalidConfig("transition_len must be >= 1".into()).into(),
+        );
     }
     if test_len < 2 {
         return Err(OptimizerError::InvalidConfig(
@@ -473,11 +489,10 @@ fn build_injected_signals_for_window(
     }
 
     let expected_len = transition_len + test_len;
-    if signals_df.height() != expected_len || backtest_df.height() != expected_len {
+    if signals_df.height() != expected_len {
         return Err(OptimizerError::InvalidConfig(format!(
-            "eval length mismatch: signals={}, backtest={}, expected={}",
+            "eval length mismatch: signals={}, expected={}",
             signals_df.height(),
-            backtest_df.height(),
             expected_len
         ))
         .into());
@@ -494,18 +509,14 @@ fn build_injected_signals_for_window(
         entry_short[i] = false;
     }
 
-    let transition_exit_idx = transition_len - 2;
     let test_exit_idx = transition_len + test_len - 2;
 
     // 中文注释：离场注入采用全平语义，不依赖当前方向。
-    exit_long[transition_exit_idx] = true;
-    exit_short[transition_exit_idx] = true;
     exit_long[test_exit_idx] = true;
     exit_short[test_exit_idx] = true;
 
     let transition_last_idx = transition_len - 1;
-    let cross_side = detect_cross_boundary_side(backtest_df, transition_last_idx)?;
-    if let Some(ref side) = cross_side {
+    if let Some(ref side) = prev_test_last_position {
         // 中文注释：跨边界持仓只允许同向进场。
         match side {
             CrossSide::Long => {
@@ -524,7 +535,7 @@ fn build_injected_signals_for_window(
     out.with_column(Series::new("exit_long".into(), exit_long))?;
     out.with_column(Series::new("entry_short".into(), entry_short))?;
     out.with_column(Series::new("exit_short".into(), exit_short))?;
-    Ok((out, cross_side.is_some()))
+    Ok((out, prev_test_last_position.is_some()))
 }
 
 fn bool_vec_from_column(df: &DataFrame, col_name: &str) -> Result<Vec<bool>, QuantError> {
@@ -537,6 +548,7 @@ fn bool_vec_from_column(df: &DataFrame, col_name: &str) -> Result<Vec<bool>, Qua
     Ok(ca.into_iter().map(|v| v.unwrap_or(false)).collect())
 }
 
+#[derive(Debug, Clone, Copy)]
 enum CrossSide {
     Long,
     Short,

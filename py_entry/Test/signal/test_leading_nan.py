@@ -107,7 +107,7 @@ def test_leading_nan_tracking():
     mismatch = actual_mask != expected_mask
     if mismatch.any():
         # 只在有不匹配时才定位具体位置
-        first_mismatch_idx = mismatch.arg_true().to_list()[0]
+        first_mismatch_idx = int(mismatch.arg_max() or 0)
         raise AssertionError(
             f"Mismatch at index {first_mismatch_idx}: "
             f"expected {expected_mask[first_mismatch_idx]}, "

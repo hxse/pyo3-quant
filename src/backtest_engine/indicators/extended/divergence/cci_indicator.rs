@@ -2,7 +2,7 @@ use super::config::DivergenceConfig;
 use super::expr::divergence_expr;
 use crate::backtest_engine::indicators::{
     cci::{cci_lazy, CCIConfig},
-    registry::Indicator,
+    registry::{require_resolved_param, Indicator},
 };
 use crate::error::QuantError;
 use crate::types::Param;
@@ -65,5 +65,19 @@ impl Indicator for CciDivergenceIndicator {
                 .as_materialized_series()
                 .clone(),
         ])
+    }
+
+    fn required_warmup_bars(
+        &self,
+        resolved_params: &HashMap<String, f64>,
+    ) -> Result<usize, QuantError> {
+        // 本指标有效业务列 `_value` 继承 CCI，预热与 CCI 一致。
+        let period = require_resolved_param(resolved_params, "period", "cci-divergence")? as i64;
+        Ok(period.saturating_sub(1) as usize)
+    }
+
+    fn warmup_mode(&self) -> crate::backtest_engine::indicators::registry::WarmupMode {
+        // 中文注释：CCI divergence 非预热段不允许中间空值。
+        crate::backtest_engine::indicators::registry::WarmupMode::Strict
     }
 }

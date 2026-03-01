@@ -7,6 +7,7 @@ import typing
 
 __all__ = [
     "calculate_indicators",
+    "resolve_indicator_contracts",
 ]
 
 def calculate_indicators(
@@ -16,3 +17,12 @@ def calculate_indicators(
         typing.Mapping[builtins.str, typing.Mapping[builtins.str, _pyo3_quant.Param]],
     ],
 ) -> builtins.dict[builtins.str, typing.Any]: ...
+def resolve_indicator_contracts(
+    indicators_params: typing.Mapping[
+        builtins.str,
+        typing.Mapping[builtins.str, typing.Mapping[builtins.str, _pyo3_quant.Param]],
+    ],
+) -> _pyo3_quant.IndicatorContractReport:
+    r"""
+    计算并返回指标契约聚合结果（供 Python/WF 预检消费）。
+    """

@@ -20,32 +20,24 @@ from .test_mocks import MockCallbacks
 def _build_mock_ohlcv(rows: int = 300) -> pl.DataFrame:
     """构造最小可运行 OHLCV 数据。"""
     base_ts = 1735689600000
-    data = []
-    price = 100.0
-    for i in range(rows):
-        # 使用轻微波动，确保均线交叉类策略可以正常计算。
-        close_price = price + ((i % 7) - 3) * 0.2
-        open_price = price
-        high_price = max(open_price, close_price) + 0.3
-        low_price = min(open_price, close_price) - 0.3
-        volume = 1000.0 + i
-        data.append(
-            [
-                base_ts + i * 15 * 60 * 1000,
-                open_price,
-                high_price,
-                low_price,
-                close_price,
-                volume,
-            ]
-        )
-        price = close_price
+    step_ms = 15 * 60 * 1000
 
-    return pl.DataFrame(
-        data,
-        schema=["timestamp", "open", "high", "low", "close", "volume"],
-        orient="row",
+    # 中文注释：先构造逐 bar 的增量，再用累计和得到 close；open 用 close.shift(1) 对齐。
+    delta_df = pl.DataFrame({"i": pl.int_range(0, rows, eager=True)}).with_columns(
+        (((pl.col("i") % 7) - 3).cast(pl.Float64) * 0.2).alias("__delta")
     )
+    close_df = delta_df.with_columns(
+        (100.0 + pl.col("__delta").cum_sum()).alias("close"),
+        (pl.lit(base_ts) + pl.col("i") * step_ms).alias("timestamp"),
+        (1000.0 + pl.col("i").cast(pl.Float64)).alias("volume"),
+    )
+    ohlcv = close_df.with_columns(
+        pl.col("close").shift(1).fill_null(100.0).alias("open")
+    ).with_columns(
+        pl.max_horizontal(["open", "close"]).add(0.3).alias("high"),
+        pl.min_horizontal(["open", "close"]).sub(0.3).alias("low"),
+    )
+    return ohlcv.select(["timestamp", "open", "high", "low", "close", "volume"])
 
 
 def _build_live_fetch_config(

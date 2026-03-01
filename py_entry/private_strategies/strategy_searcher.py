@@ -154,7 +154,10 @@ def _run_single_variant(
             "worst_window_id": None,
         }
 
-    wf = bt.walk_forward(variant.get("wf", space["wf"]))
+    wf_cfg = variant.get("wf", space["wf"])
+    # 中文注释：搜索器在 walk_forward 分支显式预检一次，失败直接短路。
+    bt.validate_wf_indicator_readiness(wf_cfg)
+    wf = bt.walk_forward(wf_cfg)
     metrics = _extract_summary_metrics(run_mode, wf)
     return {
         "mode": run_mode,

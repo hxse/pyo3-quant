@@ -1,4 +1,4 @@
-use super::super::registry::Indicator;
+use super::super::registry::{require_resolved_param, Indicator};
 use super::config::SMAConfig;
 use super::pipeline::sma_eager;
 use crate::error::{IndicatorError, QuantError};
@@ -27,5 +27,19 @@ impl Indicator for SmaIndicator {
 
         let sma_series = sma_eager(ohlcv_df, &config)?;
         Ok(vec![sma_series])
+    }
+
+    fn required_warmup_bars(
+        &self,
+        resolved_params: &HashMap<String, f64>,
+    ) -> Result<usize, QuantError> {
+        // SMA 前导空值为 period-1。
+        let period = require_resolved_param(resolved_params, "period", "sma")? as i64;
+        Ok(period.saturating_sub(1) as usize)
+    }
+
+    fn warmup_mode(&self) -> crate::backtest_engine::indicators::registry::WarmupMode {
+        // 中文注释：SMA 非预热段不允许中间空值。
+        crate::backtest_engine::indicators::registry::WarmupMode::Strict
     }
 }

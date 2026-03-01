@@ -50,6 +50,7 @@ def run_pipeline(
     opt_cfg: OptimizerConfig,
     sens_cfg: SensitivityConfig,
     wf_cfg: WalkForwardConfig,
+    wf_precheck: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """非交互式顺序执行完整研究管道。"""
     summary: dict[str, object] = {
@@ -137,6 +138,12 @@ def run_pipeline(
         ],
     }
     summary["walk_forward_stage"] = {"status": "ok"}
+    if wf_precheck is not None:
+        summary["wf_precheck"] = {
+            "base_data_key": wf_precheck.get("base_data_key"),
+            "indicator_warmup_bars_base": wf_precheck.get("indicator_warmup_bars_base"),
+            "effective_transition_bars": wf_precheck.get("effective_transition_bars"),
+        }
 
     return summary
 

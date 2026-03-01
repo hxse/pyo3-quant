@@ -17,4 +17,4 @@ pub use self::params_base::{Param, ParamType};
 pub use self::sensitivity::SensitivityConfig;
 pub use self::settings::{ExecutionStage, SettingContainer};
 pub use self::signals::{LogicOp, SignalGroup, SignalTemplate, TemplateContainer};
-pub use self::walk_forward::WalkForwardConfig;
+pub use self::walk_forward::{WalkForwardConfig, WfWarmupMode};

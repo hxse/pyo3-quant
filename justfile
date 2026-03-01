@@ -1,6 +1,8 @@
 # Pyo3-Quant Justfile
 # 使用 `just` 命令运行常用开发任务
 # 安装 just: cargo install just 或 sudo apt install just
+# 全局执行约束：命令内部一般已经有并发，外层不可再并发，外层应顺序运行。
+# 说明：调用侧只允许“上一条 just 命令完成后，再执行下一条 just 命令”。
 
 # 列出所有可用命令
 default:

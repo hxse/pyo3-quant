@@ -77,6 +77,7 @@
 
 - `backtester.run_backtest(...)`
 - `indicators.calculate_indicators(...)`
+- `indicators.resolve_indicator_contracts(...)`
 - `signal_generator.generate_signals(...)`
 - `performance_analyzer.analyze_performance(...)`
 - `optimizer.py_run_optimizer(...)`
@@ -218,7 +219,22 @@
 
 1. 时间字段统一返回 UTC 毫秒时间戳。
 2. 日期字符串转换留在 Python 展示层。
-3. 返回结构遵循 `doc/optimizer/walk_forward_artifacts_architecture.md` 的最小字段表。
+3. 返回结构以任务文档为准：`doc/tasks/2026-02-27 wf warmup minimal/01_summary/task_summary.md`。
+
+#### E. 指标契约入口（2026-02-27 新增）
+
+1. `pyo3_quant.backtest_engine.indicators.resolve_indicator_contracts`
+   - 输入：
+     - `indicators_params: Mapping[str, Mapping[str, Mapping[str, Param]]]`
+   - 返回：
+     - `IndicatorContractReport`
+2. `IndicatorContractReport` 关键字段：
+   - `warmup_bars_by_source`
+   - `contracts_by_indicator`
+
+说明：
+1. 该接口是 Python 侧 WF 预检的 Rust 真值来源。
+2. Python 侧不得硬编码 warmup 公式，应直接消费该返回结果。
 
 ---
 

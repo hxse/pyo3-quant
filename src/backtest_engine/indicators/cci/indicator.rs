@@ -1,4 +1,4 @@
-use super::super::registry::Indicator;
+use super::super::registry::{require_resolved_param, Indicator};
 use super::config::CCIConfig;
 use super::pipeline::cci_eager;
 use crate::error::{IndicatorError, QuantError};
@@ -31,5 +31,19 @@ impl Indicator for CciIndicator {
 
         let series = cci_eager(ohlcv_df, &config)?;
         Ok(vec![series])
+    }
+
+    fn required_warmup_bars(
+        &self,
+        resolved_params: &HashMap<String, f64>,
+    ) -> Result<usize, QuantError> {
+        // CCI 滚动窗口前导空值为 period-1。
+        let period = require_resolved_param(resolved_params, "period", "cci")? as i64;
+        Ok(period.saturating_sub(1) as usize)
+    }
+
+    fn warmup_mode(&self) -> crate::backtest_engine::indicators::registry::WarmupMode {
+        // 中文注释：CCI 非预热段不允许中间空值。
+        crate::backtest_engine::indicators::registry::WarmupMode::Strict
     }
 }

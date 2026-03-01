@@ -20,6 +20,7 @@ from py_entry.types import (
     OptimizerConfig,
     SensitivityConfig,
     WalkForwardConfig,
+    WfWarmupMode,
 )
 
 # 中文注释：统一默认实时数据源配置，策略文件按需覆盖差异项。
@@ -28,6 +29,7 @@ DEFAULT_FETCH_CONFIG: dict[str, Any] = {
     "market": "future",
     "since": "2024-01-01 00:00:00",
     "limit": 30000,
+    "end_backfill_min_step_bars": 5,
     "enable_cache": True,
     "mode": "live",
 }
@@ -56,6 +58,7 @@ DEFAULT_WF_CONFIG: dict[str, Any] = {
     "train_bars": 9000,
     "transition_bars": 3000,
     "test_bars": 3600,
+    "wf_warmup_mode": WfWarmupMode.ExtendTest,
 }
 
 
@@ -97,6 +100,7 @@ def build_ohlcv_fetch_config(
         timeframes=timeframes,
         since=_normalize_since_ms(final["since"]),
         limit=int(final["limit"]),
+        end_backfill_min_step_bars=int(final["end_backfill_min_step_bars"]),
         enable_cache=bool(final["enable_cache"]),
         mode=mode,
         base_data_key=base_data_key,
@@ -121,6 +125,7 @@ def build_runtime_data_meta(
         "mode": str(final["mode"]),
         "since": _normalize_since_ms(final["since"]),
         "limit": int(final["limit"]),
+        "end_backfill_min_step_bars": int(final["end_backfill_min_step_bars"]),
         "timeframes": timeframes,
         "strategy_logic": strategy_logic,
     }
@@ -148,6 +153,7 @@ def build_wf_cfg(
         train_bars=int(DEFAULT_WF_CONFIG["train_bars"]),
         transition_bars=int(DEFAULT_WF_CONFIG["transition_bars"]),
         test_bars=int(DEFAULT_WF_CONFIG["test_bars"]),
+        wf_warmup_mode=DEFAULT_WF_CONFIG["wf_warmup_mode"],
         optimizer_config=build_opt_cfg(opt_overrides),
     )
     return _apply_object_overrides(cfg, overrides)  # type: ignore[return-value]
@@ -173,6 +179,7 @@ def build_runtime_config(
         "wf_train_bars": int(final_wf.train_bars),
         "wf_transition_bars": int(final_wf.transition_bars),
         "wf_test_bars": int(final_wf.test_bars),
+        "wf_warmup_mode": str(final_wf.wf_warmup_mode),
     }
     if overrides:
         runtime.update(overrides)

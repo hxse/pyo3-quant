@@ -1,4 +1,4 @@
-use crate::backtest_engine::indicators::registry::Indicator;
+use crate::backtest_engine::indicators::registry::{Indicator, WarmupMode};
 use crate::error::{IndicatorError, QuantError};
 use crate::types::Param;
 use polars::prelude::*;
@@ -69,5 +69,18 @@ impl Indicator for PsarIndicator {
             psar_af_named,
             psar_reversal_named,
         ])
+    }
+
+    fn required_warmup_bars(
+        &self,
+        _resolved_params: &HashMap<String, f64>,
+    ) -> Result<usize, QuantError> {
+        // 中文注释：全列口径按全部输出列前导空值最大值计算。
+        // 当前实现下最大前导空值为 2。
+        Ok(2)
+    }
+
+    fn warmup_mode(&self) -> WarmupMode {
+        WarmupMode::Relaxed
     }
 }

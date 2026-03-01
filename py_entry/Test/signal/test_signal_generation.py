@@ -17,13 +17,17 @@
 import pytest
 from polars.testing import assert_frame_equal
 
-from py_entry.data_generator import OtherParams
+from py_entry.data_generator import (
+    DataGenerationParams,
+    DirectDataConfig,
+    OtherParams,
+    generate_data_dict,
+)
 from py_entry.types import ExecutionStage
 from py_entry.Test.shared import (
     make_backtest_runner,
     make_engine_settings,
 )
-from py_entry.data_generator import DataGenerationParams
 
 from py_entry.Test.signal.scenarios import get_all_scenarios
 from py_entry.Test.signal.utils import (
@@ -45,8 +49,32 @@ def setting_container():
 all_scenarios = get_all_scenarios()
 
 
+@pytest.fixture(scope="module")
+def shared_data_source():
+    """模块级共享数据源（一次生成，多场景复用）。"""
+    data_gen_params = DataGenerationParams(
+        timeframes=["15m", "1h", "4h"],
+        start_time=1735689600000,
+        num_bars=10000,  # 保持原数据规模，不改变测试语义
+        fixed_seed=42,  # 保持可重现
+        base_data_key="ohlcv_15m",
+    )
+    other_params = OtherParams(
+        ha_timeframes=["15m", "1h", "4h"],
+        renko_timeframes=["15m", "1h", "4h"],
+    )
+    # 中文注释：先完整生成一次（含 OHLCV/Heikin-Ashi/Renko），后续场景复用同一份源数据。
+    container = generate_data_dict(
+        data_source=data_gen_params, other_params=other_params
+    )
+    source_data = {k: v.clone() for k, v in container.source.items()}
+    return DirectDataConfig(
+        data=source_data, base_data_key=data_gen_params.base_data_key
+    )
+
+
 @pytest.mark.parametrize("scenario", all_scenarios, ids=[s.name for s in all_scenarios])
-def test_signal_scenario(scenario, setting_container):
+def test_signal_scenario(scenario, setting_container, shared_data_source):
     """
     参数化测试：验证每个场景的信号生成正确性
 
@@ -55,19 +83,6 @@ def test_signal_scenario(scenario, setting_container):
         data_gen_params: 数据生成参数 fixture
         setting_container: 设置容器 fixture
     """
-
-    data_gen_params = DataGenerationParams(
-        timeframes=["15m", "1h", "4h"],
-        start_time=1735689600000,
-        num_bars=10000,  # 生成10000根K线
-        fixed_seed=42,  # 使用固定种子保证可重现
-        base_data_key="ohlcv_15m",  # 基础数据键
-    )
-    other_params = OtherParams(
-        ha_timeframes=["15m", "1h", "4h"],
-        renko_timeframes=["15m", "1h", "4h"],
-    )
-
     # 1. 创建回测运行器
     # 1. (已移除提前创建 runner)
 
@@ -76,8 +91,7 @@ def test_signal_scenario(scenario, setting_container):
         # 预期成功的场景
 
         runner = make_backtest_runner(
-            data_source=data_gen_params,
-            other_params=other_params,
+            data_source=shared_data_source,
             indicators=scenario.indicators_params,
             signal=scenario.signal_params,
             signal_template=scenario.signal_template,
@@ -137,7 +151,7 @@ def test_signal_scenario(scenario, setting_container):
         # 3. 运行回测，预期会报错
         with pytest.raises(scenario.expected_exception) as exc_info:
             runner = make_backtest_runner(
-                data_source=data_gen_params,
+                data_source=shared_data_source,
                 indicators=scenario.indicators_params,
                 signal=scenario.signal_params,
                 signal_template=scenario.signal_template,

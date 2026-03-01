@@ -1,6 +1,6 @@
 use super::config::SmaClosePctConfig;
 use super::pipeline::sma_close_pct_eager;
-use crate::backtest_engine::indicators::registry::Indicator;
+use crate::backtest_engine::indicators::registry::{require_resolved_param, Indicator};
 use crate::error::{IndicatorError, QuantError};
 use crate::types::Param;
 use polars::prelude::*;
@@ -27,5 +27,19 @@ impl Indicator for SmaClosePctIndicator {
 
         let series = sma_close_pct_eager(ohlcv_df, &config)?;
         Ok(vec![series])
+    }
+
+    fn required_warmup_bars(
+        &self,
+        resolved_params: &HashMap<String, f64>,
+    ) -> Result<usize, QuantError> {
+        // 底层依赖 SMA，预热与 SMA 一致。
+        let period = require_resolved_param(resolved_params, "period", "sma-close-pct")? as i64;
+        Ok(period.saturating_sub(1) as usize)
+    }
+
+    fn warmup_mode(&self) -> crate::backtest_engine::indicators::registry::WarmupMode {
+        // 中文注释：sma-close-pct 非预热段不允许中间空值。
+        crate::backtest_engine::indicators::registry::WarmupMode::Strict
     }
 }

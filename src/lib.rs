@@ -25,9 +25,12 @@ fn _pyo3_quant(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<types::SignalTemplate>()?;
     m.add_class::<types::TemplateContainer>()?;
     m.add_class::<types::WalkForwardConfig>()?;
+    m.add_class::<types::WfWarmupMode>()?;
     m.add_class::<types::SensitivityConfig>()?;
 
     m.add_class::<types::BacktestSummary>()?;
+    m.add_class::<types::IndicatorContract>()?;
+    m.add_class::<types::IndicatorContractReport>()?;
     m.add_class::<types::RoundSummary>()?;
     m.add_class::<types::SamplePoint>()?;
     m.add_class::<types::OptimizationResult>()?;

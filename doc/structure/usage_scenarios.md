@@ -43,6 +43,9 @@ print(sens.target_metric, sens.mean, sens.std, sens.cv)
 
 ## 向前测试
 ```python
+precheck = bt.validate_wf_indicator_readiness(wf_cfg)
+print(precheck["effective_transition_bars"])
+
 wf = bt.walk_forward(wf_cfg)
 print(wf.aggregate_test_metrics)
 print(wf.best_window_id, wf.worst_window_id)
@@ -66,18 +69,18 @@ opt = bt.optimize(opt_cfg)  # 可直接继续，不会触发 duplicate index
 
 ## private 实战速查（CLI）
 ```bash
-just run example_strategy backtest
-just run example_strategy optimize
-just run example_strategy sensitivity
-just run example_strategy walk_forward
-just run example_strategy pipeline
+just run strategy=sma_2tf mode=backtest
+just run strategy=sma_2tf mode=optimize
+just run strategy=sma_2tf mode=sensitivity
+just run strategy=sma_2tf mode=walk_forward
+just run strategy=sma_2tf mode=pipeline
 ```
 
 ## private 实战速查（Notebook）
 ```python
 from py_entry.private_strategies.template import run_stage
 
-STRATEGY = "example_strategy"
+STRATEGY = "sma_2tf"
 
 backtest_result = run_stage(STRATEGY, "backtest")
 opt_result = run_stage(STRATEGY, "optimize")
@@ -87,5 +90,6 @@ wf_result = run_stage(STRATEGY, "walk_forward")
 
 ## 说明
 - `format_for_export(...)` 只在导出副本上处理，不污染计算态数据。
+- WF 推荐显式先跑一次 `validate_wf_indicator_readiness(...)`，失败直接中断。
 - AI 优先跑 `.py`/CLI；人类优先看 `ipynb` 图表。
 - 参见：`AGENTS.md`、`doc/structure/strategy_cross_module_plan.md`。

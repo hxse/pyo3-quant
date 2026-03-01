@@ -167,13 +167,18 @@ def run_pipeline(module_name: str) -> dict[str, object]:
     runtime = _build_runtime(module_name)
     cfg = runtime["cfg"]
     bt = runtime["bt"]
+    wf_cfg = runtime["wf_cfg"]
+
+    # 中文注释：pipeline 入口显式预检一次，失败直接中断后续阶段。
+    precheck = bt.validate_wf_indicator_readiness(wf_cfg)
 
     return runner_run_pipeline(
         base_data_key=cfg.data_config.base_data_key,
         bt=bt,
         opt_cfg=runtime["opt_cfg"],
         sens_cfg=runtime["sens_cfg"],
-        wf_cfg=runtime["wf_cfg"],
+        wf_cfg=wf_cfg,
+        wf_precheck=precheck,
     )
 
 

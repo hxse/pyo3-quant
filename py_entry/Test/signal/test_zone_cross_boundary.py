@@ -12,6 +12,26 @@ from py_entry.types import (
 from py_entry.Test.shared import make_backtest_runner, make_engine_settings
 
 
+def _assert_bool_series_equal(
+    result_slice: pl.Series | list[bool], expected: list[bool], context: str
+):
+    """向量化断言布尔序列一致，失败时给出首个差异位置。"""
+    res_s = (
+        result_slice.cast(pl.Boolean, strict=False)
+        if isinstance(result_slice, pl.Series)
+        else pl.Series("result", result_slice, dtype=pl.Boolean)
+    )
+    exp_s = pl.Series("expected", expected, dtype=pl.Boolean)
+    assert res_s.len() == exp_s.len(), f"{context}: 长度不一致"
+
+    mismatch = res_s != exp_s
+    if bool(mismatch.any()):
+        first_idx = int(mismatch.arg_max() or 0)
+        raise AssertionError(
+            f"{context}: 首个不一致索引={first_idx}, expected={exp_s[first_idx]}, got={res_s[first_idx]}"
+        )
+
+
 def test_zone_cross_boundary_inclusive():
     """
     测试 x>= (inclusive) 在边界条件下的行为。
@@ -113,10 +133,10 @@ def test_zone_cross_boundary_inclusive():
     signals = result.summary.signals
     assert signals is not None
 
-    entry_long = signals["entry_long"].to_list()
-
-    # 取出最后几根实际上对应测试序列的结果
-    result_slice = entry_long[-len(test_closes) :]
+    # 取出最后几根实际上对应测试序列的结果（Series 切片，避免转 Python list）。
+    result_slice = signals["entry_long"].slice(
+        signals["entry_long"].len() - len(test_closes), len(test_closes)
+    )
 
     expected = [
         False,  # 20
@@ -130,10 +150,11 @@ def test_zone_cross_boundary_inclusive():
         False,  # 50 (Wait for re-trigger)
     ]
 
-    for i, (res, exp) in enumerate(zip(result_slice, expected)):
-        assert res == exp, (
-            f"Mismatch at index {i} (Close={test_closes[i]}): Expected {exp}, Got {res}"
-        )
+    _assert_bool_series_equal(
+        result_slice,
+        expected,
+        context="x>= 30..70",
+    )
 
 
 def test_zone_cross_boundary_strict_down():
@@ -199,7 +220,9 @@ def test_zone_cross_boundary_strict_down():
     assert result.summary is not None
     signals = result.summary.signals
     assert signals is not None
-    entry_long = signals["entry_long"].to_list()[-len(test_closes) :]
+    entry_long = signals["entry_long"].slice(
+        signals["entry_long"].len() - len(test_closes), len(test_closes)
+    )
 
     expected = [
         False,  # 80
@@ -212,10 +235,11 @@ def test_zone_cross_boundary_strict_down():
         False,  # 50 (Wait re-trigger)
     ]
 
-    for i, (res, exp) in enumerate(zip(entry_long, expected)):
-        assert res == exp, (
-            f"Mismatch at index {i} (Close={test_closes[i]}): Expected {exp}, Got {res}"
-        )
+    _assert_bool_series_equal(
+        entry_long,
+        expected,
+        context="x< 70..30",
+    )
 
 
 def test_zone_cross_boundary_inclusive_down():
@@ -281,7 +305,9 @@ def test_zone_cross_boundary_inclusive_down():
     assert result.summary is not None
     signals = result.summary.signals
     assert signals is not None
-    entry_long = signals["entry_long"].to_list()[-len(test_closes) :]
+    entry_long = signals["entry_long"].slice(
+        signals["entry_long"].len() - len(test_closes), len(test_closes)
+    )
 
     expected = [
         False,  # 80
@@ -294,10 +320,11 @@ def test_zone_cross_boundary_inclusive_down():
         False,  # 50 (Wait re-trigger)
     ]
 
-    for i, (res, exp) in enumerate(zip(entry_long, expected)):
-        assert res == exp, (
-            f"Mismatch at index {i} (Close={test_closes[i]}): Expected {exp}, Got {res}"
-        )
+    _assert_bool_series_equal(
+        entry_long,
+        expected,
+        context="x<= 70..30",
+    )
 
 
 if __name__ == "__main__":

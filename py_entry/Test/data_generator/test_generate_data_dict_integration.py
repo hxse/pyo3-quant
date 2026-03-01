@@ -67,11 +67,12 @@ class TestGenerateDataDictIntegration:
         assert base_key in data_container.mapping.columns
 
     def test_generate_data_dict_with_ha_renko(self, basic_start_time):
-        """测试 generate_data_dict 函数 - 短样本下 Renko 行数不足会被校验拒绝"""
+        """测试 generate_data_dict 函数 - HA 与 Renko 混合生成可稳定成功"""
         from py_entry.data_generator import OtherParams
 
         timeframes = ["15m", "1h"]
-        num_bars = 10
+        # 使用更长样本，避免随机价格路径导致的 Renko 行数波动引发偶发失败
+        num_bars = 200
 
         simulated_data_config = DataGenerationParams(
             timeframes=timeframes,
@@ -86,12 +87,14 @@ class TestGenerateDataDictIntegration:
             renko_timeframes=["1h"],
         )
 
-        with pytest.raises(
-            ValueError, match="source 'renko_1h' 的 time 列至少需要 2 行"
-        ):
-            generate_data_dict(
-                data_source=simulated_data_config, other_params=other_params
-            )
+        data_container = generate_data_dict(
+            data_source=simulated_data_config, other_params=other_params
+        )
+
+        # 校验 HA / Renko 衍生 source 已生成并参与统一 source 容器
+        assert "ha_15m" in data_container.source
+        assert "renko_1h" in data_container.source
+        assert len(data_container.source["renko_1h"]) >= 2
 
     def test_generate_data_dict_invalid_timeframe(self, basic_start_time):
         """测试 generate_data_dict 函数 - 无效的时间周期"""

@@ -6,12 +6,12 @@ pub use self::inputs::{
     BacktestParams, BenchmarkFunction, DataContainer, DataSource, ExecutionStage, IndicatorsParams,
     LogicOp, OptimizeMetric, OptimizerConfig, Param, ParamContainer, ParamType, PerformanceMetric,
     PerformanceParams, SensitivityConfig, SettingContainer, SignalGroup, SignalParams,
-    SignalTemplate, SingleParamSet, TemplateContainer, WalkForwardConfig,
+    SignalTemplate, SingleParamSet, TemplateContainer, WalkForwardConfig, WfWarmupMode,
 };
 
 pub use self::outputs::{
-    BacktestSummary, IndicatorResults, NextWindowHint, OptimizationResult, PerformanceMetrics,
-    RoundSummary, SamplePoint, SensitivityResult, SensitivitySample, StitchedArtifact,
-    WalkForwardResult, WindowArtifact,
+    BacktestSummary, IndicatorContract, IndicatorContractReport, IndicatorResults, NextWindowHint,
+    OptimizationResult, PerformanceMetrics, RoundSummary, SamplePoint, SensitivityResult,
+    SensitivitySample, StitchedArtifact, WalkForwardResult, WindowArtifact,
 };
 pub use self::utils::*;

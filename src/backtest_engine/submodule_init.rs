@@ -28,6 +28,10 @@ pub(super) fn register_all_submodules(m: &Bound<'_, PyModule>) -> PyResult<()> {
         indicators::py_calculate_indicators,
         &indicators_submodule
     )?)?;
+    indicators_submodule.add_function(wrap_pyfunction!(
+        indicators::py_resolve_indicator_contracts,
+        &indicators_submodule
+    )?)?;
     m.add_submodule(&indicators_submodule)?;
     register_submodule_in_sys_modules(
         py,

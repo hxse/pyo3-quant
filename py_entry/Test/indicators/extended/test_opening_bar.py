@@ -58,11 +58,12 @@ def test_opening_bar_logic_alignment():
     indicators_results = result.results[0].indicators
     assert indicators_results is not None
     res_df = indicators_results["ohlcv_5m"]
-    signals = res_df.select("opening-bar_0").to_series().to_list()
+    signals = res_df.get_column("opening-bar_0").cast(pl.Float64, strict=False)
 
     # T1(300s), T2(300s), T3(900s) 不是开盘 (因为 900 不大于 900)
     # T4(大间隙) 是开盘
-    assert signals == [0.0, 0.0, 0.0, 0.0, 1.0]
+    expected_1 = pl.Series("expected_1", [0.0, 0.0, 0.0, 0.0, 1.0], dtype=pl.Float64)
+    assert bool((signals == expected_1).all())
 
     # 3. 测试场景 2: 判定 15 分钟休息也是开盘 (threshold = 899)
     # 预期: T0, T3, T4 是开盘
@@ -83,7 +84,8 @@ def test_opening_bar_logic_alignment():
     indicators_results2 = result2.results[0].indicators
     assert indicators_results2 is not None
     res_df2 = indicators_results2["ohlcv_5m"]
-    signals2 = res_df2.select("opening-bar_1").to_series().to_list()
+    signals2 = res_df2.get_column("opening-bar_1").cast(pl.Float64, strict=False)
 
     # T0(第一根) 为 0.0, T3(900 > 899), T4 是开盘
-    assert signals2 == [0.0, 0.0, 0.0, 1.0, 1.0]
+    expected_2 = pl.Series("expected_2", [0.0, 0.0, 0.0, 1.0, 1.0], dtype=pl.Float64)
+    assert bool((signals2 == expected_2).all())

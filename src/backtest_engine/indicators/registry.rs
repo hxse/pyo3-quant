@@ -16,11 +16,18 @@ use super::rma::RmaIndicator;
 use super::rsi::RsiIndicator;
 use super::sma::SmaIndicator;
 use super::tr::TrIndicator;
-use crate::error::QuantError;
+use crate::error::{IndicatorError, QuantError};
 use crate::types::Param;
 use polars::prelude::*;
 use std::collections::HashMap;
 use std::sync::OnceLock;
+
+/// 指标预热校验模式。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WarmupMode {
+    Strict,
+    Relaxed,
+}
 
 /// 所有指标必须实现的通用 Trait
 pub trait Indicator: Send + Sync {
@@ -31,6 +38,14 @@ pub trait Indicator: Send + Sync {
         indicator_key: &str,
         params: &HashMap<String, Param>,
     ) -> Result<Vec<Series>, QuantError>;
+
+    /// 返回该指标所需的最小预热 K 线数量。
+    fn required_warmup_bars(&self, resolved_params: &HashMap<String, f64>)
+        -> Result<usize, QuantError>;
+
+    /// 返回该指标的运行时校验模式。
+    /// 中文注释：强约束要求每个指标必须显式声明，禁止依赖默认实现。
+    fn warmup_mode(&self) -> WarmupMode;
 }
 
 /// 指标注册表类型别名
@@ -70,5 +85,24 @@ pub fn get_indicator_registry() -> &'static IndicatorRegistry {
         registry.insert("opening-bar".to_string(), Box::new(OpeningBarIndicator));
         registry.insert("sma-close-pct".to_string(), Box::new(SmaClosePctIndicator));
         registry
+    })
+}
+
+/// 统一参数解析规则：`optimize=true` 取 `max`，否则取 `value`。
+pub fn resolve_param_value(param: &Param) -> f64 {
+    if param.optimize { param.max } else { param.value }
+}
+
+/// 读取必填参数（缺失时直接报错）。
+pub fn require_resolved_param(
+    params: &HashMap<String, f64>,
+    key: &str,
+    indicator_name: &str,
+) -> Result<f64, QuantError> {
+    params.get(key).copied().ok_or_else(|| {
+        QuantError::Indicator(IndicatorError::InvalidParameter(
+            indicator_name.to_string(),
+            format!("Missing required parameter '{}'", key),
+        ))
     })
 }

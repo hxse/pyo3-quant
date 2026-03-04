@@ -44,10 +44,7 @@ impl WfWarmupMode {
 
 impl PyStubType for WfWarmupMode {
     fn type_output() -> pyo3_stub_gen::TypeInfo {
-        pyo3_stub_gen::TypeInfo::locally_defined(
-            "WfWarmupMode",
-            pyo3_stub_gen::ModuleRef::Default,
-        )
+        pyo3_stub_gen::TypeInfo::locally_defined("WfWarmupMode", pyo3_stub_gen::ModuleRef::Default)
     }
 }
 
@@ -111,13 +108,6 @@ impl WalkForwardConfig {
 impl Default for WalkForwardConfig {
     fn default() -> Self {
         // 中文注释：默认使用固定 bar 口径，避免随总样本增长导致窗口漂移。
-        Self::new(
-            500,
-            100,
-            200,
-            WfWarmupMode::ExtendTest,
-            true,
-            None,
-        )
+        Self::new(500, 100, 200, WfWarmupMode::ExtendTest, true, None)
     }
 }

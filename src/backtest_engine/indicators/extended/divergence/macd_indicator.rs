@@ -83,8 +83,10 @@ impl Indicator for MacdDivergenceIndicator {
         resolved_params: &HashMap<String, f64>,
     ) -> Result<usize, QuantError> {
         // 本指标有效业务列 `_value` 继承 MACD 主列，预热与 MACD 一致。
-        let fast = require_resolved_param(resolved_params, "fast_period", "macd-divergence")? as i64;
-        let slow = require_resolved_param(resolved_params, "slow_period", "macd-divergence")? as i64;
+        let fast =
+            require_resolved_param(resolved_params, "fast_period", "macd-divergence")? as i64;
+        let slow =
+            require_resolved_param(resolved_params, "slow_period", "macd-divergence")? as i64;
         let signal =
             require_resolved_param(resolved_params, "signal_period", "macd-divergence")? as i64;
         let max_period = fast.max(slow);

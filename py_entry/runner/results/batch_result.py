@@ -1,5 +1,7 @@
-from typing import List, TYPE_CHECKING
+from typing import Any, List, TYPE_CHECKING
+
 from py_entry.types import BacktestSummary, SingleParamSet
+from py_entry.runner.results.report_json import dump_report
 
 if TYPE_CHECKING:
     from .run_result import RunResult
@@ -50,7 +52,29 @@ class BatchResult:
         # Use max() with key to find the best index
         best_idx = max(
             range(len(self.summaries)),
-            key=lambda i: getattr(self.summaries[i].performance, metric, -float("inf")),
+            key=lambda i: float(
+                (self.summaries[i].performance or {}).get(metric, -float("inf"))
+            ),
         )
 
         return self.select(best_idx)
+
+    def build_report(self) -> dict[str, Any]:
+        """构建批量回测统一报告。"""
+        rows: list[dict[str, Any]] = []
+        for idx, summary in enumerate(self.summaries):
+            rows.append(
+                {
+                    "index": idx,
+                    "performance": summary.performance or {},
+                }
+            )
+        return {
+            "stage": "batch",
+            "total_results": len(self.summaries),
+            "results": rows,
+        }
+
+    def print_report(self) -> None:
+        """打印批量回测统一报告。"""
+        print(dump_report(self.build_report()))

@@ -15,23 +15,25 @@
 
 import polars as pl
 from py_entry.runner import Backtest
-from py_entry.strategies.sma_crossover.pyo3 import get_config
+from py_entry.strategy_hub.test_strategies.sma_crossover.strategy import (
+    build_strategy_bundle,
+)
 from py_entry.types import SettingContainer, ExecutionStage
 from typing import cast
 
 
 def main():
     # 获取策略配置
-    strategy = get_config()
+    strategy = build_strategy_bundle()
     print(f"策略: {strategy.name}")
 
     # 运行完整回测
     bt = Backtest(
         data_source=strategy.data_config,
-        indicators=strategy.indicators_params,
-        signal=strategy.signal_params,
-        backtest=strategy.backtest_params,
-        signal_template=strategy.signal_template,
+        indicators=strategy.variant.indicators_params,
+        signal=strategy.variant.signal_params,
+        backtest=strategy.variant.backtest_params,
+        signal_template=strategy.variant.signal_template,
         engine_settings=SettingContainer(
             execution_stage=ExecutionStage.Backtest,
             return_only_final=False,

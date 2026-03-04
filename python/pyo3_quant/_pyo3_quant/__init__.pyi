@@ -1285,6 +1285,22 @@ class WindowArtifact:
     @property
     def test_range(self) -> tuple[builtins.int, builtins.int]: ...
     @property
+    def train_time_range(self) -> tuple[builtins.int, builtins.int]: ...
+    @property
+    def transition_time_range(self) -> tuple[builtins.int, builtins.int]: ...
+    @property
+    def test_time_range(self) -> tuple[builtins.int, builtins.int]: ...
+    @property
+    def full_time_range(self) -> tuple[builtins.int, builtins.int]: ...
+    @property
+    def train_bars(self) -> builtins.int: ...
+    @property
+    def transition_bars(self) -> builtins.int: ...
+    @property
+    def test_bars(self) -> builtins.int: ...
+    @property
+    def full_bars(self) -> builtins.int: ...
+    @property
     def best_params(self) -> SingleParamSet: ...
     @property
     def optimize_metric(self) -> OptimizeMetric: ...
@@ -1495,6 +1511,14 @@ class PerformanceMetric(enum.Enum):
     r"""
     最大回撤持续时间
     """
+    SpanMs = ...
+    r"""
+    时间跨度（毫秒）
+    """
+    SpanDays = ...
+    r"""
+    时间跨度（天）
+    """
     SharpeRatio = ...
     r"""
     年化夏普比率
@@ -1527,6 +1551,14 @@ class PerformanceMetric(enum.Enum):
     r"""
     平均每日交易次数
     """
+    AvgTradeIntervalMs = ...
+    r"""
+    平均交易间隔（毫秒）
+    """
+    AvgTradeIntervalDays = ...
+    r"""
+    平均交易间隔（天）
+    """
     WinRate = ...
     r"""
     胜率
@@ -1539,9 +1571,25 @@ class PerformanceMetric(enum.Enum):
     r"""
     平均持仓时间
     """
+    AvgHoldingDurationMs = ...
+    r"""
+    平均持仓时间（毫秒）
+    """
+    MaxHoldingDurationMs = ...
+    r"""
+    最大持仓时间（毫秒）
+    """
+    AvgHoldingDurationDays = ...
+    r"""
+    平均持仓时间（天）
+    """
     AvgEmptyDuration = ...
     r"""
     平均空仓时间
+    """
+    AvgEmptyDurationMs = ...
+    r"""
+    平均空仓时间（毫秒）
     """
     MaxHoldingDuration = ...
     r"""
@@ -1550,6 +1598,14 @@ class PerformanceMetric(enum.Enum):
     MaxEmptyDuration = ...
     r"""
     最大空仓时间
+    """
+    MaxEmptyDurationMs = ...
+    r"""
+    最大空仓时间（毫秒）
+    """
+    MaxEmptyDurationDays = ...
+    r"""
+    最大空仓时间（天）
     """
     MaxSafeLeverage = ...
     r"""

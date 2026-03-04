@@ -1,5 +1,5 @@
 import time
-from typing import TYPE_CHECKING, List, Tuple, Self, Union
+from typing import TYPE_CHECKING, Any, List, Tuple, Self, Union
 from io import BytesIO
 from pathlib import Path
 from loguru import logger
@@ -25,7 +25,7 @@ from py_entry.io.dataframe_utils import add_contextual_columns_to_dataframes
 from py_entry.io.zip_utils import create_zip_buffer
 from py_entry.charts.generation import generate_default_chart_config
 from py_entry.runner.params import FormatResultsConfig
-from py_entry.runner.results.log_level import LogLevel
+from py_entry.runner.results.report_json import dump_report
 
 # Avoid circular imports for type checking if needed, though mostly using imported types
 if TYPE_CHECKING:
@@ -239,44 +239,15 @@ class RunResult:
 
         return _display.display_dashboard(self, config)
 
-    def log(self, level: LogLevel = LogLevel.BRIEF) -> None:
-        """打印回测摘要日志。"""
+    def build_report(self) -> dict[str, Any]:
+        """构建统一回测报告。"""
         perf = self.summary.performance or {}
-        if level == LogLevel.BRIEF:
-            total_trades = perf.get("total_trades")
-            span_days = self._span_days_from_base_source()
-            trades_per_day = None
-            days_per_trade = None
-            if (
-                isinstance(total_trades, (int, float))
-                and total_trades > 0
-                and span_days is not None
-                and span_days > 0
-            ):
-                trades_per_day = float(total_trades) / span_days
-                days_per_trade = span_days / float(total_trades)
-            keys = ("total_return", "max_drawdown", "calmar_ratio_raw", "total_trades")
-            out = {k: perf.get(k) for k in keys if k in perf}
-            out["trades_per_day"] = trades_per_day
-            out["days_per_trade"] = days_per_trade
-            print(f"backtest.brief={out}")
-            return
-        print(f"backtest.detailed={perf}")
+        # 中文注释：日志输出仅保留单一结构，不再区分 brief/detailed。
+        return {
+            "stage": "backtest",
+            "performance": perf,
+        }
 
-    def _span_days_from_base_source(self) -> float | None:
-        """从 base 数据源 time 列估算时间跨度（天）。"""
-        source = self.data_dict.source
-        base_key = self.data_dict.base_data_key
-        if base_key not in source:
-            return None
-        df = source[base_key]
-        if "time" not in df.columns or df.height < 2:
-            return None
-        start = df["time"][0]
-        end = df["time"][-1]
-        if not isinstance(start, int) or not isinstance(end, int):
-            return None
-        span_ms = end - start
-        if span_ms <= 0:
-            return None
-        return span_ms / 86_400_000.0
+    def print_report(self) -> None:
+        """打印统一回测报告。"""
+        print(dump_report(self.build_report()))

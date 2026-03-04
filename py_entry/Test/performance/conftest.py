@@ -60,8 +60,12 @@ def full_performance_result():
             PerformanceMetric.WinRate,
             PerformanceMetric.ProfitLossRatio,
             PerformanceMetric.AvgHoldingDuration,
+            # 中文注释：扩口径后新增毫秒级最大持仓时长指标。
+            PerformanceMetric.MaxHoldingDurationMs,
             PerformanceMetric.MaxHoldingDuration,
             PerformanceMetric.AvgEmptyDuration,
+            # 中文注释：扩口径后新增毫秒级平均空仓时长指标。
+            PerformanceMetric.AvgEmptyDurationMs,
             PerformanceMetric.MaxEmptyDuration,
             PerformanceMetric.MaxSafeLeverage,
             PerformanceMetric.AnnualizationFactor,

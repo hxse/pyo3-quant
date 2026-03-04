@@ -179,7 +179,17 @@ def build_performance_params(
                 PerformanceMetric.TotalReturn,
                 PerformanceMetric.CalmarRatio,
                 PerformanceMetric.CalmarRatioRaw,
+                PerformanceMetric.SpanMs,
+                PerformanceMetric.SpanDays,
                 PerformanceMetric.TotalTrades,
+                PerformanceMetric.AvgTradeIntervalMs,
+                PerformanceMetric.AvgTradeIntervalDays,
+                PerformanceMetric.AvgHoldingDurationMs,
+                PerformanceMetric.MaxHoldingDurationMs,
+                PerformanceMetric.AvgHoldingDurationDays,
+                PerformanceMetric.AvgEmptyDurationMs,
+                PerformanceMetric.MaxEmptyDurationMs,
+                PerformanceMetric.MaxEmptyDurationDays,
                 PerformanceMetric.MaxDrawdown,
             ]
         )

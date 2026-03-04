@@ -2,8 +2,8 @@ use crate::backtest_engine::data_ops::{
     concat_backtest_summaries, rebuild_capital_columns_for_stitched_backtest_with_boundaries,
     slice_backtest_summary_by_base_window, slice_data_container_by_base_window,
 };
-use crate::backtest_engine::indicators::contracts::resolve_indicator_contracts;
 use crate::backtest_engine::execute_single_backtest;
+use crate::backtest_engine::indicators::contracts::resolve_indicator_contracts;
 use crate::backtest_engine::optimizer::run_optimization;
 use crate::backtest_engine::utils::BacktestContext;
 use crate::backtest_engine::walk_forward::data_splitter::generate_windows;
@@ -158,6 +158,15 @@ pub fn run_walk_forward(
 
         let (time_range, span_ms, span_days, span_months, bars) =
             build_range_identity(&test_data, window.test_range)?;
+        let train_time_range = range_to_time_range(&base_times, window.train_range)?;
+        let transition_time_range = range_to_time_range(&base_times, window.transition_range)?;
+        let test_time_range = range_to_time_range(&base_times, window.test_range)?;
+        let full_range = (window.transition_range.0, window.test_range.1);
+        let full_time_range = range_to_time_range(&base_times, full_range)?;
+        let train_bars = window.train_range.1 - window.train_range.0;
+        let transition_bars = window.transition_range.1 - window.transition_range.0;
+        let test_bars = window.test_range.1 - window.test_range.0;
+        let full_bars = full_range.1 - full_range.0;
 
         window_results.push(WindowArtifact {
             data: test_data,
@@ -172,6 +181,14 @@ pub fn run_walk_forward(
             train_range: window.train_range,
             transition_range: window.transition_range,
             test_range: window.test_range,
+            train_time_range,
+            transition_time_range,
+            test_time_range,
+            full_time_range,
+            train_bars,
+            transition_bars,
+            test_bars,
+            full_bars,
             best_params: train_result.best_params,
             optimize_metric: config.optimizer_config.optimize_metric,
             has_cross_boundary_position,
@@ -355,6 +372,17 @@ fn time_at(times: &[i64], idx: usize) -> Result<i64, QuantError> {
     })
 }
 
+fn range_to_time_range(times: &[i64], range: (usize, usize)) -> Result<(i64, i64), QuantError> {
+    if range.1 <= range.0 {
+        return Err(
+            OptimizerError::InvalidConfig(format!("invalid bar range: {:?}", range)).into(),
+        );
+    }
+    let start = time_at(times, range.0)?;
+    let end = time_at(times, range.1 - 1)?;
+    Ok((start, end))
+}
+
 fn build_range_identity(
     data: &DataContainer,
     bar_range: (usize, usize),
@@ -477,9 +505,7 @@ fn build_injected_signals_for_window(
     prev_test_last_position: Option<CrossSide>,
 ) -> Result<(DataFrame, bool), QuantError> {
     if transition_len < 1 {
-        return Err(
-            OptimizerError::InvalidConfig("transition_len must be >= 1".into()).into(),
-        );
+        return Err(OptimizerError::InvalidConfig("transition_len must be >= 1".into()).into());
     }
     if test_len < 2 {
         return Err(OptimizerError::InvalidConfig(

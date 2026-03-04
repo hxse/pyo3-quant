@@ -6,8 +6,8 @@
 
 import pytest
 
-from py_entry.strategies import get_all_strategies
-from py_entry.strategies.base import StrategyConfig
+from py_entry.strategy_hub.test_strategies import get_all_strategies
+from py_entry.strategy_hub.core.spec import TestStrategySpec
 from py_entry.Test.shared import run_strategy_backtest
 
 
@@ -19,7 +19,7 @@ def backtest_result(request):
     对所有已注册策略执行回测，每个策略的测试独立运行。
     测试报告中会显示策略名称。
     """
-    strategy: StrategyConfig = request.param
+    strategy: TestStrategySpec = request.param
     results, _, _ = run_strategy_backtest(strategy)
     return results
 

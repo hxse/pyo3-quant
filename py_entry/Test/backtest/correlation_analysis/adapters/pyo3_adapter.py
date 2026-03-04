@@ -11,7 +11,7 @@ from typing import Optional
 
 from py_entry.runner import Backtest
 from py_entry.data_generator import DataGenerationParams
-from py_entry.strategies import get_strategy
+from py_entry.strategy_hub.test_strategies import get_test_strategy
 from py_entry.Test.backtest.correlation_analysis.config import CommonConfig
 from py_entry.Test.shared import make_backtest_runner
 
@@ -45,7 +45,7 @@ class Pyo3Adapter:
             self（链式调用）
         """
         # 获取策略配置
-        strategy = get_strategy(strategy_name)
+        strategy = get_test_strategy(strategy_name)
 
         # 根据 CommonConfig 生成独立数据配置，避免修改策略原对象。
         data_config = DataGenerationParams(
@@ -57,17 +57,17 @@ class Pyo3Adapter:
             allow_gaps=self.config.allow_gaps,
         )
 
-        # 覆写本次策略实例参数（get_strategy 每次返回新实例）。
-        strategy.backtest_params.initial_capital = self.config.initial_capital
-        strategy.backtest_params.fee_pct = self.config.commission
+        # 覆写本次策略实例参数（get_test_strategy 每次返回新实例）。
+        strategy.variant.backtest_params.initial_capital = self.config.initial_capital
+        strategy.variant.backtest_params.fee_pct = self.config.commission
 
         # 创建 Backtest 并执行
         self.runner = make_backtest_runner(
             data_source=data_config,
-            indicators=strategy.indicators_params,
-            signal=strategy.signal_params,
-            backtest=strategy.backtest_params,
-            signal_template=strategy.signal_template,
+            indicators=strategy.variant.indicators_params,
+            signal=strategy.variant.signal_params,
+            backtest=strategy.variant.backtest_params,
+            signal_template=strategy.variant.signal_template,
             engine_settings=strategy.engine_settings,
             performance=strategy.performance_params,
         )

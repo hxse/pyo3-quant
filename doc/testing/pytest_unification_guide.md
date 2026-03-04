@@ -8,7 +8,7 @@
 
 ## 2.1 公共回归策略
 
-来源：`py_entry/strategies` 注册表。
+来源：`py_entry/strategy_hub/test_strategies` 注册表。
 
 用途：
 
@@ -29,7 +29,7 @@
 说明：
 
 1. 这类策略不追求复用，追求定位效率。
-2. 策略实现层（`example` / `py_entry/strategies` / `py_entry/private_strategies`）优先直接使用配置类型（如 `DataGenerationParams` / `DirectDataConfig`）。
+2. 策略实现层（`example` / `py_entry/strategy_hub/test_strategies` / `py_entry/strategy_hub`）优先直接使用配置类型（如 `DataGenerationParams` / `DirectDataConfig`）。
 3. 测试统一常量放在 `py_entry/Test/shared/constants.py`（例如 `TEST_START_TIME_MS`）。
 
 ## 3. 数据源约定（`DataSourceConfig`）
@@ -47,7 +47,7 @@
 
 ## 4. private 策略默认规则
 
-对于 `py_entry/private_strategies` 中被模板自动发现的策略：
+对于 `py_entry/strategy_hub` 中被模板自动发现的策略：
 
 1. 默认在 `Test` 跑一遍最小 smoke（防低级错误）。
 2. 默认可被交易机器人执行。
@@ -56,7 +56,7 @@
 
 当前实现建议：
 
-1. 使用 `py_entry.trading_bot.LiveStrategyCallbacks` 读取 `py_entry.private_strategies.template` 的发现结果并桥接给机器人。
+1. 使用 `py_entry.trading_bot.LiveStrategyCallbacks` 读取 `py_entry/strategy_hub/registry/live_registry.json` 并桥接给机器人。
 2. 在 `py_entry/Test/trading_bot/test_live_strategy_callbacks.py` 维持最小 smoke。
 
 ## 5. 最小示例
@@ -64,16 +64,17 @@
 ## 5.1 公共回归策略
 
 ```python
-from py_entry.strategies import get_strategy
+from py_entry.strategy_hub.test_strategies import get_test_strategy
 from py_entry.runner import Backtest
 
-cfg = get_strategy("sma_crossover")
+cfg = get_test_strategy("sma_crossover")
+variant = cfg.variant
 result = Backtest(
     data_source=cfg.data_config,
-    indicators=cfg.indicators_params,
-    signal=cfg.signal_params,
-    backtest=cfg.backtest_params,
-    signal_template=cfg.signal_template,
+    indicators=variant.indicators_params,
+    signal=variant.signal_params,
+    backtest=variant.backtest_params,
+    signal_template=variant.signal_template,
     engine_settings=cfg.engine_settings,
     performance=cfg.performance_params,
 ).run()
@@ -111,8 +112,8 @@ assert result.summary is not None
 为避免测试与 notebook 场景被意外拉起 `backtesting`（触发 Bokeh/Jupyter 副作用）：
 
 1. 策略注册链路中的 `pyo3.py` 禁止顶层导入 `btp.py` 或 `backtesting`。
-2. 若需要 `btp_strategy_class`，必须在 `get_config()` 内惰性导入（函数内 `from .btp import ...`）。
-3. `py_entry/strategies/__init__.py` 不应在模块顶层导入 `backtesting` 或调用 `set_bokeh_output(...)`。
+2. 若需要 `btp_strategy_class`，必须在 `build_strategy_bundle()` 内惰性导入（函数内 `from .btp import ...`）。
+3. `py_entry/strategy_hub/test_strategies/__init__.py` 不应在模块顶层导入 `backtesting` 或调用 `set_bokeh_output(...)`。
 
 检查建议：
 

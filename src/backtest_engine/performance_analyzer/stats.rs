@@ -16,8 +16,13 @@ pub struct TradeStats {
 pub fn calculate_trade_stats(trade_pnl_pct: &ChunkedArray<Float64Type>) -> TradeStats {
     let mut stats = TradeStats::default();
 
-    // 过滤非零收益（代表已关闭的交易）
-    let closed_trades = trade_pnl_pct.filter(&trade_pnl_pct.not_equal(0.0)).unwrap();
+    // 中文注释：仅保留有限且非零收益，明确排除 NaN/Infinity 对统计的污染。
+    let mut closed_trades: Vec<f64> = Vec::new();
+    for value in trade_pnl_pct.into_iter().flatten() {
+        if value != 0.0 && value.is_finite() {
+            closed_trades.push(value);
+        }
+    }
 
     let n_trades = closed_trades.len();
     if n_trades == 0 {
@@ -26,21 +31,26 @@ pub fn calculate_trade_stats(trade_pnl_pct: &ChunkedArray<Float64Type>) -> Trade
 
     stats.total_trades = n_trades as f64;
 
-    // 盈利和亏损交易
-    let wins = closed_trades.filter(&closed_trades.gt(0.0)).unwrap();
-    let losses = closed_trades.filter(&closed_trades.lt(0.0)).unwrap();
-
-    stats.wins_count = wins.len() as f64;
-    stats.losses_count = losses.len() as f64;
+    let mut wins_sum = 0.0;
+    let mut losses_sum = 0.0;
+    for value in closed_trades {
+        if value > 0.0 {
+            stats.wins_count += 1.0;
+            wins_sum += value;
+        } else if value < 0.0 {
+            stats.losses_count += 1.0;
+            losses_sum += value.abs();
+        }
+    }
 
     stats.win_rate = stats.wins_count / stats.total_trades;
 
     if stats.wins_count > 0.0 {
-        stats.avg_win = wins.mean().unwrap_or(0.0);
+        stats.avg_win = wins_sum / stats.wins_count;
     }
 
     if stats.losses_count > 0.0 {
-        stats.avg_loss = losses.mean().unwrap_or(0.0).abs();
+        stats.avg_loss = losses_sum / stats.losses_count;
     }
 
     if stats.avg_loss > 0.0 {
@@ -57,6 +67,10 @@ pub struct DurationStats {
     pub max_holding_duration: f64,
     pub avg_empty_duration: f64,
     pub max_empty_duration: f64,
+    pub avg_holding_duration_ms: f64,
+    pub max_holding_duration_ms: f64,
+    pub avg_empty_duration_ms: f64,
+    pub max_empty_duration_ms: f64,
     pub max_drawdown_duration: f64,
 }
 
@@ -66,6 +80,7 @@ pub struct DurationStats {
 /// 最大回撤时长可以通过矢量化计算。
 pub fn calculate_duration_stats(
     n: usize,
+    time: &ChunkedArray<Int64Type>,
     entry_long: &ChunkedArray<Float64Type>,
     entry_short: &ChunkedArray<Float64Type>,
     current_drawdown: &ChunkedArray<Float64Type>,
@@ -76,8 +91,13 @@ pub fn calculate_duration_stats(
     let mut empty_durs = Vec::new();
     let mut current_holding_dur = 0;
     let mut current_empty_dur = 0;
+    let mut current_holding_ms = 0.0;
+    let mut current_empty_ms = 0.0;
     let mut in_pos = false;
     let mut seen_first_trade = false;
+    let mut holding_durs_ms: Vec<f64> = Vec::new();
+    let mut empty_durs_ms: Vec<f64> = Vec::new();
+    let deltas_ms = build_bar_deltas_ms(time, n);
 
     // 1. 持仓和空仓时长统计 (线性扫描)
     for i in 0..n {
@@ -90,21 +110,29 @@ pub fn calculate_duration_stats(
             if !in_pos {
                 if current_empty_dur > 0 {
                     empty_durs.push(current_empty_dur);
+                    // 中文注释：ms 统计与 bar 统计在同一时点 flush，保证分母一致。
+                    empty_durs_ms.push(current_empty_ms);
                     current_empty_dur = 0;
+                    current_empty_ms = 0.0;
                 }
                 in_pos = true;
             }
             current_holding_dur += 1;
+            current_holding_ms += deltas_ms[i];
         } else {
             if in_pos {
                 if current_holding_dur > 0 {
                     holding_durs.push(current_holding_dur);
+                    // 中文注释：即使区间内毫秒总和为 0，也保持与 bar 区间数量对齐。
+                    holding_durs_ms.push(current_holding_ms);
                     current_holding_dur = 0;
+                    current_holding_ms = 0.0;
                 }
                 in_pos = false;
             }
             if seen_first_trade {
                 current_empty_dur += 1;
+                current_empty_ms += deltas_ms[i];
             }
         }
     }
@@ -112,9 +140,11 @@ pub fn calculate_duration_stats(
     // 处理收尾
     if current_holding_dur > 0 {
         holding_durs.push(current_holding_dur);
+        holding_durs_ms.push(current_holding_ms);
     }
     if current_empty_dur > 0 {
         empty_durs.push(current_empty_dur);
+        empty_durs_ms.push(current_empty_ms);
     }
 
     if !holding_durs.is_empty() {
@@ -127,11 +157,57 @@ pub fn calculate_duration_stats(
         stats.avg_empty_duration = empty_durs.iter().sum::<i32>() as f64 / empty_durs.len() as f64;
         stats.max_empty_duration = empty_durs.iter().max().cloned().unwrap_or(0) as f64;
     }
+    if !holding_durs_ms.is_empty() {
+        stats.avg_holding_duration_ms =
+            holding_durs_ms.iter().sum::<f64>() / holding_durs_ms.len() as f64;
+        stats.max_holding_duration_ms =
+            holding_durs_ms
+                .iter()
+                .fold(0.0, |acc, &x| if x > acc { x } else { acc });
+    }
+    if !empty_durs_ms.is_empty() {
+        stats.avg_empty_duration_ms =
+            empty_durs_ms.iter().sum::<f64>() / empty_durs_ms.len() as f64;
+        stats.max_empty_duration_ms = empty_durs_ms
+            .iter()
+            .fold(0.0, |acc, &x| if x > acc { x } else { acc });
+    }
 
     // 2. 最大回撤时长统计 (矢量化：使用 RLE 计算最长连续 dd > 0 的长度)
     stats.max_drawdown_duration = calculate_max_drawdown_duration_vect(current_drawdown);
 
     stats
+}
+
+fn build_bar_deltas_ms(time: &ChunkedArray<Int64Type>, n: usize) -> Vec<f64> {
+    if n == 0 {
+        return Vec::new();
+    }
+    if n == 1 {
+        return vec![0.0];
+    }
+
+    let mut deltas_ms: Vec<f64> = Vec::with_capacity(n);
+    let mut positive_deltas: Vec<i64> = Vec::with_capacity(n - 1);
+    for i in 0..(n - 1) {
+        let start = time.get(i).unwrap_or(0);
+        let end = time.get(i + 1).unwrap_or(start);
+        let delta = (end - start).max(0);
+        if delta > 0 {
+            positive_deltas.push(delta);
+        }
+        deltas_ms.push(delta as f64);
+    }
+
+    // 中文注释：最后一根没有右侧时间点，使用正增量中位数作为近似间隔。
+    let fallback = if positive_deltas.is_empty() {
+        0.0
+    } else {
+        positive_deltas.sort_unstable();
+        positive_deltas[positive_deltas.len() / 2] as f64
+    };
+    deltas_ms.push(fallback);
+    deltas_ms
 }
 
 /// 矢量化计算最大回撤时长

@@ -8,19 +8,20 @@
 from typing import Any
 
 from py_entry.runner import Backtest
-from py_entry.strategies.base import StrategyConfig
+from py_entry.strategy_hub.core.spec import TestStrategySpec
 
 
 def run_strategy_backtest(
-    strategy: StrategyConfig,
-) -> tuple[list[Any], StrategyConfig, Any]:
+    strategy: TestStrategySpec,
+) -> tuple[list[Any], TestStrategySpec, Any]:
     """执行单个策略回测，返回 (results, strategy, data_dict)。"""
+    variant = strategy.variant
     bt = Backtest(
         data_source=strategy.data_config,
-        indicators=strategy.indicators_params,
-        signal=strategy.signal_params,
-        backtest=strategy.backtest_params,
-        signal_template=strategy.signal_template,
+        indicators=variant.indicators_params,
+        signal=variant.signal_params,
+        backtest=variant.backtest_params,
+        signal_template=variant.signal_template,
         engine_settings=strategy.engine_settings,
         performance=strategy.performance_params,
     )

@@ -42,7 +42,7 @@ just fmt
 指定脚本运行：
 
 ```bash
-just run path=py_entry/example/custom_backtest.py
+just run strategy=sma_2tf mode=pipeline
 ```
 
 ## 3. 工作流约束

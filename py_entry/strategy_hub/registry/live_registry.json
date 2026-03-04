@@ -1,0 +1,10 @@
+[
+  {
+    "log_path": "../search_spaces/sma_2tf/logs/20260303_031942_sma_2tf.json",
+    "symbol": "BTC/USDT",
+    "mode": "backtest",
+    "enabled": true,
+    "position_size_pct": 0.2,
+    "leverage": 2
+  }
+]

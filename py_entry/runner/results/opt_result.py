@@ -1,19 +1,11 @@
-from typing import Dict, Any
+from typing import Any
 from py_entry.types import (
     OptimizationResult,
     OptimizeMetric,
     SingleParamSet,
     BacktestParams,
 )
-from py_entry.runner.results.log_level import LogLevel
-# To convert dict params to SingleParamSet, we might need helper builders
-# But SingleParamSet expects Pydantic models.
-# OptimizationResult.best_params is a dict.
-# We probably need to reconstruct SingleParamSet from the initial SetupConfig structure
-# but injecting the best values.
-# For now, let's just expose best_params as dict, same as current impl,
-# or try to keep it simple. The user request draft code showed:
-# opt.best_params (which they printed).
+from py_entry.runner.results.report_json import dump_report
 
 
 class OptimizeResult:
@@ -39,7 +31,7 @@ class OptimizeResult:
 
     @property
     def best_backtest_params(self) -> BacktestParams:
-        # Backtest params are now within best_params.backtest
+        """提取最优参数中的回测参数。"""
         return self._raw.best_params.backtest
 
     @property
@@ -51,14 +43,13 @@ class OptimizeResult:
         return self._raw.rounds
 
     @property
-    def best_metrics(self) -> Dict[str, float]:
+    def best_metrics(self) -> dict[str, float]:
         """获取所有已计算的性能指标"""
         return self._raw.metrics
 
     @property
     def optimize_metric(self) -> OptimizeMetric:
         """优化目标指标类型"""
-        # Convert string back to Enum
         return self._raw.optimize_metric
 
     @property
@@ -66,23 +57,19 @@ class OptimizeResult:
         """优化目标最优值"""
         return self._raw.optimize_value
 
-    def log(self, level: LogLevel = LogLevel.BRIEF) -> None:
-        """打印优化摘要日志。"""
-        if level == LogLevel.BRIEF:
-            out: Dict[str, Any] = {
-                "metric": str(self.optimize_metric),
-                "value": self.optimize_value,
-                "samples": self.total_samples,
-                "rounds": self.rounds,
-            }
-            print(f"optimize.brief={out}")
-            return
-        out = {
-            "metric": str(self.optimize_metric),
-            "value": self.optimize_value,
-            "samples": self.total_samples,
-            "rounds": self.rounds,
-            "best_metrics": self.best_metrics,
-            "best_params": str(self.best_params),
+    def build_report(self) -> dict[str, Any]:
+        """构建统一优化报告。"""
+        # 中文注释：仅保留单一输出结构，不再区分 brief/detailed。
+        return {
+            "stage": "optimize",
+            "optimize_metric": str(self.optimize_metric),
+            "optimize_value": self.optimize_value,
+            "optimize_total_samples": self.total_samples,
+            "optimize_rounds": self.rounds,
+            # 中文注释：统一透传 Rust performance 指标口径，禁止 Python 侧派生第二套字段。
+            "performance": self.best_metrics,
         }
-        print(f"optimize.detailed={out}")
+
+    def print_report(self) -> None:
+        """打印统一优化报告。"""
+        print(dump_report(self.build_report()))

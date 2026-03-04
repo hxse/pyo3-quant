@@ -37,11 +37,11 @@ def build_config_from_strategy(strategy_name: str, **overrides) -> CommonConfig:
     Returns:
         CommonConfig 实例
     """
-    from py_entry.strategies import get_strategy
+    from py_entry.strategy_hub.test_strategies import get_test_strategy
 
-    strategy = get_strategy(strategy_name)
+    strategy = get_test_strategy(strategy_name)
     data_cfg = strategy.data_config
-    backtest_cfg = strategy.backtest_params
+    backtest_cfg = strategy.variant.backtest_params
 
     # 统一三类数据源默认值提取，避免直接假设 data_cfg 一定是模拟数据。
     default_start_time = get_utc_timestamp_ms("2025-01-01 00:00:00")

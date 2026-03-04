@@ -45,7 +45,7 @@ class TestAtrRiskPriceCalculation:
     def test_sl_atr_price_long_formula(self, backtest_with_config):
         """验证多头 ATR 止损价格: sl_atr_price_long = signal_close - signal_atr * sl_atr"""
         results, strategy, data_dict = backtest_with_config
-        backtest_params = strategy.backtest_params
+        backtest_params = strategy.variant.backtest_params
 
         # 检查是否启用了 sl_atr
         if backtest_params.sl_atr is None or backtest_params.sl_atr.value == 0:
@@ -111,7 +111,7 @@ class TestAtrRiskPriceCalculation:
     def test_sl_atr_price_short_formula(self, backtest_with_config):
         """验证空头 ATR 止损价格: sl_atr_price_short = signal_close + signal_atr * sl_atr"""
         results, strategy, data_dict = backtest_with_config
-        backtest_params = strategy.backtest_params
+        backtest_params = strategy.variant.backtest_params
 
         if backtest_params.sl_atr is None or backtest_params.sl_atr.value == 0:
             pytest.skip("策略未启用 sl_atr")
@@ -173,7 +173,7 @@ class TestAtrRiskPriceCalculation:
     def test_tp_atr_price_long_formula(self, backtest_with_config):
         """验证多头 ATR 止盈价格: tp_atr_price_long = signal_close + signal_atr * tp_atr"""
         results, strategy, data_dict = backtest_with_config
-        backtest_params = strategy.backtest_params
+        backtest_params = strategy.variant.backtest_params
 
         if backtest_params.tp_atr is None or backtest_params.tp_atr.value == 0:
             pytest.skip("策略未启用 tp_atr")
@@ -235,7 +235,7 @@ class TestAtrRiskPriceCalculation:
     def test_tp_atr_price_short_formula(self, backtest_with_config):
         """验证空头 ATR 止盈价格: tp_atr_price_short = signal_close - signal_atr * tp_atr"""
         results, strategy, data_dict = backtest_with_config
-        backtest_params = strategy.backtest_params
+        backtest_params = strategy.variant.backtest_params
 
         if backtest_params.tp_atr is None or backtest_params.tp_atr.value == 0:
             pytest.skip("策略未启用 tp_atr")

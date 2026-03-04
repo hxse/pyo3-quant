@@ -92,11 +92,15 @@ import marimo as mo
 
 @app.cell
 def _(mo, run_button):
-    from py_entry.example.custom_backtest import run_custom_backtest
+    from py_entry.strategy_hub import build_strategy_runtime
 
     if run_button.value:
         with mo.persistent_cache("backtest_result"):
-            result = run_custom_backtest()
+            _, _, bt = build_strategy_runtime(
+                "search:sma_2tf.sma_2tf",
+                run_symbol="SOL/USDT",
+            )
+            result = bt.run()
     else:
         result = None
     return (result,)

@@ -54,10 +54,7 @@ impl Indicator for AdxIndicator {
         // 中文注释：全列口径取 ADX 全部输出列前导空值最大值。
         // 这里与当前实现对齐：max_leading_nan = 2*period + adxr_length - 1。
         let period = require_resolved_param(resolved_params, "period", "adx")? as i64;
-        let adxr_length = resolved_params
-            .get("adxr_length")
-            .copied()
-            .unwrap_or(2.0) as i64;
+        let adxr_length = resolved_params.get("adxr_length").copied().unwrap_or(2.0) as i64;
         Ok((2 * period + adxr_length - 1).max(0) as usize)
     }
 

@@ -1,0 +1,118 @@
+"""
+RSI 均值回归策略
+
+策略逻辑:
+- RSI(14) 超卖区间做多，超买区间做空
+- 进场: RSI < 30 做多，RSI > 70 做空
+- 离场: RSI 回归中性区域
+"""
+
+from py_entry.types import (
+    Param,
+    BacktestParams,
+    LogicOp,
+    SignalGroup,
+    SignalTemplate,
+)
+from py_entry.data_generator import DataGenerationParams
+from py_entry.strategy_hub.core.config import (
+    build_engine_settings,
+    build_performance_params,
+)
+from py_entry.strategy_hub.core.spec import TestStrategySpec, VariantPayload
+
+BASE_DATA_KEY = "ohlcv_15m"
+
+
+def build_strategy_bundle() -> TestStrategySpec:
+    """返回 RSI 均值回归策略配置。"""
+
+    # 数据配置
+    data_config = DataGenerationParams(
+        timeframes=["15m"],
+        start_time=1735689600000,
+        num_bars=10000,
+        fixed_seed=42,
+        base_data_key=BASE_DATA_KEY,
+    )
+
+    # 指标参数
+    indicators_params = {
+        BASE_DATA_KEY: {
+            "rsi": {"period": Param(14)},
+        },
+    }
+
+    # 信号参数：无自定义信号参数（阈值已在信号模板中硬编码）
+    signal_params = {}
+
+    # 回测参数（带风控）
+    backtest_params = BacktestParams(
+        initial_capital=10000.0,
+        fee_fixed=1,
+        fee_pct=0.001,
+        sl_exit_in_bar=False,
+        tp_exit_in_bar=False,
+        sl_trigger_mode=False,
+        tp_trigger_mode=False,
+        tsl_trigger_mode=False,
+        sl_anchor_mode=False,
+        tp_anchor_mode=False,
+        tsl_anchor_mode=False,
+        sl_pct=Param(3),
+        tp_pct=Param(5),
+        tsl_pct=Param(0),
+        sl_atr=Param(0),
+        tp_atr=Param(0),
+        tsl_atr=Param(0),
+        atr_period=Param(14),
+    )
+
+    # 信号模板：RSI 超卖做多，超买做空
+    # RSI < 30 进多
+    entry_long_group = SignalGroup(
+        logic=LogicOp.AND,
+        comparisons=[f"rsi, {BASE_DATA_KEY}, 0 < 30"],
+    )
+
+    # RSI > 70 进空
+    entry_short_group = SignalGroup(
+        logic=LogicOp.AND,
+        comparisons=[f"rsi, {BASE_DATA_KEY}, 0 > 70"],
+    )
+
+    # RSI > 50 离多
+    exit_long_group = SignalGroup(
+        logic=LogicOp.AND,
+        comparisons=[f"rsi, {BASE_DATA_KEY}, 0 > 50"],
+    )
+
+    # RSI < 50 离空
+    exit_short_group = SignalGroup(
+        logic=LogicOp.AND,
+        comparisons=[f"rsi, {BASE_DATA_KEY}, 0 < 50"],
+    )
+
+    signal_template = SignalTemplate(
+        entry_long=entry_long_group,
+        entry_short=entry_short_group,
+        exit_long=exit_long_group,
+        exit_short=exit_short_group,
+    )
+
+    # 引擎设置
+    engine_settings = build_engine_settings()
+
+    return TestStrategySpec(
+        name="rsi_mean_reversion",
+        version="v1",
+        data_config=data_config,
+        variant=VariantPayload(
+            indicators_params=indicators_params,
+            signal_params=signal_params,
+            backtest_params=backtest_params,
+            signal_template=signal_template,
+        ),
+        engine_settings=engine_settings,
+        performance_params=build_performance_params(),
+    )

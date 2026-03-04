@@ -6,8 +6,8 @@
 
 import pytest
 
-from py_entry.strategies import get_all_strategies
-from py_entry.strategies.base import StrategyConfig
+from py_entry.strategy_hub.test_strategies import get_all_strategies
+from py_entry.strategy_hub.core.spec import TestStrategySpec
 from py_entry.Test.shared import (
     extract_backtest_df_with_close,
     run_strategy_backtest,
@@ -21,7 +21,7 @@ def backtest_with_config(request):
 
     返回 (results, strategy_config, data_dict) 元组
     """
-    strategy: StrategyConfig = request.param
+    strategy: TestStrategySpec = request.param
     return run_strategy_backtest(strategy)
 
 
@@ -36,4 +36,4 @@ def backtest_df(backtest_with_config):
 def backtest_params(backtest_with_config):
     """获取回测参数"""
     _, strategy, _ = backtest_with_config
-    return strategy.backtest_params
+    return strategy.variant.backtest_params

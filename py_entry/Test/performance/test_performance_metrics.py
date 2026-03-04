@@ -26,8 +26,10 @@ def test_performance_metrics_exist(full_performance_result):
     # 持仓时间统计
     duration_keys = [
         "avg_holding_duration",
+        "max_holding_duration_ms",
         "max_holding_duration",
         "avg_empty_duration",
+        "avg_empty_duration_ms",
         "max_empty_duration",
     ]
     for key in duration_keys:
@@ -64,3 +66,12 @@ def test_drawdown_consistency(full_performance_result):
 
     if mdd > 0:
         assert mdd_dur > 0
+
+
+def test_duration_ms_metrics_are_non_negative(full_performance_result):
+    """验证毫秒级时长指标可用且非负。"""
+    metrics = full_performance_result.performance
+
+    # 中文注释：两项新口径指标必须可读，并且数值不应为负。
+    assert metrics["max_holding_duration_ms"] >= 0
+    assert metrics["avg_empty_duration_ms"] >= 0

@@ -1,20 +1,20 @@
 import json
 from pathlib import Path
-from py_entry.strategies import get_strategy
+from py_entry.strategy_hub.test_strategies import get_test_strategy
 from py_entry.runner import Backtest
 
 
 def regenerate_baseline():
     print("Generating new performance.json baseline...")
 
-    strategy = get_strategy("reversal_extreme")
+    strategy = get_test_strategy("reversal_extreme")
 
     runner = Backtest(
         data_source=strategy.data_config,
-        indicators=strategy.indicators_params,
-        signal=strategy.signal_params,
-        backtest=strategy.backtest_params,
-        signal_template=strategy.signal_template,
+        indicators=strategy.variant.indicators_params,
+        signal=strategy.variant.signal_params,
+        backtest=strategy.variant.backtest_params,
+        signal_template=strategy.variant.signal_template,
         engine_settings=strategy.engine_settings,
     )
     result = runner.run()

@@ -44,11 +44,18 @@ pub fn analyze_performance(
     if n < 2 {
         return Ok(result);
     }
+    if time.len() != n {
+        return Err(QuantError::InfrastructureError(format!(
+            "time 列长度与 backtest 行数不一致: time={}, backtest={}",
+            time.len(),
+            n
+        )));
+    }
 
     // 2. 时间统计与年化推断
     let time_first = time.get(0).unwrap_or(0);
     let time_last = time.get(n - 1).unwrap_or(0);
-    let time_span_ms = (time_last - time_first) as f64;
+    let time_span_ms = ((time_last - time_first) as f64).max(0.0);
     let ms_per_year = 365.25 * 24.0 * 3600.0 * 1000.0;
     let time_span_years = time_span_ms / ms_per_year;
 
@@ -79,7 +86,8 @@ pub fn analyze_performance(
     let std_ret = returns.std(1).unwrap_or(0.0);
 
     // 4. 时长统计（持仓、空仓、回撤时长）
-    let dur_stats = stats::calculate_duration_stats(n, entry_long, entry_short, current_drawdown);
+    let dur_stats =
+        stats::calculate_duration_stats(n, time, entry_long, entry_short, current_drawdown);
 
     // 5. 交易细节统计
     let trade_stats = stats::calculate_trade_stats(trade_pnl_pct);
@@ -91,6 +99,8 @@ pub fn analyze_performance(
             PerformanceMetric::TotalReturn => total_return_pct_col.get(n - 1).unwrap_or(0.0),
             PerformanceMetric::MaxDrawdown => current_drawdown.max().unwrap_or(0.0),
             PerformanceMetric::MaxDrawdownDuration => dur_stats.max_drawdown_duration,
+            PerformanceMetric::SpanMs => time_span_ms,
+            PerformanceMetric::SpanDays => time_span_ms / 86_400_000.0,
 
             // 风险调整收益指标（年化和非年化）
             PerformanceMetric::SharpeRatio
@@ -117,21 +127,45 @@ pub fn analyze_performance(
                 let days = (time_span_years * 365.25).max(1.0);
                 trade_stats.total_trades / days
             }
+            PerformanceMetric::AvgTradeIntervalMs => {
+                if trade_stats.total_trades > 0.0 {
+                    time_span_ms / trade_stats.total_trades
+                } else {
+                    0.0
+                }
+            }
+            PerformanceMetric::AvgTradeIntervalDays => {
+                if trade_stats.total_trades > 0.0 {
+                    (time_span_ms / trade_stats.total_trades) / 86_400_000.0
+                } else {
+                    0.0
+                }
+            }
             PerformanceMetric::WinRate => trade_stats.win_rate,
             PerformanceMetric::ProfitLossRatio => trade_stats.profit_loss_ratio,
 
             // 持仓时长
             PerformanceMetric::AvgHoldingDuration => dur_stats.avg_holding_duration,
+            PerformanceMetric::AvgHoldingDurationMs => dur_stats.avg_holding_duration_ms,
+            PerformanceMetric::MaxHoldingDurationMs => dur_stats.max_holding_duration_ms,
+            PerformanceMetric::AvgHoldingDurationDays => {
+                dur_stats.avg_holding_duration_ms / 86_400_000.0
+            }
             PerformanceMetric::MaxHoldingDuration => dur_stats.max_holding_duration,
             PerformanceMetric::AvgEmptyDuration => dur_stats.avg_empty_duration,
+            PerformanceMetric::AvgEmptyDurationMs => dur_stats.avg_empty_duration_ms,
             PerformanceMetric::MaxEmptyDuration => dur_stats.max_empty_duration,
+            PerformanceMetric::MaxEmptyDurationMs => dur_stats.max_empty_duration_ms,
+            PerformanceMetric::MaxEmptyDurationDays => {
+                dur_stats.max_empty_duration_ms / 86_400_000.0
+            }
             PerformanceMetric::MaxSafeLeverage => {
                 let mdd = current_drawdown.max().unwrap_or(0.0);
                 let safety = performance_params.leverage_safety_factor.unwrap_or(0.8);
                 if mdd > 0.0 {
                     safety / mdd
                 } else {
-                    0.0
+                    f64::INFINITY
                 }
             }
             PerformanceMetric::AnnualizationFactor => annualization_factor,

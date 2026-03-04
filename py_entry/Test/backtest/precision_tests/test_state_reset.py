@@ -88,7 +88,7 @@ class TestRiskPriceInSameTrade:
         通过给每笔交易分配唯一 ID，然后验证同一交易内的 SL 价格一致
         """
         results, strategy, data_dict = backtest_with_config
-        backtest_params = strategy.backtest_params
+        backtest_params = strategy.variant.backtest_params
 
         if backtest_params.sl_atr is None or backtest_params.sl_atr.value == 0:
             pytest.skip("策略未启用 sl_atr")
@@ -153,7 +153,7 @@ class TestRiskPriceInSameTrade:
     def test_tsl_atr_price_only_improves_in_same_trade(self, backtest_with_config):
         """验证 TSL ATR 价格在同一笔交易期间只向有利方向移动"""
         results, strategy, data_dict = backtest_with_config
-        backtest_params = strategy.backtest_params
+        backtest_params = strategy.variant.backtest_params
 
         if backtest_params.tsl_atr is None or backtest_params.tsl_atr.value == 0:
             pytest.skip("策略未启用 tsl_atr")

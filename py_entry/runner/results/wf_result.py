@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Self, cast
+from typing import TYPE_CHECKING, Any, Optional, Self, cast
 from py_entry.types import (
     BacktestSummary,
     StitchedArtifact,
@@ -8,7 +8,7 @@ from py_entry.types import (
     OptimizeMetric,
 )
 from py_entry.io import DisplayConfig
-from py_entry.runner.results.log_level import LogLevel
+from py_entry.runner.results.report_json import dump_report
 
 if TYPE_CHECKING:
     from py_entry.runner import FormatResultsConfig
@@ -195,47 +195,10 @@ class WalkForwardResultWrapper:
         self.run_result.upload(config)
         return self
 
-    def log(self, level: LogLevel = LogLevel.BRIEF) -> None:
-        """打印向前测试摘要日志。"""
+    def build_report(self) -> dict[str, Any]:
+        """构建统一向前测试报告。"""
         agg = self.aggregate_test_metrics
-        occ = self._position_occupancy_days()
-        if level == LogLevel.BRIEF:
-            total_trades = agg.get("total_trades")
-            span_days = self._stitched_span_days()
-            span_months = (
-                span_days / 30.4375
-                if isinstance(span_days, (int, float)) and span_days > 0
-                else None
-            )
-            trades_per_day = None
-            days_per_trade = None
-            if (
-                isinstance(total_trades, (int, float))
-                and total_trades > 0
-                and span_days is not None
-                and span_days > 0
-            ):
-                trades_per_day = float(total_trades) / span_days
-                days_per_trade = span_days / float(total_trades)
-            out = {
-                "optimize_metric": str(self.optimize_metric),
-                "total_return": agg.get("total_return"),
-                "max_drawdown": agg.get("max_drawdown"),
-                "calmar_ratio_raw": agg.get("calmar_ratio_raw"),
-                "total_trades": total_trades,
-                "stitched_span_days": span_days,
-                "stitched_span_months": span_months,
-                "trades_per_day": trades_per_day,
-                "days_per_trade": days_per_trade,
-                "avg_holding_days": occ.get("avg_holding_days"),
-                "avg_empty_days": occ.get("avg_empty_days"),
-                "max_empty_days": occ.get("max_empty_days"),
-                "best_window_id": self.best_window_id,
-                "worst_window_id": self.worst_window_id,
-            }
-            print(f"walk_forward.brief={out}")
-            return
-
+        # 中文注释：统一只保留一套完整口径，避免 brief/detailed 双轨并存。
         windows = [
             {
                 "window_id": w.window_id,
@@ -247,14 +210,13 @@ class WalkForwardResultWrapper:
             }
             for w in self.window_results
         ]
-        out = {
+        return {
+            "stage": "walk_forward",
             "optimize_metric": str(self.optimize_metric),
-            "aggregate_test_metrics": agg,
+            "performance": agg,
             "best_window_id": self.best_window_id,
             "worst_window_id": self.worst_window_id,
             "stitched_time_range": self.stitched_time_range,
-            "stitched_span_days": self._stitched_span_days(),
-            "occupancy_days": occ,
             "next_window_hint": {
                 "expected_train_start_time_ms": self.stitched_result.next_window_hint.expected_train_start_time_ms,
                 "expected_transition_start_time_ms": self.stitched_result.next_window_hint.expected_transition_start_time_ms,
@@ -266,105 +228,7 @@ class WalkForwardResultWrapper:
             },
             "windows": windows,
         }
-        print(f"walk_forward.detailed={out}")
 
-    def _stitched_span_days(self) -> float | None:
-        """根据 stitched time_range 估算样本外跨度（天）。"""
-        start, end = self._raw.stitched_result.time_range
-        if not isinstance(start, int) or not isinstance(end, int):
-            return None
-        span_ms = end - start
-        if span_ms <= 0:
-            return None
-        return span_ms / 86_400_000.0
-
-    def _position_occupancy_days(self) -> dict[str, float | None]:
-        """基于 stitched backtest 逐 bar 状态，计算持仓/空仓时长统计（天）。"""
-        backtest_df = self.stitched_summary.backtest_result
-        source = self.stitched_result.data.source
-        base_key = self.stitched_result.data.base_data_key
-        if (
-            backtest_df is None
-            or base_key not in source
-            or "time" not in source[base_key].columns
-            or backtest_df.height < 2
-        ):
-            return {
-                "avg_holding_days": None,
-                "avg_empty_days": None,
-                "max_empty_days": None,
-            }
-
-        times = source[base_key]["time"].to_list()
-        entry_long = backtest_df["entry_long_price"].to_list()
-        exit_long = backtest_df["exit_long_price"].to_list()
-        entry_short = backtest_df["entry_short_price"].to_list()
-        exit_short = backtest_df["exit_short_price"].to_list()
-
-        n = min(
-            len(times),
-            len(entry_long),
-            len(exit_long),
-            len(entry_short),
-            len(exit_short),
-        )
-        if n < 2:
-            return {
-                "avg_holding_days": None,
-                "avg_empty_days": None,
-                "max_empty_days": None,
-            }
-
-        # 中文注释：计算每根 bar 对应的“下一根时间跨度”，最后一根用中位数补齐。
-        deltas = [max(int(times[i + 1]) - int(times[i]), 0) for i in range(n - 1)]
-        deltas_sorted = sorted([d for d in deltas if d > 0])
-        fallback_delta = deltas_sorted[len(deltas_sorted) // 2] if deltas_sorted else 0
-        deltas.append(fallback_delta)
-
-        def _is_open(v: float | None) -> bool:
-            return v is not None and v == v
-
-        in_position = []
-        for i in range(n):
-            long_open = _is_open(entry_long[i]) and not _is_open(exit_long[i])
-            short_open = _is_open(entry_short[i]) and not _is_open(exit_short[i])
-            in_position.append(long_open or short_open)
-
-        hold_segments: list[float] = []
-        empty_segments: list[float] = []
-        seg_sum = float(deltas[0])
-        prev = in_position[0]
-        for i in range(1, n):
-            curr = in_position[i]
-            if curr == prev:
-                seg_sum += float(deltas[i])
-                continue
-            if prev:
-                hold_segments.append(seg_sum)
-            else:
-                empty_segments.append(seg_sum)
-            seg_sum = float(deltas[i])
-            prev = curr
-
-        if prev:
-            hold_segments.append(seg_sum)
-        else:
-            empty_segments.append(seg_sum)
-
-        ms_per_day = 86_400_000.0
-        avg_holding_days = (
-            (sum(hold_segments) / len(hold_segments)) / ms_per_day
-            if hold_segments
-            else None
-        )
-        avg_empty_days = (
-            (sum(empty_segments) / len(empty_segments)) / ms_per_day
-            if empty_segments
-            else None
-        )
-        max_empty_days = (max(empty_segments) / ms_per_day) if empty_segments else None
-        return {
-            "avg_holding_days": avg_holding_days,
-            "avg_empty_days": avg_empty_days,
-            "max_empty_days": max_empty_days,
-        }
+    def print_report(self) -> None:
+        """打印统一向前测试报告。"""
+        print(dump_report(self.build_report()))

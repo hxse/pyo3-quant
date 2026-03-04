@@ -139,7 +139,7 @@ if __name__ == "__main__":
     if target_nb.exists():
         fix_notebook_cells(target_nb)
 
-    # 处理 example 目录
-    example_dir = Path("/home/hxse/pyo3-quant/py_entry/example")
-    for nb_file in example_dir.glob("*.ipynb"):
+    # 处理 strategy_hub 目录
+    strategy_hub_dir = Path("/home/hxse/pyo3-quant/py_entry/strategy_hub")
+    for nb_file in strategy_hub_dir.glob("*.ipynb"):
         fix_notebook_cells(nb_file)

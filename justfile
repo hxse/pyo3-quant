@@ -50,24 +50,15 @@ clean: stub-clean
 
 # ==================== 运行 ====================
 
-# 运行 private_strategies 通用模板（默认完整管道）
-# 例: just run
-# 例: just run sma_2tf pipeline
-run strategy="sma_2tf" mode="pipeline": develop
-    uv run --no-sync python py_entry/private_strategies/template.py --strategy {{strategy}} --mode {{mode}}
-
-# 运行 private_strategies 策略搜索器（option 透传风格，顺序执行）
-# 例: just search --spaces sma_2tf --mode backtest --positive-only true
-# 例: just search --spaces sma_2tf,rsi30_macd4h --symbols SOL/USDT --mode walk_forward --output tmp/search_result.json
-# 例: just search --spaces sma_2tf --symbols SOL/USDT,BTC/USDT --mode backtest
-search *args: develop
-    uv run --no-sync python py_entry/private_strategies/strategy_searcher.py {{args}}
-
-# 运行 Python example 示例脚本；默认运行 custom_backtest
-# 例: just example
-# 例: just example path=py_entry/example/real_data_backtest.py
-example path="py_entry/example/custom_backtest.py": develop
-    uv run --no-sync python {{ path }}
+# 统一入口：strategy_hub 工作流（参数透传，顺序执行）
+# 常用品种参数（当你说“搜索多个品种”且未另行指定时，按这9个品种）: BTC/USDT, ETH/USDT, SOL/USDT, XRP/USDT, DOGE/USDT, BNB/USDT, LTC/USDT, ADA/USDT, TRX/USDT
+# 例: just workflow --strategies sma_2tf --symbols SOL/USDT,BTC/USDT --mode backtest,walk_forward
+# 例: just workflow --strategies sma_2tf,sma_2tf_sl --symbols SOL/USDT --topology single_symbol_multi_strategies --mode backtest
+# 例: just workflow --strategies sma_2tf.* --symbols SOL/USDT --mode backtest,walk_forward
+# 例: just workflow --strategies '*' --symbols SOL/USDT --mode backtest,walk_forward
+# 例: just workflow --strategies sma_2tf --symbols SOL/USDT,BTC/USDT --mode backtest,optimize,sensitivity,walk_forward --output tmp/search_result.json
+workflow *args: develop
+    set -f; uv run --no-sync python py_entry/strategy_hub/core/strategy_searcher.py {{args}}
 
 # 运行性能基准测试 (pyo3-quant vs VectorBT)
 benchmark: develop

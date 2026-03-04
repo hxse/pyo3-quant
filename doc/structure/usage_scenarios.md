@@ -78,14 +78,18 @@ just run strategy=sma_2tf mode=pipeline
 
 ## private 实战速查（Notebook）
 ```python
-from py_entry.private_strategies.template import run_stage
+from py_entry.strategy_hub import build_strategy_runtime
 
-STRATEGY = "sma_2tf"
+STRATEGY = "search:sma_2tf.sma_2tf"
+RUN_SYMBOL = "SOL/USDT"
 
-backtest_result = run_stage(STRATEGY, "backtest")
-opt_result = run_stage(STRATEGY, "optimize")
-sens_result = run_stage(STRATEGY, "sensitivity")
-wf_result = run_stage(STRATEGY, "walk_forward")
+spec, stage_cfgs, bt = build_strategy_runtime(STRATEGY, run_symbol=RUN_SYMBOL)
+
+backtest_result = bt.run()
+opt_result = bt.optimize(stage_cfgs["opt_cfg"])
+sens_result = bt.sensitivity(stage_cfgs["sens_cfg"])
+bt.validate_wf_indicator_readiness(stage_cfgs["wf_cfg"])
+wf_result = bt.walk_forward(stage_cfgs["wf_cfg"])
 ```
 
 ## 说明

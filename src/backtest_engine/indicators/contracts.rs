@@ -45,10 +45,9 @@ pub fn resolve_indicator_contracts(
                 .and_modify(|x| *x = (*x).max(warmup_bars))
                 .or_insert(warmup_bars);
 
-            report.contracts_by_indicator.insert(
-                instance_key,
-                (source.clone(), warmup_bars, warmup_mode),
-            );
+            report
+                .contracts_by_indicator
+                .insert(instance_key, (source.clone(), warmup_bars, warmup_mode));
         }
     }
 

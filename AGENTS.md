@@ -97,11 +97,11 @@
 *   **AI 执行优先级**：AI 调试策略时应优先走命令行执行（优先 `just run <py_file>`），而不是读取 `ipynb` 输出。
 *   **Notebook 调用入口**：`.py` 中的策略封装函数（如 `run_xxx_backtest()`）是给 `ipynb` 导入和调用的。
 *   **示例路径**：
-    *   `.py`：`py_entry/example/custom_backtest.py`
-    *   `.ipynb`：`py_entry/example/custom_backtest.ipynb`
+    *   `.py`：`py_entry/strategy_hub/search_spaces/sma_2tf.py`
+    *   `.ipynb`：`py_entry/strategy_hub/demo.ipynb`
 
 ## 8. 策略调试评估口径（强约束，仅限 research）
-*   **适用范围**：本节仅适用于 `py_entry/private_strategies/research` 目录下的研究策略，不直接约束 `example`、`test`、`live`。
+*   **适用范围**：本节仅适用于 `py_entry/strategy_hub/search_spaces` 目录下的研究策略，不直接约束 `test`、`live`。
 *   **流程顺序**：统一按 `backtest -> optimize -> sensitivity -> walk_forward` 执行；AI 通过 `just run <strategy.py>` 查看完整阶段输出。
 *   **指标主次**：策略优劣优先看 `walk_forward` 的三个主指标：
     *   `walk_forward.calmar_ratio_raw`（最优先）

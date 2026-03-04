@@ -32,11 +32,6 @@ def load_local_config(config_name: str = "config.json") -> RequestConfig:
         config_path = project_root / "data" / config_name
 
     if not config_path.exists():
-        # 再试一下 py_entry/example/data/config.json (为了兼容旧的 example 路径)
-        project_root = Path(__file__).resolve().parent.parent.parent
-        config_path = project_root / "py_entry/example/data" / config_name
-
-    if not config_path.exists():
         raise FileNotFoundError(
             f"配置文件不存在: {config_path} (查找路径包括 CWD 和 Project Root)"
         )

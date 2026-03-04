@@ -1,19 +1,19 @@
 import pytest
 from py_entry.types import ExecutionStage
-from py_entry.strategies import get_strategy
+from py_entry.strategy_hub.test_strategies import get_test_strategy
 from py_entry.Test.shared import make_backtest_runner, make_engine_settings
 
 
 @pytest.fixture
 def base_backtest():
     """获取一个基础的策略配置"""
-    strategy = get_strategy("reversal_extreme")
+    strategy = get_test_strategy("reversal_extreme")
     return make_backtest_runner(
         data_source=strategy.data_config,
-        indicators=strategy.indicators_params,
-        signal=strategy.signal_params,
-        backtest=strategy.backtest_params,
-        signal_template=strategy.signal_template,
+        indicators=strategy.variant.indicators_params,
+        signal=strategy.variant.signal_params,
+        backtest=strategy.variant.backtest_params,
+        signal_template=strategy.variant.signal_template,
     )
 
 

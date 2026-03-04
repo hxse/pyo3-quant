@@ -9,10 +9,10 @@ def file_sha256(path: Path) -> str:
 
 
 def main() -> int:
-    """检查 private research/live 同名策略文件是否一致。"""
+    """检查 strategy_hub search_spaces 中 live/research 同名策略文件是否一致。"""
     project_root = Path(__file__).resolve().parents[1]
-    live_dir = project_root / "py_entry/private_strategies/live"
-    research_dir = project_root / "py_entry/private_strategies/research"
+    live_dir = project_root / "py_entry/strategy_hub/search_spaces/live"
+    research_dir = project_root / "py_entry/strategy_hub/search_spaces/research"
 
     # research 默认是私有目录，新 clone 缺失时跳过属于预期行为。
     if not research_dir.exists():

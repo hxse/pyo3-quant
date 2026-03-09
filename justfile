@@ -162,25 +162,25 @@ scanner-install:
     uv sync --group scanner
 
 # 运行趋势共振扫描器（持续运行）
-scanner-run: develop
+scanner-run:
     uv run --no-sync --group scanner python -m py_entry.scanner.main
 
 # 运行扫描器（单次扫描）
-scanner-once: develop
+scanner-once:
     uv run --no-sync --group scanner python -m py_entry.scanner.main --once
 
 # 运行扫描器（Mock 模式，离线测试）
-scanner-mock: develop
+scanner-mock:
     uv run --no-sync --group scanner python -m py_entry.scanner.main --once --mock
 
 # 运行扫描器单元测试
-scanner-test: develop
-    uv run --no-sync --group scanner python -m pytest py_entry/Test/scanner/ -v
+scanner-test:
+    uv run --no-sync --group scanner --with pytest python -m pytest py_entry/Test/scanner/ -v
 
 # 运行趋势共振扫描器（调试模式，包含以 debug_ 开头的测试策略）
-scanner-debug: develop
+scanner-debug:
     uv run --no-sync --group scanner python -m py_entry.scanner.main --debug
 
 # 查看最新行情数据及指标数值 (EMA, CCI, MACD)
-scanner-inspect: develop
+scanner-inspect:
     uv run --no-sync --group scanner python py_entry/debug/inspect_scanner_data.py

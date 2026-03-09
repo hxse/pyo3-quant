@@ -12,18 +12,19 @@ pub enum WfWarmupMode {
     NoWarmup,
 }
 
-#[gen_stub_pymethods]
-#[pymethods]
 impl WfWarmupMode {
-    /// 返回枚举变体名（用于展示/日志）。
-    pub fn name(&self) -> &'static str {
+    fn variant_name(&self) -> &'static str {
         match self {
             Self::BorrowFromTrain => "BorrowFromTrain",
             Self::ExtendTest => "ExtendTest",
             Self::NoWarmup => "NoWarmup",
         }
     }
+}
 
+#[gen_stub_pymethods]
+#[pymethods]
+impl WfWarmupMode {
     /// 返回稳定业务键名（用于程序逻辑）。
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -34,11 +35,11 @@ impl WfWarmupMode {
     }
 
     fn __str__(&self) -> String {
-        self.name().to_string()
+        self.variant_name().to_string()
     }
 
     fn __repr__(&self) -> String {
-        format!("WfWarmupMode.{}", self.name())
+        format!("WfWarmupMode.{}", self.variant_name())
     }
 }
 

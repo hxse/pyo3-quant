@@ -31,7 +31,8 @@ def convert_to_serializable(obj: Any) -> Any:
 
         # 特殊处理 SeriesItemConfig：按 type 过滤选项字段
         if obj.__class__.__name__ == "SeriesItemConfig":
-            item_type = obj_dict.get("type")
+            item_type_raw = obj_dict.get("type")
+            item_type = item_type_raw if isinstance(item_type_raw, str) else None
             type_to_opt_map = {
                 "candle": "candleOpt",
                 "histogram": "histogramOpt",
@@ -49,7 +50,7 @@ def convert_to_serializable(obj: Any) -> Any:
                 "hLineOpt",
                 "vLineOpt",
             }
-            keep_opt = type_to_opt_map.get(item_type)
+            keep_opt = type_to_opt_map.get(item_type) if item_type is not None else None
 
             filtered_dict: dict[str, Any] = {}
             for k, v in obj_dict.items():

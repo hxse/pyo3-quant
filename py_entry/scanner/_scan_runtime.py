@@ -21,13 +21,25 @@ from .throttler import TimeWindowThrottler
 logger = logging.getLogger("scanner")
 
 
-def get_active_strategies(include_debug: bool = False) -> list:
-    """获取所有激活策略实例，根据参数过滤 debug 策略。"""
+def get_active_strategies(
+    include_debug: bool = False, enabled_names: list[str] | None = None
+) -> list:
+    """获取激活策略实例，并按配置名单过滤。"""
     all_strategies = StrategyRegistry.get_all()
+    enabled_name_set = set(enabled_names or [])
+    registry_name_set = set(StrategyRegistry.list_names())
+
+    if enabled_name_set:
+        unknown_names = sorted(enabled_name_set - registry_name_set)
+        if unknown_names:
+            logger.warning(f"配置中存在未注册策略，将忽略: {unknown_names}")
+
     active_strategies = []
     for cls in all_strategies:
         strategy_instance = cls()
         if not include_debug and strategy_instance.name.startswith("debug"):
+            continue
+        if enabled_name_set and strategy_instance.name not in enabled_name_set:
             continue
         active_strategies.append(strategy_instance)
     return active_strategies

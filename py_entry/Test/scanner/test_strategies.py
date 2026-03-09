@@ -10,6 +10,8 @@ from py_entry.scanner.strategies.trend import TrendStrategy
 from py_entry.scanner.strategies.reversal import ReversalStrategy
 from py_entry.scanner.strategies.momentum import MomentumStrategy
 from py_entry.scanner.strategies.pullback import PullbackStrategy
+from py_entry.scanner.strategies.macd_resonance import MacdResonanceStrategy
+from py_entry.scanner.strategies.topdown_ema_bias import TopdownEmaBiasStrategy
 
 
 def make_mock_df(
@@ -51,6 +53,8 @@ class TestEngineStrategies(unittest.TestCase):
         self.reversal_strategy = ReversalStrategy()
         self.momentum_strategy = MomentumStrategy()
         self.pullback_strategy = PullbackStrategy()
+        self.macd_resonance_strategy = MacdResonanceStrategy()
+        self.topdown_ema_bias_strategy = TopdownEmaBiasStrategy()
         # 建立基于配置的默认映射
         self.level_to_tf = {tf.level: tf.name for tf in self.config.timeframes}
 
@@ -179,6 +183,70 @@ class TestEngineStrategies(unittest.TestCase):
             },
         )
         self.pullback_strategy.scan(ctx)
+
+    def test_macd_resonance_strategy_setup(self):
+        """测试 MacdResonanceStrategy"""
+        ctx = self.create_context(
+            "TEST.MACD",
+            {
+                ScanLevel.TRIGGER: [100.0] * 200,
+                ScanLevel.WAVE: [100.0] * 200,
+                ScanLevel.TREND: [100.0] * 100,
+            },
+        )
+        self.macd_resonance_strategy.scan(ctx)
+
+    def test_topdown_ema_bias_strategy_weekly_long(self):
+        """测试 TopdownEmaBiasStrategy 周线直接定多"""
+        p_macro = np.linspace(50.0, 90.0, 120).tolist()
+        p_trend = np.linspace(70.0, 110.0, 180).tolist()
+        p_wave = np.linspace(100.0, 140.0, 240).tolist()
+
+        p_trigger_flat = [140.0] * 598
+        p_trigger_break = [145.0]
+        p_trigger_hold = [145.0]
+        p_trigger = p_trigger_flat + p_trigger_break + p_trigger_hold
+
+        ctx = self.create_context(
+            "TEST.TOPDOWN.WEEKLY.LONG",
+            {
+                ScanLevel.MACRO: p_macro,
+                ScanLevel.TREND: p_trend,
+                ScanLevel.WAVE: p_wave,
+                ScanLevel.TRIGGER: p_trigger,
+            },
+        )
+
+        sig = self.topdown_ema_bias_strategy.scan(ctx)
+        self.assertIsNotNone(sig)
+        if sig:
+            self.assertEqual(sig.direction, "long")
+
+    def test_topdown_ema_bias_strategy_daily_fallback_long(self):
+        """测试 TopdownEmaBiasStrategy 周线不明朗时由日线定多"""
+        p_macro = [130.0] * 120
+        p_trend = np.linspace(80.0, 120.0, 180).tolist()
+        p_wave = np.linspace(100.0, 140.0, 240).tolist()
+
+        p_trigger_flat = [129.0] * 598
+        p_trigger_break = [132.0]
+        p_trigger_hold = [132.0]
+        p_trigger = p_trigger_flat + p_trigger_break + p_trigger_hold
+
+        ctx = self.create_context(
+            "TEST.TOPDOWN.DAILY.LONG",
+            {
+                ScanLevel.MACRO: p_macro,
+                ScanLevel.TREND: p_trend,
+                ScanLevel.WAVE: p_wave,
+                ScanLevel.TRIGGER: p_trigger,
+            },
+        )
+
+        sig = self.topdown_ema_bias_strategy.scan(ctx)
+        self.assertIsNotNone(sig)
+        if sig:
+            self.assertEqual(sig.direction, "long")
 
     def test_data_validation(self):
         """测试数据缺失报错"""

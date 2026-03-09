@@ -58,6 +58,11 @@ class ScannerConfig(BaseModel):
     # 是否在控制台打印每次扫描后的心跳 (只有共振机会才会推送到 TG)
     console_heartbeat_enabled: bool = True
 
+    # 启用的策略名单（仅启动这里声明的策略；未声明的策略仍保留代码与注册能力）
+    enabled_strategies: list[str] = [
+        "topdown_ema_bias_resonance",
+    ]
+
     @model_validator(mode="before")
     @classmethod
     def load_from_external_config(cls, data: Any) -> Any:
@@ -92,12 +97,12 @@ class ScannerConfig(BaseModel):
                 raise RuntimeError(f"读取配置文件 {config_path} 失败: {e}") from e
         return data
 
-    # 默认四层级别共振体系 (15m, 1h, 1d, 1w)
+    # 默认四层级别共振体系 (5m, 1h, 1d, 1w)
     # 大级别 (wave, trend, macro) 使用指数合约 (use_index=True) 以获取平滑趋势
     # 触点级别 (trigger) 使用主连合约 (use_index=False) 以获取真实价格突破
     timeframes: list[TimeframeConfig] = [
         TimeframeConfig(
-            level=ScanLevel.TRIGGER, name="15m", seconds=15 * 60, use_index=False
+            level=ScanLevel.TRIGGER, name="5m", seconds=5 * 60, use_index=False
         ),
         TimeframeConfig(
             level=ScanLevel.WAVE, name="1h", seconds=60 * 60, use_index=True
@@ -112,12 +117,18 @@ class ScannerConfig(BaseModel):
 
     # 需要扫描的期货品种（主力合约）
     symbols: list[str] = [
+        # 当前启用（按最新扫描口径）
+        "KQ.m@CZCE.MA",  # 甲醇
+        "KQ.m@DCE.l",  # 塑料
+        # ====================
+        #  历史品种（暂不启用，仅注释保留）
+        # ====================
         # ====================
         #  黑色系 / 建材
         # ====================
-        "KQ.m@SHFE.rb",  # 螺纹钢
-        "KQ.m@SHFE.hc",  # 热卷
-        "KQ.m@CZCE.FG",  # 玻璃
+        # "KQ.m@SHFE.rb",  # 螺纹钢
+        # "KQ.m@SHFE.hc",  # 热卷
+        # "KQ.m@CZCE.FG",  # 玻璃
         # 成本较高或流动性一般：
         # "KQ.m@DCE.i",    # 铁矿石 (>1w)
         # "KQ.m@DCE.j",    # 焦炭 (>2w)
@@ -127,16 +138,14 @@ class ScannerConfig(BaseModel):
         # ====================
         #  能源 / 化工
         # ====================
-        "KQ.m@SHFE.bu",  # 沥青
-        "KQ.m@SHFE.fu",  # 燃油
-        "KQ.m@CZCE.MA",  # 甲醇
-        "KQ.m@CZCE.UR",  # 尿素
-        "KQ.m@CZCE.TA",  # PTA
-        "KQ.m@CZCE.SA",  # 纯碱
-        "KQ.m@DCE.eg",  # 乙二醇
-        "KQ.m@DCE.v",  # PVC
-        "KQ.m@DCE.pp",  # 聚丙烯
-        "KQ.m@DCE.l",  # 塑料
+        # "KQ.m@SHFE.bu",  # 沥青
+        # "KQ.m@SHFE.fu",  # 燃油
+        # "KQ.m@CZCE.UR",  # 尿素
+        # "KQ.m@CZCE.TA",  # PTA
+        # "KQ.m@CZCE.SA",  # 纯碱
+        # "KQ.m@DCE.eg",  # 乙二醇
+        # "KQ.m@DCE.v",  # PVC
+        # "KQ.m@DCE.pp",  # 聚丙烯
         # 成本较高或流动性一般：
         # "KQ.m@SHFE.ru",  # 橡胶 (>1w)
         # "KQ.m@SHFE.sp",  # 纸浆 (接近1w)
@@ -144,15 +153,15 @@ class ScannerConfig(BaseModel):
         # ====================
         #  油脂 / 农产
         # ====================
-        "KQ.m@DCE.p",  # 棕榈油
-        "KQ.m@DCE.y",  # 豆油
-        "KQ.m@CZCE.OI",  # 菜油
-        "KQ.m@DCE.m",  # 豆粕
-        "KQ.m@CZCE.RM",  # 菜粕
-        "KQ.m@CZCE.SR",  # 白糖
-        "KQ.m@CZCE.CF",  # 棉花
-        "KQ.m@DCE.c",  # 玉米
-        "KQ.m@DCE.cs",  # 淀粉
+        # "KQ.m@DCE.p",  # 棕榈油
+        # "KQ.m@DCE.y",  # 豆油
+        # "KQ.m@CZCE.OI",  # 菜油
+        # "KQ.m@DCE.m",  # 豆粕
+        # "KQ.m@CZCE.RM",  # 菜粕
+        # "KQ.m@CZCE.SR",  # 白糖
+        # "KQ.m@CZCE.CF",  # 棉花
+        # "KQ.m@DCE.c",  # 玉米
+        # "KQ.m@DCE.cs",  # 淀粉
         # ====================
         #  有色 / 贵金属
         #  (多数成本>1w，暂不关注)

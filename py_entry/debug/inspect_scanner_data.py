@@ -16,7 +16,7 @@ from py_entry.types import (
     SignalGroup,
     LogicOp,
 )
-from tqsdk import TqAuth  # type: ignore
+from tqsdk import TqAuth
 import polars as pl
 
 # 禁用冗余日志

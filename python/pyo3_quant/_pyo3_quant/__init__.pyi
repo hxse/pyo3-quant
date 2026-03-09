@@ -1330,10 +1330,6 @@ class BenchmarkFunction(enum.Enum):
     Ackley
     """
 
-    def name(self) -> builtins.str:
-        r"""
-        返回枚举变体名（用于展示/日志）
-        """
     def as_str(self) -> builtins.str:
         r"""
         返回稳定的业务键名（用于程序逻辑）
@@ -1368,10 +1364,6 @@ class ExecutionStage(enum.Enum):
     性能评估
     """
 
-    def name(self) -> builtins.str:
-        r"""
-        返回枚举变体名（用于展示/日志）
-        """
     def as_str(self) -> builtins.str:
         r"""
         返回稳定的业务键名（用于程序逻辑）
@@ -1394,10 +1386,6 @@ class LogicOp(enum.Enum):
     逻辑或
     """
 
-    def name(self) -> builtins.str:
-        r"""
-        返回枚举变体名（用于展示/日志）
-        """
     def as_str(self) -> builtins.str:
         r"""
         返回稳定的业务键名（用于程序逻辑）
@@ -1452,10 +1440,6 @@ class OptimizeMetric(enum.Enum):
     最大回撤
     """
 
-    def name(self) -> builtins.str:
-        r"""
-        返回枚举变体名（用于展示/日志）
-        """
     def as_str(self) -> builtins.str:
         r"""
         转换为对应的性能指标键名
@@ -1482,10 +1466,6 @@ class ParamType(enum.Enum):
     布尔值
     """
 
-    def name(self) -> builtins.str:
-        r"""
-        返回枚举变体名（用于展示/日志）
-        """
     def as_str(self) -> builtins.str:
         r"""
         返回稳定的业务键名（用于程序逻辑）
@@ -1642,10 +1622,6 @@ class WfWarmupMode(enum.Enum):
     关闭指标预热补全，仅保留最小过渡锚点
     """
 
-    def name(self) -> builtins.str:
-        r"""
-        返回枚举变体名（用于展示/日志）。
-        """
     def as_str(self) -> builtins.str:
         r"""
         返回稳定业务键名（用于程序逻辑）。

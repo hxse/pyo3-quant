@@ -45,7 +45,7 @@ pub enum PerformanceMetric {
 
 impl PerformanceMetric {
     /// 返回枚举变体名（用于展示/日志）
-    pub fn name(&self) -> &'static str {
+    fn variant_name(&self) -> &'static str {
         match self {
             Self::TotalReturn => "TotalReturn",
             Self::MaxDrawdown => "MaxDrawdown",
@@ -120,11 +120,11 @@ impl PerformanceMetric {
 #[pymethods]
 impl PerformanceMetric {
     fn __str__(&self) -> String {
-        self.name().to_string()
+        self.variant_name().to_string()
     }
 
     fn __repr__(&self) -> String {
-        format!("PerformanceMetric.{}", self.name())
+        format!("PerformanceMetric.{}", self.variant_name())
     }
 }
 

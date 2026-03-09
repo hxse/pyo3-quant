@@ -10,18 +10,19 @@ pub enum ParamType {
     Boolean,
 }
 
-#[gen_stub_pymethods]
-#[pymethods]
 impl ParamType {
-    /// 返回枚举变体名（用于展示/日志）
-    pub fn name(&self) -> &'static str {
+    fn variant_name(&self) -> &'static str {
         match self {
             Self::Float => "Float",
             Self::Integer => "Integer",
             Self::Boolean => "Boolean",
         }
     }
+}
 
+#[gen_stub_pymethods]
+#[pymethods]
+impl ParamType {
     /// 返回稳定的业务键名（用于程序逻辑）
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -32,11 +33,11 @@ impl ParamType {
     }
 
     fn __str__(&self) -> String {
-        self.name().to_string()
+        self.variant_name().to_string()
     }
 
     fn __repr__(&self) -> String {
-        format!("ParamType.{}", self.name())
+        format!("ParamType.{}", self.variant_name())
     }
 }
 

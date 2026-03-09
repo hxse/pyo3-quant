@@ -46,13 +46,8 @@ impl BenchmarkFunction {
             }
         }
     }
-}
 
-#[gen_stub_pymethods]
-#[pymethods]
-impl BenchmarkFunction {
-    /// 返回枚举变体名（用于展示/日志）
-    pub fn name(&self) -> &'static str {
+    fn variant_name(&self) -> &'static str {
         match self {
             Self::Sphere => "Sphere",
             Self::Rosenbrock => "Rosenbrock",
@@ -60,7 +55,11 @@ impl BenchmarkFunction {
             Self::Ackley => "Ackley",
         }
     }
+}
 
+#[gen_stub_pymethods]
+#[pymethods]
+impl BenchmarkFunction {
     /// 返回稳定的业务键名（用于程序逻辑）
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -72,11 +71,11 @@ impl BenchmarkFunction {
     }
 
     fn __str__(&self) -> String {
-        self.name().to_string()
+        self.variant_name().to_string()
     }
 
     fn __repr__(&self) -> String {
-        format!("BenchmarkFunction.{}", self.name())
+        format!("BenchmarkFunction.{}", self.variant_name())
     }
 }
 
@@ -130,11 +129,8 @@ pub enum OptimizeMetric {
     MaxDrawdown,
 }
 
-#[gen_stub_pymethods]
-#[pymethods]
 impl OptimizeMetric {
-    /// 返回枚举变体名（用于展示/日志）
-    pub fn name(&self) -> &'static str {
+    fn variant_name(&self) -> &'static str {
         match self {
             Self::SharpeRatio => "SharpeRatio",
             Self::SortinoRatio => "SortinoRatio",
@@ -148,7 +144,11 @@ impl OptimizeMetric {
             Self::TotalReturn => "TotalReturn",
         }
     }
+}
 
+#[gen_stub_pymethods]
+#[pymethods]
+impl OptimizeMetric {
     /// 转换为对应的性能指标键名
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -166,11 +166,11 @@ impl OptimizeMetric {
     }
 
     fn __str__(&self) -> String {
-        self.name().to_string()
+        self.variant_name().to_string()
     }
 
     fn __repr__(&self) -> String {
-        format!("OptimizeMetric.{}", self.name())
+        format!("OptimizeMetric.{}", self.variant_name())
     }
 }
 

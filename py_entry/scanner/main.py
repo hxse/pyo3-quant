@@ -5,7 +5,7 @@ import logging
 
 # --- 依赖检查 ---
 try:
-    import tqsdk  # type: ignore # noqa: F401
+    import tqsdk  # noqa: F401
     import pandas  # noqa: F401
     import pandas_ta  # noqa: F401
     import httpx  # noqa: F401
@@ -15,7 +15,7 @@ except ImportError as e:
     print(f"详细错误: {e}")
     exit(1)
 
-from tqsdk import TqAuth  # type: ignore
+from tqsdk import TqAuth
 
 from . import strategies  # noqa: F401 (自动触发策略注册)
 from ._scan_runtime import get_active_strategies
@@ -70,10 +70,15 @@ def main() -> None:
 
     print(f"监控品种: {len(config.symbols)} 个")
 
-    strategies_instances = get_active_strategies(include_debug=args.debug)
+    strategies_instances = get_active_strategies(
+        include_debug=args.debug, enabled_names=config.enabled_strategies
+    )
     print(
         f"加载策略: {len(strategies_instances)} 种 -> {[s.name for s in strategies_instances]}"
     )
+    if not strategies_instances:
+        logger.error("未加载到任何可用策略，请检查 enabled_strategies 配置。")
+        exit(1)
 
     try:
         if args.once:

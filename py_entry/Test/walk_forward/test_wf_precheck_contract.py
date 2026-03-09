@@ -66,6 +66,24 @@ def test_wf_precheck_borrow_requires_e_not_exceed_train(
         bt.validate_wf_indicator_readiness(cfg)
 
 
+def test_wf_precheck_borrow_large_base_warmup_regression_currently_errors(
+    build_single_sma_backtest: Callable[..., Backtest],
+    build_wf_cfg: Callable[..., WalkForwardConfig],
+):
+    """回归锁定：当前实现中 base 预热过大时 BorrowFromTrain 会报错。"""
+    # 中文注释：该用例用于先暴露问题，修复前预期抛错，修复后应改为“可通过”。
+    bt = build_single_sma_backtest(period=120, num_bars=1_500, seed=17)
+    cfg = build_wf_cfg(
+        train_bars=100,
+        transition_bars=1,
+        test_bars=120,
+        mode=WfWarmupMode.BorrowFromTrain,
+    )
+
+    with pytest.raises(ValueError, match="BorrowFromTrain"):
+        bt.validate_wf_indicator_readiness(cfg)
+
+
 def test_wf_precheck_supports_strategy_without_indicators(
     build_no_indicator_backtest: Callable[..., Backtest],
     build_wf_cfg: Callable[..., WalkForwardConfig],

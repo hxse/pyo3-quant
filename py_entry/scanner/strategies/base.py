@@ -1,8 +1,10 @@
+from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Literal, Protocol, Any, TypedDict, NotRequired
+from typing import Literal, Any, TypedDict, NotRequired
 from pydantic import BaseModel
 import pandas as pd
 import polars as pl
+from py_entry.scanner.config import ScanLevel, TimeframeConfig
 from py_entry.types import (
     DataContainer,
     SignalTemplate,
@@ -11,7 +13,6 @@ from py_entry.types import (
     BacktestParams,
     PerformanceParams,
 )
-from py_entry.scanner.config import ScanLevel
 from py_entry.data_generator import generate_data_dict, DirectDataConfig
 from py_entry.runner import Backtest
 
@@ -92,33 +93,54 @@ class ScanContext:
         self,
         symbol: str,
         klines: dict[str, pd.DataFrame],
+        timeframes: dict[str, TimeframeConfig],
         level_to_tf: dict[ScanLevel, str],
+        updated_levels: set[ScanLevel] | None = None,
     ):
         """
         Args:
             symbol: 品种名称
-            klines: 物理K线字典，key 为物理周期名 (如 "15m", "1h")
-            level_to_tf: 级别与物理周期映射 (如 {ScanLevel.TRIGGER: "15m", ScanLevel.WAVE: "1h"})
+            klines: K线缓存字典，key 为 storage_key
+            timeframes: storage_key 与周期配置的映射
+            level_to_tf: 级别与 storage_key 的映射
+            updated_levels: 本次扫描时刚刚更新过 bar 的逻辑级别集合
         """
         self.symbol = symbol
         self.klines = klines
+        self.timeframes = timeframes
         self.level_to_tf = level_to_tf
+        self.updated_levels = updated_levels or set()
 
     def get_tf_name(self, level: ScanLevel) -> str | None:
         """获取级别对应的物理周期名称"""
-        return self.level_to_tf.get(level)
+        storage_key = self.level_to_tf.get(level)
+        if storage_key is None:
+            return None
+        tf = self.timeframes.get(storage_key)
+        return tf.name if tf is not None else None
+
+    def get_storage_key(self, level: ScanLevel) -> str:
+        """获取级别对应的内部存储键。"""
+        storage_key = self.level_to_tf.get(level)
+        if storage_key is None:
+            raise ValueError(f"未定义的级别: {level}")
+        return storage_key
+
+    def get_timeframe(self, level: ScanLevel) -> TimeframeConfig:
+        """获取级别对应的完整周期配置。"""
+        storage_key = self.get_storage_key(level)
+        tf = self.timeframes.get(storage_key)
+        if tf is None:
+            raise ValueError(f"未定义的周期配置: {storage_key}")
+        return tf
 
     def get_level_dk(self, level: ScanLevel) -> str:
-        """获取级别对应的数据容器键名 (如 'ohlcv_15m')"""
-        tf_name = self.get_tf_name(level)
-        if not tf_name:
-            raise ValueError(f"未定义的级别: {level}")
-        return f"ohlcv_{tf_name}"
+        """获取级别对应的数据容器键名。"""
+        return f"ohlcv_{self.get_timeframe(level).name}"
 
     def get_klines_by_level(self, level: ScanLevel) -> pd.DataFrame | None:
         """直接通过级别获取 K 线数据"""
-        tf_name = self.get_tf_name(level)
-        return self.klines.get(tf_name) if tf_name else None
+        return self.klines.get(self.get_storage_key(level))
 
     def validate_levels_existence(self, required_levels: list[ScanLevel]) -> None:
         """检查必要级别数据是否存在且不为空"""
@@ -131,6 +153,30 @@ class ScanContext:
         if missing:
             raise ValueError(f"缺少必要级别数据: {missing}")
 
+    def derive_context(self, level_to_tf: dict[ScanLevel, str]) -> "ScanContext":
+        """基于当前缓存构造局部子上下文。"""
+        required_storage_keys = set(level_to_tf.values())
+        child_updated_levels = {
+            level for level in self.updated_levels if level in level_to_tf
+        }
+        return ScanContext(
+            symbol=self.symbol,
+            klines={
+                storage_key: self.klines[storage_key]
+                for storage_key in required_storage_keys
+            },
+            timeframes={
+                storage_key: self.timeframes[storage_key]
+                for storage_key in required_storage_keys
+            },
+            level_to_tf=level_to_tf,
+            updated_levels=child_updated_levels,
+        )
+
+    def is_level_updated(self, level: ScanLevel) -> bool:
+        """判断本次扫描是否由该级别的新 bar 驱动。"""
+        return level in self.updated_levels
+
     def to_data_container(
         self, base_level: ScanLevel = ScanLevel.TRIGGER, lookback: int | None = None
     ) -> DataContainer:
@@ -142,14 +188,10 @@ class ScanContext:
             lookback: 可选的回溯长度
         """
         source_dict = {}
-        base_tf = self.get_tf_name(base_level)
-        if not base_tf:
-            raise ValueError(f"基准级别 '{base_level}' 未定义")
+        base_dk = self.get_level_dk(base_level)
 
-        base_dk = f"ohlcv_{base_tf}"
-
-        for tf_name, pdf in self.klines.items():
-            key = f"ohlcv_{tf_name}"
+        for storage_key, pdf in self.klines.items():
+            key = f"ohlcv_{self.timeframes[storage_key].name}"
 
             # 数据切片 (优化性能)
             target_df = pdf if lookback is None else pdf.iloc[-lookback:]
@@ -189,17 +231,23 @@ class ScanContext:
         return generate_data_dict(config)
 
 
-class StrategyProtocol(Protocol):
-    """策略协议"""
+class StrategyBase(ABC):
+    """扫描策略基类。"""
 
-    @property
-    def name(self) -> str:
-        """策略名称"""
-        ...
+    name: str
 
+    def get_timeframes(self, defaults: list[TimeframeConfig]) -> list[TimeframeConfig]:
+        """返回策略实际使用的周期画像；默认直接继承全局默认配置。"""
+        return [tf.model_copy(deep=True) for tf in defaults]
+
+    def get_watch_levels(self) -> list[ScanLevel]:
+        """返回需要监听 bar 更新的逻辑级别；默认只监听 trigger。"""
+        return [ScanLevel.TRIGGER]
+
+    @abstractmethod
     def scan(self, ctx: ScanContext) -> StrategySignal | None:
         """执行扫描"""
-        ...
+        raise NotImplementedError
 
 
 def run_scan_backtest(

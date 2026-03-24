@@ -140,6 +140,16 @@ class MockDataSource:
                 ),
                 None,
             )
+        if level is None:
+            # 中文注释：策略可覆盖默认周期画像，因此 mock 模式下补一层按周期秒数的兜底识别。
+            fallback_level_map = {
+                5 * 60: ScanLevel.TRIGGER,
+                30 * 60: ScanLevel.WAVE,
+                60 * 60: ScanLevel.WAVE,
+                24 * 3600: ScanLevel.TREND,
+                7 * 24 * 3600: ScanLevel.MACRO,
+            }
+            level = fallback_level_map.get(duration_seconds)
 
         # 生成时间索引
         end_time = pd.Timestamp.now().round("1s")

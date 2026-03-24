@@ -13,32 +13,32 @@ from py_entry.types import LogicOp, Param, SignalGroup, SignalTemplate
 
 
 @StrategyRegistry.register
-class TopdownEmaBiasStrategy(StrategyBase):
+class MacdFallbackStrategy(StrategyBase):
     """
-    周/日 EMA 偏置方向策略
+    MACD 回退方向策略
 
     方向判定（做多）：
-    1. 若 5m 已完成 K 线 low > 1w EMA20 且 low > 1w EMA60，则看多。
-    2. 若周线方向不明朗，则退化为用 5m low 与 1d EMA20/60 对比；若二者都在下方，则看多。
+    1. 若周线为零上红柱，则看多。
+    2. 若周线中性，则退化到日线；若日线为零上红柱，则看多。
 
     方向判定（做空）：
-    1. 若 5m 已完成 K 线 high < 1w EMA20 且 high < 1w EMA60，则看空。
-    2. 若周线方向不明朗，则退化为用 5m high 与 1d EMA20/60 对比；若二者都在上方，则看空。
+    1. 若周线为零下蓝柱，则看空。
+    2. 若周线中性，则退化到日线；若日线为零下蓝柱，则看空。
 
     中性判定：
-    1. 若 5m 价格未能明确站上或跌破周线 EMA20/60，且与日线 EMA20/60 对比后仍无明确偏置，则观望。
+    1. 若周线中性且日线仍中性，则整体观望。
 
     进场过滤：
-    - 1h：MACD 同向，或反向柱衰减但快线仍在零轴同侧。
+    - 1h：做多允许红柱，或蓝柱衰减但快线仍在零上；做空允许蓝柱，或红柱衰减但快线仍在零下。
 
     进场触发：
     - 5m：MACD 翻色，或开盘第一根收盘站上/跌破 EMA20。
     """
 
-    name: Final[str] = "topdown_ema_bias_resonance"
+    name: Final[str] = "macd_fallback_resonance"
 
     def scan(self, ctx: ScanContext) -> StrategySignal | None:
-        # 中文注释：该策略同时依赖 5m/1h/1d/1w 四个层级。
+        # 中文注释：该策略依赖 5m/1h/1d/1w 四层结构，周/日定方向，小时仅做过滤。
         required_levels = [
             ScanLevel.TRIGGER,
             ScanLevel.WAVE,
@@ -70,79 +70,44 @@ class TopdownEmaBiasStrategy(StrategyBase):
                 }
             },
             dk_trend: {
-                "ema_fast": {"period": Param(20)},
-                "ema_slow": {"period": Param(60)},
+                "macd_d": {
+                    "fast_period": Param(12),
+                    "slow_period": Param(26),
+                    "signal_period": Param(9),
+                }
             },
             dk_macro: {
-                "ema_w_20": {"period": Param(20)},
-                "ema_w_60": {"period": Param(60)},
+                "macd_w": {
+                    "fast_period": Param(12),
+                    "slow_period": Param(26),
+                    "signal_period": Param(9),
+                }
             },
         }
 
-        weekly_mixed_group = SignalGroup(
-            logic=LogicOp.AND,
-            sub_groups=[
-                SignalGroup(
-                    logic=LogicOp.OR,
-                    comparisons=[
-                        f"low,{dk_trigger},0 <= ema_w_20,{dk_macro},0",
-                        f"low,{dk_trigger},0 <= ema_w_60,{dk_macro},0",
-                    ],
-                ),
-                SignalGroup(
-                    logic=LogicOp.OR,
-                    comparisons=[
-                        f"high,{dk_trigger},0 >= ema_w_20,{dk_macro},0",
-                        f"high,{dk_trigger},0 >= ema_w_60,{dk_macro},0",
-                    ],
-                ),
-            ],
-        )
-
-        long_bias_group = SignalGroup(
+        # 中文注释：周线/日线中性定义为“零轴方向与柱色不一致”，用于触发日线回退或直接观望。
+        weekly_neutral_group = SignalGroup(
             logic=LogicOp.OR,
             sub_groups=[
                 SignalGroup(
                     logic=LogicOp.AND,
                     comparisons=[
-                        f"low,{dk_trigger},0 > ema_w_20,{dk_macro},0",
-                        f"low,{dk_trigger},0 > ema_w_60,{dk_macro},0",
+                        f"macd_w_macd,{dk_macro},0 >= 0",
+                        f"macd_w_hist,{dk_macro},0 <= 0",
                     ],
                 ),
                 SignalGroup(
                     logic=LogicOp.AND,
                     comparisons=[
-                        f"low,{dk_trigger},0 > ema_fast,{dk_trend},0",
-                        f"low,{dk_trigger},0 > ema_slow,{dk_trend},0",
+                        f"macd_w_macd,{dk_macro},0 <= 0",
+                        f"macd_w_hist,{dk_macro},0 >= 0",
                     ],
-                    sub_groups=[weekly_mixed_group],
                 ),
             ],
         )
 
-        short_bias_group = SignalGroup(
-            logic=LogicOp.OR,
-            sub_groups=[
-                SignalGroup(
-                    logic=LogicOp.AND,
-                    comparisons=[
-                        f"high,{dk_trigger},0 < ema_w_20,{dk_macro},0",
-                        f"high,{dk_trigger},0 < ema_w_60,{dk_macro},0",
-                    ],
-                ),
-                SignalGroup(
-                    logic=LogicOp.AND,
-                    comparisons=[
-                        f"high,{dk_trigger},0 < ema_fast,{dk_trend},0",
-                        f"high,{dk_trigger},0 < ema_slow,{dk_trend},0",
-                    ],
-                    sub_groups=[weekly_mixed_group],
-                ),
-            ],
-        )
-
-        # 中文注释：小时过滤分成强势确认和弱势衰减两支，弱势支额外要求快线仍在零轴同侧。
-        long_hour_group = SignalGroup(
+        # 中文注释：小时只做进场过滤，不参与方向定义；弱势衰减分支要求快线仍在零轴同侧。
+        long_hour_filter_group = SignalGroup(
             logic=LogicOp.OR,
             sub_groups=[
                 SignalGroup(
@@ -160,7 +125,7 @@ class TopdownEmaBiasStrategy(StrategyBase):
             ],
         )
 
-        short_hour_group = SignalGroup(
+        short_hour_filter_group = SignalGroup(
             logic=LogicOp.OR,
             sub_groups=[
                 SignalGroup(
@@ -178,6 +143,49 @@ class TopdownEmaBiasStrategy(StrategyBase):
             ],
         )
 
+        long_bias_group = SignalGroup(
+            logic=LogicOp.OR,
+            sub_groups=[
+                SignalGroup(
+                    logic=LogicOp.AND,
+                    comparisons=[
+                        f"macd_w_macd,{dk_macro},0 > 0",
+                        f"macd_w_hist,{dk_macro},0 > 0",
+                    ],
+                ),
+                SignalGroup(
+                    logic=LogicOp.AND,
+                    comparisons=[
+                        f"macd_d_macd,{dk_trend},0 > 0",
+                        f"macd_d_hist,{dk_trend},0 > 0",
+                    ],
+                    sub_groups=[weekly_neutral_group],
+                ),
+            ],
+        )
+
+        short_bias_group = SignalGroup(
+            logic=LogicOp.OR,
+            sub_groups=[
+                SignalGroup(
+                    logic=LogicOp.AND,
+                    comparisons=[
+                        f"macd_w_macd,{dk_macro},0 < 0",
+                        f"macd_w_hist,{dk_macro},0 < 0",
+                    ],
+                ),
+                SignalGroup(
+                    logic=LogicOp.AND,
+                    comparisons=[
+                        f"macd_d_macd,{dk_trend},0 < 0",
+                        f"macd_d_hist,{dk_trend},0 < 0",
+                    ],
+                    sub_groups=[weekly_neutral_group],
+                ),
+            ],
+        )
+
+        # 中文注释：5m 只负责执行时机，不负责定义大方向。
         long_trigger_group = SignalGroup(
             logic=LogicOp.OR,
             sub_groups=[
@@ -217,11 +225,19 @@ class TopdownEmaBiasStrategy(StrategyBase):
         template = SignalTemplate(
             entry_long=SignalGroup(
                 logic=LogicOp.AND,
-                sub_groups=[long_bias_group, long_hour_group, long_trigger_group],
+                sub_groups=[
+                    long_bias_group,
+                    long_hour_filter_group,
+                    long_trigger_group,
+                ],
             ),
             entry_short=SignalGroup(
                 logic=LogicOp.AND,
-                sub_groups=[short_bias_group, short_hour_group, short_trigger_group],
+                sub_groups=[
+                    short_bias_group,
+                    short_hour_filter_group,
+                    short_trigger_group,
+                ],
             ),
         )
 
@@ -245,11 +261,11 @@ class TopdownEmaBiasStrategy(StrategyBase):
                 symbol=ctx.symbol,
                 direction="long",
                 trigger=f"{ctx.get_tf_name(ScanLevel.TRIGGER)} 多头触发",
-                summary=f"{ctx.symbol} topdown_ema_bias 做多",
+                summary=f"{ctx.symbol} macd_fallback 做多",
                 detail_lines=[
                     f"时间: {ts_str}",
                     f"价格: {price}",
-                    "条件: 周线优先定多，周线不明朗则日线定多 + 1h 红柱或弱蓝衰减且零上 + 5m 翻红/开盘首根站上 EMA",
+                    "条件: 周线优先定多，周线中性退化到日线，小时仅做红柱或弱蓝衰减且零上过滤 + 5m 触发",
                 ],
                 metadata={"price": price, "time": timestamp_ms},
             )
@@ -260,11 +276,11 @@ class TopdownEmaBiasStrategy(StrategyBase):
                 symbol=ctx.symbol,
                 direction="short",
                 trigger=f"{ctx.get_tf_name(ScanLevel.TRIGGER)} 空头触发",
-                summary=f"{ctx.symbol} topdown_ema_bias 做空",
+                summary=f"{ctx.symbol} macd_fallback 做空",
                 detail_lines=[
                     f"时间: {ts_str}",
                     f"价格: {price}",
-                    "条件: 周线优先定空，周线不明朗则日线定空 + 1h 蓝柱或弱红衰减且零下 + 5m 翻蓝/开盘首根跌破 EMA",
+                    "条件: 周线优先定空，周线中性退化到日线，小时仅做蓝柱或弱红衰减且零下过滤 + 5m 触发",
                 ],
                 metadata={"price": price, "time": timestamp_ms},
             )

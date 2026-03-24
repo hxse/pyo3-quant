@@ -19,6 +19,7 @@ from tqsdk import TqAuth
 
 from . import strategies  # noqa: F401 (自动触发策略注册)
 from ._scan_runtime import get_active_strategies
+from ._scan_runtime import build_runtime_specs
 from ._scan_runtime import scan_forever
 from ._scan_runtime import scan_once
 from .config import ScannerConfig
@@ -80,14 +81,26 @@ def main() -> None:
         logger.error("未加载到任何可用策略，请检查 enabled_strategies 配置。")
         exit(1)
 
+    runtime_specs, required_timeframes = build_runtime_specs(
+        config, strategies_instances
+    )
+
     try:
         if args.once:
             scan_once(
-                config, data_source, notifier, strategies_list=strategies_instances
+                config,
+                data_source,
+                notifier,
+                runtime_specs=runtime_specs,
+                required_timeframes=required_timeframes,
             )
         else:
             scan_forever(
-                config, data_source, notifier, strategies_list=strategies_instances
+                config,
+                data_source,
+                notifier,
+                runtime_specs=runtime_specs,
+                required_timeframes=required_timeframes,
             )
     finally:
         data_source.close()

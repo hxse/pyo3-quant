@@ -1,7 +1,7 @@
 from typing import Final
 from py_entry.scanner.config import ScanLevel
 from py_entry.scanner.strategies.base import (
-    StrategyProtocol,
+    StrategyBase,
     ScanContext,
     StrategySignal,
     run_scan_backtest,
@@ -17,7 +17,7 @@ from py_entry.types import (
 
 
 @StrategyRegistry.register
-class TrendStrategy(StrategyProtocol):
+class TrendStrategy(StrategyBase):
     """
     强趋势共振策略 (Trend - Rust 引擎版)
 

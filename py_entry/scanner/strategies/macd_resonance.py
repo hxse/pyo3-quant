@@ -3,7 +3,7 @@ from typing import Final
 from py_entry.scanner.config import ScanLevel
 from py_entry.scanner.strategies.base import (
     ScanContext,
-    StrategyProtocol,
+    StrategyBase,
     StrategySignal,
     format_timestamp,
     run_scan_backtest,
@@ -13,7 +13,7 @@ from py_entry.types import LogicOp, Param, SignalGroup, SignalTemplate
 
 
 @StrategyRegistry.register
-class MacdResonanceStrategy(StrategyProtocol):
+class MacdResonanceStrategy(StrategyBase):
     """
     MACD 三周期共振策略（5m / 1h / 1d）
 

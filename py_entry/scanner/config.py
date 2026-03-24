@@ -27,6 +27,12 @@ class TimeframeConfig(BaseModel):
     seconds: int  # 秒数
     use_index: bool = False  # 是否使用指数合约 (KQ.i@) 获取数据
 
+    @property
+    def storage_key(self) -> str:
+        """内部存储键：同周期不同数据源也能稳定区分。"""
+        source_suffix = "index" if self.use_index else "main"
+        return f"{self.name}_{source_suffix}"
+
 
 class ScannerConfig(BaseModel):
     """扫描器主配置"""
@@ -60,7 +66,7 @@ class ScannerConfig(BaseModel):
 
     # 启用的策略名单（仅启动这里声明的策略；未声明的策略仍保留代码与注册能力）
     enabled_strategies: list[str] = [
-        "topdown_ema_bias_resonance",
+        "dual_pair_minimal_scan",
     ]
 
     @model_validator(mode="before")
@@ -97,9 +103,9 @@ class ScannerConfig(BaseModel):
                 raise RuntimeError(f"读取配置文件 {config_path} 失败: {e}") from e
         return data
 
-    # 默认四层级别共振体系 (5m, 1h, 1d, 1w)
-    # 大级别 (wave, trend, macro) 使用指数合约 (use_index=True) 以获取平滑趋势
-    # 触点级别 (trigger) 使用主连合约 (use_index=False) 以获取真实价格突破
+    # 默认四层扫描体系 (5m, 1h, 1d, 1w)
+    # 默认画像服务于旧策略：5m 触发、1h 过滤、1d/1w 背景。
+    # 若某个策略需要不同周期，会在策略内部显式覆盖，而不是污染全局默认。
     timeframes: list[TimeframeConfig] = [
         TimeframeConfig(
             level=ScanLevel.TRIGGER, name="5m", seconds=5 * 60, use_index=False
@@ -118,8 +124,6 @@ class ScannerConfig(BaseModel):
     # 需要扫描的期货品种（主力合约）
     symbols: list[str] = [
         # 当前启用（按最新扫描口径）
-        "KQ.m@CZCE.MA",  # 甲醇
-        "KQ.m@DCE.l",  # 塑料
         # ====================
         #  历史品种（暂不启用，仅注释保留）
         # ====================
@@ -138,6 +142,7 @@ class ScannerConfig(BaseModel):
         # ====================
         #  能源 / 化工
         # ====================
+        "KQ.m@CZCE.MA",  # 甲醇
         # "KQ.m@SHFE.bu",  # 沥青
         # "KQ.m@SHFE.fu",  # 燃油
         # "KQ.m@CZCE.UR",  # 尿素
@@ -145,6 +150,7 @@ class ScannerConfig(BaseModel):
         # "KQ.m@CZCE.SA",  # 纯碱
         # "KQ.m@DCE.eg",  # 乙二醇
         # "KQ.m@DCE.v",  # PVC
+        "KQ.m@DCE.l",  # 塑料
         # "KQ.m@DCE.pp",  # 聚丙烯
         # 成本较高或流动性一般：
         # "KQ.m@SHFE.ru",  # 橡胶 (>1w)
@@ -156,9 +162,9 @@ class ScannerConfig(BaseModel):
         # "KQ.m@DCE.p",  # 棕榈油
         # "KQ.m@DCE.y",  # 豆油
         # "KQ.m@CZCE.OI",  # 菜油
-        # "KQ.m@DCE.m",  # 豆粕
+        "KQ.m@DCE.m",  # 豆粕
         # "KQ.m@CZCE.RM",  # 菜粕
-        # "KQ.m@CZCE.SR",  # 白糖
+        "KQ.m@CZCE.SR",  # 白糖
         # "KQ.m@CZCE.CF",  # 棉花
         # "KQ.m@DCE.c",  # 玉米
         # "KQ.m@DCE.cs",  # 淀粉

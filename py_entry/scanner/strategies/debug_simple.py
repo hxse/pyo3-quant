@@ -1,7 +1,7 @@
 from typing import Final
 from py_entry.scanner.config import ScanLevel
 from py_entry.scanner.strategies.base import (
-    StrategyProtocol,
+    StrategyBase,
     ScanContext,
     StrategySignal,
     run_scan_backtest,
@@ -17,7 +17,7 @@ from py_entry.types import (
 
 
 @StrategyRegistry.register
-class DebugSimpleStrategy(StrategyProtocol):
+class DebugSimpleStrategy(StrategyBase):
     """
     极简调试策略 (用于验证架构)
     逻辑：TriggerLevel 价格上穿 EMA20

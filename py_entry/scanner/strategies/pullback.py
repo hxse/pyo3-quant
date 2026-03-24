@@ -1,7 +1,7 @@
 from typing import Final
 from py_entry.scanner.config import ScanLevel
 from py_entry.scanner.strategies.base import (
-    StrategyProtocol,
+    StrategyBase,
     ScanContext,
     StrategySignal,
     run_scan_backtest,
@@ -17,7 +17,7 @@ from py_entry.types import (
 
 
 @StrategyRegistry.register
-class PullbackStrategy(StrategyProtocol):
+class PullbackStrategy(StrategyBase):
     """
     顺势回调策略 (Pullback / MeanReversion - Rust 引擎版)
 

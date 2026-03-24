@@ -6,12 +6,17 @@ import polars as pl
 
 from py_entry.scanner.config import ScanLevel, ScannerConfig
 from py_entry.scanner.strategies.base import ScanContext
+from py_entry.scanner.strategies.base import StrategyBase
 from py_entry.scanner.strategies.trend import TrendStrategy
 from py_entry.scanner.strategies.reversal import ReversalStrategy
 from py_entry.scanner.strategies.momentum import MomentumStrategy
 from py_entry.scanner.strategies.pullback import PullbackStrategy
 from py_entry.scanner.strategies.macd_resonance import MacdResonanceStrategy
+from py_entry.scanner.strategies.macd_fallback import MacdFallbackStrategy
 from py_entry.scanner.strategies.topdown_ema_bias import TopdownEmaBiasStrategy
+from py_entry.scanner.strategies.dual_pair_minimal_scan import (
+    DualPairMinimalScanStrategy,
+)
 
 
 def make_mock_df(
@@ -54,22 +59,39 @@ class TestEngineStrategies(unittest.TestCase):
         self.momentum_strategy = MomentumStrategy()
         self.pullback_strategy = PullbackStrategy()
         self.macd_resonance_strategy = MacdResonanceStrategy()
+        self.macd_fallback_strategy = MacdFallbackStrategy()
         self.topdown_ema_bias_strategy = TopdownEmaBiasStrategy()
-        # 建立基于配置的默认映射
-        self.level_to_tf = {tf.level: tf.name for tf in self.config.timeframes}
+        self.dual_pair_minimal_scan_strategy = DualPairMinimalScanStrategy()
 
     def create_context(
-        self, symbol: str, prices_dict: dict[ScanLevel, list[float]]
+        self,
+        symbol: str,
+        prices_dict: dict[ScanLevel, list[float]],
+        strategy: StrategyBase | None = None,
     ) -> ScanContext:
         """助手函数：根据逻辑级别自动构造 ScanContext"""
+        effective_timeframes = (
+            strategy.get_timeframes(self.config.timeframes)
+            if strategy is not None
+            else [tf.model_copy(deep=True) for tf in self.config.timeframes]
+        )
+        level_to_tf = {tf.level: tf.storage_key for tf in effective_timeframes}
+        timeframes_by_key = {tf.storage_key: tf for tf in effective_timeframes}
+
         klines = {}
         for level, prices in prices_dict.items():
             # 查找物理周期配置
-            tf_conf = next(tf for tf in self.config.timeframes if tf.level == level)
+            tf_conf = next(tf for tf in effective_timeframes if tf.level == level)
             df = make_mock_df(prices, interval_seconds=tf_conf.seconds)
-            klines[tf_conf.name] = df
+            klines[tf_conf.storage_key] = df
 
-        return ScanContext(symbol=symbol, klines=klines, level_to_tf=self.level_to_tf)
+        return ScanContext(
+            symbol=symbol,
+            klines=klines,
+            timeframes=timeframes_by_key,
+            level_to_tf=level_to_tf,
+            updated_levels=set(prices_dict.keys()),
+        )
 
     def test_trend_strategy_integrated(self):
         """测试 TrendStrategy 多头共振信号"""
@@ -247,6 +269,213 @@ class TestEngineStrategies(unittest.TestCase):
         self.assertIsNotNone(sig)
         if sig:
             self.assertEqual(sig.direction, "long")
+
+    def test_topdown_ema_bias_strategy_weekly_short(self):
+        """测试 TopdownEmaBiasStrategy 周线直接定空"""
+        p_macro = np.linspace(120.0, 80.0, 120).tolist()
+        p_trend = np.linspace(110.0, 70.0, 180).tolist()
+        p_wave = np.linspace(100.0, 60.0, 240).tolist()
+
+        p_trigger_flat = [60.0] * 598
+        p_trigger_break = [55.0]
+        p_trigger_hold = [55.0]
+        p_trigger = p_trigger_flat + p_trigger_break + p_trigger_hold
+
+        ctx = self.create_context(
+            "TEST.TOPDOWN.WEEKLY.SHORT",
+            {
+                ScanLevel.MACRO: p_macro,
+                ScanLevel.TREND: p_trend,
+                ScanLevel.WAVE: p_wave,
+                ScanLevel.TRIGGER: p_trigger,
+            },
+        )
+
+        sig = self.topdown_ema_bias_strategy.scan(ctx)
+        self.assertIsNotNone(sig)
+        if sig:
+            self.assertEqual(sig.direction, "short")
+
+    def test_macd_fallback_strategy_weekly_long(self):
+        """测试 MacdFallbackStrategy 周线直接定多"""
+        p_macro = (100 * (1.02 ** np.arange(120))).tolist()
+        p_trend = [100.0] * 180
+        p_wave = np.linspace(100.0, 140.0, 240).tolist()
+
+        p_trigger_flat = [100.0] * 598
+        p_trigger_break = [110.0]
+        p_trigger_hold = [110.0]
+        p_trigger = p_trigger_flat + p_trigger_break + p_trigger_hold
+
+        ctx = self.create_context(
+            "TEST.MACD_FALLBACK.WEEKLY.LONG",
+            {
+                ScanLevel.MACRO: p_macro,
+                ScanLevel.TREND: p_trend,
+                ScanLevel.WAVE: p_wave,
+                ScanLevel.TRIGGER: p_trigger,
+            },
+            strategy=self.macd_fallback_strategy,
+        )
+
+        sig = self.macd_fallback_strategy.scan(ctx)
+        self.assertIsNotNone(sig)
+        if sig:
+            self.assertEqual(sig.direction, "long")
+
+    def test_macd_fallback_strategy_daily_fallback_long(self):
+        """测试 MacdFallbackStrategy 周线中性时由日线定多"""
+        p_macro = [100.0] * 120
+        p_trend = np.linspace(80.0, 140.0, 180).tolist()
+        p_wave = np.linspace(100.0, 140.0, 240).tolist()
+
+        p_trigger_flat = [140.0] * 598
+        p_trigger_break = [145.0]
+        p_trigger_hold = [145.0]
+        p_trigger = p_trigger_flat + p_trigger_break + p_trigger_hold
+
+        ctx = self.create_context(
+            "TEST.MACD_FALLBACK.DAILY.LONG",
+            {
+                ScanLevel.MACRO: p_macro,
+                ScanLevel.TREND: p_trend,
+                ScanLevel.WAVE: p_wave,
+                ScanLevel.TRIGGER: p_trigger,
+            },
+            strategy=self.macd_fallback_strategy,
+        )
+
+        sig = self.macd_fallback_strategy.scan(ctx)
+        self.assertIsNotNone(sig)
+        if sig:
+            self.assertEqual(sig.direction, "long")
+
+    def test_macd_fallback_strategy_weekly_short(self):
+        """测试 MacdFallbackStrategy 周线直接定空"""
+        p_macro = np.linspace(140.0, 80.0, 120).tolist()
+        p_trend = [100.0] * 180
+        p_wave = np.linspace(140.0, 100.0, 240).tolist()
+
+        p_trigger_flat = [100.0] * 598
+        p_trigger_break = [95.0]
+        p_trigger_hold = [95.0]
+        p_trigger = p_trigger_flat + p_trigger_break + p_trigger_hold
+
+        ctx = self.create_context(
+            "TEST.MACD_FALLBACK.WEEKLY.SHORT",
+            {
+                ScanLevel.MACRO: p_macro,
+                ScanLevel.TREND: p_trend,
+                ScanLevel.WAVE: p_wave,
+                ScanLevel.TRIGGER: p_trigger,
+            },
+            strategy=self.macd_fallback_strategy,
+        )
+
+        sig = self.macd_fallback_strategy.scan(ctx)
+        self.assertIsNotNone(sig)
+        if sig:
+            self.assertEqual(sig.direction, "short")
+
+    def test_macd_fallback_strategy_daily_fallback_short(self):
+        """测试 MacdFallbackStrategy 周线中性时由日线定空"""
+        p_macro = [100.0] * 100 + np.linspace(100.0, 95.0, 20).tolist()
+        p_trend = np.linspace(140.0, 80.0, 180).tolist()
+        p_wave = np.linspace(140.0, 100.0, 240).tolist()
+
+        p_trigger_flat = [100.0] * 598
+        p_trigger_break = [95.0]
+        p_trigger_hold = [95.0]
+        p_trigger = p_trigger_flat + p_trigger_break + p_trigger_hold
+
+        ctx = self.create_context(
+            "TEST.MACD_FALLBACK.DAILY.SHORT",
+            {
+                ScanLevel.MACRO: p_macro,
+                ScanLevel.TREND: p_trend,
+                ScanLevel.WAVE: p_wave,
+                ScanLevel.TRIGGER: p_trigger,
+            },
+            strategy=self.macd_fallback_strategy,
+        )
+
+        sig = self.macd_fallback_strategy.scan(ctx)
+        self.assertIsNotNone(sig)
+        if sig:
+            self.assertEqual(sig.direction, "short")
+
+    def test_dual_pair_minimal_scan_trigger_daily_long(self):
+        """测试 DualPairMinimalScanStrategy 的 5m + 1d 组合触发"""
+        p_macro = [100.0] * 120
+        p_trend = np.linspace(80.0, 110.0, 180).tolist()
+        p_wave = [100.0] * 240
+
+        p_trigger_flat = [99.0] * 598
+        p_trigger_break = [112.0]
+        p_trigger_hold = [112.0]
+        p_trigger = p_trigger_flat + p_trigger_break + p_trigger_hold
+
+        ctx = self.create_context(
+            "TEST.MINIMAL.DAILY.LONG",
+            {
+                ScanLevel.MACRO: p_macro,
+                ScanLevel.TREND: p_trend,
+                ScanLevel.WAVE: p_wave,
+                ScanLevel.TRIGGER: p_trigger,
+            },
+            strategy=self.dual_pair_minimal_scan_strategy,
+        )
+
+        sig = self.dual_pair_minimal_scan_strategy.scan(ctx)
+        self.assertIsNotNone(sig)
+        if sig:
+            self.assertEqual(sig.direction, "long")
+            self.assertIn("5m + 1d", sig.trigger)
+
+    def test_dual_pair_minimal_scan_wave_weekly_long(self):
+        """测试 DualPairMinimalScanStrategy 的 30m + 1w 组合触发"""
+        p_macro = np.linspace(80.0, 105.0, 120).tolist()
+        p_trend = [100.0] * 180
+
+        p_wave_flat = [99.0] * 238
+        p_wave_break = [110.0]
+        p_wave_hold = [110.0]
+        p_wave = p_wave_flat + p_wave_break + p_wave_hold
+
+        p_trigger = [100.0] * 600
+
+        ctx = self.create_context(
+            "TEST.MINIMAL.WEEKLY.LONG",
+            {
+                ScanLevel.MACRO: p_macro,
+                ScanLevel.TREND: p_trend,
+                ScanLevel.WAVE: p_wave,
+                ScanLevel.TRIGGER: p_trigger,
+            },
+            strategy=self.dual_pair_minimal_scan_strategy,
+        )
+
+        sig = self.dual_pair_minimal_scan_strategy.scan(ctx)
+        self.assertIsNotNone(sig)
+        if sig:
+            self.assertEqual(sig.direction, "long")
+            self.assertIn("30m + 1w", sig.trigger)
+
+    def test_dual_pair_minimal_scan_no_signal(self):
+        """测试 DualPairMinimalScanStrategy 在两组都不满足时返回空"""
+        ctx = self.create_context(
+            "TEST.MINIMAL.NONE",
+            {
+                ScanLevel.MACRO: [100.0] * 120,
+                ScanLevel.TREND: [100.0] * 180,
+                ScanLevel.WAVE: [100.0] * 240,
+                ScanLevel.TRIGGER: [100.0] * 600,
+            },
+            strategy=self.dual_pair_minimal_scan_strategy,
+        )
+
+        sig = self.dual_pair_minimal_scan_strategy.scan(ctx)
+        self.assertIsNone(sig)
 
     def test_data_validation(self):
         """测试数据缺失报错"""

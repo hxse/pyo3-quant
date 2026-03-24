@@ -6,6 +6,10 @@ from .pullback import PullbackStrategy as PullbackStrategy
 from .oscillation import OscillationStrategy as OscillationStrategy
 from .macd_resonance import MacdResonanceStrategy as MacdResonanceStrategy
 from .topdown_ema_bias import TopdownEmaBiasStrategy as TopdownEmaBiasStrategy
+from .macd_fallback import MacdFallbackStrategy as MacdFallbackStrategy
+from .dual_pair_minimal_scan import (
+    DualPairMinimalScanStrategy as DualPairMinimalScanStrategy,
+)
 from .debug_simple import DebugSimpleStrategy as DebugSimpleStrategy
 
 __all__ = ["StrategyRegistry"]

@@ -9,12 +9,14 @@ pub enum CompareOp {
     LE,  // <=
     EQ,  // ==
     NE,  // !=
-    CGT, // > 交叉
-    CLT, // < 交叉
-    CGE, // >= 交叉
-    CLE, // <= 交叉
-    CEQ, // == 交叉
-    CNE, // != 交叉
+    IN,  // in
+    XGT, // > 交叉
+    XLT, // < 交叉
+    XGE, // >= 交叉
+    XLE, // <= 交叉
+    XEQ, // == 交叉
+    XNE, // != 交叉
+    XIN, // 进入区间交叉
 }
 
 #[derive(Debug, Clone, PartialEq)]

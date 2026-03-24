@@ -2,7 +2,7 @@
 
 from py_entry.types import SignalTemplate, SignalGroup, LogicOp, Param
 
-DESCRIPTION = "测试参数化区间穿越：rsi x> $lower..$upper"
+DESCRIPTION = "测试参数化区间穿越：边界参数会先归一化再进入闭区间状态机"
 
 INDICATORS_PARAMS = {
     "ohlcv_15m": {

@@ -20,51 +20,33 @@ def calculate_entry_long(
     """
     条件：! rsi, ohlcv_15m, 0 x> 30..70
     逻辑：先计算 rsi x> 30..70，然后取反
-    注意：对于 NaN 数据，保持 False (或者不对比)，这将在 test_signal_generation.py 中通过 mask 进行处理。
-    这里我们计算 Truth Table 即可。
     """
     rsi_s = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "rsi")
     length = len(rsi_s)
     result = [False] * length
     active = False
 
-    # 转化为 list 方便操作
     rsi = rsi_s.to_list()
 
     for i in range(length):
         val = rsi[i]
-
-        # NaN/Null 处理：
-        # 修复后引擎逻辑：NaN → result=False → negated → True → mask 重新应用 → False。
-        # 引擎在 condition_evaluator 中 negation 后重新应用 mask，NaN 行结果始终为 false。
-        if val is None or math.isnan(val):
-            active = False
-            result[i] = False  # NaN行：mask重新应用后为false（已修复）
-            continue
-
         prev_val = rsi[i - 1] if i > 0 else None
 
-        # prev_val 是 NaN/Null 时，crossover 的 prev_mask=true → 整体 mask=true →
-        # negation 后结果为 true，但 mask 重新应用后强制为 false。
-        # active 也同步重置（引擎 zone_cross 在 is_invalid 时重置 active）。
-        if prev_val is None or math.isnan(prev_val):
+        if val is None or math.isnan(val) or prev_val is None or math.isnan(prev_val):
             active = False
             result[i] = False
             continue
 
-        # 1. 检查瞬时穿越 (x> 30): prev <= 30 AND curr > 30
-        is_cross = prev_val <= 30 and val > 30
+        low = min(30.0, 70.0)
+        high = max(30.0, 70.0)
+        is_in_zone = low <= val <= high
+        is_cross = prev_val < low and val >= low and is_in_zone
 
-        # 2. 检查区间脱离 (out_of_zone): val >= 70 OR val <= 30
-        is_ooz = val >= 70 or val <= 30
-
-        # 状态切换逻辑
-        if is_cross and not is_ooz:
+        if is_cross:
             active = True
-        elif is_ooz:
+        elif not is_in_zone:
             active = False
 
-        # 取反逻辑
         result[i] = not active
 
     return pl.Series("entry_long", result, dtype=pl.Boolean)

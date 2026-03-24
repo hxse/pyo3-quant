@@ -19,11 +19,11 @@ def calculate_entry_long(
     mapped_backtest_summary,
 ) -> pl.Series:
     """
-    条件：close, ohlcv_1h, 0 x> ema_30..ema_100
+    条件：close, ohlcv_15m, 0 x> ema_30..ema_100
     """
-    close_s = get_mapped_ohlcv(mapped_data_container, "ohlcv_1h", "close")
-    ema30_s = get_mapped_indicator(mapped_backtest_summary, "ohlcv_1h", "ema_0")
-    ema100_s = get_mapped_indicator(mapped_backtest_summary, "ohlcv_1h", "ema_1")
+    close_s = get_mapped_ohlcv(mapped_data_container, "ohlcv_15m", "close")
+    ema30_s = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "ema_0")
+    ema100_s = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "ema_1")
 
     length = len(close_s)
     result = [False] * length
@@ -35,34 +35,33 @@ def calculate_entry_long(
 
     for i in range(length):
         val = close[i]
-        low_b = ema30[i]
-        high_b = ema100[i]
+        bound_a = ema30[i]
+        bound_b = ema100[i]
+        prev_val = close[i - 1] if i > 0 else None
+        prev_bound_a = ema30[i - 1] if i > 0 else None
+        prev_bound_b = ema100[i - 1] if i > 0 else None
 
-        if any(v is None or math.isnan(v) for v in [val, low_b, high_b]):
+        if any(
+            v is None or math.isnan(v)
+            for v in [val, bound_a, bound_b, prev_val, prev_bound_a, prev_bound_b]
+        ):
             active = False
             result[i] = False
             continue
 
-        prev_val = close[i - 1] if i > 0 else None
-        prev_low_b = ema30[i - 1] if i > 0 else None
+        assert prev_val is not None
+        assert prev_bound_a is not None
+        assert prev_bound_b is not None
 
-        # 1. 检查瞬时交叉: prev_val <= prev_low_b AND val > low_b
-        is_cross = False
-        if (
-            prev_val is not None
-            and not math.isnan(prev_val)
-            and prev_low_b is not None
-            and not math.isnan(prev_low_b)
-        ):
-            if prev_val <= prev_low_b and val > low_b:
-                is_cross = True
+        low = min(bound_a, bound_b)
+        high = max(bound_a, bound_b)
+        prev_low = min(prev_bound_a, prev_bound_b)
+        is_in_zone = low <= val <= high
+        is_cross = prev_val < prev_low and val >= low and is_in_zone
 
-        # 2. 检查区间脱离: val >= high_b OR val <= low_b
-        is_ooz = val >= high_b or val <= low_b
-
-        if is_cross and not is_ooz:
+        if is_cross:
             active = True
-        elif is_ooz:
+        elif not is_in_zone:
             active = False
 
         result[i] = active

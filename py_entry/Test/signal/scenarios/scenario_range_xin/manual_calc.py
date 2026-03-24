@@ -1,12 +1,12 @@
-"""场景: 区间穿越向上 - 手写计算"""
+"""场景: 进入区间 - 手写计算"""
 
 import math
 import polars as pl
 from py_entry.Test.signal.utils import (
-    get_mapped_indicator,
-    get_data_length,
     create_false_series,
     create_signal_dataframe,
+    get_data_length,
+    get_mapped_indicator,
 )
 
 
@@ -17,38 +17,25 @@ def calculate_entry_long(
     mapped_data_container,
     mapped_backtest_summary,
 ) -> pl.Series:
-    """
-    条件：rsi, ohlcv_15m, 0 x> 30..70
-    """
+    """条件：rsi, ohlcv_15m, 0 xin 30..70"""
     rsi_s = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "rsi")
-    length = len(rsi_s)
-    result = [False] * length
-    active = False
+    low = min(30.0, 70.0)
+    high = max(30.0, 70.0)
 
-    rsi = rsi_s.to_list()
+    result = [False] * len(rsi_s)
+    values = rsi_s.to_list()
 
-    for i in range(length):
-        val = rsi[i]
+    for i in range(len(values)):
+        val = values[i]
+        prev_val = values[i - 1] if i > 0 else None
 
-        prev_val = rsi[i - 1] if i > 0 else None
-
-        # 中文注释：区间穿越需要同时依赖当前值和前一根值，任一无效都直接重置状态。
         if val is None or math.isnan(val) or prev_val is None or math.isnan(prev_val):
-            active = False
             result[i] = False
             continue
 
-        low = min(30.0, 70.0)
-        high = max(30.0, 70.0)
+        was_in_zone = low <= prev_val <= high
         is_in_zone = low <= val <= high
-        is_cross = prev_val < low and val >= low and is_in_zone
-
-        if is_cross:
-            active = True
-        elif not is_in_zone:
-            active = False
-
-        result[i] = active
+        result[i] = (not was_in_zone) and is_in_zone
 
     return pl.Series("entry_long", result, dtype=pl.Boolean)
 
@@ -60,8 +47,7 @@ def calculate_exit_long(
     mapped_data_container,
     mapped_backtest_summary,
 ) -> pl.Series:
-    length = get_data_length(mapped_data_container)
-    return create_false_series(length)
+    return create_false_series(get_data_length(mapped_data_container))
 
 
 def calculate_entry_short(
@@ -71,8 +57,7 @@ def calculate_entry_short(
     mapped_data_container,
     mapped_backtest_summary,
 ) -> pl.Series:
-    length = get_data_length(mapped_data_container)
-    return create_false_series(length)
+    return create_false_series(get_data_length(mapped_data_container))
 
 
 def calculate_exit_short(
@@ -82,8 +67,7 @@ def calculate_exit_short(
     mapped_data_container,
     mapped_backtest_summary,
 ) -> pl.Series:
-    length = get_data_length(mapped_data_container)
-    return create_false_series(length)
+    return create_false_series(get_data_length(mapped_data_container))
 
 
 def calculate_signals(
@@ -93,7 +77,6 @@ def calculate_signals(
     mapped_data_container,
     mapped_backtest_summary,
 ) -> pl.DataFrame:
-    """计算所有信号"""
     return create_signal_dataframe(
         calculate_entry_long(
             signal_params,

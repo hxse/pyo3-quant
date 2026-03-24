@@ -19,11 +19,6 @@ def calculate_entry_short(
 ) -> pl.Series:
     """
     条件：rsi, ohlcv_15m, 0 x< 70..30
-
-    逻辑：
-    - RSI 下穿 70 时激活
-    - 如果已激活：
-        - 如果 RSI <= 30 (终止边界) 或 RSI >= 70 (回升到激活边界以上)，则失效
     """
     rsi_s = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "rsi")
     length = len(rsi_s)
@@ -34,26 +29,21 @@ def calculate_entry_short(
 
     for i in range(length):
         val = rsi[i]
+        prev_val = rsi[i - 1] if i > 0 else None
 
-        if val is None or math.isnan(val):
+        if val is None or math.isnan(val) or prev_val is None or math.isnan(prev_val):
             active = False
             result[i] = False
             continue
 
-        prev_val = rsi[i - 1] if i > 0 else None
+        low = min(70.0, 30.0)
+        high = max(70.0, 30.0)
+        is_in_zone = low <= val <= high
+        is_cross = prev_val > high and val <= high and is_in_zone
 
-        # 1. 检查瞬时穿越 (x< 70): prev >= 70 AND curr < 70
-        is_cross = False
-        if prev_val is not None and not math.isnan(prev_val):
-            if prev_val >= 70 and val < 70:
-                is_cross = True
-
-        # 2. 检查区间脱离 (out_of_zone): val <= 30 OR val >= 70
-        is_ooz = val <= 30 or val >= 70
-
-        if is_cross and not is_ooz:
+        if is_cross:
             active = True
-        elif is_ooz:
+        elif not is_in_zone:
             active = False
 
         result[i] = active

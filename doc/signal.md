@@ -109,6 +109,10 @@ class SignalGroup:
 - `==` (等于)
 - `!=` (不等于)
 
+**范围比较：**
+- `in`：当前值是否位于区间内（需与 `..` 搭配）
+- `xin`：前一根不在区间内，当前进入区间（需与 `..` 搭配）
+
 **交叉比较 (Cross)：**
 表示当前状态满足条件，且上一状态不满足条件（即发生了状态穿越）。
 逻辑公式：`Trigger = (NOT Prev_Satisfied) AND (Curr_Satisfied)`
@@ -121,30 +125,54 @@ class SignalGroup:
 - `x!=`: 上一根K线 `==`, 当前K线 `!=`
 
 > [!IMPORTANT]
+> **交叉运算符的 source 约束（已落地）**：
+> 交叉类运算符 `x>`, `x<`, `x>=`, `x<=`, `x==`, `x!=`, `xin` 只能用于 `base_data_key`。
+>
+> 具体约束：
+> - 左操作数的 source 必须等于 `DataContainer.base_data_key`
+> - 如果右操作数是数据操作数，其 source 也必须等于 `DataContainer.base_data_key`
+> - 如果区间终止边界（`zone_end`）是数据操作数，其 source 也必须等于 `DataContainer.base_data_key`
+>
+> 交叉运算符描述的是“当前这一根相对前一根发生了状态切换”，因此它天然依赖唯一明确的时间轴。
+> 普通比较只判断当前时点的大小关系，跨周期仍然清晰；但交叉一旦写在非 `base_data_key` 上，就会叠加高周期映射和防前瞻的 lookback 补偿，结果不再等价于“该高周期自身发生了一次原生交叉”。
+> 这样虽然技术上可以计算，但模板语义会变脏，触发时点也容易偏离直觉。
+> 因此系统强约束：高周期只做背景过滤，交叉触发只能发生在 `base_data_key`；谁要做 trigger，谁就必须自己当 base。
+
+> [!IMPORTANT]
 > **NaN/Null 值处理**：交叉信号仅在当前值和前一个值都有效（非 NaN/Null）时才会触发。
 > 如果前一个值是 NaN 或 Null，即使当前值满足条件，也**不会**触发交叉信号。
 > 这确保了交叉信号仅在发生真实的状态转换时触发，而不是在数据预热期结束后立即触发。
 
-**区间穿越 (Zone Cross)：**
+**区间比较 (Range Comparison)：**
 
-交叉比较的扩展形式。普通交叉（`x> value`）只在穿越发生的那一根K线返回 True（瞬时信号），区间穿越在穿越后**持续返回 True**，直到值离开指定区间（方向信号）。
+系统支持 4 种与 `..` 搭配的区间语义：
+- `in`：当前是否在闭区间内
+- `xin`：前一根不在闭区间内，当前进入闭区间
+- `x>`：从闭区间下方进入后保持激活，直到离开区间
+- `x<`：从闭区间上方进入后保持激活，直到离开区间
+
+> [!NOTE]
+> `in` 和 `xin` 没有提供新的表达能力，本质上只是对现有模板组合写法的语法糖封装。
+> 它们的价值在于把“区间判断 / 进入区间判断 + 边界自动归一化”收敛成更短、更直观、更不容易写错的模板语法。
 
 **语法：**
 ```text
+左操作数 in 边界A..边界B
+左操作数 xin 边界A..边界B
 左操作数 x> 激活边界..终止边界
 左操作数 x< 激活边界..终止边界
 ```
 
-`..` 是范围分隔符，第一个值为激活边界，第二个值为终止边界。
+`..` 是区间边界分隔符。系统会先自动计算 `low = min(A, B)`、`high = max(A, B)`，因此 `30..70` 和 `70..30` 完全等价，边界顺序本身不携带方向语义。
 
 **语义：**
 
 | 语法 | 激活条件 | 活跃区间 | 失效条件 |
 | :--- | :--- | :--- | :--- |
-| `x> lower..upper` | `prev <= lower AND curr > lower` | `lower < value < upper` | `value >= upper` 或 `value <= lower` |
-| `x< upper..lower` | `prev >= upper AND curr < upper` | `lower < value < upper` | `value <= lower` 或 `value >= upper` |
-| `x>= lower..upper` | `prev < lower AND curr >= lower` | `lower <= value <= upper` | `value > upper` 或 `value < lower` |
-| `x<= upper..lower` | `prev > upper AND curr <= upper` | `lower <= value <= upper` | `value < lower` 或 `value > upper` |
+| `in A..B` | 无 | 当前值位于 `[low, high]` 即为 True | 跑出 `[low, high]` 即为 False |
+| `xin A..B` | `prev ∉ [low, high] AND curr ∈ [low, high]` | 瞬时信号，仅触发当根为 True | 下一根重新按同样规则判断 |
+| `x> A..B` | `prev < low AND curr ∈ [low, high]` | `low <= value <= high` | `value < low` 或 `value > high` |
+| `x< A..B` | `prev > high AND curr ∈ [low, high]` | `low <= value <= high` | `value < low` 或 `value > high` |
 
 **再激活**：值离开区间失效后，如果再次满足穿越条件，会重新激活。
 
@@ -153,17 +181,17 @@ class SignalGroup:
 **典型示例：**
 
 - **RSI 超卖反弹**：`RSI x> 30..70`
-  - 激活：RSI 自下而上穿过 30。
-  - 活跃：RSI 在 (30, 70) 区间。
-  - 失效：RSI 触及 70（获利）或跌破 30（走弱）。
+  - 激活：RSI 从 30 下方进入 `[30, 70]`。
+  - 活跃：RSI 保持在 `[30, 70]` 闭区间。
+  - 失效：RSI 跑到 30 下方或 70 上方。
 - **均线回踩确认**：`close x> sma_200..sma_50`
-  - 激活：价格从下方穿过长期均线（200线）。
-  - 活跃：价格保持在长期和短期均线（50线）之间。
-  - 失效：价格突破短期均线（趋势加速阶段结束）或跌破长期均线（支撑失败）。
+  - 激活：价格从两条均线下方进入它们围成的闭区间。
+  - 活跃：价格保持在两条均线之间，且边界值本身也算有效。
+  - 失效：价格重新跌回区间下方，或突破到区间上方。
 
 > [!WARNING]
 > **约束限制：**
-> 1. `..` **仅允许与交叉操作符搭配**（`x>`, `x<`, `x>=`, `x<=`）。普通比较操作符（`>`, `<` 等）不支持 `..`。
+> 1. `..` **仅允许与 `in`、`xin`、`x>`、`x<` 搭配**。普通比较操作符以及 `x>=` / `x<=` 都不支持 `..`。
 > 2. 左操作数的偏移量**仅支持单值**（如 `0`, `1`）。范围偏移量（`&1-3`）和列表偏移量（`|1/3/5`）不允许与 `..` 搭配。(暂时不支持, 未来可能会添加)
 
 ### 2.3 右操作数 (Right Operand)
@@ -225,24 +253,38 @@ class SignalGroup:
 ### 区间穿越 (RSI 方向信号)
 ```text
 "rsi,ohlcv_1h,0 x> 20..60"
-# RSI 自下而上穿过20时激活，RSI 在 (20, 60) 区间内持续为 True
-# RSI >= 60 或 RSI <= 20 时失效
+# RSI 从 20 下方进入 [20, 60] 时激活
+# RSI 在 [20, 60] 闭区间内持续为 True
+# RSI < 20 或 RSI > 60 时失效
+```
+
+### 当前是否位于区间内
+```text
+"rsi,ohlcv_1h,0 in 20..60"
+# 当前 RSI 是否位于 [20, 60] 闭区间内
+```
+
+### 进入区间瞬时信号
+```text
+"rsi,ohlcv_15m,0 xin 20..60"
+# 前一根不在 [20, 60] 内，当前进入 [20, 60] 时返回 True
+# `! xin` 继续使用现有的 `!` 前缀语法，不需要单独定义新运算符
 ```
 
 ### 区间穿越 (布林带方向信号)
 ```text
 "close,ohlcv_1h,0 x> bbands_lower,ohlcv_1h,0 .. bbands_middle,ohlcv_1h,0"
-# 价格自下而上穿过布林下轨时激活
-# 价格在 (下轨, 中轨) 区间内持续为 True
-# 价格 >= 中轨 或 价格 <= 下轨 时失效
+# 系统会先自动比较两条边界大小，再确定区间上下沿
+# 价格从区间下方进入两条布林线围成的闭区间时激活
+# 价格保持在该闭区间内持续为 True
 ```
 
 ### 区间穿越 (做空方向 + 参数引用)
 ```text
 "rsi,ohlcv_1h,0 x< $rsi_high .. $rsi_low"
-# RSI 自上而下穿过 $rsi_high 时激活
-# RSI 在 ($rsi_low, $rsi_high) 区间内持续为 True
-# RSI <= $rsi_low 或 RSI >= $rsi_high 时失效
+# 无论参数顺序如何，都会先归一化成 [low, high]
+# RSI 从区间上方进入该闭区间时激活
+# RSI 在闭区间内持续为 True，跑出区间后失效
 ```
 
 ### 复杂组合示例 (Python 代码)

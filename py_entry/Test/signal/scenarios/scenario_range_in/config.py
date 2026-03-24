@@ -1,11 +1,8 @@
-"""场景: 非法区间穿越 - x>= with .."""
+"""场景: 当前值位于区间内 - in with .."""
 
 from py_entry.types import SignalTemplate, SignalGroup, LogicOp, Param
-import pyo3_quant
 
-EXPECTED_EXCEPTION = pyo3_quant.errors.PyParseError
-
-DESCRIPTION = "测试 x>= 与 .. 搭配时应该报解析错误"
+DESCRIPTION = "测试 in ..：当前值是否位于闭区间内"
 
 INDICATORS_PARAMS = {
     "ohlcv_15m": {
@@ -18,7 +15,7 @@ SIGNAL_PARAMS = {}
 SIGNAL_TEMPLATE = SignalTemplate(
     entry_long=SignalGroup(
         logic=LogicOp.AND,
-        comparisons=["rsi, ohlcv_15m, 0 x>= 30..70"],
+        comparisons=["rsi, ohlcv_15m, 0 in 30..70"],
     ),
     exit_long=None,
     entry_short=None,

@@ -76,6 +76,14 @@ from py_entry.Test.signal.scenarios.scenario_cross_data_source import (
     config as cross_data_source_config,
     manual_calc as cross_data_source_calc,
 )
+from py_entry.Test.signal.scenarios.scenario_cross_non_base_invalid import (
+    config as cross_non_base_invalid_config,
+    manual_calc as cross_non_base_invalid_calc,
+)
+from py_entry.Test.signal.scenarios.scenario_xin_non_base_invalid import (
+    config as xin_non_base_invalid_config,
+    manual_calc as xin_non_base_invalid_calc,
+)
 from py_entry.Test.signal.scenarios.scenario_scalar_comparison import (
     config as scalar_comparison_config,
     manual_calc as scalar_comparison_calc,
@@ -99,6 +107,14 @@ from py_entry.Test.signal.scenarios.scenario_syntax_invalid_wrong_order import (
 from py_entry.Test.signal.scenarios.scenario_zone_cross_up import (
     config as zone_cross_up_config,
     manual_calc as zone_cross_up_calc,
+)
+from py_entry.Test.signal.scenarios.scenario_range_in import (
+    config as range_in_config,
+    manual_calc as range_in_calc,
+)
+from py_entry.Test.signal.scenarios.scenario_range_xin import (
+    config as range_xin_config,
+    manual_calc as range_xin_calc,
 )
 from py_entry.Test.signal.scenarios.scenario_zone_cross_down import (
     config as zone_cross_down_config,
@@ -175,6 +191,24 @@ _ALL_SCENARIOS = [
         expected_exception=None,  # 预期成功
     ),
     TestScenario(
+        name="scenario_range_in",
+        description=range_in_config.DESCRIPTION,
+        indicators_params=range_in_config.INDICATORS_PARAMS,
+        signal_params=range_in_config.SIGNAL_PARAMS,
+        signal_template=range_in_config.SIGNAL_TEMPLATE,
+        manual_calculator=range_in_calc.calculate_signals,
+        expected_exception=None,  # 预期成功
+    ),
+    TestScenario(
+        name="scenario_range_xin",
+        description=range_xin_config.DESCRIPTION,
+        indicators_params=range_xin_config.INDICATORS_PARAMS,
+        signal_params=range_xin_config.SIGNAL_PARAMS,
+        signal_template=range_xin_config.SIGNAL_TEMPLATE,
+        manual_calculator=range_xin_calc.calculate_signals,
+        expected_exception=None,  # 预期成功
+    ),
+    TestScenario(
         name="scenario_zone_cross_down",
         description=zone_cross_down_config.DESCRIPTION,
         indicators_params=zone_cross_down_config.INDICATORS_PARAMS,
@@ -217,7 +251,7 @@ _ALL_SCENARIOS = [
         signal_params=zone_cross_inclusive_config.SIGNAL_PARAMS,
         signal_template=zone_cross_inclusive_config.SIGNAL_TEMPLATE,
         manual_calculator=zone_cross_inclusive_calc.calculate_signals,
-        expected_exception=None,  # 预期成功
+        expected_exception=zone_cross_inclusive_config.EXPECTED_EXCEPTION,
     ),
     TestScenario(
         name="scenario_logic_and",
@@ -328,6 +362,24 @@ _ALL_SCENARIOS = [
         expected_exception=None,  # 预期成功
     ),
     # 预期报错的场景（边界行为测试）
+    TestScenario(
+        name="scenario_cross_non_base_invalid",
+        description=cross_non_base_invalid_config.DESCRIPTION,
+        indicators_params=cross_non_base_invalid_config.INDICATORS_PARAMS,
+        signal_params=cross_non_base_invalid_config.SIGNAL_PARAMS,
+        signal_template=cross_non_base_invalid_config.SIGNAL_TEMPLATE,
+        manual_calculator=cross_non_base_invalid_calc.calculate_signals,
+        expected_exception=cross_non_base_invalid_config.EXPECTED_EXCEPTION,
+    ),
+    TestScenario(
+        name="scenario_xin_non_base_invalid",
+        description=xin_non_base_invalid_config.DESCRIPTION,
+        indicators_params=xin_non_base_invalid_config.INDICATORS_PARAMS,
+        signal_params=xin_non_base_invalid_config.SIGNAL_PARAMS,
+        signal_template=xin_non_base_invalid_config.SIGNAL_TEMPLATE,
+        manual_calculator=xin_non_base_invalid_calc.calculate_signals,
+        expected_exception=xin_non_base_invalid_config.EXPECTED_EXCEPTION,
+    ),
     TestScenario(
         name="scenario_offset_invalid_mixed_logic",
         description=invalid_mixed_logic_config.DESCRIPTION,

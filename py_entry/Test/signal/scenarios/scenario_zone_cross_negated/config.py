@@ -2,7 +2,7 @@
 
 from py_entry.types import SignalTemplate, SignalGroup, LogicOp, Param
 
-DESCRIPTION = "测试取反区间穿越：! rsi x> 30..70 当RSI不在活跃区间时为True"
+DESCRIPTION = "测试取反区间穿越：! rsi x> 30..70 在非活跃区间时为 True"
 
 INDICATORS_PARAMS = {
     "ohlcv_15m": {

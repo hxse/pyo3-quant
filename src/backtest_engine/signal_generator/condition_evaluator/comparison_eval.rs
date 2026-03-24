@@ -107,101 +107,179 @@ pub(super) fn perform_crossover_comparison(
     Ok((cross_result, current_mask.bitor(prev_mask)))
 }
 
-/// 区间穿越：矢量化预计算比较结果 + 迭代器状态机
+/// 区间比较：按 bar 执行闭区间判断 / 进入区间判断 / 区间状态机
 ///
-/// Phase 1: 用 perform_comparison 矢量化计算 out_of_zone（SIMD 优化）
-/// Phase 2: 迭代器扫描 cross + out_of_zone 的 bool 结果，维护 active 状态
-pub(super) fn perform_zone_cross(
-    cross_result: &BooleanChunked,
-    cross_mask: &BooleanChunked,
+/// 中文说明：
+/// - `in A..B` 表示当前值位于 `[low, high]`
+/// - `xin A..B` 表示前一根不在 `[low, high]`，当前进入 `[low, high]`
+/// - `x> A..B` 表示从区间下方进入 `[low, high]`
+/// - `x< A..B` 表示从区间上方进入 `[low, high]`
+/// - `A..B` 会先自动归一化成 `low=min(A,B)`、`high=max(A,B)`
+/// - `x>` / `x<` 进入后只要仍在闭区间内就保持激活，跑出区间外才失效
+pub(super) fn perform_range_comparison(
     left_s: &Series,
     right_resolved: &ResolvedOperand,
+    right_idx: usize,
     end_resolved: &ResolvedOperand,
+    end_idx: usize,
     op: &CompareOp,
-) -> Result<BooleanChunked, QuantError> {
-    let len = left_s.len();
+) -> Result<(BooleanChunked, BooleanChunked), QuantError> {
+    /// 中文注释：统一把 Series 视为 f64 序列，便于逐 bar 做区间状态机。
+    fn cast_series_to_f64(series: &Series) -> Result<Float64Chunked, QuantError> {
+        series
+            .cast(&DataType::Float64)
+            .map_err(|e| {
+                QuantError::Signal(SignalError::InvalidInput(format!(
+                    "range_comparison 无法将序列转换为 Float64: {}",
+                    e
+                )))
+            })?
+            .f64()
+            .map_err(|e| {
+                QuantError::Signal(SignalError::InvalidInput(format!(
+                    "range_comparison 无法读取 Float64 序列: {}",
+                    e
+                )))
+            })
+            .cloned()
+    }
 
-    let ((ooz_end, end_mask), (ooz_activate, activate_mask)) = match op {
-        CompareOp::CGT => (
-            perform_comparison(
-                left_s,
-                end_resolved,
-                0,
-                |a, b| a.gt_eq(b),
-                |a, v| a.gt_eq(v),
-            )?,
-            perform_comparison(
-                left_s,
-                right_resolved,
-                0,
-                |a, b| a.lt_eq(b),
-                |a, v| a.lt_eq(v),
-            )?,
-        ),
-        CompareOp::CGE => (
-            perform_comparison(left_s, end_resolved, 0, |a, b| a.gt(b), |a, v| a.gt(v))?,
-            perform_comparison(left_s, right_resolved, 0, |a, b| a.lt(b), |a, v| a.lt(v))?,
-        ),
-        CompareOp::CLT => (
-            perform_comparison(
-                left_s,
-                end_resolved,
-                0,
-                |a, b| a.lt_eq(b),
-                |a, v| a.lt_eq(v),
-            )?,
-            perform_comparison(
-                left_s,
-                right_resolved,
-                0,
-                |a, b| a.gt_eq(b),
-                |a, v| a.gt_eq(v),
-            )?,
-        ),
-        CompareOp::CLE => (
-            perform_comparison(left_s, end_resolved, 0, |a, b| a.lt(b), |a, v| a.lt(v))?,
-            perform_comparison(left_s, right_resolved, 0, |a, b| a.gt(b), |a, v| a.gt(v))?,
-        ),
-        _ => {
-            return Err(QuantError::Signal(SignalError::InvalidInput(format!(
-                "zone_cross 仅支持交叉运算符(x>, x<, x>=, x<=)，当前运算符: {:?}",
-                op
-            ))));
+    #[derive(Clone)]
+    enum OperandView {
+        Series(Float64Chunked),
+        Scalar(f64),
+    }
+
+    impl OperandView {
+        fn current(&self, idx: usize) -> Option<f64> {
+            match self {
+                Self::Series(series) => series.get(idx),
+                Self::Scalar(value) => Some(*value),
+            }
         }
-    };
 
-    let out_of_zone = ooz_end.bitor(ooz_activate);
-    let combined_invalid = cross_mask.bitor(&end_mask).bitor(activate_mask);
+        fn previous(&self, idx: usize) -> Option<f64> {
+            match self {
+                Self::Series(series) => {
+                    idx.checked_sub(1).and_then(|prev_idx| series.get(prev_idx))
+                }
+                Self::Scalar(value) => Some(*value),
+            }
+        }
+    }
+
+    fn build_operand_view(
+        operand: &ResolvedOperand,
+        operand_idx: usize,
+    ) -> Result<OperandView, QuantError> {
+        match operand {
+            ResolvedOperand::Series(series_vec) => {
+                let selected = if series_vec.len() == 1 {
+                    &series_vec[0]
+                } else {
+                    &series_vec[operand_idx]
+                };
+                Ok(OperandView::Series(cast_series_to_f64(selected)?))
+            }
+            ResolvedOperand::Scalar(value) => Ok(OperandView::Scalar(*value)),
+        }
+    }
+
+    fn is_invalid(value: Option<f64>) -> bool {
+        value.is_none_or(f64::is_nan)
+    }
+
+    let len = left_s.len();
+    let left_view = OperandView::Series(cast_series_to_f64(left_s)?);
+    let right_view = build_operand_view(right_resolved, right_idx)?;
+    let end_view = build_operand_view(end_resolved, end_idx)?;
 
     let mut result = Vec::with_capacity(len);
+    let mut mask = Vec::with_capacity(len);
     let mut active = false;
 
-    let cross_iter = cross_result.iter();
-    let ooz_iter = out_of_zone.into_iter();
-    let invalid_iter = combined_invalid.into_iter();
+    for idx in 0..len {
+        let curr_left = left_view.current(idx);
+        let curr_right = right_view.current(idx);
+        let curr_end = end_view.current(idx);
+        let prev_left = left_view.previous(idx);
+        let prev_right = right_view.previous(idx);
+        let prev_end = end_view.previous(idx);
 
-    for (c, (o, inv)) in cross_iter.zip(ooz_iter.zip(invalid_iter)) {
-        let is_invalid = inv.unwrap_or(true);
-        if is_invalid {
+        let current_invalid =
+            is_invalid(curr_left) || is_invalid(curr_right) || is_invalid(curr_end);
+        let previous_invalid =
+            is_invalid(prev_left) || is_invalid(prev_right) || is_invalid(prev_end);
+
+        let requires_prev = matches!(op, CompareOp::XIN | CompareOp::XGT | CompareOp::XLT);
+
+        if current_invalid || (requires_prev && previous_invalid) {
             active = false;
             result.push(false);
+            mask.push(true);
             continue;
         }
 
-        let is_cross = c.unwrap_or(false);
-        let is_ooz = o.unwrap_or(true);
+        let curr_left = curr_left.unwrap();
+        let curr_right = curr_right.unwrap();
+        let curr_end = curr_end.unwrap();
+        let curr_low = curr_right.min(curr_end);
+        let curr_high = curr_right.max(curr_end);
+        let is_in_zone = curr_low <= curr_left && curr_left <= curr_high;
 
-        if is_cross && !is_ooz {
-            active = true;
-        } else if is_ooz {
-            active = false;
+        match op {
+            CompareOp::IN => {
+                result.push(is_in_zone);
+                mask.push(false);
+                continue;
+            }
+            CompareOp::XIN => {
+                let prev_left = prev_left.unwrap();
+                let prev_right = prev_right.unwrap();
+                let prev_end = prev_end.unwrap();
+                let prev_low = prev_right.min(prev_end);
+                let prev_high = prev_right.max(prev_end);
+                let was_in_zone = prev_low <= prev_left && prev_left <= prev_high;
+                result.push(!was_in_zone && is_in_zone);
+                mask.push(false);
+                continue;
+            }
+            CompareOp::XGT => {
+                let prev_left = prev_left.unwrap();
+                let prev_right = prev_right.unwrap();
+                let prev_end = prev_end.unwrap();
+                let prev_low = prev_right.min(prev_end);
+                if prev_left < prev_low && is_in_zone {
+                    active = true;
+                } else if !is_in_zone {
+                    active = false;
+                }
+            }
+            CompareOp::XLT => {
+                let prev_left = prev_left.unwrap();
+                let prev_right = prev_right.unwrap();
+                let prev_end = prev_end.unwrap();
+                let prev_high = prev_right.max(prev_end);
+                if prev_left > prev_high && is_in_zone {
+                    active = true;
+                } else if !is_in_zone {
+                    active = false;
+                }
+            }
+            _ => {
+                return Err(QuantError::Signal(SignalError::InvalidInput(format!(
+                    "区间比较仅支持 in、xin、x>、x<，当前运算符: {:?}",
+                    op
+                ))));
+            }
         }
 
         result.push(active);
+        mask.push(false);
     }
 
-    Ok(BooleanChunked::from_slice(
-        PlSmallStr::from_static("zone_cross"),
-        &result,
+    Ok((
+        BooleanChunked::from_slice(PlSmallStr::from_static("range_comparison"), &result),
+        BooleanChunked::from_slice(PlSmallStr::from_static("range_comparison_mask"), &mask),
     ))
 }

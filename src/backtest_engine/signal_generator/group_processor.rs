@@ -1,5 +1,6 @@
 use super::condition_evaluator::evaluate_parsed_condition;
 use super::parser::parse_condition;
+use super::types::{CompareOp, SignalCondition, SignalRightOperand};
 use crate::backtest_engine::utils::get_data_length;
 use crate::error::QuantError;
 use crate::types::DataContainer;
@@ -9,6 +10,77 @@ use crate::types::SignalGroup;
 use crate::types::SignalParams;
 use polars::prelude::*;
 use std::ops::{BitAnd, BitOr};
+
+fn is_cross_operator(op: &CompareOp) -> bool {
+    matches!(
+        op,
+        CompareOp::XGT
+            | CompareOp::XLT
+            | CompareOp::XGE
+            | CompareOp::XLE
+            | CompareOp::XEQ
+            | CompareOp::XNE
+            | CompareOp::XIN
+    )
+}
+
+fn validate_cross_operator_sources(
+    condition: &SignalCondition,
+    base_data_key: &str,
+    raw_condition: &str,
+) -> Result<(), QuantError> {
+    if !is_cross_operator(&condition.op) {
+        return Ok(());
+    }
+
+    let left_source = if condition.left.source.is_empty() {
+        base_data_key
+    } else {
+        condition.left.source.as_str()
+    };
+
+    if left_source != base_data_key {
+        return Err(crate::error::SignalError::InvalidInput(format!(
+            "交叉类运算符(x>, x<, x>=, x<=, x==, x!=, xin) 仅允许用于 base_data_key。\n条件: '{}'\nbase_data_key: '{}'\nleft source: '{}'",
+            raw_condition, base_data_key, left_source
+        ))
+        .into());
+    }
+
+    if let SignalRightOperand::Data(right_data) = &condition.right {
+        let right_source = if right_data.source.is_empty() {
+            base_data_key
+        } else {
+            right_data.source.as_str()
+        };
+
+        if right_source != base_data_key {
+            return Err(crate::error::SignalError::InvalidInput(format!(
+                "交叉类运算符的数据右操作数也必须使用 base_data_key。\n条件: '{}'\nbase_data_key: '{}'\nright source: '{}'",
+                raw_condition, base_data_key, right_source
+            ))
+            .into());
+        }
+    }
+
+    if let Some(SignalRightOperand::Data(zone_end_data)) = &condition.zone_end {
+        let zone_end_source = if zone_end_data.source.is_empty() {
+            base_data_key
+        } else {
+            zone_end_data.source.as_str()
+        };
+
+        if zone_end_source != base_data_key {
+            return Err(crate::error::SignalError::InvalidInput(format!(
+                "交叉类运算符的区间终止边界也必须使用 base_data_key。\n条件: '{}'\nbase_data_key: '{}'\nzone_end source: '{}'",
+                raw_condition, base_data_key, zone_end_source
+            ))
+            .into());
+        }
+    }
+
+    Ok(())
+}
 
 /// 处理 SignalGroup，根据 LogicOp 组合多个 SignalCondition 的结果
 pub fn process_signal_group(
@@ -24,6 +96,7 @@ pub fn process_signal_group(
     for comparison_str in group.comparisons.iter() {
         // 解析字符串
         let condition = parse_condition(comparison_str)?;
+        validate_cross_operator_sources(&condition, &processed_data.base_data_key, comparison_str)?;
 
         // 评估条件
         let (result_series, mask_bool) =

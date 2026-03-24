@@ -7,7 +7,7 @@ from py_entry.types import (
     Param,
 )
 
-DESCRIPTION = "测试区间穿越向上：rsi x> 30..70 表示RSI上穿30后持续有效直到70"
+DESCRIPTION = "测试区间穿越向上：RSI 从区间下方进入 [30, 70] 后持续有效"
 
 INDICATORS_PARAMS = {
     "ohlcv_15m": {

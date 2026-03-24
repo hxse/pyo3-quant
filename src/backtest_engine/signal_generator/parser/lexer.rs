@@ -227,18 +227,24 @@ pub(super) fn parse_right_operand(input: &str) -> Res<'_, SignalRightOperand> {
 /// # 普通运算符
 /// - `>`, `<`, `>=`, `<=`, `==`, `!=`
 ///
+/// # 范围运算符
+/// - `in`: 当前值是否位于区间内（需与 `..` 搭配）
+/// - `xin`: 前一根不在区间内，当前进入区间（需与 `..` 搭配）
+///
 /// # 交叉运算符（用 `x` 前缀表示）
 /// - `x>`: 向上突破（前值 <= 后值，当前值 > 后值）
 /// - `x<`: 向下突破（前值 >= 后值，当前值 < 后值）
 /// - `x>=`, `x<=`, `x==`, `x!=`: 类似的交叉逻辑
 pub(super) fn parse_op(input: &str) -> Res<'_, CompareOp> {
     alt((
-        value(CompareOp::CGE, tag("x>=")),
-        value(CompareOp::CLE, tag("x<=")),
-        value(CompareOp::CEQ, tag("x==")),
-        value(CompareOp::CNE, tag("x!=")),
-        value(CompareOp::CGT, tag("x>")),
-        value(CompareOp::CLT, tag("x<")),
+        value(CompareOp::XIN, tag("xin")),
+        value(CompareOp::IN, tag("in")),
+        value(CompareOp::XGE, tag("x>=")),
+        value(CompareOp::XLE, tag("x<=")),
+        value(CompareOp::XEQ, tag("x==")),
+        value(CompareOp::XNE, tag("x!=")),
+        value(CompareOp::XGT, tag("x>")),
+        value(CompareOp::XLT, tag("x<")),
         value(CompareOp::GE, tag(">=")),
         value(CompareOp::LE, tag("<=")),
         value(CompareOp::EQ, tag("==")),

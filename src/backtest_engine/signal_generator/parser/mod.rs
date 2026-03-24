@@ -153,12 +153,12 @@ pub fn parse_condition(input: &str) -> Result<SignalCondition, QuantError> {
 
             // 区间穿越(..) 约束校验
             if condition.zone_end.is_some() {
-                // 1. 仅允许与交叉操作符搭配
+                // 1. 仅允许与 x> / x< / in / xin 搭配
                 match condition.op {
-                    CompareOp::CGT | CompareOp::CLT | CompareOp::CGE | CompareOp::CLE => {}
+                    CompareOp::XGT | CompareOp::XLT | CompareOp::IN | CompareOp::XIN => {}
                     _ => {
                         return Err(QuantError::Signal(SignalError::ParseError(format!(
-                            "区间穿越(..)仅允许与交叉操作符搭配(x>, x<, x>=, x<=)，当前操作符不支持。\n条件: '{}'",
+                            "区间比较(..)仅允许与 x>、x<、in 或 xin 搭配，当前操作符不支持。\n条件: '{}'",
                             trimmed_input
                         ))))
                     }
@@ -173,6 +173,16 @@ pub fn parse_condition(input: &str) -> Result<SignalCondition, QuantError> {
                         ))))
                     }
                 }
+            }
+
+            // in / xin 必须显式提供区间结束边界
+            if condition.zone_end.is_none()
+                && matches!(condition.op, CompareOp::IN | CompareOp::XIN)
+            {
+                return Err(QuantError::Signal(SignalError::ParseError(format!(
+                    "in 与 xin 必须使用 .. 提供完整区间边界。\n条件: '{}'",
+                    trimmed_input
+                ))));
             }
 
             Ok(condition)
@@ -198,7 +208,7 @@ mod tests {
     #[test]
     fn test_parse_zone_cross_scalar() {
         let cond = parse_condition("rsi, ohlcv_15m, 0 x> 30..70").unwrap();
-        assert!(matches!(cond.op, CompareOp::CGT));
+        assert!(matches!(cond.op, CompareOp::XGT));
         if let SignalRightOperand::Scalar(v) = cond.right {
             assert!((v - 30.0).abs() < f64::EPSILON);
         } else {
@@ -227,6 +237,20 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_range_in_scalar() {
+        let cond = parse_condition("rsi, ohlcv_15m, 0 in 30..70").unwrap();
+        assert!(matches!(cond.op, CompareOp::IN));
+        assert!(cond.zone_end.is_some());
+    }
+
+    #[test]
+    fn test_parse_range_xin_scalar() {
+        let cond = parse_condition("rsi, ohlcv_15m, 0 xin 30..70").unwrap();
+        assert!(matches!(cond.op, CompareOp::XIN));
+        assert!(cond.zone_end.is_some());
+    }
+
+    #[test]
     fn test_parse_zone_cross_rejects_non_cross_op() {
         // 普通 > 不允许搭配 ..
         let result = parse_condition("rsi, ohlcv_15m, 0 > 30..70");
@@ -234,9 +258,22 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_zone_cross_rejects_inclusive_cross_op() {
+        // x>= / x<= 不允许搭配 ..
+        let result = parse_condition("rsi, ohlcv_15m, 0 x>= 30..70");
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_parse_zone_cross_rejects_range_offset() {
         // 范围偏移不允许搭配 ..
         let result = parse_condition("rsi, ohlcv_15m, &1-3 x> 30..70");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_range_in_rejects_missing_zone_end() {
+        let result = parse_condition("rsi, ohlcv_15m, 0 in 30");
         assert!(result.is_err());
     }
 

@@ -25,38 +25,27 @@ def calculate_entry_long(
     result = [False] * length
     active = False
 
-    # 获取参数值 (Param 对象)
-    # Param(val) 返回 Param 对象，访问其 value 属性
     lower = signal_params["lower"].value
     upper = signal_params["upper"].value
-
-    # 转化为 list 方便操作
     rsi = rsi_s.to_list()
 
     for i in range(length):
         val = rsi[i]
+        prev_val = rsi[i - 1] if i > 0 else None
 
-        # NaN/Null 处理：状态重置为非活跃
-        if val is None or math.isnan(val):
+        if val is None or math.isnan(val) or prev_val is None or math.isnan(prev_val):
             active = False
             result[i] = False
             continue
 
-        prev_val = rsi[i - 1] if i > 0 else None
+        low = min(lower, upper)
+        high = max(lower, upper)
+        is_in_zone = low <= val <= high
+        is_cross = prev_val < low and val >= low and is_in_zone
 
-        # 1. 检查瞬时穿越 (x> lower): prev <= lower AND curr > lower
-        is_cross = False
-        if prev_val is not None and not math.isnan(prev_val):
-            if prev_val <= lower and val > lower:
-                is_cross = True
-
-        # 2. 检查区间脱离 (out_of_zone): val >= upper OR val <= lower
-        is_ooz = val >= upper or val <= lower
-
-        # 状态切换逻辑
-        if is_cross and not is_ooz:
+        if is_cross:
             active = True
-        elif is_ooz:
+        elif not is_in_zone:
             active = False
 
         result[i] = active

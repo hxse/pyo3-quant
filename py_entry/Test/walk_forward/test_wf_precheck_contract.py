@@ -1,8 +1,6 @@
 """WF 预检入口契约测试。"""
 
 from __future__ import annotations
-
-import types
 from collections.abc import Callable
 
 import pytest
@@ -103,6 +101,7 @@ def test_wf_precheck_supports_strategy_without_indicators(
 
 
 def test_wf_precheck_error_message_is_diagnosable(
+    monkeypatch: pytest.MonkeyPatch,
     build_single_sma_backtest: Callable[..., Backtest],
     build_wf_cfg: Callable[..., WalkForwardConfig],
 ):
@@ -116,10 +115,10 @@ def test_wf_precheck_error_message_is_diagnosable(
     )
 
     # 中文注释：强制篡改观测值，稳定触发“required != observed”分支。
-    def _fake_leading(_self, _df, _col):
+    def _fake_leading(_df, _col):
         return 0
 
-    bt._leading_missing_count = types.MethodType(_fake_leading, bt)  # type: ignore[attr-defined]
+    monkeypatch.setattr(bt, "_leading_missing_count", _fake_leading)
 
     with pytest.raises(ValueError) as exc:
         bt.validate_wf_indicator_readiness(cfg)

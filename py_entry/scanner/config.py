@@ -66,7 +66,7 @@ class ScannerConfig(BaseModel):
 
     # 启用的策略名单（仅启动这里声明的策略；未声明的策略仍保留代码与注册能力）
     enabled_strategies: list[str] = [
-        "dual_pair_minimal_scan",
+        "topdown_ema_alignment_long",
     ]
 
     @model_validator(mode="before")

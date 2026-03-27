@@ -14,6 +14,9 @@ from py_entry.scanner.strategies.pullback import PullbackStrategy
 from py_entry.scanner.strategies.macd_resonance import MacdResonanceStrategy
 from py_entry.scanner.strategies.macd_fallback import MacdFallbackStrategy
 from py_entry.scanner.strategies.topdown_ema_bias import TopdownEmaBiasStrategy
+from py_entry.scanner.strategies.topdown_ema_alignment_long import (
+    TopdownEmaAlignmentLongStrategy,
+)
 from py_entry.scanner.strategies.dual_pair_minimal_scan import (
     DualPairMinimalScanStrategy,
 )
@@ -61,6 +64,7 @@ class TestEngineStrategies(unittest.TestCase):
         self.macd_resonance_strategy = MacdResonanceStrategy()
         self.macd_fallback_strategy = MacdFallbackStrategy()
         self.topdown_ema_bias_strategy = TopdownEmaBiasStrategy()
+        self.topdown_ema_alignment_long_strategy = TopdownEmaAlignmentLongStrategy()
         self.dual_pair_minimal_scan_strategy = DualPairMinimalScanStrategy()
 
     def create_context(
@@ -295,6 +299,135 @@ class TestEngineStrategies(unittest.TestCase):
         self.assertIsNotNone(sig)
         if sig:
             self.assertEqual(sig.direction, "short")
+
+    def test_topdown_ema_alignment_long_strategy_daily_long(self):
+        """测试 TopdownEmaAlignmentLongStrategy 日线方向 + 5m 上穿触发"""
+        p_macro = [100.0] * 120
+        p_trend = np.linspace(80.0, 120.0, 180).tolist()
+        p_wave = np.linspace(100.0, 140.0, 240).tolist()
+
+        p_trigger_flat = [99.0] * 598
+        p_trigger_break = [130.0]
+        p_trigger_hold = [130.0]
+        p_trigger = p_trigger_flat + p_trigger_break + p_trigger_hold
+
+        ctx = self.create_context(
+            "TEST.TOPDOWN.EMA.ALIGN.DAILY",
+            {
+                ScanLevel.MACRO: p_macro,
+                ScanLevel.TREND: p_trend,
+                ScanLevel.WAVE: p_wave,
+                ScanLevel.TRIGGER: p_trigger,
+            },
+            strategy=self.topdown_ema_alignment_long_strategy,
+        )
+
+        sig = self.topdown_ema_alignment_long_strategy.scan(ctx)
+        self.assertIsNotNone(sig)
+        if sig:
+            self.assertEqual(sig.direction, "long")
+
+    def test_topdown_ema_alignment_long_strategy_weekly_long(self):
+        """测试 TopdownEmaAlignmentLongStrategy 周线方向 + 5m 上穿触发"""
+        p_macro = np.linspace(80.0, 120.0, 120).tolist()
+        p_trend = [100.0] * 180
+        p_wave = np.linspace(100.0, 140.0, 240).tolist()
+
+        p_trigger_flat = [99.0] * 598
+        p_trigger_break = [130.0]
+        p_trigger_hold = [130.0]
+        p_trigger = p_trigger_flat + p_trigger_break + p_trigger_hold
+
+        ctx = self.create_context(
+            "TEST.TOPDOWN.EMA.ALIGN.WEEKLY",
+            {
+                ScanLevel.MACRO: p_macro,
+                ScanLevel.TREND: p_trend,
+                ScanLevel.WAVE: p_wave,
+                ScanLevel.TRIGGER: p_trigger,
+            },
+            strategy=self.topdown_ema_alignment_long_strategy,
+        )
+
+        sig = self.topdown_ema_alignment_long_strategy.scan(ctx)
+        self.assertIsNotNone(sig)
+        if sig:
+            self.assertEqual(sig.direction, "long")
+
+    def test_topdown_ema_alignment_long_strategy_opening_bar_long(self):
+        """测试 TopdownEmaAlignmentLongStrategy 支持开盘首根站上 EMA20 触发"""
+        p_macro = [100.0] * 120
+        p_trend = np.linspace(80.0, 120.0, 180).tolist()
+        p_wave = np.linspace(100.0, 140.0, 240).tolist()
+        # 中文注释：倒数第三根已经在 5m EMA20 上方，避免把这条用例误打成 x> 分支。
+        p_trigger = [99.0] * 597 + [115.0, 130.0, 130.0]
+
+        ctx = self.create_context(
+            "TEST.TOPDOWN.EMA.ALIGN.OPENING",
+            {
+                ScanLevel.MACRO: p_macro,
+                ScanLevel.TREND: p_trend,
+                ScanLevel.WAVE: p_wave,
+                ScanLevel.TRIGGER: p_trigger,
+            },
+            strategy=self.topdown_ema_alignment_long_strategy,
+        )
+
+        trigger_storage_key = ctx.get_storage_key(ScanLevel.TRIGGER)
+        trigger_df = ctx.klines[trigger_storage_key].copy()
+        trigger_df.loc[len(trigger_df) - 2, "datetime"] = trigger_df.loc[
+            len(trigger_df) - 3, "datetime"
+        ] + int(2 * 60 * 60 * 1e9)
+        trigger_df.loc[len(trigger_df) - 1, "datetime"] = trigger_df.loc[
+            len(trigger_df) - 2, "datetime"
+        ] + int(5 * 60 * 1e9)
+        ctx.klines[trigger_storage_key] = trigger_df
+
+        sig = self.topdown_ema_alignment_long_strategy.scan(ctx)
+        self.assertIsNotNone(sig)
+        if sig:
+            self.assertEqual(sig.direction, "long")
+
+    def test_topdown_ema_alignment_long_strategy_requires_topdown_bias(self):
+        """测试 TopdownEmaAlignmentLongStrategy 在日线和周线都不满足时返回空"""
+        ctx = self.create_context(
+            "TEST.TOPDOWN.EMA.ALIGN.NONE",
+            {
+                ScanLevel.MACRO: [100.0] * 120,
+                ScanLevel.TREND: [100.0] * 180,
+                ScanLevel.WAVE: np.linspace(100.0, 140.0, 240).tolist(),
+                ScanLevel.TRIGGER: [99.0] * 598 + [110.0, 110.0],
+            },
+            strategy=self.topdown_ema_alignment_long_strategy,
+        )
+
+        sig = self.topdown_ema_alignment_long_strategy.scan(ctx)
+        self.assertIsNone(sig)
+
+    def test_topdown_ema_alignment_long_strategy_requires_hour_filter(self):
+        """测试 TopdownEmaAlignmentLongStrategy 在 1h 过滤不满足时返回空"""
+        p_macro = [100.0] * 120
+        p_trend = np.linspace(80.0, 120.0, 180).tolist()
+        p_wave = [100.0] * 240
+
+        p_trigger_flat = [99.0] * 598
+        p_trigger_break = [130.0]
+        p_trigger_hold = [130.0]
+        p_trigger = p_trigger_flat + p_trigger_break + p_trigger_hold
+
+        ctx = self.create_context(
+            "TEST.TOPDOWN.EMA.ALIGN.HOUR_FAIL",
+            {
+                ScanLevel.MACRO: p_macro,
+                ScanLevel.TREND: p_trend,
+                ScanLevel.WAVE: p_wave,
+                ScanLevel.TRIGGER: p_trigger,
+            },
+            strategy=self.topdown_ema_alignment_long_strategy,
+        )
+
+        sig = self.topdown_ema_alignment_long_strategy.scan(ctx)
+        self.assertIsNone(sig)
 
     def test_macd_fallback_strategy_weekly_long(self):
         """测试 MacdFallbackStrategy 周线直接定多"""

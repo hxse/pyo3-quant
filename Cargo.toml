@@ -12,6 +12,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 nom = "8.0.0"
 polars = { version = "0.52", default-features = false, features = [
+    "asof_join",
     "lazy",
     "rolling_window",
     "ewma",

@@ -40,3 +40,15 @@
 - 2026-03-04 运行口径补充：机器人启动只校验“已注册且 enabled 条目”的策略名唯一性，不再扫描仓库全量策略。
 - 2026-03-04 运行口径补充：机器人循环只消费已注册策略内存映射，`just workflow` 仍保持全量策略扫描与全局合法性校验。
 - 2026-03-04 维护口径补充：`spec_loader` 模块发现缓存已删除，改为每次实时扫描，避免缓存状态漂移。
+
+## 2026-03-10 unified ranges warmup wf
+- 本任务聚焦统一 `ranges / warmup / mapping / walk_forward / stitched` 的整套语义，并明确拒绝氛围编程与“先跑起来再修”的路径。
+- 摘要文档被拆成 `01~04` 四份顺序文档，分别覆盖基础约束、Python 网络请求与 Rust 取数、单次回测与 `extract_active(...)`、WF 与 stitched。
+- 核心类型口径统一为 `DataPack / ResultPack / SourceRange`，其中 `SourceRange` 收敛为 `warmup_bars / active_bars / pack_bars`。
+- 时间映射算法统一收口到三个工具函数：`exact_index_by_time(...)`、`map_source_row_by_time(...)`、`map_source_end_by_base_end(...)`，不再允许多处各写一套 backward asof 逻辑。
+- 单次回测要求信号模块内部处理预热禁开仓，绩效模块内部按 `DataPack.ranges` 只统计非预热段。
+- `extract_active(...)` 被定义为唯一显式例外：它不走 builder，只对已验证同源的 `DataPack / ResultPack` 做机械化非预热提取视图。
+- WF 只支持 `step = test_active_bars`，窗口测试执行固定两段：第一次跑到 `Signals`，跨窗注入后第二次复用 `indicators + injected_signals` 跑到 `Performance`。
+- WF 预热配置的摘要方案最终收敛为 `BorrowFromTrain | ExtendTest`，并补入 `ignore_indicator_warmup: bool` 作为显式对照实验 / 备胎开关，默认值固定为 `false`。
+- stitched 的 `DataPack` 真值直接来自初始 `full_data` 的全局 `test_active` 切片，不来自窗口 `DataPack` 拼接；窗口结果只负责生成 stitched 结果字段并做一致性校验。
+- 任务现已补出 `02_execution/01_execution_plan.md` 与 `02_execution/02_test_plan.md`：前者只保留实现顺序、关键接口、文件清单、删除项和验收步骤，后者单独收敛测试分层、PyO3 测试工具函数、WF 性能约束与建议新增测试文件清单。

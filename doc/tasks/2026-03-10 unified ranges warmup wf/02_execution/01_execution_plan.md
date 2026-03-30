@@ -133,14 +133,15 @@
 1. 落地 `build_mapping_frame(...)`。
 2. 落地 `build_data_pack(...)`。
 3. 落地 `build_result_pack(...)`。
-4. 落地 `slice_data_pack_by_base_window(...)`。
-5. 落地 `extract_active(...)`。
-6. 落地 stitched 拼接与资金列重建辅助函数。
-7. 把共享 warmup helper 正式收口到唯一实现源头：
+4. 落地 `strip_indicator_time_columns(...)`。
+5. 落地 `slice_data_pack_by_base_window(...)`。
+6. 落地 `extract_active(...)`。
+7. 落地 stitched 拼接与资金列重建辅助函数。
+8. 落地共享 warmup helper：
    - `resolve_contract_warmup_by_key(...)`
    - `normalize_contract_warmup_by_key(...)`
    - `apply_wf_warmup_policy(...)`
-   其中 `resolve_contract_warmup_by_key(...)` 必须只是 `resolve_indicator_contracts(...).warmup_bars_by_source` 的薄封装，不允许再写第二套聚合逻辑。
+   具体 helper 契约统一引用摘要 `01_overview_and_foundation.md`，执行文档不再重复解释。
 
 ### 3.3 Rust 回测主流程
 
@@ -220,7 +221,11 @@
 1. `build_mapping_frame(...)` 在生产链路里只由 `build_data_pack(...)` 调用；但可以保留 PyO3 暴露，作为测试 / 调试工具函数。
 2. `build_result_pack(...)` 绝不调用 `build_mapping_frame(...)`。
 3. `build_result_pack(...)` 只继承 `data.mapping` 子集。
-4. `extract_active(...)` 是唯一不走 builder 的显式特例。
+4. `build_result_pack(...)` 的 `indicators` 入参正式语义是 raw indicators：
+   - 也就是还没带 `time` 列的指标结果
+5. 若上游手里拿到的是某个已有 `ResultPack.indicators`，必须先统一调用 `strip_indicator_time_columns(...)`，再允许喂给 `build_result_pack(...)`。
+6. 这里禁止在 WF 或 stitched 里现场手写删 `time` 列；必须复用同一个 helper。
+7. `extract_active(...)` 是唯一不走 builder 的显式特例。
 
 关键接口：
 
@@ -244,6 +249,10 @@ fn build_result_pack(
     backtest: Option<DataFrame>,
     performance: Option<HashMap<String, f64>>,
 ) -> Result<ResultPack, QuantError>
+
+fn strip_indicator_time_columns(
+    indicators_with_time: &HashMap<String, DataFrame>,
+) -> Result<HashMap<String, DataFrame>, QuantError>
 ```
 
 这里顺手把 `ResultPack` 的 base 身份写死：
@@ -260,6 +269,11 @@ fn build_result_pack(
    - 再把 `data.source[k]["time"]` 复制进 `indicators[k]`
    - 最后校验补入后的 `indicators[k]["time"] == data.source[k]["time"]`
 6. 因此 `ResultPack.indicators[k]` 的正式契约是“带 `time` 列的指标结果 DF”。
+7. `strip_indicator_time_columns(...)` 的职责也要一并写死：
+   - 输入必须是已经属于 `ResultPack.indicators` 形态、带 `time` 列的指标结果
+   - 只移除这一列 `time`
+   - 若缺少 `time` 列或结构不合法，直接报错
+   - 返回结果就是允许再次喂给 `build_result_pack(...)` 的 raw indicators
 
 ### 阶段 B：再落地初始取数与 `DataPack` 初始构建
 
@@ -274,14 +288,13 @@ fn build_result_pack(
    - `exact_index_by_time(...)`
    - `map_source_row_by_time(...)`
    - `map_source_end_by_base_end(...)`
-2. `resolve_indicator_contracts(...)` 的正式公式与边界统一以摘要 `01_overview_and_foundation.md#2.2` 为准；执行时不再在 planner / WF 内各写一套聚合逻辑。
-3. `resolve_contract_warmup_by_key(...)` 必须直接调用 `resolve_indicator_contracts(...)` 并提取 `warmup_bars_by_source`，不允许平行实现第二套聚合逻辑。
-4. planner 初始化时，必须显式走同一条共享 helper 链：
+2. 共享 warmup helper 的公式、边界与唯一实现源统一引用摘要 `01_overview_and_foundation.md`，执行时不再在 planner / WF 内各写一套解释。
+3. planner 初始化时，必须显式走同一条共享 helper 链：
    - `resolved_contract_warmup_by_key = resolve_contract_warmup_by_key(indicators_params)`
    - `normalized_contract_warmup_by_key = normalize_contract_warmup_by_key(S_keys, resolved_contract_warmup_by_key)`
-5. 初始取数 planner 与 WF `build_window_indices(...)` 必须复用同一份 warmup 聚合口径，禁止各自单独再算一套。
-6. 不允许在多个模块里各自重写一套 backward asof 逻辑。
-7. `DataPackFetchPlannerInput.effective_limit` 必须满足 `>= 1`：
+4. 初始取数 planner 与 WF `build_window_indices(...)` 必须复用同一份 warmup 聚合口径，禁止各自单独再算一套。
+5. 不允许在多个模块里各自重写一套 backward asof 逻辑。
+6. `DataPackFetchPlannerInput.effective_limit` 必须满足 `>= 1`：
    - 因为初始取数算法后续要直接定义 `base_effective_start_time / base_first_live_time`
    - 这要求 base 至少有 `1` 根 live bar
    - 因此 `effective_limit = 0` 必须在 planner 输入阶段直接 fail-fast 报错
@@ -384,22 +397,20 @@ fn extract_active(
 12. `final_test_pack_result` 才是窗口正式结果；`natural_test_pack_backtest_result` 不进入正式返回值，不进入 stitched，不参与正式 performance。
 13. stitched 的 `DataPack` 真值来自 `full_data` 切片，不来自窗口 `DataPack` 拼接。
 14. stitched 只拼 `test_active_result`，不拼完整 `test_pack_result`。
-15. `run_optimization(...)` 的搜索空间来源必须唯一：
+15. 只要 WF 主流程或 stitched 要把某个已有 `ResultPack.indicators` 再喂回 `BacktestContext` 或 `build_result_pack(...)`，都必须先统一调用 `strip_indicator_time_columns(...)`。
+16. 这里禁止在各调用点现场手写删 `time` 列。
+17. `run_optimization(...)` 的搜索空间来源必须唯一：
    - 直接读取 `run_walk_forward(...)` 输入的 `wf_params: &SingleParamSet`
    - `template / settings` 不得再派生第二套优化域
-16. `run_optimization(...)` 的优化目标来源也必须唯一：
+18. `run_optimization(...)` 的优化目标来源也必须唯一：
    - 直接读取 `config.optimize_metric`
    - 默认值固定为 `OptimizeMetric::CalmarRatioRaw`
    - `template / settings` 不得再派生第二套优化目标
-17. 这里的类型层级必须理解成：
+19. 这里的类型层级必须理解成：
    - `SingleParamSet`：整棵参数树
    - `Param`：参数树里的单个叶子参数节点
    因此 `SingleParamSet` 虽然名字像“单组参数”，但仍可同时承载固定参数与优化搜索空间。
-18. WF 的 warmup helper 对象来源固定为 `wf_params.indicators`。
-   - 这里的 `wf_params.indicators` 指 `run_walk_forward(...)` 输入参数树中的指标参数子树
-   - 它是当前实现唯一合法的指标参数读取入口
-   - 任何 WF 内部涉及指标契约 warmup 的读取，只要没有走这条路径，就视为实现偏离摘要契约
-   - 这条路径已与当前 `SingleParamSet` 源码结构对齐，不是执行层临时发明的 extractor 约定
+20. WF 的 warmup helper 对象来源固定为 `wf_params.indicators`；对象来源定义与唯一入口约束统一引用摘要 `04_walk_forward_and_stitched.md`，执行文档不再重复展开。
 
 关键接口：
 

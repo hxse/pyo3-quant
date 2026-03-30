@@ -9,7 +9,7 @@
 本篇直接复用 [01_overview_and_foundation.md](./01_overview_and_foundation.md) 已定义的共享真值：
 
 1. `resolve_indicator_contracts(...)`
-2. `W_resolved[k] / W_normalized[k]`
+2. `W_resolved[k] / W_normalized[k] / W_required[k]`
 3. `DataPack / SourceRange / mapping` 的通用约束
 4. builder 收口原则
 
@@ -27,21 +27,23 @@ resolved_contract_warmup_by_key =
 
 normalized_contract_warmup_by_key =
     normalize_contract_warmup_by_key(S_keys, resolved_contract_warmup_by_key)
+
+backtest_exec_warmup_base =
+    resolve_backtest_exec_warmup_base(backtest_params)
+
+required_warmup_by_key =
+    merge_required_warmup_by_key(
+        base_data_key,
+        normalized_contract_warmup_by_key,
+        backtest_exec_warmup_base,
+    )
 ```
 
-其中：
+这里本篇只保留三条会影响 planner 控制流的结论：
 
-1. `resolved_contract_warmup_by_key`
-   - 直接来自 [01_overview_and_foundation.md](./01_overview_and_foundation.md) `0.3.1` 已定义的 `resolve_contract_warmup_by_key(...)`
-   - 这里只说明它在 planner 初始化阶段的消费方式，不再重复定义参数解析细节
-2. `normalized_contract_warmup_by_key`
-   - 直接来自 [01_overview_and_foundation.md](./01_overview_and_foundation.md) `0.3.2` 已定义的 `normalize_contract_warmup_by_key(...)`
-   - 它才是补全到全部 `S_keys` 后可继续往下传的结果
-3. 对每个 `k ∈ S_keys`
-   - `W_normalized[k] = normalized_contract_warmup_by_key[k]`
-   - `W_normalized[k]` 决定 source `k` 自身至少需要多少指标预热
-4. 这份 `normalized_contract_warmup_by_key` 同时服务初始取数 planner 和后续 WF 窗口规划，禁止两边各自再算一套不同 warmup。
-5. 本篇不再手写 `resolved -> normalized` 的补全过程；若后续公式需要调整，只允许回到 `01` 修改 helper 契约定义。
+1. 上述 helper 的公式、边界与“唯一实现源”约束统一引用 [01_overview_and_foundation.md](./01_overview_and_foundation.md)，本篇不再重复展开。
+2. planner 初始化阶段必须在 Rust 内部显式跑完这条链，并且后续统一消费最终的 `required_warmup_by_key`。
+3. 这份 `required_warmup_by_key` 同时服务初始取数 planner 和后续 WF 窗口规划；若后续公式需要调整，只允许回到 `01` 改 helper 契约。
 
 ## 2. Python / Rust 职责划分
 

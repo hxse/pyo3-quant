@@ -39,6 +39,10 @@
 新机制明确改成：
 
 1. 以 `ranges[base].warmup_bars` 作为唯一预热边界。
+   - 这里的 `ranges[base].warmup_bars` 按 [01_overview_and_foundation.md](./01_overview_and_foundation.md) 的共享定义理解，表示最终落地到当前 `DataPack` 的真实预热边界。
+   - 它可能同时包含：
+     - 指标 warmup
+     - backtest exec warmup
 2. 对 `[0, ranges[base].warmup_bars)`：
    - `entry_long = false`
    - `entry_short = false`
@@ -164,6 +168,35 @@ fn build_result_pack(
 4. 因此这里直接依赖 `DataPack`，不再把 `base_times / ranges / base 身份` 拆成零散参数传入。
 5. 它仍然保留 PyO3 暴露，主要服务 Python 侧测试、调试和最小构造场景。
 
+这里再补一条非常关键的衔接规则：
+
+1. `build_result_pack(...)` 的 `indicators` 入参，正式语义是“raw indicators”，也就是**还没带 `time` 列**的指标结果。
+2. 因此：
+   - 指标计算模块的原始输出，可以直接喂给 `build_result_pack(...)`
+   - 但若上游手里拿到的是某个已有 `ResultPack.indicators`，它已经属于“带 `time` 列”的结果态，不能直接再喂回 `build_result_pack(...)`
+3. 只要要把已有 `ResultPack.indicators` 再喂回 `build_result_pack(...)`，必须先走统一 helper：
+   - `strip_indicator_time_columns(...)`
+4. 这条规则尤其直接约束两类链路：
+   - WF 主流程里复用 `raw_signal_stage_result.indicators`
+   - stitched 里把 `window_active_results[*].indicators` 拼完后再回灌 `build_result_pack(...)`
+5. 这里禁止在各处手写 `drop(\"time\")`；一律通过同一个 helper 降级回 raw indicators，避免再次出现多处各写一套处理。
+
+```rust
+fn strip_indicator_time_columns(
+    indicators_with_time: &HashMap<String, DataFrame>,
+) -> Result<HashMap<String, DataFrame>, QuantError>
+```
+
+`strip_indicator_time_columns(...)` 的职责写死为：
+
+1. 输入必须是已经属于 `ResultPack.indicators` 形态的指标结果，也就是每个 `indicators[k]` 都带 `time` 列。
+2. 对每个 `k`：
+   - 若缺少 `time` 列，直接报错
+   - 若存在多个同名 `time` 列，直接报错
+   - 否则只移除这一个 `time` 列，保留其余指标列
+3. 返回结果就是可以再次喂给 `build_result_pack(...)` 的 raw indicators。
+4. 它只负责“去掉结果态 `time` 列”，不负责修改其余列名、行数或顺序。
+
 ## 3. ResultPack 构建规则
 
 `build_result_pack(...)` 只做五件事：
@@ -198,7 +231,7 @@ fn build_result_pack(
 
 ## 4. 非预热切片 `extract_active(...)`
 
-这里是 [01_overview_and_foundation.md](./01_overview_and_foundation.md) `3.6 校验收口原则` 的唯一例外：
+这里是 [01_overview_and_foundation_2_types_and_mapping.md](./01_overview_and_foundation_2_types_and_mapping.md) `3.6 校验收口原则` 的唯一例外：
 
 1. `extract_active(...)` 不负责重新构建一个可继续运行的新 Pack。
 2. 它只对一对已经同源且已验证的 `DataPack / ResultPack` 做机械化非预热提取。

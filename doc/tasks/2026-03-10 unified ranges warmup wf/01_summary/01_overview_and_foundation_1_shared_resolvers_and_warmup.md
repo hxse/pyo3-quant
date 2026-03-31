@@ -13,51 +13,51 @@
 
 ## 0. 文档归属与引用规则
 
-本组摘要采用“归属文档 + 局部增量”的写法，但这里不能只把目录关系列出来，必须先把这层抽象本身讲清楚。
+本章是整套文档的 shared truth layer。
 
-本节真正要定义的是：
+后续 `02~05` 里凡是涉及：
 
-1. 为什么这里需要一层共享真值解析。
-2. 这层共享真值解析到底负责什么，不负责什么。
-3. 后续文档哪些地方必须直接复用这里的定义，哪些地方必须在本章自己继续展开。
+1. 指标契约 warmup
+2. backtest exec warmup
+3. planner / WF 共同依赖的 required warmup
+4. “契约 warmup”和“容器真实 warmup”之间的层次差异
 
-### 0.1 为什么要有这一层
+都必须先回到这里。
 
-本任务里最容易 quietly wrong 的，不是单个函数长不长，而是同一批真值被多个链路各自解释一遍：
+### 0.1 本层负责什么，不负责什么
 
-1. 初始取数 planner 要决定“每个 source 至少还要往左保留多少历史”。
-2. `build_window_indices(...)` 要决定“每个窗口的 train/test 预热到底按多少算”。
-3. `extract_active(...)`、WF、stitched 又要决定“当前容器里真正应该裁掉多少前导数据”。
+| 本层负责 | 本层不负责 |
+| --- | --- |
+| 统一 warmup 真值链命名 | 取数状态机步骤 |
+| 定义 shared resolver / helper 的输入、输出与失败语义 | `build_result_pack(...)` 的字段处理 |
+| 解释 `W_resolved / W_normalized / W_applied / W_required` | WF 窗口公式、切片流程与 stitched 拼接步骤 |
+| 解释“契约 warmup”与“容器真实 warmup”不是同一层 | 任何具体流程的阶段返回结构 |
 
-如果这些地方各自再写一套口径，最容易出现三类漂移：
+这里统一的是“真值如何被解释”，不是“所有模块共享同一个运行时对象实例”。
 
-1. warmup 聚合规则在 planner 和 WF 里慢慢变得不一致。
-2. 文档里说的是一套命名，代码里又在不同模块里重复发明新名字。
-3. 某个策略开关（例如 `ignore_indicator_warmup`）只改了一个入口，另外入口仍沿用旧语义。
+### 0.2 warmup 真值链速览
 
-因此，本节要建立的不是“大家共享一个大对象实例”，而是“大家共享一套唯一真值定义”。
-
-### 0.2 这一层到底是什么，不是什么
-
-它是：
-
-1. Rust 内部的共享解析语义层。
-2. 少数几个共享 resolver / helper 的正式定义来源。
-3. 后续 planner / backtest / WF 文档在术语、公式和失败语义上的统一引用点。
-
-它不是：
-
-1. 一个要在 Python 和 Rust 之间来回传递的大 `RunContract` 对象。
-2. 一个新的用户层配置类。
-3. 一个要求每个流程都持有同一份运行态实例的“大框架对象”。
-
-也就是说，这里统一的是“真值如何被解释”，不是“所有模块必须共享同一个对象实例”。
+| 名称 | 正式来源 | 含义 | 后续谁直接消费 |
+| --- | --- | --- | --- |
+| `W_resolved[k]` | `resolve_indicator_contracts(...).warmup_bars_by_source` | 指标契约原始聚合结果；允许不覆盖全部 `S_keys` | `01` |
+| `W_normalized[k]` | `normalize_contract_warmup_by_key(...)` | 把 `W_resolved` 补全到当前 `S_keys` | `01` |
+| `W_applied[k]` | `apply_wf_warmup_policy(...)` | 在 `W_normalized` 上应用 WF 指标策略后的结果 | `04` |
+| `W_backtest_exec_base` | `resolve_backtest_exec_warmup_base(...)` | base 轴回测执行层 warmup | `02`、`04` |
+| `W_required[k]` | `merge_required_warmup_by_key(...)` | 把 `W_applied` 与 base exec warmup 合并后的最终 required warmup | `02`、`04` |
+| `data.ranges[k].warmup_bars` | 当前容器自身 `ranges` | 当前容器真实前导边界 | `03`、`04`、`05` |
 
 ### 0.3 共享真值层的工具函数定义
 
-为了让后续实现和审核都更直接，这一层不再只用概念描述，而是直接按“共享工具函数契约”来写。
+本节先给 helper 总览，再在 `0.3.1 ~ 0.3.6` 里逐个写详细契约。
 
-这里的目标不是要求所有模块共享同一个运行时对象，而是要求所有模块共享同一套 resolver / helper 语义。
+| helper | 产物 | 作用 |
+| --- | --- | --- |
+| `resolve_contract_warmup_by_key(...)` | `W_resolved` | 从指标契约里抽出 source 级原始 warmup 聚合 |
+| `normalize_contract_warmup_by_key(...)` | `W_normalized` | 补全到当前 `S_keys` |
+| `apply_wf_warmup_policy(...)` | `W_applied` | 应用 WF 指标预热策略 |
+| `resolve_backtest_exec_warmup_base(...)` | `W_backtest_exec_base` | 解析 base 轴回测执行层 warmup |
+| `merge_required_warmup_by_key(...)` | `W_required` | 合并指标 warmup 与 base exec warmup |
+| `get_container_warmup_bars(...)` | `data.ranges[k].warmup_bars` | 读取当前容器真实前导边界 |
 
 #### 0.3.1 工具函数一：解析原始指标契约 warmup
 
@@ -82,7 +82,11 @@ resolve_indicator_contracts(indicators_params).warmup_bars_by_source
 4. `resolve_indicator_contracts(...)` 的正式聚合公式与边界，统一归本章 `2.2` 说明；这里不再重复写第二遍。
 5. 它返回的 map 就是本文统一命名的 `resolved_contract_warmup_by_key`，也就是 `W_resolved`。
 6. 这份结果允许只覆盖“实际被指标使用到的 source keys”。
-7. 它只回答指标契约层的原始 warmup，不回答容器真实裁剪边界。
+7. 这里的 `indicators_params` 继续直接复用当前项目已有的指标参数容器，不允许在 planner / WF 层先手工物化第二套 indicator concrete params。
+8. 对 `optimize = true` 的指标参数，唯一合法解释入口仍是 `resolve_indicator_contracts(...)`：
+   - `optimize = false` 时取 `Param.value`
+   - `optimize = true` 时取 `Param.max`
+9. 它只回答指标契约层的原始 warmup，不回答容器真实裁剪边界。
 
 #### 0.3.2 工具函数二：补全到当前 source 全集
 
@@ -154,7 +158,25 @@ fn resolve_backtest_exec_warmup_base(
 
 1. 这个函数只计算回测执行层自身的启动 warmup，不参与指标契约聚合。
 2. 当前第一版只作用在 `base_data_key` 对应的 base 轴。
-3. 它不允许在 backtest 层再手写第二套 ATR / PSAR 魔法数字，而必须复用本文 `2.6` 里定义的共享 warmup primitive。
+3. 这里的 `BacktestParams` 不是“已经完全物化成 runtime concrete 值的最终回测参数”，而是当前项目本来就在 `SingleParamSet.backtest` 中使用的那份回测参数容器：
+   - 固定字段继续按固定值读取
+   - 可优化字段仍然可能以 `Param` 叶子存在
+4. 因而这个 resolver 的职责不是“直接读取最终 concrete 回测参数”，而是：
+   - 先从 `BacktestParams` 这份参数容器里，解析出**会影响 exec warmup 的 concrete 值**
+   - 再把这些 concrete 值交给 ATR / PSAR 已有的 warmup primitive
+5. 它不允许在 backtest 层再手写第二套 ATR / PSAR 公式，而必须复用本文 `2.6` 里定义的共享 warmup primitive。
+
+解析规则：
+
+1. 对会影响 backtest exec warmup 的可优化字段，沿用与指标 warmup 同级的唯一解析规则：
+   - `optimize = false` 时，取 `Param.value`
+   - `optimize = true` 时，取 `Param.max`
+2. 当前第一版真正会改变 exec warmup 的关键字段，至少包括：
+   - `atr_period`
+3. 是否启用 ATR 风控、是否启用 `TSL_PSAR`，继续按 `BacktestParams` 当前布尔 / 可选字段语义判断。
+4. PSAR 分量不允许在 resolver 里猜测或重写公式：
+   - 一律直接调用 `psar_required_warmup_bars(...)`
+   - 若该 primitive 未来新增入参，也必须先按同一条 `Param.value / Param.max` 规则解析 concrete 值，再委托给 primitive
 
 公式：
 
@@ -169,8 +191,12 @@ W_backtest_exec_base =
 其中：
 
 ```text
+resolved_atr_period =
+    backtest_params.atr_period.value, 若 atr_period.optimize = false
+    backtest_params.atr_period.max,   若 atr_period.optimize = true
+
 W_exec_atr =
-    atr_required_warmup_bars(atr_period), 若启用了任一 ATR 风控
+    atr_required_warmup_bars(resolved_atr_period), 若启用了任一 ATR 风控
     0,                                    其余情况
 
 W_exec_psar =
@@ -184,6 +210,10 @@ W_exec_psar =
 2. 它不生成按 `S_keys` 展开的 map。
 3. 它也不参与 `ignore_indicator_warmup`。
 4. 它只是 base 轴执行预热分量，本身还不是最终的 `W_required`，更不是容器真实 `warmup_bars`。
+5. 因为它已经在 resolver 内部把 `BacktestParams` 参数容器解析成了 warmup 相关 concrete 值，所以：
+   - `02` 的初始 planner
+   - `04` 的 WF 窗口主流程
+   都必须直接复用这一个 helper，不允许各自再解释一套 `Param.value / Param.max` 规则。
 
 #### 0.3.5 工具函数五：合并最终 required warmup
 
@@ -251,29 +281,7 @@ data.ranges[k].warmup_bars >= W_applied[k]
 但不要求两者恒等。
 4. 后续真正切片时，应该读这里，而不是回退去读契约 warmup 或 `W_required`。
 
-### 0.4 共享层与各流程文档的职责边界
-
-为了让后续文档可以被审核，本节把“哪些必须在这里定义，哪些不能偷懒丢给引用”直接写死。
-
-必须在本节完整定义的内容：
-
-1. 共享术语与统一命名。
-2. `W_resolved / W_normalized / W_applied / W_required` 的公式与边界。
-3. 共享 resolver 的输入、输出、失败语义。
-4. “契约 warmup”和“容器真实 warmup”不是同一层语义这件事。
-
-不能只放在本节、后续章节仍必须继续展开的内容：
-
-1. planner 的状态机步骤与完成条件。
-2. `build_result_pack(...)`、`extract_active(...)` 的字段级处理。
-3. `build_window_indices(...)` 的窗口公式、阶段切片与 stitched 规则。
-
-也就是说：
-
-1. 本节负责定义“全局真值怎么解释”。
-2. 后续章节负责定义“当前流程怎么消费这份真值”。
-
-### 0.5 归属总表
+### 0.4 后续文档如何引用本章
 
 | 概念 / 工具函数 / 语义 | 归属文档 | 主要消费方 | 说明 |
 |---|---|---|---|
@@ -284,18 +292,14 @@ data.ranges[k].warmup_bars >= W_applied[k]
 | `build_result_pack(...)` 的结果字段构建细节、`extract_active(...)` | [03_backtest_and_result_pack.md](./03_backtest_and_result_pack.md) | `04`、执行文档与实现 | 只属于结果包与 active 视图语义 |
 | `build_window_indices(...)`、WF 阶段契约、stitched | [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md) | 执行文档与实现 | 只属于 WF / stitched；其中 `W_applied[k]` 作为输入直接复用本文定义 |
 
-### 0.6 引用规则
-
-在有了上面的逻辑闭环之后，后续文档再按下面这组规则引用：
+### 0.5 引用规则
 
 1. 同一个共享概念，只允许在归属文档里完整写一次；其他文档不再复制整张表、整段公式或整段伪代码。
-2. 其他文档若消费这套定义，必须在开头明确写：
-   - 本章复用哪几个共享定义
-   - 本章只新增哪些局部语义
+2. 后续文档若消费这套定义，只写：
+   - 本章复用哪些共享定义
+   - 本章新增哪些局部语义
 3. 如果某条规则会直接改变当前章节的控制流、阶段返回值或失败分支，则必须在当前章节再写一遍“本章结论”，不能只丢一个引用链接。
-4. 跨文档引用尽量保持单跳：
-   - 优先直接回到归属文档
-   - 尽量避免链式跳转
+4. 跨文档引用尽量保持单跳，优先直接回到归属文档。
 5. 执行文档只保留“落地到哪些文件、由哪些入口消费”的实现视角，不再重复摘要层解释。
 
 ## 1. 术语与记号
@@ -450,8 +454,8 @@ warmup_bars_by_source[k] =
 
 ### 2.5 运行时校验语义
 
-- `Strict`：预热段 `[0, required_warmup_bars)` 全空；非预热段 `[required_warmup_bars, end)` 不得再出现 NaN/null。
-- `Relaxed`：预热段 `[0, required_warmup_bars)` 全空；非预热段允许结构性空值，但同一行不得全部输出列同时为空。
+- `Strict`：`warmup 区间` `[0, required_warmup_bars)` 全空；`active 区间` `[required_warmup_bars, end)` 不得再出现 NaN/null。
+- `Relaxed`：`warmup 区间` `[0, required_warmup_bars)` 全空；`active 区间` 允许结构性空值，但同一行不得全部输出列同时为空。
 
 ### 2.6 ATR / PSAR 共享 warmup primitive 与 backtest exec warmup
 

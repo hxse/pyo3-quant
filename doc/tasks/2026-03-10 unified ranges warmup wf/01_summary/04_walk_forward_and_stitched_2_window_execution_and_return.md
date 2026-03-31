@@ -2,13 +2,16 @@
 
 ## 6. 每个窗口的执行流程
 
+先把会影响主循环的前置约束集中写死：
+
+1. `wf_params.indicators` 是指标 warmup helper 的唯一合法输入路径；不允许在 WF 层先手工物化第二套 concrete indicator params。
+2. `wf_params.backtest` 是 backtest exec warmup helper 的唯一合法输入路径；不允许在 WF 层先手工物化第二套 concrete runtime params。
+3. `run_walk_forward(...)` 明确忽略外部传入的 `settings.execution_stage` 和 `settings.return_only_final`；WF 内部会自己覆盖这两个字段。
+4. stitched 的正式 backtest 真值统一来自 `05` 定义的 segmented replay；本篇只准备窗口正式结果与 stitched 上游输入。
+
 ```text
-# 先准备窗口规划与循环状态
 resolved_contract_warmup_by_key =
     resolve_contract_warmup_by_key(wf_params.indicators)
-
-# 这里的 wf_params.indicators 就是 run_walk_forward(...) 输入 wf_params 的指标参数子树；
-# 不是额外派生的新参数对象，也不是从 template / settings 读取的第二套来源
 
 normalized_contract_warmup_by_key =
     normalize_contract_warmup_by_key(S_keys, resolved_contract_warmup_by_key)
@@ -29,25 +32,16 @@ required_warmup_by_key =
         backtest_exec_warmup_base,
     )
 
-# 这里与初始取数 planner 复用 01 里已定义的同一套共享 helper；
-# 对 optimize=true 的指标参数，内部统一按 Param.max 解析，因此两边天然共享同一份最坏 warmup 真值
-# 这里还要额外补齐 backtest exec warmup；ignore_indicator_warmup 只影响 applied_contract_warmup_by_key，
-# 不影响 backtest_exec_warmup_base
-
 windows = build_window_indices(data, config, required_warmup_by_key)
 window_results = []
 prev_last_bar_position = None
 
-# 再按窗口顺序逐个执行
 for (window_id, window) in windows:
-    # 先切出当前窗口训练包和测试包
     train_pack_data = slice_data_pack_by_base_window(data, window.train_pack)
     test_pack_data = slice_data_pack_by_base_window(data, window.test_pack)
 
-    # 用训练包训练当前窗口最优参数；优化搜索空间来自 wf_params，优化目标来自 config.optimize_metric
     best_params = run_optimization(train_pack_data, wf_params, config.optimize_metric, ...)
 
-    # 第一次评估只跑到 Signals，拿到当前测试包的原始信号阶段结果
     eval_settings = settings.clone()
     eval_settings.execution_stage = Signals
     eval_settings.return_only_final = false
@@ -58,13 +52,11 @@ for (window_id, window) in windows:
         eval_settings,
     )
 
-    # 先只注入上一窗口 carry 开仓，不注入窗口尾部强平
     carry_only_signals = build_carry_only_signals(
         raw_signal_stage_result,
         prev_last_bar_position,
     )
 
-    # 先跑一遍“未强平前的自然回测结果”，只用于跨窗状态传播
     raw_test_pack_indicators =
         strip_indicator_time_columns(raw_signal_stage_result.indicators)
     natural_ctx = BacktestContext::new()
@@ -78,17 +70,14 @@ for (window_id, window) in windows:
     )
     natural_test_pack_backtest_result = natural_ctx.into_summary(false, ExecutionStage::Backtest)
 
-    # 只从“未强平前的自然末根状态”读取下一窗口 carry 来源
     last_bar_position = detect_last_bar_position(natural_test_pack_backtest_result.backtest)?
     has_cross_boundary_position = last_bar_position.is_some()
 
-    # 再在 carry_only_signals 基础上追加窗口尾部强平，得到正式信号
     final_signals = build_final_signals(
         raw_signal_stage_result,
         carry_only_signals,
     )
 
-    # 正式结果复用第一次评估已经算好的 indicators，只重复执行 Backtest + Performance
     raw_test_pack_indicators =
         strip_indicator_time_columns(raw_signal_stage_result.indicators)
     final_ctx = BacktestContext::new()
@@ -108,11 +97,12 @@ for (window_id, window) in windows:
     )
     final_test_pack_result = final_ctx.into_summary(false, ExecutionStage::Performance)
 
-    # 组装当前窗口元数据
+    test_active_base_row_range = window.test_active_base_row_range
     meta = WindowMeta {
         window_id,
         best_params,
         has_cross_boundary_position,
+        test_active_base_row_range,
         train_warmup_time_range,
         train_active_time_range,
         train_pack_time_range,
@@ -121,7 +111,6 @@ for (window_id, window) in windows:
         test_pack_time_range,
     }
 
-    # 收集当前窗口产物
     window_artifact = WindowArtifact {
         train_pack_data,
         test_pack_data,
@@ -130,57 +119,55 @@ for (window_id, window) in windows:
     }
     window_results.push(window_artifact)
 
-    # 把当前窗口末根持仓方向回写成下一窗口的前序状态
     prev_last_bar_position = last_bar_position
 ```
 
-补充说明：
+流程说明：
 
-1. `run_walk_forward(...)` 明确忽略 `settings.execution_stage` 和 `settings.return_only_final`
-   - 这两个字段属于单次回测引擎的阶段返回控制
-   - 在 WF 内部必须由当前阶段自己覆盖，不能沿用外部传入值
-2. `eval_settings` 继承 WF 输入 `settings` 的其余字段，只覆盖 `execution_stage` 和 `return_only_final`
-3. 当前窗口内部必须显式区分 5 个对象名：
+1. 上面这条 warmup helper 链与初始取数 planner 复用 `01` 里同一套 shared helper。
+2. 对 `optimize = true` 的 warmup 相关字段，helper 内部统一按 `Param.max` 解析，因此 planner 和 WF 共享同一份“最坏 warmup 真值”。
+3. `ignore_indicator_warmup` 只影响 `applied_contract_warmup_by_key`，不影响 `backtest_exec_warmup_base`。
+4. `eval_settings` 继承外部 `settings` 的其余字段，只覆盖 `execution_stage` 与 `return_only_final`。
+5. 当前窗口内部必须显式区分 5 个对象名：
    - `raw_signal_stage_result`
    - `carry_only_signals`
    - `natural_test_pack_backtest_result`
    - `final_signals`
    - `final_test_pack_result`
-4. `raw_signal_stage_result` 必须至少保证：
+6. `raw_signal_stage_result` 必须至少保证：
    - `indicators` 可用
    - `signals` 可用
-5. `natural_test_pack_backtest_result` 只服务跨窗状态传播：
+7. `natural_test_pack_backtest_result` 只服务跨窗状态传播：
    - 这里的末根状态代表“已经继承上一窗口 carry、但尚未注入当前窗口尾部强平”的结果
    - 它不进入正式返回值，不进入 stitched，不参与正式 performance
-6. `natural_test_pack_backtest_result` 必须至少保证：
+8. `natural_test_pack_backtest_result` 必须至少保证：
    - `backtest` 可用
-7. `final_test_pack_result` 才是窗口正式结果：
+9. `final_test_pack_result` 才是窗口正式结果：
    - 用于 `window_results`
    - 用于 stitched 的正式信号语义来源
    - 用于正式 performance
-8. `final_test_pack_result` 必须保证：
+   - 当前正式语义下，跨窗 carry 开仓写在 active 第一根，因此 `extract_active(...)` 得到的 `test_active_result.signals` 可以直接作为 stitched 正式信号来源
+10. `final_test_pack_result` 必须保证：
    - `indicators` 可用
    - `signals` 可用
    - `backtest` 可用
    - `performance` 可用
-9. 这里再把 stitched 的边界写死：
-   - `final_test_pack_result.backtest` 不再直接拼成正式 stitched backtest
-   - 正式 stitched backtest 统一改由 [05_segmented_backtest_truth_and_kernel.md](./05_segmented_backtest_truth_and_kernel.md) 定义的 segmented replay 方案生成
-10. `final_ctx` 故意不再走顶层单次执行入口，而是手动构造 `BacktestContext`，直接复用第一次评估已经算好的 `indicators` 和注入后的 `signals`，因此这里只重复执行回测与绩效阶段，不再重复计算指标和信号
-11. 这里的绩效函数直接接受完整 `test_pack_data` 和完整 `backtest`，再由函数内部根据 `test_pack_data.ranges[data.base_data_key].warmup_bars` 只统计非预热测试有效段
-12. `final_test_pack_result` 自身已经是完整的测试包 `ResultPack`，其预热边界直接由自己的 `ranges` 表达
-13. `prev_last_bar_position` 只在主循环里准备一次：
+11. 正式 stitched backtest 真值来源统一写死为 [05_segmented_backtest_truth_and_kernel.md](./05_segmented_backtest_truth_and_kernel.md) 定义的 segmented replay 方案。
+12. `final_ctx` 直接手动构造 `BacktestContext`，复用第一次评估已经算好的 `indicators` 和注入后的 `signals`；这一阶段只执行回测与绩效。
+13. 这里的绩效函数直接接受完整 `test_pack_data` 和完整 `backtest`，再由函数内部根据 `test_pack_data.ranges[data.base_data_key].warmup_bars` 只统计测试 `active 区间`。
+14. `final_test_pack_result` 自身已经是完整的测试包 `ResultPack`，其预热边界直接由自己的 `ranges` 表达。
+15. `prev_last_bar_position` 只在主循环里准备一次：
    - 来自上一窗口 `natural_test_pack_backtest_result.backtest`
-   - `build_carry_only_signals(...)` 只接受这个参数，不再反向读取上一窗口 `ResultPack`
-14. 因此 WF 侧不再为绩效计算额外做一轮窗口切片；窗口切片只发生在 `DataPack` 这一层
-15. 同理，WF 侧也不再为 `ResultPack` 设计单独的窗口切片工具函数；每个窗口只切 `DataPack`，窗口级 `ResultPack` 由回测引擎基于窗口 `DataPack` 直接生成
-16. 可以补一条一致性校验：
+   - `build_carry_only_signals(...)` 只接受这个参数
+16. WF 侧的窗口切片发生在 `DataPack` 这一层；绩效计算直接消费完整 `test_pack_data + backtest`。
+17. 窗口级 `ResultPack` 由回测引擎基于窗口 `DataPack` 直接生成。
+18. 可以补一条一致性校验：
     - `final_test_pack_result.ranges[final_test_pack_result.base_data_key].warmup_bars == test_pack_data.ranges[test_pack_data.base_data_key].warmup_bars`
     - `final_test_pack_result.ranges[final_test_pack_result.base_data_key].pack_bars == test_pack_data.ranges[test_pack_data.base_data_key].pack_bars`
-17. `run_optimization(...)` 的搜索空间来源必须唯一：
+19. `run_optimization(...)` 的搜索空间来源必须唯一：
     - 直接读取 `run_walk_forward(...)` 输入的 `wf_params: &SingleParamSet`
     - 不允许从 `template` 或 `settings` 再派生第二套搜索空间定义
-18. `run_optimization(...)` 的优化目标来源也必须唯一：
+20. `run_optimization(...)` 的优化目标来源也必须唯一：
     - 直接读取 `config.optimize_metric`
     - 不允许从 `template`、`settings` 或窗口局部结果再推导第二套优化目标
 
@@ -208,16 +195,17 @@ for (window_id, window) in windows:
 ```rust
 struct WindowMeta {
     window_id: usize,                        // 窗口编号
-    best_params: SingleParamSet,            // 当前窗口训练得到的最优参数
+    best_params: SingleParamSet,            // 当前窗口训练得到的最优点参数容器；仍保留原参数树形状，但优化后的运行时真值统一以各字段 `.value` 为准
     has_cross_boundary_position: bool,      // 当前窗口在“未强平前自然末根状态”下是否仍有跨窗持仓
+    test_active_base_row_range: Range<usize>, // 虽然作为 WindowMeta 字段对外暴露，但只供 stitched schedule 内部重基使用：当前窗口 test_active 在原始 WF 输入 DataPack.base 轴上的绝对半开区间
 
     train_warmup_time_range: Option<(i64, i64)>, // 训练预热段时间范围（毫秒时间戳）；若训练预热为空区间则为 None
-    train_active_time_range: (i64, i64),    // 训练非预热有效段时间范围（毫秒时间戳）
-    train_pack_time_range: (i64, i64),      // 完整训练包时间范围（毫秒时间戳）= 训练预热 + 训练有效段
+    train_active_time_range: (i64, i64),    // 训练 active 区间时间范围（毫秒时间戳）
+    train_pack_time_range: (i64, i64),      // 训练 pack 区间时间范围（毫秒时间戳）= 训练 warmup 区间 + 训练 active 区间
 
     test_warmup_time_range: (i64, i64),     // 测试预热段时间范围（毫秒时间戳）；当前方案下测试预热至少为 1，因此这里始终必填
-    test_active_time_range: (i64, i64),     // 测试非预热有效段时间范围（毫秒时间戳）
-    test_pack_time_range: (i64, i64),       // 完整测试包时间范围（毫秒时间戳）= 测试预热 + 测试有效段
+    test_active_time_range: (i64, i64),     // 测试 active 区间时间范围（毫秒时间戳）
+    test_pack_time_range: (i64, i64),       // 测试 pack 区间时间范围（毫秒时间戳）= 测试 warmup 区间 + 测试 active 区间
 }
 
 struct WindowArtifact {
@@ -229,8 +217,9 @@ struct WindowArtifact {
 
 struct StitchedMeta {
     window_count: usize,                    // stitched 由多少个窗口拼接而成
-    stitched_pack_time_range_from_active: (i64, i64), // stitched 整包时间范围（毫秒时间戳）；该范围由 stitched 的测试非预热有效段全局边界推导得到
-    stitched_window_active_time_ranges: Vec<(i64, i64)>, // 每个参与 stitched 的窗口测试非预热有效段时间范围（毫秒时间戳），按拼接顺序返回
+    stitched_pack_time_range_from_active: (i64, i64), // stitched pack 区间时间范围（毫秒时间戳）；该范围由 stitched 的测试 active 区间全局边界推导得到
+    stitched_window_active_time_ranges: Vec<(i64, i64)>, // 每个参与 stitched 的窗口测试 active 区间时间范围（毫秒时间戳），按拼接顺序返回
+    backtest_schedule: Vec<BacktestParamSegment>, // stitched replay 的正式分段参数元数据；后续解释多段 backtest 输出时必须结合它
     next_window_hint: NextWindowHint,       // 下一窗口调度提示
 }
 
@@ -265,54 +254,73 @@ struct WalkForwardResult {
    - 主要是为了测试、调试和窗口级问题排查
    - 但当前窗口只对 `test_pack_data` 运行回测并生成 `test_pack_result`
 4. `WindowMeta` 只保存结构性上下文
-   - 不把 `bars / span_ms / span_days / span_months` 继续放在 `meta`
-   - 这些统计型元数据应放进 `test_pack_result.performance`
+   - `bars / span_ms / span_days / span_months` 统一放进 `test_pack_result.performance`
 5. 当前 `performance` 已经有 `span_ms / span_days`
    - 后续应补充 `bars / span_months`
    - 这样窗口测试段的统计型元数据统一由绩效模块返回
-6. 不再额外返回 `train_pack_range / test_pack_range / test_active_range` 这类索引元数据
+6. `train_pack_range / test_pack_range` 这类泛化索引元数据不单独返回
    - pack 自身已经有 `ranges`
-   - 这类索引再返回一份容易重复且产生歧义
-7. 时间范围元数据仍然必须返回
+   - 再返回一份容易重复且产生歧义
+7. 但 `test_active_base_row_range` 例外，必须保留在 `WindowMeta`
+   - 因为它不是窗口局部重基结果，也不是 stitched 行号
+   - 它是当前窗口 `test_active` 在原始 WF 输入 `DataPack.base` 轴上的绝对半开区间真值
+   - 后续 `backtest_schedule` 需要直接基于它做重基
+   - 这个字段应直接从 `build_window_indices(...)` 产出的 `window.test_active_base_row_range` 透传进入 `WindowMeta`
+   - 不允许在窗口执行结束后，再根据 `mapping.height()`、时间范围或别的派生量重新反推一遍
+   - 虽然它作为 `WindowMeta` 字段对外暴露，但语义上只服务 stitched `backtest_schedule` 重基，不应被理解成通用业务元数据
+8. 时间范围元数据必须返回
    - 并且统一在 Rust 侧算好后返回
    - 不把这些计算再丢给 Python 侧
-8. `WindowMeta` 里的时间范围统一分三层
+8.1 `best_params` 的正式语义也要写死：
+   - 它使用 `SingleParamSet` 这个现有容器类型
+   - 但语义上已经不是“待搜索的参数树”，而是“最优点参数容器”
+   - 与当前源码 `rebuild_param_set(...)` 一致：保留原始参数树形状与 `min / max / step / optimize` 元数据，只把最优解写回各叶子 `.value`
+   - 因而后续 runtime 消费：
+     - `best_params.backtest`
+     - `best_params.performance`
+     都必须只把 `.value` 当成正式运行时真值
+   - 不允许在 stitched / replay / Python 返回层再把 `best_params` 当成待解析搜索空间，重新按 `.optimize / .max / .min / .step` 推导第二套 runtime 参数
+9. `WindowMeta` 里的时间范围统一分三层
    - `*_warmup_time_range`：预热段时间范围
-   - `*_active_time_range`：非预热有效段时间范围
-   - `*_pack_time_range`：整包时间范围
+   - `*_active_time_range`：`active 区间` 时间范围
+   - `*_pack_time_range`：`pack 区间` 时间范围
    - 所有时间统一用毫秒级时间戳表达
-9. `train_warmup_time_range`
+10. `train_warmup_time_range`
    - 允许为空
    - 对空区间直接返回 `None`
    - 对非空区间，本质上就是直接从对应 pack 的 `mapping.time` 提取首尾值
-10. `test_warmup_time_range`
+11. `test_warmup_time_range`
    - 当前方案下始终必填
    - 因为前面已经写死 `P_test >= 1`
-   - 因此这里直接返回 `(i64, i64)`，不再保留 `Option`
-11. 因此只有 `train_warmup_time_range` 不能继续用必填 `(i64, i64)`
+   - 因此这里直接返回 `(i64, i64)`
+12. 因此只有 `train_warmup_time_range` 使用 `Option<(i64, i64)>`
    - 因为文档前面已经明确允许 `P_train = 0`
    - 这时训练预热段是合法空区间，没有首尾时间可返回
-12. `StitchedArtifact` 也沿用同一口径
+13. `StitchedArtifact` 也沿用同一口径
    - `stitched_result.performance` 保存 stitched 统计型元数据
-   - `StitchedMeta` 只保留 stitched 结构性上下文与调度提示
-11. 因此 stitched 的 `bars / span_ms / span_days / span_months`
-    - 也不再单独挂在 `StitchedArtifact` 顶层
-    - 而是统一放进 `stitched_result.performance`
-12. `StitchedMeta` 里的 stitched 总时间范围字段，不再用裸 `time_range`
-    - 改成 `stitched_pack_time_range_from_active`
-    - 这个命名明确表达两层语义：它描述的是 stitched 最终整包时间范围，但其起止边界是从 stitched 的全局 `test_active` 范围推导出来的
-13. `StitchedMeta` 仍然返回 `stitched_window_active_time_ranges`
-    - 显式列出每个参与 stitched 的窗口测试非预热有效段 `(start, end)`
+   - `StitchedMeta` 保留 stitched 结构性上下文、schedule 解释元数据与调度提示
+14. stitched 的 `bars / span_ms / span_days / span_months`
+    - 统一放进 `stitched_result.performance`
+15. `StitchedMeta` 里的 stitched 总时间范围字段统一命名为 `stitched_pack_time_range_from_active`
+    - 这个命名明确表达两层语义：它描述的是 stitched 最终 `pack 区间` 时间范围，但其起止边界是从 stitched 的全局 `test_active` 范围推导出来的
+16. `StitchedMeta` 返回 `stitched_window_active_time_ranges`
+   - 显式列出每个参与 stitched 的窗口测试 `active 区间` `(start, end)`
     - 这样更利于调试拼接边界与定位窗口级问题
+17. `StitchedMeta` 还必须保留 `backtest_schedule`
+   - 因为多段 schedule 下，最终 `stitched_result.backtest` 的并集列与 `NaN` 解释都依赖这份 schedule
+   - 它不是仅供 `04 -> 05` 调用时临时传递的中间输入，而是最终 stitched 结果的正式解释元数据
+   - 这里放进 `meta` 即可，不需要再单独挂在 `StitchedArtifact` 顶层
+18. `stitched_result.meta.backtest_schedule` 必须直接复用 stitched 阶段已经构造并通过校验的那一份 `backtest_schedule`
+   - 不允许在 replay 完成后，再根据 `stitched_result.backtest`、时间范围、行数或别的派生量重建第二份 schedule
+   - 这份字段的落地语义是“保存 replay 实际使用的正式 schedule 真值”，不是“从 replay 结果反推 schedule”
 
 `NextWindowHint` 说明：
 1. 只保留极简估算字段：
    使用场景只是估算“从当前窗口测试已有的最后一根 K 线，到下一窗口切换，还要多久”，方便与实盘对接；它是调度提示，不参与任何核心切片、`ranges`、`mapping`、回测逻辑。
-2. `*_time_range = (start, end)` 的语义继续保持不变：
+2. `*_time_range = (start, end)` 的语义如下：
    - `start` = 第一根 bar 的时间
    - `end` = 最后一根 bar 的时间
-   - 这里不把 `end` 改成半开右边界时间
-3. 因此 `NextWindowHint` 的核心字段也改成：
+3. 因此 `NextWindowHint` 的核心字段定义为：
    - `expected_window_switch_time_ms`
    - 它表达的是“窗口切换提示时间”，不是“下一窗口第一根 bar 的时间”
 4. 这里的时间跨度只是一种提示性估算：
@@ -334,7 +342,7 @@ else:
     # 若最后一窗不完整，则历史跨度统计只取除最后一窗外的所有窗口
     history_windows = window_results[0..last]
 
-    # 对 history_windows 中每个窗口 i 计算测试非预热有效段跨度
+    # 对 history_windows 中每个窗口 i 计算测试 active 区间跨度
     test_active_span_ms(i) = history_windows[i].meta.test_active_time_range.end - history_windows[i].meta.test_active_time_range.start
 
     # 当 history_windows 非空时，用这些跨度的中位数作为预期窗口跨度
@@ -345,18 +353,18 @@ else:
         observed_test_active_span_ms = last_window.meta.test_active_time_range.end - last_window.meta.test_active_time_range.start
         observed_test_active_bars    = last_window.test_pack_result.ranges[last_window.test_pack_result.base_data_key].active_bars
 
-        # 当前已观测 test_active bars 必须 >= 2，否则时间跨度估算没有意义
-        # 这和前面“合法 test_active 最小长度就是 2”是同一条约束，不是额外新增规则
-        if observed_test_active_bars < 2:
-            fail("single-window NextWindowHint fallback requires observed test_active bars >= 2")
+        # 当前已观测 test_active bars 必须 >= 3，否则时间跨度估算没有意义
+        # 这和前面“合法 test_active 最小长度就是 3”是同一条约束，不是额外新增规则
+        if observed_test_active_bars < 3:
+            fail("single-window NextWindowHint fallback requires observed test_active bars >= 3")
 
         expected_test_active_span_ms = observed_test_active_span_ms * (config.test_active_bars as f64 / observed_test_active_bars as f64)
 
-    # 取最后一窗测试非预热有效段的起始时间与最后一根时间
+    # 取最后一窗测试 active 区间的起始时间与最后一根时间
     last_test_active_start_ms = last_window.meta.test_active_time_range.start
     last_test_active_end_ms   = last_window.meta.test_active_time_range.end
 
-    # 窗口切换提示时间 = 最后一窗测试非预热有效段起始时间 + 预期测试跨度
+    # 窗口切换提示时间 = 最后一窗测试 active 区间起始时间 + 预期测试跨度
     expected_window_switch_time_ms = last_test_active_start_ms + expected_test_active_span_ms
 
     # 用切换提示时间减去当前最后一窗最后一根时间，得到剩余跨度

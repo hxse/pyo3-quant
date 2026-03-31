@@ -1,33 +1,54 @@
 # 统一 Ranges / Warmup / WF 重构总述与基础约束
 
-> 本文件已拆分为目录页；原有方案口径不变。
+本卷是整套摘要文档的共享定义入口。
 
-本篇仍然是 `01-04` 的共享定义入口。阅读顺序：
+这里不解释具体业务流程，只负责把后续 `02~05` 会共同依赖的真值、术语和容器约束写清楚。
 
-1. [01_overview_and_foundation_1_shared_resolvers_and_warmup.md](./01_overview_and_foundation_1_shared_resolvers_and_warmup.md)
-   - 对应原文 `## 0`、`## 1`、`## 2`
-   - 包含：
-     - 文档归属与引用规则
-     - shared resolver / helper
-     - `W_resolved / W_normalized / W_applied / W_required`
-     - 指标预热与 backtest exec warmup
+## 本卷作用
 
-2. [01_overview_and_foundation_2_types_and_mapping.md](./01_overview_and_foundation_2_types_and_mapping.md)
-   - 对应原文 `## 3`、`## 4`
-   - 包含：
-     - `DataPack / ResultPack / SourceRange`
-     - `build_data_pack(...) / build_result_pack(...)`
-     - `build_mapping_frame(...)`
-     - mapping 与覆盖校验
+1. 统一 warmup 真值链与 shared helper 的命名、公式和边界。
+2. 统一 `DataPack / ResultPack / SourceRange / mapping` 的通用结构。
+3. 统一时间投影工具函数、coverage 校验与 builder 收口原则。
 
-阅读原则：
+## 分卷地图
 
-1. 任何关于 warmup 三层、shared helper、`W_required` 的问题，先看分卷一。
-2. 任何关于核心容器、builder、mapping 真值的问题，先看分卷二。
-3. [02_python_fetch_and_initial_build.md](./02_python_fetch_and_initial_build.md)、[03_backtest_and_result_pack.md](./03_backtest_and_result_pack.md)、[04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md) 继续把本文件当作共享入口引用即可；需要细节时再跳到对应分卷。
+### [01_overview_and_foundation_1_shared_resolvers_and_warmup.md](./01_overview_and_foundation_1_shared_resolvers_and_warmup.md)
 
-拆分说明：
+负责：
 
-1. 本次拆分只调整排版与阅读路径，不新增第二套定义。
-2. 分卷文件中的章节编号继续沿用原文编号，方便与既有讨论记录对照。
-3. 若后续人工通过 `git diff` 检查是否丢失逻辑，应以分卷正文是否完整承接原章节为准。
+1. shared resolver / helper
+2. `W_resolved / W_normalized / W_applied / W_required`
+3. 指标 warmup 与 backtest exec warmup 的汇合口径
+
+适合回答的问题：
+
+1. warmup 公式到底归哪一层定义
+2. planner / WF 为什么都应该共享同一套 warmup 真值
+3. 什么时候读 `W_required`，什么时候只能读容器自身 `ranges[k].warmup_bars`
+
+### [01_overview_and_foundation_2_types_and_mapping.md](./01_overview_and_foundation_2_types_and_mapping.md)
+
+负责：
+
+1. `DataPack / ResultPack / SourceRange`
+2. `mapping.time` 与 `ranges` 不变式
+3. 时间投影工具函数
+4. coverage 校验与 mapping builder
+
+适合回答的问题：
+
+1. 哪些字段属于容器真值
+2. `mapping` 应该怎样构建与校验
+3. base/source 的时间投影与覆盖约束如何统一
+
+## 使用方式
+
+1. 后续文档若只需要引用 warmup 真值链，直接回到分卷一。
+2. 后续文档若只需要引用容器结构、时间投影或 builder 约束，直接回到分卷二。
+3. 目录页只负责导航；真正的共享定义只在两个分卷正文里写一遍。
+
+## 阅读提醒
+
+1. 本卷里定义的是“真值如何被解释”，不是“每个流程怎样消费这份真值”。
+2. 后续 `02~05` 只补局部控制流、阶段契约和失败分支，不再复制本卷公式。
+3. 若某条规则会改变后续章节的控制流，后续章节仍应写出本章结论，但不重复整段定义。

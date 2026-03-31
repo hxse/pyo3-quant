@@ -1,57 +1,29 @@
 # 分段真值回测、可变 ATR 与对现有主循环的精准抽象
 
-本篇是对 [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md) 的后续增量方案讨论。
-
-当前口径已经回写到 `04` 的 stitched 末段，但本篇仍然只专门回答一个新问题：在保留现有窗口级架构的前提下，正式 stitched backtest 真值该如何生成。
-
-1. 如果我们的目标不是“窗口结果再拼接一个近似 backtest”，而是得到**一份真正按时间连续推进的分段真值 backtest**，那么最合适的改法是什么？
-2. 这个改法是否必须重写整个回测引擎？
-3. `atr_period` 是否必须固定，还是可以允许分段变化？
-4. 主循环是否应该做一次精准抽象，形成一套更通用的 kernel，同时服务“单次回测”和“分段回测”两种入口？
-
-本篇给出的结论是：
-
-1. 可以不再对 stitched backtest 做“先拼接窗口 backtest，再重建资金列”的后处理。
-2. 可以保留“指标和信号仍然按窗口计算”的既有架构。
-3. 新增一个 `run_backtest_with_schedule(...)`，让它直接吃：
-   - 已经按 stitched 轴对齐的完整 `signals`
-   - 已经按 stitched 轴对齐的完整 `atr_by_row`
-   - 一份分段 `BacktestParams schedule`
-4. 单次回测入口和分段回测入口都复用同一个内部 backtest kernel。
-5. 这个 kernel 不是第二套回测引擎，而是对现有主循环的精准抽象；在单次回测输入下，它与原有回测逻辑应保持语义等价。
-6. `atr_period` 不需要被永久强行固定；只要把 ATR 也当成“按最终 stitched 行轴对齐的全局输入序列”，就可以允许它分段变化。
-7. 这里的 `stitched_signals` 直接拼接各窗口已经注入完成的 `final_signals`，完整继承 [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md) 的跨窗注入与窗口尾部强平语义。
-
 ## 0. 本篇归属与边界
 
-本篇只新增三类定义：
+| 本篇新增 | 本篇不新增 |
+| --- | --- |
+| 分段真值 stitched backtest 的目标口径 | planner 新规则 |
+| `run_backtest_with_schedule(...)` 与通用 kernel | `01` 已定义的 warmup 三层口径 |
+| 在复用 `04` 注入后信号前提下的 replay 边界 | `04` 已有的窗口规划、跨窗注入与窗口结果阶段契约 |
+| `BacktestParamSegment` 与 `ParamsSelector` | 指标层或信号层的“全局按段运行”改造 |
 
-1. 分段真值 stitched backtest 的目标口径。
-2. `run_backtest_with_schedule(...)` 与内部通用 kernel 的设计。
-3. 在“直接复用 `04` 的注入后信号”前提下，stitched replay 的最小边界语义。
+因此本篇是一次很窄的增量改造：
 
-本篇明确不新增这些内容：
-
-1. 不新增新的 planner 规则。
-2. 不修改 [01_overview_and_foundation.md](./01_overview_and_foundation.md) 已定义的 warmup 三层口径。
-3. 不重写 [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md) 里窗口规划、跨窗注入、窗口结果阶段契约等既有定义；这里只接管 stitched 正式 backtest 的生成口径。
-4. 不把指标层或信号层改造成“同一趟全局运行时按段切参数”。
-
-因此本篇是一个很窄的增量方案，也是一次对现有回测主循环的精准改造：
-
-1. 指标仍然按窗口算。
-2. 信号仍然按窗口算。
-3. stitched 阶段把窗口级指标和窗口级 `final_signals` 拼成全局序列。
-4. backtest 不再拼窗口结果，而是对 stitched 后的全局序列做**一次性连续执行**。
+1. 指标按窗口算。
+2. 信号按窗口算。
+3. stitched 阶段把窗口级指标和窗口级 active 信号序列拼成全局序列。
+4. backtest 真值由 stitched 后的全局序列一次性连续执行得到。
 
 ## 1. 要解决的核心问题
 
 当前 stitched backtest 的根本问题不是“实现麻烦”，而是**真值口径不单一**：
 
 1. 资金列和回撤列经过了 stitched 级别重建。
-2. 但部分事件列、手续费列、交易列仍然携带窗口局部语义。
+2. 但部分事件列、手续费列、交易列携带窗口局部语义。
 
-所以这里不再继续加 stitched 后处理，而是改成：
+因此本篇直接采用下面这条正式路径：
 
 1. 先准备 stitched 阶段真正需要的输入真值。
 2. 再把这些输入真值喂给回测引擎。
@@ -59,32 +31,38 @@
 
 也就是说，目标不是“把 stitched backtest 修补得更像真值”，而是**让正式 stitched backtest 直接由回测引擎生成**。
 
-本篇口径也一并写死：
+本篇口径在这里一并写死：
 
-1. 不再追求脱离 `04` 的另一套“自然连续信号真值”。
-2. 这里追求的是：**与 `04` 当前正式 WF 语义一致的一次性连续重放结果**。
-3. 因而正式 stitched 输入信号直接使用各窗口已经完成跨窗注入与尾部强平的 `final_signals`。
+1. stitched 正式信号语义与 `04` 的窗口正式 WF 语义保持一致。
+2. 本篇目标是：**得到与 `04` 当前正式 WF 语义一致的一次性连续重放结果**。
+3. 因而正式 stitched 输入信号直接使用各窗口 `test_active_result.signals`，也就是窗口 `final_signals` 的 active-only 可见部分。
+4. 当前正式语义接受一条保守约束：
+   - 跨窗 carry 开仓写在 active 第一根
+   - 因而真正的继承开仓会延后一根 active bar 执行
 
 ## 2. 整体方案总览
 
 新方案的总流程如下：
 
 ```text
-1. 每个窗口仍然独立完成：
+1. 每个窗口独立完成：
    - 指标计算
    - 信号生成
    - 优化/选参与窗口级结果构建
 
-2. stitched 阶段不再直接拼窗口 backtest。
+2. stitched 阶段直接构造 replay 输入。
 
-3. stitched 阶段改为产出四样全局输入：
+3. stitched 阶段产出四样全局输入：
    - stitched_data_pack
-   - stitched_indicators          (作为最终 `stitched_result` 的正式结果字段)
-   - stitched_signals             (直接由各窗口 `final_signals` 拼接得到的正式 backtest 输入)
-   - backtest_schedule            (每段对应哪套 BacktestParams)
+   - stitched_indicators_with_time (作为最终 `stitched_result` 指标字段的 stitched 结果态中间产物)
+   - stitched_signals             (直接由各窗口 `test_active_result.signals` 拼接得到的正式 backtest 输入)
+   - backtest_schedule: Vec<BacktestParamSegment> (每段对应哪套 BacktestParams)
 
 4. 若 schedule 中存在 ATR 相关参数：
    - 再额外产出 stitched_atr_by_row
+   - 它的唯一正式物化算法统一引用 `04`：
+     - 先按 unique `resolved_atr_period` 计算全量 ATR cache
+     - 再按 `backtest_schedule` 做 segment 级 slice + concat
    - 若当前 stitched backtest 全程不启用 ATR 相关逻辑，则该输入为 `None`
 
 5. 调用：
@@ -97,13 +75,27 @@
 
 6. 得到一份一次性连续执行出来的 stitched_backtest_truth
 
-7. 再基于这份 stitched_backtest_truth 计算绩效并构建最终 ResultPack
+7. `stitched_raw_indicators =
+      strip_indicator_time_columns(stitched_indicators_with_time)`
+
+8. 再基于：
+   - `stitched_data_pack`
+   - `stitched_raw_indicators`
+   - `stitched_signals`
+   - `stitched_backtest_truth`
+   - `stitched_performance`
+统一调用 `build_result_pack(...)`，生成最终 stitched `ResultPack`
 ```
+
+这里的 `backtest_schedule` 一律指 `Vec<BacktestParamSegment>`：
+
+1. 它是 stitched 阶段产出的正式输入对象。
+2. 它不是阶段名，也不是抽象流程名。
 
 这里的关键转变只有一条：
 
-1. **旧方案**：窗口级 backtest 先算出来，再拼接 backtest。
-2. **新方案**：窗口级 backtest 不再作为 stitched 正式真值来源；正式 stitched backtest 改为“窗口级 `final_signals` 拼接后，再统一连续执行一次”。
+1. stitched 正式 backtest 真值来源是 segmented replay。
+2. stitched replay 的正式输入信号是窗口级 `test_active_result.signals`。
 
 ## 3. 什么变，什么不变
 
@@ -123,15 +115,15 @@
 
 真正变化的只在 stitched 末段：
 
-1. 不再把窗口 `backtest` 直接拼接成 stitched backtest。
-2. 不再在 stitched 阶段对 backtest 做“人工重建资金列”的兜底。
-3. 改为 stitched 出：
-   - 全局 `signals`（直接拼接各窗口已注入完成的 `final_signals`）
+1. stitched 阶段产出：
+   - 全局 `signals`（直接拼接各窗口 `test_active_result.signals`）
    - 全局 `atr_by_row`
    - 全局 `BacktestParams schedule`
-4. 然后调用一次新的连续回测入口，得到 `stitched_backtest_truth`。
-5. 再基于 `stitched_data_pack + stitched_backtest_truth` 计算 stitched `performance`。
-6. 最后再构建最终 stitched `ResultPack`。
+   - 全局 `stitched_indicators_with_time`
+2. 调用一次连续回测入口，得到 `stitched_backtest_truth`。
+3. 先把 `stitched_indicators_with_time` 统一降级成 `stitched_raw_indicators`。
+4. 再基于 `stitched_data_pack + stitched_backtest_truth` 计算 stitched `performance`。
+5. 最后统一通过 `build_result_pack(...)` 构建最终 stitched `ResultPack`。
 
 ### 3.3 stitched indicators 的地位
 
@@ -141,9 +133,18 @@
 2. `stitched_atr_by_row`
 3. `backtest_schedule`
 
-因此，stitched indicators 不是 replay 的硬前置条件，但仍然属于最终 `stitched_result` 的正式结果字段，不能省略。
+因此，`stitched_indicators_with_time` 不是 replay 的硬前置条件，但属于最终 `stitched_result` 指标字段的正式中间产物，不能省略。
 
-它们继续按 [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md) 的 stitched 规则生成；只是新方案里，正式 stitched backtest 不再依赖它们本身来计算。
+它按 [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md) 的 stitched 规则生成；正式 stitched backtest 的计算不依赖它本身。
+
+同时总契约必须保持和 [03_backtest_and_result_pack.md](./03_backtest_and_result_pack.md) 一致：
+
+1. `stitched_indicators_with_time` 是结果态 indicators，带 `time` 列。
+2. 最终 stitched `ResultPack` 统一走 `build_result_pack(...)`。
+3. 因此在最终构建 stitched `ResultPack` 前，必须先：
+   - `strip_indicator_time_columns(stitched_indicators_with_time)`
+   - 得到 `stitched_raw_indicators`
+4. 再把 `stitched_raw_indicators` 喂给 `build_result_pack(...)`。
 
 ## 4. 核心设计：不是“另起引擎”，而是“把现有主循环抽成通用 kernel”
 
@@ -173,7 +174,7 @@
 
 1. 就算不保留跨窗注入，`exit_in_bar / next-bar` 本身也没有边界问题。
 2. 如果不保留跨窗注入，真正可能出现轻微问题的是 `TSL_PCT / TSL_ATR / PSAR` 这类“状态会持续更新”的跟踪止损。
-3. 而本篇已经决定直接复用 [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md) 注入后的 `final_signals`，所以这些轻微问题也一起被消掉了。
+3. 而本篇已经决定直接复用 [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md) 注入后的 active-only stitched 信号，所以这些轻微问题也一起被消掉了。
 
 ### 5.1 就算不注入，`exit_in_bar` 也没有问题
 
@@ -183,31 +184,31 @@
    - 状态和结算都发生在当前 bar，不存在跨窗边界问题。
 2. 若某类离场走 next-bar 语义，则当前 bar 只记录触发，下一根 bar 再执行 exit 与结算。
    - 这里的历史只负责决定“是否触发”。
-   - 真正的结算仍然落在执行 bar 本身。
+   - 真正的结算落在执行 bar 本身。
    - 结算时只需要执行 bar 上已经确定的 `entry_price / exit_price / fee_fixed / fee_pct`，不需要回头改写历史数据。
 
 因此，无论是否保留跨窗注入，`exit_in_bar / next-bar` 这层都不是难点。
 
 ### 5.2 如果不注入，真正可能有轻微问题的是 `TSL_PCT / TSL_ATR / PSAR`
 
-如果让仓位无声跨窗延续，再在新窗口切换参数，那么轻微问题主要出在“旧状态继续活着，新参数开始接管”。
+如果让仓位无声跨窗延续，再在新窗口切换参数，那么轻微问题主要出在“旧状态存续，新参数开始接管”。
 
 `TSL_PCT / TSL_ATR` 的情况是：
 
-1. `anchor_since_entry` 会继续沿用旧窗口里已经积累出的锚点。
-2. `tsl_pct_price / tsl_atr_price` 也会继续沿用旧窗口里的已有止损线。
-3. 新窗口如果改了 `tsl_pct / tsl_atr / tsl_anchor_mode / tsl_atr_tight`，之后的更新会按新参数继续推进。
+1. `anchor_since_entry` 会沿用旧窗口里已经积累出的锚点。
+2. `tsl_pct_price / tsl_atr_price` 也会沿用旧窗口里的已有止损线。
+3. 新窗口如果改了 `tsl_pct / tsl_atr / tsl_anchor_mode / tsl_atr_tight`，之后的更新会按新参数推进。
 
 这类问题通常是轻微的，原因是：
 
 1. `TSL_PCT / TSL_ATR` 都是单向更新。
-2. 旧止损线不会被推翻重算，只会继续朝允许的方向移动。
+2. 旧止损线不会被推翻重算，只会朝允许的方向移动。
 3. 因此更像“边界附近更新节奏或阈值轻微不纯”，而不是数值爆炸或明显 bug。
 
-`PSAR` 的情况比 `TSL` 更敏感一点，但仍然通常只是轻微问题：
+`PSAR` 的情况比 `TSL` 更敏感一点，但通常也只是轻微问题：
 
-1. `PSAR` 会把旧窗口里的 `PsarState` 继续带入新窗口。
-2. 新窗口如果改了 `tsl_psar_af0 / tsl_psar_af_step / tsl_psar_max_af / tsl_anchor_mode`，后续更新就会变成“旧状态 + 新参数”继续演化。
+1. `PSAR` 会把旧窗口里的 `PsarState` 带入新窗口。
+2. 新窗口如果改了 `tsl_psar_af0 / tsl_psar_af_step / tsl_psar_max_af / tsl_anchor_mode`，后续更新就会变成“旧状态 + 新参数”共同演化。
 3. 它比 `TSL_PCT / TSL_ATR` 更不纯，因为 `PSAR` 是完整状态机，不只是单条止损线。
 
 但即便如此，它通常也只是：
@@ -226,20 +227,20 @@
 
 本篇直接写死：
 
-1. `04` 继续保留跨窗注入与窗口尾部强平语义。
-2. `05` stitched replay 直接拼接各窗口已经注入完成的 `final_signals`。
+1. `04` 保留跨窗注入与窗口尾部强平语义。
+2. `05` stitched replay 直接拼接各窗口 `test_active_result.signals`。
 3. 因此窗口边界上的“平仓再开仓”已经在信号层显式写死。
 
 这样一来：
 
 1. `exit_in_bar / next-bar` 本来就没有边界难题。
-2. `TSL_PCT / TSL_ATR / PSAR` 也不再需要无声带着旧状态跨到新窗口。
-3. `05` 就不需要再发明第二套跨窗状态语义，只需要对这条已经注入好的 stitched 信号流做一次性连续回放。
+2. `TSL_PCT / TSL_ATR / PSAR` 也无需无声带着旧状态跨到新窗口。
+3. `05` 的职责就是对这条已经注入好的 stitched 信号流做一次性连续回放。
 
 ### 5.4 这一版写法的直接好处
 
 1. `04` 的窗口正式返回和 `05` 的 stitched 回放，使用的是同一份信号语义，更一致。
-2. `05` 不再需要展开一大段复杂的边界状态讨论，文档明显更简单。
+2. `05` 的边界状态讨论可以保持在较小范围内。
 3. 对实盘也更友好：
    - 窗口换参时，显式平仓再开仓比“让机器人在持仓中悄悄切参数”更容易实现。
    - 这也更接近真实可执行的换参流程。
@@ -256,8 +257,7 @@
 
 真正需要改的不是“主循环突然懂多种 ATR”，而是：
 
-1. 让主循环不再负责“从参数现算 ATR”。
-2. 改成只消费一条已经对齐到 stitched 行轴的 `atr_by_row`。
+1. 主循环只消费一条已经对齐到 stitched 行轴的 `atr_by_row`。
 
 ### 6.1 本方案里 ATR 的正式定位
 
@@ -291,13 +291,12 @@
 那么 kernel 就不需要再知道：
 
 1. `atr_period` 是不是全局固定
-2. ATR 是现算的、缓存的，还是拼出来的
-3. 调用方到底是按 unique period 预先缓存，还是按窗口先算后拼
+2. 外层是如何组织 ATR cache 的具体实现细节
 
 本篇因此明确支持：
 
 1. `atr_period` 可以随 segment 变化。
-2. 变化后的 ATR 解释也直接建立在“复用注入后 stitched_signals”的前提之上，不再额外发明第二套跨窗风险状态语义。
+2. 变化后的 ATR 解释直接建立在 stitched_signals 这条正式输入上。
 
 ### 6.3 为什么不要求对 `prev_bar.atr` 做特殊边界修补
 
@@ -305,7 +304,7 @@
 
 1. 它都是“上一行已经物化好的历史输入”。
 2. 当前 bar 只负责读取它，不负责改写它。
-3. 也不要求在 `05` 里再为窗口边界单独补一套 ATR 状态延续规则。
+3. `05` 的职责中不包含窗口边界专属的 ATR 状态延续规则。
 
 所以本篇的正式结论是：
 
@@ -322,19 +321,10 @@ struct BacktestParamSegment {
     params: BacktestParams,
 }
 
-enum ParamsSelector {
-    FixedParamsSelector {
-        params: &BacktestParams,
-    },
-    ScheduleParamsSelector {
-        schedule: &[BacktestParamSegment],
-        segment_idx: usize,
-    },
+struct ParamsSelector {
+    schedule: &[BacktestParamSegment],
+    segment_idx: usize,
 }
-
-fn build_fixed_params_selector(
-    params: &BacktestParams,
-) -> ParamsSelector
 
 fn build_schedule_params_selector(
     schedule: &[BacktestParamSegment],
@@ -350,65 +340,68 @@ fn select_params_for_row(
 
 `BacktestParamSegment` 放在这里，而不是后面入口章节，原因很简单：
 
-1. `ParamsSelector::ScheduleParamsSelector` 直接依赖它。
+1. `ParamsSelector` 直接依赖它。
 2. `build_schedule_params_selector(...)` 也直接消费它。
 3. 所以在阅读顺序上，应先把 selector 所依赖的输入对象交代清楚，再往下谈 kernel 和入口。
 
+这里还要把边界写死：
+
+1. `BacktestParamSegment.start_row / end_row` 的正式构造算法归 [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md)。
+2. 本篇直接消费 `04` 已写死的重基结果：
+   - 先读取各窗口 `test_active_base_row_range`
+   - 再以第一窗 `test_active_base_row_range.start` 为基准做减法重基
+   - 得到 stitched 绝对行轴上的半开区间 `[start_row, end_row)`
+3. 因而 `05` 只负责：
+   - 消费 `BacktestParamSegment`
+   - 校验 contiguity
+   - 在 kernel 内按 row 选择当前参数
+
 语义：
 
-1. 这里不再把 fixed 和 schedule 写成两个并列的业务对象。
-2. 正式设计是：
+1. 正式设计如下：
    - kernel 只认一个统一的 `ParamsSelector`
-   - `FixedParamsSelector` 与 `ScheduleParamsSelector` 只是它的两种内部模式
-3. 两个构造函数都由入口层调用，用来构造交给 kernel 消费的只读参数选择器。
-4. 它们的共同目标只有一个：
+   - 它永远按 `schedule + segment_idx` 工作
+3. 入口层负责先把单参数或多参数都收敛成 `schedule`，再构造交给 kernel 消费的只读参数选择器。
+4. 它的目标只有一个：
    - 对任意 `row_idx`
    - 返回当前这一行应当使用的 `&BacktestParams`
-5. `build_fixed_params_selector(...)`
-   - 用于单参数路径
-   - 返回的选择器对所有 `row_idx` 都指向同一份 `params`
-6. `build_schedule_params_selector(...)`
+5. `build_schedule_params_selector(...)`
    - 用于 schedule 路径
    - 返回的选择器按 `row_idx` 落到对应 segment，再返回该 segment 的 `&BacktestParams`
-7. `select_params_for_row(...)`
+   - 这里的 “schedule 路径” 同时覆盖：
+     - 单参数入口内部构造出的单段 schedule
+     - 多段 stitched replay schedule
+6. `select_params_for_row(...)`
    - 是 kernel 唯一允许调用的取参入口
-   - 单参数路径和 schedule 路径最终都必须走它
-8. 本篇明确不采用“单参数路径完全绕开选择器”的写法。
+   - 单参数与多段 schedule 最终都必须走它
+7. 本篇明确不采用“单参数路径完全绕开选择器”的写法。
    - 因为那样 kernel 内部就会重新出现两套参数读取路径
    - 等价性审阅也会变得更难
-9. 本篇同样不采用“把两个公开入口合并成一个”的写法。
+8. 本篇同样不采用“把两个公开入口合并成一个”的写法。
    - 因为单参数与 schedule 的外层输入契约本来就不同
    - 强行合并只会把 API 边界变脏
    - 因此最佳结构是：两个外部入口保留，一个内部 `ParamsSelector` 统一收口
 
 工具函数步骤：
 
-1. `build_fixed_params_selector(params)`
-   - 第一步：接收外层已经校验完成的单份 `params`
-   - 第二步：直接构造 `ParamsSelector::FixedParamsSelector { params }`
-   - 第三步：返回该 selector
-   - 这一步不复制 `BacktestParams`，只保留只读借用
-2. `build_schedule_params_selector(schedule)`
+1. `build_schedule_params_selector(schedule)`
    - 第一步：接收外层已经完成连续覆盖校验、policy 校验、单参数校验的 `schedule`
    - 第二步：把 `segment_idx` 初始化为 `0`
-   - 第三步：构造 `ParamsSelector::ScheduleParamsSelector { schedule, segment_idx: 0 }`
+   - 第三步：构造 `ParamsSelector { schedule, segment_idx: 0 }`
    - 第四步：返回该 selector
    - 这一步同样不展开成按 row 的参数数组，只保留对 segment 列表的借用
-3. `select_params_for_row(selector, row_idx)`
-   - 若是 `FixedParamsSelector`
-     - 直接返回内部那份 `&BacktestParams`
-   - 若是 `ScheduleParamsSelector`
-     - 从当前 `segment_idx` 开始检查当前 row 是否已经越过当前 segment 的 `end_row`
-     - 若已越过，则把 `segment_idx` 向后推进
-     - 推进结束后，检查当前 `segment_idx` 是否满足：
-       `schedule[segment_idx].start_row <= row_idx < schedule[segment_idx].end_row`
-     - 若满足，则返回当前 `segment_idx` 对应 segment 的 `&BacktestParams`
-     - 若不满足，则直接报错，不允许静默沿用上一段或最后一段
+2. `select_params_for_row(selector, row_idx)`
+   - 从当前 `segment_idx` 开始检查当前 row 是否已经越过当前 segment 的 `end_row`
+   - 若已越过，则把 `segment_idx` 向后推进
+   - 推进结束后，检查当前 `segment_idx` 是否满足：
+     `schedule[segment_idx].start_row <= row_idx < schedule[segment_idx].end_row`
+   - 若满足，则返回当前 `segment_idx` 对应 segment 的 `&BacktestParams`
+   - 若不满足，则直接报错，不允许静默沿用上一段或最后一段
    - 在当前 kernel 约束下，`row_idx` 是单调递增的，因此 `segment_idx` 也应当只增不减
 
-上面的步骤已经是本节唯一的正式算法描述。这里不再重复写公式，只保留一个实现结论：
+上面的步骤已经是本节唯一的正式算法描述。下面只补一个实现结论：
 
-1. `schedule` 路径不会回头查更早的 segment。
+1. selector 不会回头查更早的 segment。
 2. `segment_idx` 只会向前推进。
 3. 因而每 row 的取参成本是轻量的，不需要每次从头扫描整张 schedule。
 
@@ -425,7 +418,7 @@ fn select_params_for_row(
    - ATR 生成
    - output schema 决策
 6. 入口层负责构造 selector 并保证它覆盖完整行空间。
-7. kernel 只消费 `select_params_for_row(...)` 的结果，不反向关心 selector 是 fixed 还是 schedule。
+7. kernel 只消费 `select_params_for_row(...)` 的结果，不反向关心当前是单段 schedule 还是多段 schedule。
 8. `build_schedule_params_selector(...)` 不负责补救脏 schedule。
    - 如果 `schedule` 为空、未覆盖完整行空间、存在 gap 或 overlap，这些都应在外层校验阶段直接报错
    - 这里不做任何自动修正或隐式兜底

@@ -1,41 +1,5 @@
 # 向前测试、窗口切片、跨窗注入与 stitched
 
-本篇直接复用两个上游归属文档里的共享定义：
-
-1. [01_overview_and_foundation.md](./01_overview_and_foundation.md)
-   - `resolve_indicator_contracts(...)`
-   - `W_resolved[k] / W_normalized[k] / W_applied[k] / W_required[k]`
-   - `DataPack / ResultPack / SourceRange / mapping` 通用约束
-2. [03_backtest_and_result_pack.md](./03_backtest_and_result_pack.md)
-   - `build_result_pack(...)` 的结果包构建语义
-   - `extract_active(...)` 的 active 视图语义
-
-下文只定义 WF / stitched 专属的派生规则、窗口索引、阶段契约与跨窗语义。本篇只补三条会改变 WF 控制流的本地结论：
-
-1. `W_applied[k]` 与 `W_required[k]` 的定义权统一归 [01_overview_and_foundation.md](./01_overview_and_foundation.md)；本篇只消费它们，不重写公式。
-2. WF 窗口规划真正使用的是 `W_required[k]`。
-3. 任何真正的切片、拼接、重基、写 `ranges`，都必须以当前窗口的真实预热边界为准：
-   - builder 调用前是 `warmup_by_key[k]`
-   - builder 写入新容器后落成 `ranges[k].warmup_bars`
-   - 不能回退去用 `W_applied[k]` 或 `W_required[k]` 直接裁数据
-
-其余共享 helper 语义与命名统一短引用 `01`。本篇局部约束：
-
-1. 本篇所有切片默认按 Polars 的轻量切片/复制语义理解，不额外讨论深拷贝优化。
-2. 本篇命名统一采用三段后缀：
-   - `*_pack`：整包，包含预热段和非预热有效段
-   - `*_warmup`：预热段
-   - `*_active`：非预热有效段
-   - 配置字段也统一采用明确命名，不保留裸 `train_bars / test_bars`
-3. 当前 WF 的产品边界也直接写死：
-   - 窗口步长固定取 `step = test_active_bars`
-   - 只支持相邻窗口 `test_active` 在 base 轴上首尾相接
-   - 不支持 `step < test_active_bars` 的重叠滚动窗口
-4. 原因也直接定死：
-   - 从跨窗口连续性的角度看，当前已经有“跨窗口持仓继承 + 测试预热开仓注入”，不需要再靠 `test_active` 大量重叠来模拟连续性
-   - 从预热利用率的角度看，当前已经有 `train_warmup / test_warmup` 和自动 warmup 规划，不需要再靠小步长窗口重叠来缓解预热浪费
-   - 若强行支持更小步长滚动，会显著增加 stitched 的去重、覆盖、绩效口径和真值定义复杂度，收益远小于新增复杂度
-
 ## 1. 输入与模式
 
 ```rust
@@ -48,16 +12,11 @@ fn run_walk_forward(
 ) -> WalkForwardResult
 ```
 
-这里先统一说明一条摘要层约束：
+本篇里出现的函数签名、伪代码和流程代码块，默认都按“语义伪代码”理解：
 
-1. 本篇里出现的函数签名、伪代码和流程代码块，主要用于表达主干流程、对象来源、阶段顺序与失败语义。
-2. 这些代码块默认按“语义伪代码”理解，不要求把 Rust 真实签名里的错误包装、生命周期、借用形式、PyO3 细节全部展开。
-3. 因此：
-   - 摘要层可以省略一部分 `Result<..., QuantError>` 包装噪音
-   - 但不能省掉“这里存在直接报错分支”这个事实
-4. 若摘要层代码块与执行文档里的正式接口签名存在细节差异：
-   - 主干流程、对象来源、边界条件与失败语义以本篇为准
-   - 具体函数签名、返回包装与实现细节以 `02_execution/*.md` 和最终源码为准
+1. 重点是表达主干流程、对象来源、阶段顺序与失败语义。
+2. 可以省略一部分 Rust 可编译签名细节，但不能省掉会改变控制流的契约信息。
+3. 若和执行文档的最终签名存在细节差异，以本篇的主干流程和失败语义为准，以执行文档和源码落实具体签名。
 
 `WalkForwardConfig` 至少需要明确这些字段：
 
@@ -72,57 +31,57 @@ struct WalkForwardConfig {
 }
 ```
 
-字段含义：
+字段含义先压成一张表：
 
-1. `train_active_bars`：每窗训练非预热有效段长度
-2. `test_active_bars`：每窗测试非预热有效段长度
-3. `min_warmup_bars`：训练包和测试包都至少应保留多少 base 预热 bar；默认值为 `0`
-4. `warmup_mode`：向前测试的预热处理模式
-5. `ignore_indicator_warmup`：是否在 WF 内部忽略指标聚合预热；默认值必须为 `false`
-6. `optimize_metric`：WF 的全局优化目标；默认值为 `OptimizeMetric::CalmarRatioRaw`
+| 字段                      | 含义                                     | 默认 / 约束                           |
+| ------------------------- | ---------------------------------------- | ------------------------------------- |
+| `train_active_bars`       | 每窗训练 `active 区间` 长度              | 必填                                  |
+| `test_active_bars`        | 每窗测试 `active 区间` 长度              | 必填                                  |
+| `min_warmup_bars`         | 训练包和测试包至少保留多少 base 预热 bar | 默认 `0`                              |
+| `warmup_mode`             | WF 预热处理模式                          | `BorrowFromTrain` 或 `ExtendTest`     |
+| `ignore_indicator_warmup` | 是否在 WF 内部忽略指标聚合预热           | 默认 `false`                          |
+| `optimize_metric`         | WF 全局优化目标                          | 默认 `OptimizeMetric::CalmarRatioRaw` |
 
-这里再补一条边界说明：
+### 1.1 当前 WF 的产品边界
 
-1. `min_warmup_bars` 当前只属于 WF 层约束，不参与初始取数 planner；默认值为 `0`，表示不额外提高 WF 预热下界。
-2. 这不会造成 quietly wrong：
-   - 若第 `0` 窗左侧历史不足以满足 `min_warmup_bars`
-   - WF 会在窗口合法性校验阶段直接报错
-   - 不会继续带着错误窗口结果往后运行
-3. 在典型 WF 使用场景里，输入数据通常远大于单窗需求，因此即使初始取数 planner 不显式感知 `min_warmup_bars`，第 `0` 窗左侧历史也往往天然足够。
-4. 因此这个问题当前更像职责边界选择，而不是正确性漏洞：
-   - 常规大样本场景下通常无影响
-   - 只有在小样本、左边界贴近、limit 较紧时，才可能在第 `0` 窗显式触发不足报错
-5. 在尚未形成“用户只定义一次、框架内部自动同时喂给 planner 与 WF”的统一入口之前，暂不把 `min_warmup_bars` 前推到初始取数 planner。
+1. 窗口步长固定取 `step = test_active_bars`。
+2. 只支持相邻窗口 `test_active` 在 base 轴上首尾相接。
+3. 不支持 `step < test_active_bars` 的重叠滚动窗口。
+4. 原因很直接：
+   - 当前已经有“跨窗口持仓继承 + 测试预热开仓注入”，不需要再靠大量 `test_active` 重叠来模拟连续性。
+   - 当前已经有 `train_warmup / test_warmup` 和自动 warmup 规划，不需要再靠小步长窗口重叠来缓解预热浪费。
+   - 若强行支持更小步长滚动，会显著增加 stitched 去重、覆盖、绩效口径和真值定义复杂度。
 
-这里还要把 WF 的参数来源写死：
+### 1.2 `min_warmup_bars` 的边界
 
-1. `run_walk_forward(...)` 的优化搜索空间，直接来自输入参数 `wf_params: &SingleParamSet`。
-2. 这里要把两个类型的层级关系说清楚：
-   - `SingleParamSet`：整棵参数树
-   - `Param`：参数树里的单个叶子参数节点
-3. `SingleParamSet` 这棵参数树里的每个 `Param` 节点都已经包含：
-   - `value`
-   - `min`
-   - `max`
-   - `step`
-   - `optimize`
-4. 因此 `SingleParamSet` 这棵参数树既能表达“固定单组参数”，也能表达“优化搜索空间”。
-5. `run_optimization(...)` 只允许从这份 `wf_params` 读取搜索空间：
+1. `min_warmup_bars` 当前只属于 WF 层约束，不参与初始取数 planner。
+2. 若第 `0` 窗左侧历史不足以满足它，WF 会在窗口合法性校验阶段直接 fail-fast。
+3. 因而当前 planner 与 WF 只在共享基础 warmup 下界上对齐；`min_warmup_bars` 是 WF-local constraint。
+4. 所以“同一份 WF 配置由框架一次性规划完整输入”当前并不成立；首窗若不足，会在 WF 阶段报错，而不是 planner 阶段前推处理。
+
+### 1.3 参数来源唯一性
+
+先把参数来源写成一张表：
+
+| 对象                             | 正式来源                       | 明确不允许                                                    |
+| -------------------------------- | ------------------------------ | ------------------------------------------------------------- |
+| 优化搜索空间                     | `wf_params: &SingleParamSet`   | 从 `template` 或 `settings` 再派生第二套搜索空间              |
+| 指标 warmup helper 输入          | `wf_params.indicators`         | 在 WF 层手工物化第二套 concrete indicator params              |
+| backtest exec warmup helper 输入 | `wf_params.backtest`           | 在 WF 层手工物化第二套 concrete runtime params                |
+| 优化目标                         | `config.optimize_metric`       | 从窗口局部结果、`template` 或 `settings` 再推导第二套优化目标 |
+| `template`                       | 模板与执行规则                 | 优化搜索空间或优化目标                                        |
+| `settings`                       | 执行阶段、返回控制与运行时设置 | 优化搜索空间或优化目标                                        |
+
+补充说明：
+
+1. `SingleParamSet` 是整棵参数树，叶子节点 `Param` 同时包含 `value / min / max / step / optimize`。
+2. 因此同一棵 `SingleParamSet` 既能表达固定单组参数，也能表达优化搜索空间。
+3. `run_optimization(...)` 只允许从这份 `wf_params` 读取搜索空间：
    - `optimize = true` 的字段进入优化域
    - `optimize = false` 的字段保持固定
-6. `wf_params.indicators` 是后续所有指标契约 warmup helper 的唯一合法输入路径；helper 契约本身统一引用 `01`，本篇不再重复展开。
-7. 也就是说：
-   - `resolve_contract_warmup_by_key(...)`
-   - `normalize_contract_warmup_by_key(...)`
-   - `apply_wf_warmup_policy(...)`
-   一律只允许消费 `wf_params.indicators`。
-8. 这条路径已与当前源码结构对齐：
-   - Rust `SingleParamSet` 直接定义 `pub indicators: IndicatorsParams`
-   - PyO3 stub 也直接暴露 `SingleParamSet.indicators`
-   - 因此这里不是文档侧额外发明的新 extractor 约定
-9. `run_optimization(...)` 的优化目标唯一来自 `config.optimize_metric`。
-10. `template` 只提供模板与执行规则，不提供优化搜索空间或优化目标。
-11. `settings` 只提供执行阶段、返回控制与运行时设置，不提供优化搜索空间或优化目标。
+4. `resolve_contract_warmup_by_key(...)` / `resolve_indicator_contracts(...)` 一律只消费 `wf_params.indicators`。
+5. `resolve_backtest_exec_warmup_base(...)` 一律只消费 `wf_params.backtest`。
+6. 对会影响 warmup 的可优化字段，统一在 helper 内部按 `Param.value / Param.max` 规则解析。
 
 预热模式：
 
@@ -133,6 +92,8 @@ enum WfWarmupMode {
 }
 ```
 
+### 1.4 预热模式与 `ignore_indicator_warmup`
+
 `ignore_indicator_warmup` 的语义必须写死：
 
 1. `false`：
@@ -141,16 +102,16 @@ enum WfWarmupMode {
    - 参数解析规则直接沿用 [01_overview_and_foundation.md](./01_overview_and_foundation.md) 里 `resolve_indicator_contracts(...)` 的定义
 2. `true`：
    - 在 WF 内部把聚合预热结果统一截获为 `0`
-   - 后续仍正常走 `BorrowFromTrain | ExtendTest` 的窗口规划、切片、跨窗注入与 stitched
+   - 后续正常走 `BorrowFromTrain | ExtendTest` 的窗口规划、切片、跨窗注入与 stitched
 3. 这个开关只用于：
    - “开启预热 vs 关闭预热”的对照实验
    - 备胎方案
-4. 打开后，当前窗口 `active` 允许早于指标真正稳定点，因此该模式下的结果不再具备“严格预热口径”下的同等可信度。
+4. 打开后，当前窗口 `active` 允许早于指标真正稳定点，因此该模式下的结果属于非严格预热口径。
 5. 因此 `ignore_indicator_warmup = true` 不是默认推荐模式；只有在明确要做对照实验或启用备胎方案时才允许开启。
 
 ## 2. 窗口索引总工具函数
 
-这里不再把 base 索引和 source 索引拆成很多小 planning 函数，而是统一收成一个总工具函数：
+这里把 base 索引和 source 索引统一收成一个总工具函数：
 
 ```rust
 struct WindowSliceIndices {
@@ -161,6 +122,7 @@ struct WindowSliceIndices {
 struct WindowIndices {
     train_pack: WindowSliceIndices,
     test_pack: WindowSliceIndices,
+    test_active_base_row_range: Range<usize>, // 虽然作为 WindowMeta 字段对外暴露，但只供 stitched schedule 内部重基使用：当前窗口 test_active 在原始 WF 输入 data.base 轴上的绝对半开区间
 }
 
 fn build_window_indices(
@@ -193,6 +155,7 @@ fn build_window_indices(
 
 1. 当前窗口训练包容器和测试包容器各自的 `source_ranges`
 2. 当前窗口训练包容器和测试包容器各自已经算好的 `ranges_draft`
+3. 当前窗口 `test_active` 在原始 WF 输入 `DataPack.base` 轴上的绝对半开区间 `test_active_base_row_range`
 
 这里要明确区分两类索引空间：
 
@@ -267,7 +230,7 @@ test_active_w = test_active_0 + shift
 2. `BorrowFromTrain` 下，`test_warmup` 是借训练尾部，因此会与 `train_active` 尾部重叠。
 3. 所以这里的 `train_warmup / train_active / test_warmup / test_active` 表示四个逻辑角色，不要求四段在 base 轴上互不重叠。
 
-`train_warmup / train_active / test_warmup / test_active` 这四段只作为 `build_window_indices(...)` 的**内部规划变量**存在，不再作为最终对外返回结构的一部分。
+`train_warmup / train_active / test_warmup / test_active` 这四段主要作为 `build_window_indices(...)` 的**内部规划变量**存在，不整组原样外露；但其中 `test_active` 在原始 base 轴上的绝对半开区间，必须进一步落成 `test_active_base_row_range`，供后续 stitched `backtest_schedule` 重基使用。
 
 规则：
 
@@ -275,18 +238,31 @@ test_active_w = test_active_0 + shift
 2. 因此前一窗的 `test_active` 段，会自然成为后一窗训练数据的一部分。
 3. 这里不是按训练窗长度 `T` 滑动，而是按测试窗长度 `S` 滑动。
 4. 第 `0` 窗若训练预热数据不足，直接报错。
-5. 第 `0` 窗若训练有效段数据不足，直接报错。
+5. 第 `0` 窗若训练 `active 区间` 数据不足，直接报错。
 6. 第 `0` 窗若测试预热数据不足，直接报错。
 7. 第 `0` 窗只对 `train_warmup / train_active / test_warmup` 做硬校验；`test_active` 若越界则统一截短处理。
-8. 若某一窗的 `test_active.end > N`，则把该窗 `test_active.end` 改成 `N` 后保留；允许最后一窗测试数据不足，以贴近实盘滚动到数据尾部时的行为。
+8. 若某一窗的 `test_active.end > N`，则该窗 `test_active.end` 直接取 `N`；允许最后一窗测试数据不足，以贴近实盘滚动到数据尾部时的行为。
 9. 若第 `0` 窗同时也是最后一窗，则它的 `test_active` 也走同一条截短规则，不单独报错。
-10. 残缺 `test_active` 仍然必须满足最小测试长度：
-    - 若第 `0` 窗截短后 `< 2`，则直接报错，表示无法生成任何合法窗口。
-    - 若后续窗口截短后 `< 2`，则最后一窗不生成。
+10. 残缺 `test_active` 必须满足最小测试长度：
+    - 若第 `0` 窗截短后 `< 3`，则直接报错，表示无法生成任何合法窗口。
+    - 若后续窗口截短后 `< 3`，则最后一窗不生成。
+    - 当前正式语义下，`test_active` 的最小合法长度必须是 `3`：
+      - 第 `1` 根 active bar 承载 carry 开仓信号
+      - 第 `2` 根 active bar 开盘执行继承开仓
+      - 尾部强平仍固定写在 `pack_bars - 2`
+      - 若 `active_bars = 2`，carry 行与尾部强平行会落在同一根 bar 上，语义冲突
+11. 对每个最终保留的窗口，还必须把：
+    - `test_active_base_row_range = [test_active.start, test_active.end)`
+    显式写进 `WindowIndices`。
+12. 这条区间属于当前窗口在**原始 WF 输入 `DataPack.base` 轴**上的单一真值：
+    - 它不是 stitched 行轴
+    - 也不是窗口局部重基后的行号
+    - 虽然它最终会作为 `WindowMeta` 字段对外暴露，但语义上只供 stitched `backtest_schedule` 内部重基使用
+13. 后续 stitched 生成 `backtest_schedule` 时，直接对这份原始绝对区间做重基。
 
 窗口索引校验：
 
-1. `T >= 1, S >= 2`
+1. `T >= 1, S >= 3`
 2. `P_train >= 0`
 3. `P_test >= 1`
 4. `BorrowFromTrain` 时 `P_test <= T`
@@ -339,7 +315,7 @@ test_pack_base_range = [test_warmup.start, test_active.end)
 test_pack_active_start = test_active.start
 ```
 
-这里不再额外发明 `map(...) / end_map(...)` 记号，本节所有 source 投影都直接复用 [01_overview_and_foundation.md](./01_overview_and_foundation.md) 里定义的真实工具函数，不允许局部再写一套时间映射逻辑。
+这里不额外发明 `map(...) / end_map(...)` 记号，本节所有 source 投影都直接复用 [01_overview_and_foundation.md](./01_overview_and_foundation.md) 里定义的真实工具函数，不允许局部再写一套时间映射逻辑。
 
 然后分别对 `train_pack` 和 `test_pack` 各执行一次，统一使用同一套投影公式：
 
@@ -378,7 +354,7 @@ source_run_end = pack_src_end
 3. 最终起点取两者较小值，表示“既要覆盖整个 pack，又要保留 `active` 起点前的 source 预热”。
 4. 这里必须先校验 `source_active_start >= W_required[k]`，再做减法；不能写成“先减后判负”，因为全文索引语义都是局部行号，实际实现应按 `usize` 对待，直接先减会下溢。
 5. 一旦 `source_active_start < W_required[k]`，说明上游取数没保够，直接报错。
-6. `source_run_end = pack_src_end`，表示右边界不再额外延伸；当前窗口只要求 source 覆盖到该 pack 的末端。
+6. `source_run_end = pack_src_end`，表示右边界不额外延伸；当前窗口只要求 source 覆盖到该 pack 的末端。
 7. `warmup_by_key` 也直接由这里顺手得到：
    - 对 `k = data.base_data_key`，`warmup_by_key[k] = pack_active_start - pack_base_range.start`
    - 对非 base `k`，`warmup_by_key[k] = source_active_start - source_run_start`
@@ -394,14 +370,14 @@ source_run_end = pack_src_end
 
 1. `W_applied[k]`
    - 只表示“指标 warmup 在 WF 指标策略作用后的结果”
-   - 它仍然是共享真值，但不再是本篇窗口规划真正直接消费的最终下界
+   - 它是共享真值，但不是本篇窗口规划真正直接消费的最终下界
 2. `W_required[k]`
    - 才属于本篇真正直接消费的窗口规划下界
    - 它表示：在当前 WF 配置下，`source[k]` 至少还需要保留多少左侧合法预热
    - 对非 base source，它通常退化为 `W_applied[k]`
    - 对 base source，它还可能额外包含 backtest exec warmup
 3. `warmup_by_key[k]`
-   - 仍然属于 `build_window_indices(...)` 内部
+   - 属于 `build_window_indices(...)` 内部
    - 但它已经不是“契约下界”，而是当前窗口最终真正决定写进新容器的预热长度
    - 这个值可能等于 `W_required[k]`，也可能因为首尾覆盖而更大
 4. `ranges[k].warmup_bars`
@@ -414,7 +390,7 @@ source_run_end = pack_src_end
 2. 再由 `warmup_by_key[k]` 把当前窗口的真实预热长度定死
 3. 最后由 `ranges[k].warmup_bars` 把这份真实预热写入新容器
 
-一旦进入真正的切片 / 重基步骤，就直接沿用本篇开头第 3 条，不再回退去用 `W_required[k]` 裁数据。
+一旦进入真正的切片 / 重基步骤，就直接沿用本篇开头第 3 条，不用 `W_required[k]` 裁数据。
 
 ### 2.3 私有函数：`build_pack_ranges_draft(...)`
 
@@ -434,14 +410,15 @@ source_run_end = pack_src_end
    - `ranges_draft[k].pack_bars = source_ranges[k].end - source_ranges[k].start`
    - `ranges_draft[k].active_bars = ranges_draft[k].pack_bars - ranges_draft[k].warmup_bars`
 3. 因为 `source_ranges[k]` 本身已经是半开区间 `[start, end)`，所以这里的 `pack_bars` 可以直接由索引长度算出，不需要等到真正切 DataFrame 后再反推。
-4. `active_bars` 直接由 `pack_bars - warmup_bars` 得到，不再要求外部再做一次 `total - warmup` 计算。
-5. 这样 `slice_data_pack_by_base_window(...)` 就只负责按索引切片并调用 `build_data_pack(...)`，不再重复计算 `ranges`。
+4. `active_bars` 直接由 `pack_bars - warmup_bars` 得到，外部无需再做一次 `total - warmup` 计算。
+5. 这样 `slice_data_pack_by_base_window(...)` 就只负责按索引切片并调用 `build_data_pack(...)`，不重复计算 `ranges`。
 
 `build_window_indices(...)` 最终接受并组装的内容：
 
 1. 对每个窗口，产出：
    - `train_pack = { source_ranges, ranges_draft }`
    - `test_pack = { source_ranges, ranges_draft }`
+   - `test_active_base_row_range = [test_active.start, test_active.end)`
 2. `build_window_indices(...)` 最终返回的 `Vec<WindowIndices>`，就是由这两部分组装而成。
 
 ## 4. DataPack 窗口切片工具函数
@@ -464,7 +441,7 @@ fn slice_data_pack_by_base_window(
 1. `WindowSliceIndices` 已经是最终切片结果：
    - `source_ranges` 可以直接用于切片
    - `ranges_draft` 可以直接用于赋值
-2. 因此 `slice_data_pack_by_base_window(...)` 不再做额外索引计算。
+2. 因此 `slice_data_pack_by_base_window(...)` 不做额外索引计算。
 3. 它只负责按现成索引处理各字段，然后调用 `build_data_pack(...)`。
 
 DataPack 各字段处理：
@@ -472,7 +449,7 @@ DataPack 各字段处理：
 1. `source`
    - 对每个 `k ∈ S_keys`，直接按 `indices.source_ranges[k]` 切 `data.source[k]`
    - 切完后的结果写入 `source_slice_map`
-   - 这里不再做任何再次 mapping 计算；`indices.source_ranges` 本身就是最终可直接使用的切片索引
+   - 这里不做任何再次 mapping 计算；`indices.source_ranges` 本身就是最终可直接使用的切片索引
 2. `mapping`
    - 这里直接丢弃旧 `mapping`
    - 统一交给 `build_data_pack(...)` 重新构建
@@ -554,7 +531,7 @@ fn build_carry_only_signals(
 
 规则：
 
-1. `raw_signal_stage_result` 就是第一次评估得到的测试包 `ResultPack`；这里一律从 `raw_signal_stage_result.ranges[raw_signal_stage_result.base_data_key]` 读取已经落地好的预热边界，不再额外传 `test_warmup_len / test_len`
+1. `raw_signal_stage_result` 就是第一次评估得到的测试包 `ResultPack`；这里一律从 `raw_signal_stage_result.ranges[raw_signal_stage_result.base_data_key]` 读取已经落地好的预热边界
 2. 测试预热段禁开仓属于回测引擎内部信号模块职责：
    - 在生成 `raw_signal_stage_result.signals` 时，内部实际使用的是对应 `test_pack_data.ranges[test_pack_data.base_data_key].warmup_bars`
    - `build_carry_only_signals(...)` 不重新定义这条规则，只在后处理阶段复用 `raw_signal_stage_result` 里已经表达好的等价边界
@@ -563,9 +540,9 @@ fn build_carry_only_signals(
    - `test_pack_base_warmup = raw_signal_stage_result.ranges[raw_signal_stage_result.base_data_key].warmup_bars`
 4. 再对整个 `raw_signals` 做一份 Polars 浅拷贝；后续 carry 注入都在这份副本上完成；不要假设对原始 `DataFrame` 做原地修改
 5. 计算跨窗开仓注入位置：
-   - 这里指的是当前注入目标 `signals` 这个 `DataFrame` 上，测试预热段的最后一根 base 行
-   - `test_pack_warmup_last_idx = test_pack_base_warmup - 1`
-6. 若 `prev_last_bar_position` 表示上一窗口末根仍有持仓，则在 `test_pack_warmup_last_idx` 注入同向开仓：
+   - 这里指的是当前注入目标 `signals` 这个 `DataFrame` 上，测试 `active 区间` 的第一根 base 行
+   - `test_pack_active_first_idx = test_pack_base_warmup`
+6. 若 `prev_last_bar_position` 表示上一窗口末根仍有持仓，则在 `test_pack_active_first_idx` 注入同向开仓：
    - `Long`：该行必须整行覆盖成：
      - `entry_long = true`
      - `entry_short = false`
@@ -579,6 +556,12 @@ fn build_carry_only_signals(
 7. 若 `prev_last_bar_position = None`：
    - `carry_only_signals` 必须与原始 `raw_signals` 完全一致
    - 不做任何额外改写
+8. 这里显式接受一条保守语义：
+   - 由于当前引擎按 `prev_bar.signal -> current_bar.open` 执行
+   - carry 开仓信号写在 active 第一根
+   - 真正的继承开仓会在第二根 active bar 的开盘执行
+   - 这属于有意接受的一根延迟，窗口边界不追求无缝衔接
+   - 这类跨窗继承带来的额外偏差可以视为悲观预估；若希望尽量减小这部分额外偏差，建议使用更小的进场周期
 ### 5.3 最终正式信号
 
 ```rust
@@ -608,3 +591,5 @@ fn build_final_signals(
    - 只用于判定“当前窗口如果不做尾部强平，是否会自然把仓位带到下一窗口”
 2. `final_signals`
    - 才用于当前窗口正式返回、正式 stitched、正式 performance
+   - 这里的跨窗 carry 开仓位于 active 第一根
+   - 因此后续 `extract_active(...)` 之后，carry 行保留在 active 视图里

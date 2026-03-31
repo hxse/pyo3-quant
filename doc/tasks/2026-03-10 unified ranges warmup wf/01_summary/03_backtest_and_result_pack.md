@@ -1,23 +1,4 @@
-# 回测主流程、ResultPack 构建与非预热切片
-
-本篇承接 DataPack，描述：
-
-1. 单次回测主流程。
-2. `ResultPack` 的构建入口。
-3. 非预热切片 `extract_active(...)`。
-
-本篇直接复用 [01_overview_and_foundation.md](./01_overview_and_foundation.md) 已定义的共享内容：
-
-1. `DataPack / ResultPack / SourceRange` 的通用结构
-2. `mapping` 通用约束
-3. 指标契约与 warmup 命名
-4. builder 收口原则
-
-因此下文不再重复解释这些共享定义本身，只补三类本章增量语义：
-
-1. 单次回测如何消费当前 `DataPack.ranges`
-2. `build_result_pack(...)` 如何把结果字段落成 `ResultPack`
-3. `extract_active(...)` 作为 active 视图例外入口时的专属规则
+# 回测主流程、ResultPack 构建与 active 切片
 
 ## 1. 全量回测主流程
 
@@ -28,15 +9,21 @@
 1. 指标计算: 全量 source -> indicators
 2. 信号生成: 全量 base -> signals
 3. 回测执行: 全量 base -> backtest
-4. 绩效计算: `analyze_performance(data, backtest, performance_params)` 仍然接受全量 `DataPack` 和全量 `backtest`
-5. 绩效统计口径: 函数内部根据当前 `DataPack.ranges`，只统计非预热段 `[data.ranges[data.base_data_key].warmup_bars, data.ranges[data.base_data_key].pack_bars)`
+4. 绩效计算: `analyze_performance(data, backtest, performance_params)` 接受全量 `DataPack` 和全量 `backtest`
+5. 绩效统计口径: 函数内部根据当前 `DataPack.ranges`，只统计 `active 区间` `[data.ranges[data.base_data_key].warmup_bars, data.ranges[data.base_data_key].pack_bars)`
 ```
 
-### 1.1 预热段禁开仓
+### 1.0 本章唯一裁剪真值
 
-旧机制依赖 `has_leading_nan`。
+后面所有“裁掉多少前导数据”的地方都遵守同一条规则：
 
-新机制明确改成：
+1. 只能读取当前容器里的 `ranges[k].warmup_bars`。
+2. 不能回退去直接读取契约 warmup 或 `W_required`。
+3. 因为当前容器为了 coverage 可能额外保留了更多左侧历史，所以容器真实边界不要求与契约 warmup 恒等。
+
+### 1.1 `warmup 区间` 禁开仓
+
+当前正式机制定义如下：
 
 1. 以 `ranges[base].warmup_bars` 作为唯一预热边界。
    - 这里的 `ranges[base].warmup_bars` 按 [01_overview_and_foundation.md](./01_overview_and_foundation.md) 的共享定义理解，表示最终落地到当前 `DataPack` 的真实预热边界。
@@ -48,29 +35,36 @@
    - `entry_short = false`
 3. 这个“预热禁开仓”规则属于信号模块内部职责：
    - 信号模块在输出 `signals` 时，就必须按 `ranges[base].warmup_bars` 自动把预热段开仓置为 `false`
-   - 回测阶段和 WF 都只复用这份统一信号输出，不再额外处理第二遍
+   - 回测阶段和 WF 都直接消费这份统一信号输出
 4. `exit_long / exit_short` 不强改，但预热段本来也不会有持仓。
-5. `has_leading_nan` 仍然保留，但只作为外部调试辅助字段：
+5. `has_leading_nan` 只作为外部调试辅助字段：
    - 只保留在 `signals` 输出里
-   - 不再透传到 `backtest` 输出里
-   - 不再参与 `performance` 输出或绩效计算
+   - `backtest` 输出不包含该字段
+   - `performance` 输出与绩效计算都不消费该字段
 
 当前代码现状需要特别说明：
 
 1. `src/backtest_engine/backtester/mod.rs` 目前仍会把 `signals.has_leading_nan` 透传到 `backtest`
-2. `src/backtest_engine/performance_analyzer/mod.rs` 目前仍会从 `backtest_df` 读取 `has_leading_nan`
-3. 本次重构目标是把这两处清掉，收口为“仅 signals 保留、仅供调试”
+2. `src/backtest_engine/backtester/signal_preprocessor.rs` 目前仍会用 `has_leading_nan` 屏蔽进场
+3. `src/backtest_engine/performance_analyzer/mod.rs` 目前仍会从 `backtest_df` 读取 `has_leading_nan`
+4. 本次重构目标是把这三处都清掉，收口为：
+   - `has_leading_nan` 只保留在 `signals`
+   - 仅供调试
+   - 回测核心逻辑不消费该字段
+   - `backtest` 不输出该字段
+   - `performance` 不消费该字段
+   - 一句话概括：除 `signals` 外，其他模块都不应再感知或消费 `has_leading_nan`
 
 ### 1.1.1 绩效函数的目标口径
 
 为了和单次回测、WF 窗口回测保持统一，绩效函数的目标语义直接定成：
 
 1. `analyze_performance(...)` 接受的是全量 `DataPack` 和全量 `backtest`
-2. 外部不需要先手工切成非预热段再计算绩效
-3. 这个“只统计非预热段”的规则属于绩效模块内部职责：
-   - `analyze_performance(...)` 在内部根据当前 `DataPack.ranges[data.base_data_key].warmup_bars` 只统计非预热区
+2. 外部不需要先手工切成 `active 区间` 再计算绩效
+3. 这个“只统计 `active 区间`”的规则属于绩效模块内部职责：
+   - `analyze_performance(...)` 在内部根据当前 `DataPack.ranges[data.base_data_key].warmup_bars` 只统计 `active 区间`
    - 单次回测和 WF 都直接复用这套行为
-4. 因此单次回测和 WF 都统一成“回测完成后直接算绩效”，不再额外发明一套外部切片后再算绩效的流程
+4. 单次回测和 WF 都采用“回测完成后直接算绩效”这条流程
 5. 关键执行顺序要写死：
    - 先拿到当前 pack 的 `DataPack`
    - 再生成完整 `backtest`
@@ -126,8 +120,8 @@
    - `py_entry/Test/indicators/test_indicator_warmup_contract.py`
 3. 该测试的口径就是当前唯一真值：
    - `warmup == 各输出列前导缺失数量的最大值`
-   - `Strict`：非预热段不允许再出现缺失
-   - `Relaxed`：非预热段允许结构性缺失，但不允许整行全空
+   - `Strict`：`active 区间` 不允许再出现缺失
+   - `Relaxed`：`active 区间` 允许结构性缺失，但不允许整行全空
 
 因此本篇只直接引用 [01_overview_and_foundation.md](./01_overview_and_foundation.md) 里的指标契约定义，不在回测阶段重新追加一层独立 NaN 校验算法。
 
@@ -165,8 +159,8 @@ fn build_result_pack(
    - WF 窗口级切片
    - stitched 拼接
 3. 这些场景的共同前提都是：调用前必须已经有对应的新 `DataPack`。
-4. 因此这里直接依赖 `DataPack`，不再把 `base_times / ranges / base 身份` 拆成零散参数传入。
-5. 它仍然保留 PyO3 暴露，主要服务 Python 侧测试、调试和最小构造场景。
+4. 因此这里直接依赖 `DataPack`；`base_times / ranges / base 身份` 这些语义统一由 `DataPack` 承载。
+5. 它保留 PyO3 暴露，主要服务 Python 侧测试、调试和最小构造场景。
 
 这里再补一条非常关键的衔接规则：
 
@@ -204,7 +198,7 @@ fn strip_indicator_time_columns(
 1. 继承 `data` 的 base 身份：
    - `ResultPack.base_data_key = data.base_data_key`
 2. 继承 `data` 的 mapping / ranges 子集：
-   - `ResultPack.mapping` 直接取 `data.mapping` 的子集，字段集合为 `indicator_source_keys + time`
+   - `ResultPack.mapping` 直接取 `data.mapping` 的子集，字段集合为 `["time"] + indicator_source_keys`
    - `ResultPack.ranges` 直接取 `data.ranges` 的子集，字段集合为 `data.base_data_key + indicator_source_keys`
    - 这里只裁掉不需要的字段，不做索引裁减、重基或重新编号
 3. 直接接受并写入入参结果字段：
@@ -294,7 +288,7 @@ fn extract_active(
 
 这里的前提非常明确：
 
-1. 单次回测的 `performance` 本来就只基于非预热段计算。
+1. 单次回测的 `performance` 本来就只基于 `active 区间` 计算。
 2. `extract_active(...)` 只是把 full artifact 裁成 active view，不改变绩效口径。
 3. 因此这里没必要像 WF 那样重新构建容器。
 
@@ -325,7 +319,7 @@ ResultPack：
 | `indicators[k]` | `indicators[k][data.ranges[k].warmup_bars..]` | 指标结果按各自 source 轴存储，所以每组指标都裁掉该 source 自己的真实前导预热段 |
 | `signals` | `signals[data.ranges[data.base_data_key].warmup_bars..]` | `signals` 挂在 base 行空间上；这里虽然切片动作仍以同源 `DataPack` 的 base 边界为真值，但其 base 身份与 `result.base_data_key` 相同 |
 | `backtest` | `backtest[data.ranges[data.base_data_key].warmup_bars..]` | `backtest` 同样挂在 base 行空间上，切法与 `signals` 完全一致；其 base 身份也与 `result.base_data_key` 相同 |
-| `performance` | 原样继承 | 单次回测的 `performance` 本来就只看非预热段，这里只是暴露 active view，不改变绩效口径 |
+| `performance` | 原样继承 | 单次回测的 `performance` 本来就只看 `active 区间`，这里只是暴露 active view，不改变绩效口径 |
 | `base_data_key` | 原样继承 | 切掉前导预热不会改变 `ResultPack` 的 base 身份 |
 | `mapping` | 走统一的 mapping 重基算法 | `ResultPack.mapping` 的处理方式与 `DataPack.mapping` 完全一致 |
 | `ranges` | 只保留 `result.base_data_key + 当前实际存在指标结果的 source`，且每个保留的 `k` 写成 `{ warmup_bars: 0, active_bars: data.ranges[k].active_bars, pack_bars: data.ranges[k].active_bars }` | `ResultPack.ranges` 只描述当前结果对象自身，且切掉前导预热后预热长度必须归零 |

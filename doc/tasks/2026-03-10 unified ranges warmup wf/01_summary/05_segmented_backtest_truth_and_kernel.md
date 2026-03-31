@@ -1,49 +1,50 @@
 # 分段真值回测、可变 ATR 与对现有主循环的精准抽象
 
-> 本文件已拆分为目录页；原有 segmented replay 口径不变。
+本卷是 stitched 正式 backtest 真值的增量方案入口。
 
-本篇仍然是对 [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md) 的后续增量方案讨论，只专门负责：
+它建立在 `04` 已经准备好的 stitched 上游输入之上，只新增 segmented replay、schedule backtest 与通用 kernel 这一层语义。
 
-1. segmented replay 的目标口径
-2. `run_backtest_with_schedule(...)`
-3. 通用 kernel
-4. output schema / stitched 输入 / 测试策略
+## 本卷作用
 
-阅读顺序：
+1. 定义正式 stitched backtest 真值如何由 `run_backtest_with_schedule(...)` 生成。
+2. 定义 `BacktestParamSegment`、`ParamsSelector` 与通用 kernel。
+3. 定义 schedule 路径下的 schema、policy、测试与等价性审阅重点。
 
-1. [05_segmented_backtest_truth_and_kernel_1_design_and_selector.md](./05_segmented_backtest_truth_and_kernel_1_design_and_selector.md)
-   - 对应原文 `## 0` 至 `## 7`
-   - 包含：
-     - 归属与边界
-     - 总体方案
-     - 边界问题
-     - `atr_period`
-     - 统一参数选择器
+## 分卷地图
 
-2. [05_segmented_backtest_truth_and_kernel_2_kernel_and_entries.md](./05_segmented_backtest_truth_and_kernel_2_kernel_and_entries.md)
-   - 对应原文 `## 8`、`## 9`
-   - 包含：
-     - 通用 kernel
-     - 两个入口与调用链
+### [05_segmented_backtest_truth_and_kernel_1_design_and_selector.md](./05_segmented_backtest_truth_and_kernel_1_design_and_selector.md)
 
-3. [05_segmented_backtest_truth_and_kernel_3_schema_outputs_and_tests.md](./05_segmented_backtest_truth_and_kernel_3_schema_outputs_and_tests.md)
-   - 对应原文 `## 10` 至 `## 14`
-   - 包含：
-     - output schema
-     - stitched 阶段产物
-     - 影响范围
-     - 等价性测试
-     - 非目标与最终结论
+负责：
 
-引用原则：
+1. stitched replay 的目标口径
+2. 什么变、什么不变
+3. `atr_period` 可变的边界
+4. `BacktestParamSegment` 与 `ParamsSelector`
 
-1. 其他文档继续把本文件视为 segmented replay 的总入口引用。
-2. 若问题落在设计判断、边界语义、参数选择器，先看第一卷。
-3. 若问题落在 kernel 与入口等价性，先看第二卷。
-4. 若问题落在 schema、stitched 输入、测试与 review 约束，先看第三卷。
+### [05_segmented_backtest_truth_and_kernel_2_kernel_and_entries.md](./05_segmented_backtest_truth_and_kernel_2_kernel_and_entries.md)
 
-拆分说明：
+负责：
 
-1. 本次拆分只调整排版与阅读路径，不新增第二套 replay 口径。
-2. 分卷文件中的章节编号继续沿用原文编号，方便与既有讨论记录对照。
-3. 若后续人工通过 `git diff` 检查是否丢失逻辑，应以分卷正文是否完整承接原章节为准。
+1. 通用 kernel
+2. `run_backtest(...)` 与 `run_backtest_with_schedule(...)` 的收敛关系
+3. schedule 验证链与等价性审阅重点
+
+### [05_segmented_backtest_truth_and_kernel_3_schema_outputs_and_tests.md](./05_segmented_backtest_truth_and_kernel_3_schema_outputs_and_tests.md)
+
+负责：
+
+1. output schema
+2. stitched replay 的正式产物
+3. 对现有 `03-10` 方案的影响范围
+4. Rust 侧测试基线与非目标
+
+## 和 `04` 的边界
+
+1. `04` 负责窗口级真值和 stitched 上游输入准备。
+2. `05` 负责连续 replay、schedule 参数选择和最终 stitched backtest 真值。
+3. stitched 的正式 backtest 真值由 `05` 的 segmented replay 生成。
+
+## 阅读提醒
+
+1. 本卷不改 planner，不改 `01` 的 warmup 三层口径，不改 `04` 的窗口级信号语义。
+2. 本卷只接管“如何把 `04` 产出的 stitched 输入交给回测引擎，再得到正式 stitched backtest”这一层。

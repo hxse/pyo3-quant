@@ -6,7 +6,7 @@
 
 1. 把现有主循环函数抽成一个更通用的统一执行核。
 2. 它是一次精准改造，不是再造一套新的回测引擎。
-3. 对单次回测来说，它应当与现有执行逻辑保持等价；对 schedule 回测来说，只是把参数来源和 ATR 输入改成了按 stitched 轴提供。
+3. 对单次回测来说，它应当与现有执行逻辑保持等价；对 schedule 回测来说，参数来源和 ATR 输入都按 stitched 轴提供。
 
 这里还要再补一条和第 `7` 节对应的硬约束：
 
@@ -25,7 +25,7 @@
    - 输出写入
 4. 生成一张完整 backtest 表。
 
-换句话说，kernel 不再负责：
+换句话说，下面这些对象与语义都由外层准备：
 
 1. 解释窗口来源。
 2. 解释 warmup。
@@ -52,21 +52,14 @@ fn run_backtest_kernel(
 3. 也就是说，kernel 接收的是“已经准备好的 `PreparedData`”，而不是再自己去理解 `data / signals / atr_by_row / schedule` 这些外层对象。
 4. 这里的 `ParamsSelector` 是入口层先构造好的统一参数选择器。
 5. kernel 内部只允许通过 `select_params_for_row(...)` 取参：
-   - 单参数路径始终返回同一份 `&BacktestParams`
-   - schedule 路径只在 segment 边界推进游标，并返回当前 segment 的 `&BacktestParams`
+   - 单段 schedule 时始终返回同一份 `&BacktestParams`
+   - 多段 schedule 时只在 segment 边界推进游标，并返回当前 segment 的 `&BacktestParams`
 6. 这样做的目标就是：在保持语义清楚的同时，保证参数读取层的性能最优、内存最少，避免每个 row 新建 `BacktestParams` 对象。
-7. 为了和当前 `run_main_loop(...)` 保持等价，kernel 内部仍要保留三步初始化，只是输入来源写死为：
-   - `BacktestState::new(...)`
-     - 单参数路径：继续吃这唯一一份 `params`
-     - schedule 路径：直接吃 `select_params_for_row(&mut params_selector, 0)` 返回的那一段 params
-     - 这里依赖第 `9.6` 节已写死的约束：`initial_capital` 不允许跨 segment 变化
-   - `OutputBuffers`
-     - 单参数路径：继续等价于 `OutputBuffers::new(params, data_length)`
-     - schedule 路径：由并集 `output_schema` 显式落定
-   - `WriteConfig`
-     - 单参数路径：继续等价于 `WriteConfig::from_params(params)`
-     - schedule 路径：由同一份并集 `output_schema` 显式落定
-8. 也就是说，schedule 路径不是把这三步删掉，而是把“它们各自吃什么输入”单独写死，避免实现时静默漂移。
+7. 为了和当前 `run_main_loop(...)` 保持等价，kernel 内部仍要保留三步初始化，只是它们统一吃：
+   - `select_params_for_row(&mut params_selector, 0)` 返回的 `init_params`
+   - 以及外层已经显式落定的 `output_schema`
+   - 这里依赖第 `9.6` 节已写死的约束：`initial_capital` 不允许跨 segment 变化
+8. 也就是说，单参数入口虽然对外保留，但在内部也先退化成单段 schedule，再和多段 schedule 共享同一条 kernel 输入路径。
 
 ### 8.2 kernel 伪代码
 
@@ -85,21 +78,17 @@ run_backtest_kernel(prepared_data, mut params_selector, output_schema):
        - 也就是说，初始化阶段和主循环阶段共用同一条正式取参路径
 
     4. 初始化输出缓冲区
-       - 单参数路径：
-         `let mut buffers = OutputBuffers::new(init_params, data_length)`
-       - schedule 路径：
-         `let mut buffers = OutputBuffers::from_schema(&output_schema, data_length)`
+       - `let mut buffers = OutputBuffers::from_schema(&output_schema, data_length)`
          或其他等价 helper
+       - 其中单段 schedule 的 `output_schema` 必须退化成当前固定 schema
 
     5. 初始化回测状态
        - `let mut state = BacktestState::new(init_params, &prepared_data)`
 
     6. 初始化写入配置
-       - 单参数路径：
-         `let config = WriteConfig::from_params(init_params)`
-       - schedule 路径：
-         `let config = WriteConfig::from_output_schema(&output_schema)`
+       - `let config = WriteConfig::from_output_schema(&output_schema)`
          或其他等价 helper
+       - 其中单段 schedule 的 `output_schema` 必须退化成当前固定 schema
 
     7. 初始化第 0 行和第 1 行
        - `initialize_buffer_rows_0_and_1(&mut buffers, &mut state, &prepared_data, &config)`
@@ -134,7 +123,7 @@ run_backtest_kernel(prepared_data, mut params_selector, output_schema):
    - `OutputBuffers / WriteConfig` 的 schema 落定方式
 3. 其余状态推进语义不得借重构之名悄悄改写。
 
-### 8.3 为什么主循环应该改成通用版本
+### 8.3 主循环采用通用版本的原因
 
 因为 schedule 回测和单次回测真正不同的只有两样：
 
@@ -208,7 +197,7 @@ run_backtest(data, signals, params):
     1. `params.validate()`
     2. `let ohlcv = get_ohlcv_dataframe(data)`
     3. `let atr_by_row = calculate_atr_if_needed(ohlcv, params)`
-       - 这里继续沿用当前实现：ATR 一致性校验内聚在 `calculate_atr_if_needed(...)` 内部
+       - ATR 一致性校验内聚在 `calculate_atr_if_needed(...)` 内部
     4. `let data_length = data.mapping.height()`
     5. `let single_segment_schedule = [BacktestParamSegment { start_row: 0, end_row: data_length, params }]`
        - 摘要里这里按逻辑伪代码理解
@@ -231,25 +220,24 @@ run_backtest_with_schedule(data, signals, atr_by_row, schedule):
     8. `let output_buffers = run_backtest_kernel(prepared_data, params_selector, output_schema)`
     9. `output_buffers.validate_array_lengths()`
    10. `let mut result_df = output_buffers.to_dataframe()`
-   11. `if let Ok(col) = signals.column("has_leading_nan") { result_df.with_column(col.clone())? }`
-   12. `return Ok(result_df)`
+   11. `return Ok(result_df)`
 ```
 
 这里的结论要非常明确：
 
 1. `run_backtest(...)` 也属于这次改造范围。
-2. 但它不再独占一套入口内部流程，而是把“固定参数 + 单条 ATR 输入”先降成“单段 schedule + 单条 ATR 输入”，再直接调用 `run_backtest_with_schedule(...)`。
+2. 它把“固定参数 + 单条 ATR 输入”先降成“单段 schedule + 单条 ATR 输入”，再直接调用 `run_backtest_with_schedule(...)`。
 3. 因此 schedule 路径是内部 canonical path；单次回测只是它的一个特例。
 4. `BacktestParams` 在回测模块执行过程中，按当前 Rust 签名设计始终以 `&BacktestParams` 形式传递，属于语法层面的只读输入，不是仅靠语义约定“不修改”。
 5. 两条入口在“构造 PreparedData”这一步，都必须保留当前 `PreparedData::new(...)` 已有的信号预处理语义：
    - 冲突信号消解
    - `skip_mask` 屏蔽
    - ATR 为 `NaN` 时的进场屏蔽
-   - `has_leading_nan` 屏蔽进场
-6. 两条入口虽然保留，但内部参数读取路径要统一：
-   - `run_backtest_with_schedule(...)` 继续负责构造统一的 `ParamsSelector`
+   - `has_leading_nan` 只停留在 `signals` 侧，作为调试辅助字段存在，不参与回测核心逻辑，不回灌到最终 `backtest` 输出，也不被 `performance` 读取
+6. 两条入口的内部参数读取路径统一如下：
+   - `run_backtest_with_schedule(...)` 负责构造统一的 `ParamsSelector`
    - kernel 只通过 `select_params_for_row(...)` 读取 `current_params`
-   - 不允许单参数路径和 schedule 路径在 kernel 内再保留两套不同取参写法
+   - 不允许单段 schedule 和多段 schedule 在 kernel 内再保留两套不同取参写法
 7. 按本篇约束实现后，`run_backtest(...)` 理应与原有的 `run_backtest(...)` 逻辑等价；真正新增的差异只应出现在多段 schedule 场景。
 
 ### 9.2.1 等价性审阅重点
@@ -264,7 +252,7 @@ run_backtest_with_schedule(data, signals, atr_by_row, schedule):
    - ATR 相关 helper 的调用顺序与内聚边界是否仍一致
    - `PreparedData::new(...)` 的信号预处理语义是否完整保留
    - 是否仍先初始化第 `0 / 1` 行，再从第 `2` 行开始主循环
-   - 单参数路径的输出 schema、列顺序、dtype 与 `has_leading_nan` 透传是否仍一致
+   - 单段 schedule 下的输出 schema、列顺序、dtype 是否仍与当前单次回测一致；同时确认 `has_leading_nan` 只保留在 `signals` 侧，不参与回测核心逻辑，不透传到 `backtest`，也不被 `performance` 读取
 5. 实现阶段还要再加一条方法论约束：
    - 必须同时对照本篇摘要文档和当前回测源码一起实现
    - 不能只看摘要文档写代码
@@ -293,9 +281,9 @@ run_backtest_with_schedule(data, signals, atr_by_row, schedule):
    - 先做 `params.validate_atr_consistency()`
    - 得到 `has_atr_params: bool`
    - 再由 `calculate_atr_if_needed(...)` 根据这个 bool 分支决定返回 `Some(atr_series)` 还是 `None`
-2. schedule 路径里，ATR 已经是外层传进来的正式输入：
-   - 因此这里不再内部计算 ATR
-   - 只需要聚合“整个 schedule 是否需要 ATR”的 bool，并校验 `atr_by_row` 的 `Some / None` 形态是否匹配
+2. schedule 路径里，ATR 是外层传入的正式输入：
+   - 这里直接聚合“整个 schedule 是否需要 ATR”的 bool
+   - 并校验 `atr_by_row` 的 `Some / None` 形态是否匹配
 3. 也就是说，schedule 路径对应的是：
    - “复用 `validate_atr_consistency()` 的 bool 语义”
    - 但不复用“在入口内部现算 ATR”这一步
@@ -336,6 +324,7 @@ fn validate_schedule_atr_contract(
 1. 外层必须校验：
    - 若全程不启用 ATR 相关逻辑，则 `stitched_atr_by_row = None`
    - 若任一 segment 启用 ATR 相关逻辑，则必须显式产出 `stitched_atr_by_row`
+   - `stitched_atr_by_row` 的唯一正式物化算法统一归 `04`，本篇只消费与校验
    - `stitched_atr_by_row` 必须和 `stitched_data_pack.base`、`backtest_schedule` 属于同一 stitched 行轴
    - 每一行的 ATR 值都必须已经按该行所属 segment 的参数语义物化完成
 2. kernel 必须校验：
@@ -396,18 +385,30 @@ fn validate_schedule_contiguity(
 
 在当前 [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md) 已写死的“`test_active` 相邻首尾相接、无 overlap”前提下：
 
-1. `backtest_schedule` 通常天然就是“一窗一段”。
-2. 因此这里的连续覆盖要求不是额外补丁，而是当前 WF 窗口制度的直接产物。
+1. 这里的 `backtest_schedule` 一律指 `Vec<BacktestParamSegment>`，它是 stitched replay 的正式输入对象，不是阶段名。
+2. `backtest_schedule` 通常天然就是“一窗一段”。
+3. 因此这里的连续覆盖要求不是额外补丁，而是当前 WF 窗口制度的直接产物。
+4. 这里消费的 `start_row / end_row` 也不是自由脑补的行号：
+   - 它们必须直接来自 `04` 已写死的重基公式
+   - 即先读取各窗口 `test_active_base_row_range`
+   - 再以第一窗 `test_active_base_row_range.start` 为基准，计算：
+     - `start_row_i = original_start_i - base0`
+     - `end_row_i = original_end_i - base0`
+5. 因而本 helper 的校验语义和 `04` 的构造语义必须一一对齐；两边若出现 off-by-one，直接视为摘要契约冲突。
 
 ### 9.6 参数允许变化的范围
 
-在 `validate_schedule_contiguity(...)` 之后，`run_backtest_with_schedule(...)` 仍必须继续做两层校验：
+在 `validate_schedule_contiguity(...)` 之后，`run_backtest_with_schedule(...)` 还必须做两层校验：
 
 1. 对每个 `segment.params` 调用单参数的 `BacktestParams::validate()`
 2. 调用字段级 policy：
    `validate_backtest_param_schedule_policy(schedule)`
+3. 这里的 `segment.params` 来自 `window_results[i].meta.best_params.backtest`，其正式语义也必须与 `04` 一致：
+   - `best_params` 仍保留 `SingleParamSet` / `BacktestParams` 的容器形状
+   - 但在 replay 路径里只允许按各字段 `.value` 消费
+   - 不允许再按 `.optimize / .max / .min / .step` 把它当搜索空间二次解释
 
-本篇不再只写“哪些能改、哪些不能改”的口头规则，而是把第二层收敛成一个唯一的字段级 policy：
+第二层统一收敛成一个唯一的字段级 policy：
 
 `validate_backtest_param_schedule_policy(schedule)`
 

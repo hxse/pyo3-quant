@@ -72,9 +72,9 @@ struct SourceRange {
 
 区间推导：
 
-1. 预热段：`[0, warmup_bars)`
-2. 非预热有效段：`[warmup_bars, pack_bars)`
-3. 整包：`[0, pack_bars)`
+1. `warmup 区间`：`[0, warmup_bars)`
+2. `active 区间`：`[warmup_bars, pack_bars)`
+3. `pack 区间`：`[0, pack_bars)`
 
 说明：
 
@@ -106,7 +106,7 @@ struct SourceRange {
 
 覆盖约束：
 
-1. 当前容器内，所有 source 都必须对当前 base 时间轴完成**全量覆盖**，不能只覆盖非预热段。
+1. 当前容器内，所有 source 都必须对当前 base 时间轴完成**全量覆盖**，不能只覆盖 `active 区间`。
 2. 首覆盖：`source_k_first_time <= base_times.first()`
 3. 尾覆盖：`source_k_last_time + source_interval_ms(k) > base_times.last()`
 
@@ -190,7 +190,15 @@ ResultPack 的 `mapping`：
 
 本任务里所有“精确时间定位 / 把 base 时间映射到 source 行号 / 把 base 半开右边界映射到 source 半开右边界”的地方，都必须统一收口到下面三个工具函数：
 
-这里不再写成抽象公式，而是直接把目标写法固定成同一套 Polars 伪代码。
+先把这三个 helper 的职责压成一张表：
+
+| helper | 输入空间 | 输出空间 | 作用 |
+| --- | --- | --- | --- |
+| `exact_index_by_time(...)` | 某一条时间列 | 同一条时间列的局部行号 | 精确时间定位 |
+| `map_source_row_by_time(...)` | 某个时间锚点 + source 时间列 | source 局部行号 | 单点时间投影 |
+| `map_source_end_by_base_end(...)` | base 半开右边界 + source 时间列 | source 半开右边界 | pack/source 右边界投影 |
+
+下面再把目标写法固定成同一套 Polars 伪代码。
 
 ```rust
 fn exact_index_by_time(

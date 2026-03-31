@@ -1,20 +1,5 @@
 # Python 网络请求、Rust 取数状态机与 DataPack 构建
 
-本篇只负责三件事：
-
-1. Python 侧只保留网络请求。
-2. Rust 侧如何通过取数状态机完成补拉、裁减与 `ranges` 计算。
-3. 最终如何在 Rust 内部直接返回 `DataPack`。
-
-本篇直接复用 [01_overview_and_foundation.md](./01_overview_and_foundation.md) 已定义的共享真值：
-
-1. `resolve_indicator_contracts(...)`
-2. `W_resolved[k] / W_normalized[k] / W_required[k]`
-3. `DataPack / SourceRange / mapping` 的通用约束
-4. builder 收口原则
-
-因此下文不再重复解释这些共享定义本身，只说明取数状态机如何消费它们来完成 planner 规划与 `DataPack` 初始构建。
-
 ## 1. Rust 内部如何消费共享预热真值
 
 这一层也继续收口到 Rust 内部，不再由 Python 先调用 `resolve_indicator_contracts(...)`。
@@ -28,13 +13,17 @@ resolved_contract_warmup_by_key =
 normalized_contract_warmup_by_key =
     normalize_contract_warmup_by_key(S_keys, resolved_contract_warmup_by_key)
 
+applied_contract_warmup_by_key =
+    normalized_contract_warmup_by_key
+    # planner 路径当前没有 ignore_indicator_warmup 分支，因此这里直接退化为恒等赋值
+
 backtest_exec_warmup_base =
     resolve_backtest_exec_warmup_base(backtest_params)
 
 required_warmup_by_key =
     merge_required_warmup_by_key(
         base_data_key,
-        normalized_contract_warmup_by_key,
+        applied_contract_warmup_by_key,
         backtest_exec_warmup_base,
     )
 ```
@@ -43,46 +32,26 @@ required_warmup_by_key =
 
 1. 上述 helper 的公式、边界与“唯一实现源”约束统一引用 [01_overview_and_foundation.md](./01_overview_and_foundation.md)，本篇不再重复展开。
 2. planner 初始化阶段必须在 Rust 内部显式跑完这条链，并且后续统一消费最终的 `required_warmup_by_key`。
-3. 这份 `required_warmup_by_key` 同时服务初始取数 planner 和后续 WF 窗口规划；若后续公式需要调整，只允许回到 `01` 改 helper 契约。
+3. 这份 `required_warmup_by_key` 同时服务初始取数 planner 和后续 WF 的共享基础 warmup 约束；它不覆盖 WF 专属的 `min_warmup_bars`，后者仍留在 WF 层单独校验。若后续公式需要调整，只允许回到 `01` 改 helper 契约。
 
 ## 2. Python / Rust 职责划分
 
-这一轮重构里，职责要彻底收口：
+| 层 | 只负责 | 明确不负责 |
+| --- | --- | --- |
+| Python | 发网络请求、转 `pl.DataFrame`、重试空响应、把快照交给 Rust | 计算 warmup、判断 coverage、计算 `ranges`、调用 `build_data_pack(...)` |
+| Rust planner | 规划请求、补尾覆盖、补首时间覆盖、补首预热、base 左裁、source 保留、算初始 `ranges`、内部调用 `build_data_pack(...)` | 把网络 IO 留在 Python |
 
-1. Python 侧只负责：
-   - 发网络请求
-   - 把返回结果立刻转成 `pl.DataFrame`
-   - 把 `DataFrame` 交给 Rust 状态机
-2. Python 侧不再维护任何取数算法逻辑：
-   - 不自己判断还差多少
-   - 不自己判断 coverage 是否成立
-   - 不自己调用 `resolve_indicator_contracts(...)`
-   - 不自己计算 `ranges`
-   - 不自己调用 `build_data_pack(...)`
-3. Rust 侧负责：
-   - 取数规划
-   - 补尾覆盖
-   - 补首预热
-   - base 左裁
-   - source 保留
-   - 初始 `ranges` 计算
-   - 在内部调用 `build_data_pack(...)`
-   - 返回最终 `DataPack`
+这样收口的结果是：
 
-这样最干净：
+1. Python 只保留 IO。
+2. 所有取数算法统一收口到 Rust。
+3. Python 最终不再直接调用 `build_data_pack(...)`。
 
-1. Python 只保留 IO
-2. 所有取数算法统一收口到 Rust
-3. Python 最终不再直接调用 `build_data_pack(...)`
+这里再写死一条高内聚原则：
 
-这里再明确一条高内聚原则：
-
-1. 本篇只讨论“如何把数据请求到位”
-2. 真正的 `DataPack / ResultPack` 构建校验，统一放在 [01_overview_and_foundation.md](./01_overview_and_foundation.md) 里定义的 `build_mapping_frame(...)`
-3. 因为无论单次回测还是向前测试，最终都必须回到统一 builder；其中：
-   - `build_data_pack(...)` 内部必然调用 `build_mapping_frame(...)`
-   - `build_result_pack(...)` 不调用 `build_mapping_frame(...)`，只继承对应 `DataPack.mapping` 的子集
-4. 因此本篇不再重复定义第二套 Pack 级校验；这里只保留状态机为了达成请求目标所需的完成条件与少量内部一致性断言
+1. 本篇只讨论“如何把数据请求到位”。
+2. 真正的 `DataPack / ResultPack` 构建校验，统一引用 [01_overview_and_foundation.md](./01_overview_and_foundation.md) 里的 builder 定义。
+3. 因此本篇只保留状态机为了达成请求目标所需的完成条件与少量内部一致性断言，不再重复定义第二套 Pack 级校验。
 
 ## 3. 上游 API 约束
 
@@ -153,6 +122,7 @@ class DataPackFetchPlannerInput:
     effective_since: int
     effective_limit: int
     indicators_params: Mapping[str, Mapping[str, Mapping[str, Param]]]
+    backtest_params: BacktestParams
     min_request_bars: int = 10
     max_rounds_per_source: int = 20
 
@@ -171,6 +141,13 @@ class DataPackFetchPlanner:
     def finish(self) -> DataPack: ...
 ```
 
+| 字段 | 正式来源 | 说明 |
+| --- | --- | --- |
+| `timeframes / base_data_key / effective_since / effective_limit` | `OhlcvDataFetchConfig` | 来自用户层取数配置 |
+| `indicators_params` | 当前运行参数 | 直接沿用现有指标参数容器，不手工物化第二套 concrete indicator params |
+| `backtest_params` | 当前运行参数 | 直接沿用现有 `BacktestParams` 容器，不手工物化第二套 concrete runtime params |
+| `min_request_bars / max_rounds_per_source` | planner 输入 | 只属于取数状态机 |
+
 字段语义：
 
 1. `DataPackFetchPlannerInput`
@@ -178,7 +155,9 @@ class DataPackFetchPlanner:
    - `base_data_key`：从用户层 `OhlcvDataFetchConfig.base_data_key` 拿到
    - `effective_since`：从用户层 `OhlcvDataFetchConfig.since` 拿到；这里强约束要求必须是显式整数
    - `effective_limit`：从用户层 `OhlcvDataFetchConfig.limit` 拿到；这里强约束要求必须是显式整数，且必须满足 `effective_limit >= 1`
-   - `indicators_params`：与回测引擎当前使用的指标参数同型；Rust 在状态机初始化时内部调用 `resolve_indicator_contracts(...)` 完成 warmup 聚合
+   - `indicators_params`：与回测引擎当前使用的指标参数同型；这里继续直接复用当前项目已有的指标参数容器，不要求 Python 侧先手工物化第二套 indicator concrete params；Rust 在状态机初始化时内部调用 `resolve_indicator_contracts(...)` 完成 warmup 聚合
+   - `backtest_params`：与当前回测引擎使用的 `BacktestParams` 同型；这里仍然是当前项目本来就在运行参数里使用的回测参数容器，而不是额外物化出来的一套 concrete runtime params
+   - Rust 在状态机初始化时内部调用 `resolve_backtest_exec_warmup_base(backtest_params)`，由该 helper 自己统一解析会影响 exec warmup 的 `Param.value / Param.max` 真值，并把 base 执行预热并入最终 `required_warmup_by_key`
    - `min_request_bars`：每次循环补拉的最小 bar 数量
    - `max_rounds_per_source`：每个 source 最多允许补拉多少轮，防止死循环
    - Rust 在初始化阶段基于 `timeframes + base_data_key` 推导：
@@ -198,8 +177,12 @@ class DataPackFetchPlanner:
 
 两层转换关系：
 
-1. 用户层先持有原始 `OhlcvDataFetchConfig`
-2. Python 只从中抽取 planner 真正需要的字段，构造 `DataPackFetchPlannerInput`
+1. 用户层先持有原始 `OhlcvDataFetchConfig` 与当前运行参数
+2. Python 从中抽取 planner 真正需要的字段，构造 `DataPackFetchPlannerInput`
+   - `timeframes / base_data_key / effective_since / effective_limit` 来自 `OhlcvDataFetchConfig`
+   - `indicators_params / backtest_params` 来自当前运行参数
+   - 这里的 `indicators_params` 不要求 Python 侧先把优化参数树手工物化成最终 concrete 值；唯一合法解释入口仍是 Rust `resolve_indicator_contracts(...)`
+   - 这里的 `backtest_params` 不要求 Python 侧先把优化参数树手工物化成最终 concrete 值；唯一合法解释入口仍是 Rust `resolve_backtest_exec_warmup_base(...)`
 3. Rust `next_request()` 只返回最小请求描述 `FetchRequest`
 4. Python 再把 `FetchRequest + OhlcvDataFetchConfig` 组合成现有 `OhlcvRequestParams`
 5. 然后直接调用现有 `get_ohlcv_data(...)`
@@ -230,14 +213,15 @@ class DataPackFetchPlanner:
 Python 侧职责因此固定为：
 
 1. 持有原始 `OhlcvDataFetchConfig`
-2. 从中构造 `DataPackFetchPlannerInput`
-3. 调 `next_request()`
-4. 用 `FetchRequest + OhlcvDataFetchConfig` 组装现有 `OhlcvRequestParams`
-5. 发网络请求
-6. 把响应转成 `pl.DataFrame`
-7. 若响应为空，Python 侧最多重试 `2` 次；重试后仍为空则直接报错
-8. 只有拿到非空 `pl.DataFrame` 后，才调 `ingest_response(...)`
-9. 循环直到 `finish()`
+2. 持有当前运行参数中的 `indicators_params / backtest_params`
+3. 从中构造 `DataPackFetchPlannerInput`
+4. 调 `next_request()`
+5. 用 `FetchRequest + OhlcvDataFetchConfig` 组装现有 `OhlcvRequestParams`
+6. 发网络请求
+7. 把响应转成 `pl.DataFrame`
+8. 若响应为空，Python 侧最多重试 `2` 次；重试后仍为空则直接报错
+9. 只有拿到非空 `pl.DataFrame` 后，才调 `ingest_response(...)`
+10. 循环直到 `finish()`
 
 除此之外，Python 不再维护任何取数算法状态。
 
@@ -373,8 +357,8 @@ Python 侧职责因此固定为：
    - 也就是说，和 `build_mapping_column_unchecked(...)` 构建 mapping 时使用的是**同一套** Polars backward asof 向量化能力，不额外发明第二套映射逻辑
 3. `required_bars`
    - 不是重新估算 warmup
-   - `base` 时：`required_bars = W_normalized[base]`
-   - `source` 时：`required_bars = W_normalized[k]`
+   - `base` 时：`required_bars = W_required[base]`
+   - `source` 时：`required_bars = W_required[k]`
 
 每轮公式：
 
@@ -394,10 +378,10 @@ Python 侧职责因此固定为：
    - `target_start_time = base_effective_start_time`
 3. 再用 `ensure_head_warmup_bars(...)` 补齐 `base` 自己的预热
    - `anchor_time = base_effective_start_time`
-   - `required_bars = W_normalized[base]`
+   - `required_bars = W_required[base]`
 4. `base` 补完预热后，只做一次**左侧精确裁减**：
    - 在补完后的 `base_full_raw` 里找到 `base_effective_start_time` 对应的索引 `live_start_idx`
-   - `base_slice_start = live_start_idx - W_normalized[base]`
+   - `base_slice_start = live_start_idx - W_required[base]`
    - `base_full_df = base_full_raw[base_slice_start..]`
 5. 这里不裁右侧：
    - `limit = L` 的语义本来就是“需要 L 根非预热 base bar”
@@ -405,7 +389,7 @@ Python 侧职责因此固定为：
 6. 得到最终 `base_full_df` 后，记录：
    - `base_full_start_time = base_full_df.time.first()`
    - `base_full_end_time = base_full_df.time.last()`
-   - `base_first_live_time = base_full_df.time[W_normalized[base]]`
+   - `base_first_live_time = base_full_df.time[W_required[base]]`
 7. 对每个非 base source `k`：
    - 首轮请求：
      - `since = base_full_start_time`
@@ -416,14 +400,14 @@ Python 侧职责因此固定为：
      - `target_start_time = base_full_start_time`
    - 再调用 `ensure_head_warmup_bars(...)`
      - `anchor_time = base_first_live_time`
-     - `required_bars = W_normalized[k]`
+     - `required_bars = W_required[k]`
 8. 若任一循环达到重试上限仍未满足条件，直接报错
 
 最终状态：
 
 1. `base_full` 已包含完整预热段与有效执行段
 2. 所有 `source` 都对 `base_full` 完成**全量覆盖**
-3. 所有 `source` 都已满足自身预热需求
+3. 所有 `source` 都已满足各自的最终 required warmup
 4. `base` 只裁减多出来的左侧预热，不裁右侧
 5. `source` 允许多取，但不做隐式裁减
 6. 因此后续构建出来的 mapping 列不允许出现 null
@@ -434,19 +418,19 @@ Python 侧职责因此固定为：
 
 ### 6.1 base 的 ranges
 
-1. `ranges[base].warmup_bars = W_normalized[base]`
+1. `ranges[base].warmup_bars = W_required[base]`
 2. `ranges[base].pack_bars = source[base].height()`
 3. `ranges[base].active_bars = ranges[base].pack_bars - ranges[base].warmup_bars`
 
 这里有一个前提：
 
 1. 前面已经对 `base` 做过精确的左侧预热裁减
-2. 因此这里的 `source[base]` 已经是“左侧恰好保留 `W_normalized[base]` 根预热”的最终 `base_full`
+2. 因此这里的 `source[base]` 已经是“左侧恰好保留 `W_required[base]` 根预热”的最终 `base_full`
 
 这里保留两个状态机内部一致性断言：
 
-1. `source[base].height() >= W_normalized[base] + 1`
-2. `source[base].time[W_normalized[base]] == base_effective_start_time`
+1. `source[base].height() >= W_required[base] + 1`
+2. `source[base].time[W_required[base]] == base_effective_start_time`
 
 若任一不成立，直接报错，说明前面的 `base` 预热补拉或左侧精确裁减位置错误。
 
@@ -460,7 +444,7 @@ Python 侧职责因此固定为：
 
 算法：
 
-1. 取 `base_first_live_time = source[base].time[W_normalized[base]]`
+1. 取 `base_first_live_time = source[base].time[W_required[base]]`
 2. 对每个非 base `k`：
    - 只探测这一根 `base_first_live_time`
    - 直接复用统一时间投影工具函数 `map_source_row_by_time(base_first_live_time, source[k].time, k)`，得到 `mapped_src_idx`
@@ -468,8 +452,8 @@ Python 侧职责因此固定为：
    - `ranges[k].pack_bars = source[k].height()`
    - `ranges[k].active_bars = ranges[k].pack_bars - ranges[k].warmup_bars`
 3. 再做状态机内部一致性断言：
-   - `mapped_src_idx >= W_normalized[k]`
-   - 若不成立，说明前面的取数阶段其实没有把该 source 的指标预热补够，直接报错
+   - `mapped_src_idx >= W_required[k]`
+   - 若不成立，说明前面的取数阶段其实没有把该 source 的最终 required warmup 补够，直接报错
 
 强约束：
 

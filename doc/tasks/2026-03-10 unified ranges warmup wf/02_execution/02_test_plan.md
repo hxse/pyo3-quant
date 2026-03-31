@@ -7,6 +7,7 @@
 3. [../01_summary/01_overview_and_foundation.md](../01_summary/01_overview_and_foundation.md)
 4. [../01_summary/03_backtest_and_result_pack.md](../01_summary/03_backtest_and_result_pack.md)
 5. [../01_summary/04_walk_forward_and_stitched.md](../01_summary/04_walk_forward_and_stitched.md)
+6. [../01_summary/05_segmented_backtest_truth_and_kernel.md](../01_summary/05_segmented_backtest_truth_and_kernel.md)
 
 本文只回答四件事：
 
@@ -21,14 +22,14 @@
 
 1. 先把文档里已经定死的真值固化成不变量测试。
 2. 先用小样本、小窗口、少量优化轮次把高风险边界锁死。
-3. 再用极少数完整 WF 回归用例检查 stitched、资金列与窗口链路没有漂。
+3. 再用极少数完整 WF 回归用例检查 stitched replay、窗口链路与单段 schedule 等价性没有漂。
 4. 对能直接由 Rust + PyO3 + `just stub` 生成 `.pyi` 的核心边界类型，不再为测试方便额外定义 Python 镜像类型；测试应直接消费 Rust 导出的真实类型与自动生成的存根。
 
 本次测试优先防止三类 quietly wrong：
 
 1. `ranges / mapping` 语义漂移
 2. `extract_active(...)`、WF 切片、stitched 拼接的边界错误
-3. stitched 资金列重建与跨窗注入的静默错位
+3. `backtest_schedule` 重基、segmented replay 与跨窗注入的静默错位
 4. `ignore_indicator_warmup` 误用后被当成正规预热口径结果
 
 ## 2. 当前测试现状总结
@@ -91,6 +92,7 @@
 1. `py_entry/Test/backtest/test_data_pack_contract.py`
 2. `py_entry/Test/backtest/test_result_pack_contract.py`
 3. `py_entry/Test/backtest/test_mapping_projection_contract.py`
+4. `py_entry/Test/backtest/test_data_fetch_planner_contract.py`
 
 最小必测项：
 
@@ -112,11 +114,48 @@
    - 补入后必须验证：
      - `result.indicators[k]["time"] == data.source[k]["time"]`
    - 后续依赖 `&ResultPack` 的 helper 只能从 `result.base_data_key` 读取 base 语义，不再依赖外层 `DataPack`
+   - `has_leading_nan` 只允许保留在 `signals`
+   - `backtest` 与 `performance` 不允许再感知该字段
 3. 三个统一时间工具函数
    - `exact_index_by_time(...)`
    - `map_source_row_by_time(...)`
    - `map_source_end_by_base_end(...)`
    输入输出必须和文档一致
+
+### 4.1.1 第一层补充：`DataPackFetchPlanner` 状态机 contract
+
+目标：
+
+1. 把摘要 `02` 已写死的 planner 状态机边界锁成单独 contract。
+2. 防止实现成“能跑通一次 happy path，但 quietly wrong”。
+
+最小必测项：
+
+1. `next_request() / ingest_response(...) / is_complete() / finish()` 的一致性：
+   - 未完成前，`finish()` 必须 fail-fast
+   - `is_complete() == false` 时，不允许提前 `finish()`
+   - `is_complete() == true` 后，`next_request()` 不得再返回新的有效请求
+2. `ingest_response(...)` 的结构性非法输入必须直接报错：
+   - 缺少 `time` 列
+   - `time` 列类型不是 `Int64`
+   - `time` 列存在 null
+   - `time` 列不是严格递增
+   - `time` 列存在重复时间戳
+   - `request.source_key` 与当前挂起请求不匹配
+3. Python 空响应重试边界必须单独锁死：
+   - 空 DF 最多重试 `2` 次
+   - 重试后仍为空，Python 直接报错
+   - 不允许把空快照继续喂给 Rust `ingest_response(...)`
+4. 三段补拉状态机必须锁死：
+   - `ensure_tail_coverage(...)`
+   - `ensure_head_time_coverage(...)`
+   - `ensure_head_warmup_bars(...)`
+   对结构合法但覆盖不足的快照，必须继续补拉，而不是静默完成
+5. 重试 / round 上限必须 fail-fast：
+   - 任一 source 在达到状态机上限后仍不能满足尾覆盖、头覆盖或 warmup 条件，必须直接报错
+6. 完成条件必须一致：
+   - 只有所有 source 都满足共享基础 warmup、尾覆盖、头覆盖后，`is_complete()` 才能变成 `true`
+   - `finish()` 构建出的 `DataPack` 必须与最后一轮内部状态一致，不允许再隐式补拉或重算第二套 planner 状态
 
 ### 4.2 第二层：`extract_active(...)` 专项测试
 
@@ -159,13 +198,36 @@
 3. 第 `0` 窗：
    - `train_warmup / train_active / test_warmup` 不足直接报错
    - `test_active` 允许截短
-4. `test_active < 2`
+4. `test_active < 3`
    - 第 `0` 窗报错
    - 后续最后一窗不生成
+   - `test_active = 2` 也必须显式视为非法：
+     - carry 信号位于 active 第一根
+     - 继承开仓在第二根 active bar 开盘执行
+     - 尾部强平写在 `pack_bars - 2`
+     - 三条语义在 `active_bars = 2` 时会冲突
 5. `slice_data_pack_by_base_window(...)`
    - `source_ranges` 直接切旧 `DataPack.source`
    - `ranges_draft` 直接写新 pack 的 `ranges`
    - `mapping` 由 `build_data_pack(...)` 统一重建
+6. `build_window_indices(...)`
+   - 必须显式产出 `test_active_base_row_range`
+   - 它表示当前窗口 `test_active` 在原始 WF 输入 `DataPack.base` 轴上的绝对半开区间
+   - 后续 stitched `backtest_schedule` 只能消费这份区间做重基
+7. `resolve_backtest_exec_warmup_base(wf_params.backtest)`
+   - 必须单独做 contract 测试
+   - 对会影响 warmup 的可优化字段，锁死：
+     - `optimize = false -> Param.value`
+     - `optimize = true -> Param.max`
+   - 不能把 `wf_params.backtest` 先手工物化成另一套 concrete params 再送进 helper
+8. `best_params`
+   - 必须单独做 contract 测试
+   - 与 `rebuild_param_set(...)` 对齐：保留原始参数树形状与 `min / max / step / optimize`，只覆盖各叶子 `.value`
+   - 后续 stitched / replay 消费必须只认 `.value`
+   - 不允许把 `best_params` 当成搜索空间再按 `.optimize / .max / .min / .step` 二次解释
+9. `min_warmup_bars`
+   - 只作为 WF-local constraint 测试
+   - 不反向要求初始 planner 前推处理
 
 ### 4.4 第四层：WF 跨窗注入测试
 
@@ -184,9 +246,14 @@
    - `Ok(Some(Long)) / Ok(Some(Short)) / Ok(None)`
    - 双边同时成立直接报错
 2. `build_carry_only_signals(...)`
-   - 只允许注入测试预热最后一根同向开仓
+   - 只允许注入测试 active 第一根同向开仓
    - 不允许提前注入窗口尾部强平
    - carry 注入行必须验证 4 个布尔列的整行真值
+   - 当前正式语义接受保守延迟：
+     - 这笔跨窗继承开仓会在第二根 active bar 开盘执行
+   - 因而这层 contract 还必须显式验证：
+     - `active_bars = 2` 非法
+     - 最小合法 `active_bars = 3`
 3. `build_final_signals(...)`
    - 只在 `carry_only_signals` 基础上追加倒数第二根双向离场
    - 强平行必须验证 4 个布尔列的整行真值
@@ -217,35 +284,86 @@
    - `raw_signal_stage_result` 必须至少有 `indicators + signals`
    - `natural_test_pack_backtest_result` 必须至少有 `backtest`
    - `final_test_pack_result` 必须有完整 `indicators + signals + backtest + performance`
-   - `stitched_result_pre_capital` 必须有 `indicators + signals + backtest`
-   - `stitched_result` 必须有完整 `indicators + signals + backtest + performance`
+   - stitched 正式信号来源必须锁死为各窗口 `test_active_result.signals`
+   - 不允许再回退去拼完整 `final_signals`
 
-### 4.5 第五层：stitched 专项测试
+### 4.5 第五层：stitched / segmented replay 专项测试
 
 目标：
 
-1. 锁死 stitched 真值来源、拼接校验和资金列重建。
+1. 锁死 stitched 真值来源、`backtest_schedule` 重基和 segmented replay 输入契约。
+2. 锁死最终 stitched `ResultPack` 仍统一走 `strip_indicator_time_columns(...) -> build_result_pack(...)`。
+3. 锁死单段 schedule 与旧单次回测 reference 的等价性基线。
 
 建议新增测试文件：
 
 1. `py_entry/Test/walk_forward/test_stitched_contract.py`
-2. `py_entry/Test/walk_forward/test_stitched_capital_rebuild.py`
+2. `src/backtest_engine/backtester/tests.rs`
 
 最小必测项：
 
-1. `stitched_result.mapping.time == stitched_data.mapping.time`
-2. `stitched_result.indicators[k]["time"] == stitched_data.source[k].time`
-3. mapping 语义投影时间一致
-4. 非 base `indicators[k]`
+1. `backtest_schedule` 的每段 `start_row / end_row` 必须由 `window_results[i].meta.test_active_base_row_range` 做减法重基得到：
+   - `base0 = first_window.test_active_base_row_range.start`
+   - `start_row_i = original_start_i - base0`
+   - `end_row_i = original_end_i - base0`
+2. `backtest_schedule` 必须满足 contiguity：
+   - 第一个 `start_row == 0`
+   - 相邻段首尾相接
+   - 最终 `last_end_row == stitched_signals.height()`
+   - 最终 `last_end_row == stitched_data.mapping.height()`
+   - 若有 `stitched_atr_by_row`，长度也必须等于 `last_end_row`
+3. 最终 `WalkForwardResult.stitched_result.meta.backtest_schedule` 必须与 replay 实际使用的 `backtest_schedule` 一致，不能只作为 `04 -> 05` 的临时输入后丢弃。
+4. `stitched_atr_by_row` 必须按唯一算法生成：
+   - 先按 unique `resolved_atr_period` 计算 stitched base 全量 ATR cache
+   - 再按 `backtest_schedule` 做 segment 级 slice + concat
+   - 不允许按 row 逐行现算
+   - 还必须校验逐段语义：
+     - 若某段启用 ATR 逻辑，则该段每一行都必须等于对应 `resolved_atr_period` 的 full-series cache 在同一绝对行号上的值
+     - 若某段不启用 ATR 逻辑，则该段切片必须为 `null`
+5. `stitched_result.mapping.time == stitched_data.mapping.time`
+6. `stitched_result.indicators[k]["time"] == stitched_data.source[k].time`
+7. mapping 语义投影时间一致
+8. 非 base `indicators[k]`
    - 0 根重叠：直接拼
    - 1 根重叠：后窗口覆盖前窗口
+9. 多窗口 stitched carry 语义必须单独锁成一条端到端 contract：
+   - 构造至少两个相邻窗口
+   - 第一窗 `natural_test_pack_backtest_result` 末根仍有持仓
+   - 第二窗 stitched 正式输入信号必须直接来自 `test_active_result.signals`
+   - 第二窗 `active 区间` 第一根必须保留 carry 开仓信号
+   - stitched replay 的正式语义必须显式断言：
+     - 第二窗 `active 区间` 第一根只保留 carry 信号，不完成继承开仓
+     - 第二窗 `active 区间` 第二根开盘才完成继承开仓
+   - 也就是说，这条测试锁的不是旧的无缝边界语义，而是当前文档已经写死的保守延迟语义
+10. 这条 stitched carry contract 还必须额外验证一件事：
+   - carry 语义只依赖 `test_active_result.signals`
+   - 不依赖已经被 `extract_active(...)` 裁掉的 warmup 行
+   - 否则 stitched 输入虽然长度和 schedule 都对，跨窗语义仍可能 quietly wrong
+11. stitched / WF 这条链还必须显式覆盖最小合法长度约束：
+   - `active_bars = 2` 必须 fail-fast
+   - `active_bars = 3` 是当前正式语义下的最小合法 case
    - >1 根重叠：直接报错
-5. stitched 资金列重建
-   - 边界行 `growth = 1`
-   - 同窗口非边界行按局部增长因子递推
-   - stitched 全局资金归零后保持 0
-   - `trade_pnl_pct / fee` 不重建
-   - `fee_cum` 基于保留的 `fee` 重新累计
+9. 最终 stitched `ResultPack` 必须统一走：
+   - `stitched_indicators_with_time -> strip_indicator_time_columns(...) -> build_result_pack(...)`
+   - 不允许绕过 builder 直接手写最终结果
+10. multi-segment output schema 的默认值 contract 必须单独锁死：
+   - 当前按 segment 启停变化的可选功能列全部是 `f64` 风险价格列
+   - 未启用 segment 的默认值统一为 `NaN`
+   - 需要显式验证列集合、列顺序、dtype 与默认值同时成立
+   - 不能把默认值静默实现成 `0.0`、`null` 或其他占位值
+10. `run_backtest_with_schedule(...)`
+   - 多段 schedule 的 contiguity 校验
+   - 单段 schedule 退化路径
+11. multi-segment output schema 必须作为独立 contract 锁死：
+   - 列集合必须等于所有 segment 功能列的并集
+   - 列顺序必须稳定且与 `build_schedule_output_schema(schedule)` 一致
+   - 各列 dtype 必须稳定，不允许因某段未启用而漂移
+   - 未启用 segment 的功能列必须写入文档定义的非激活态默认值，不能留成未定义行为
+   - 单段 schedule 必须退化成当前固定 schema，不允许凭空多列
+12. Rust 等价性测试：
+   - 先在旧 `run_backtest(...)` 上清掉 `has_leading_nan` 旧作用链
+   - 再冻结成 `legacy_run_backtest_reference(...)`
+   - 与新的 `run_backtest(...)` 做严格逐项对比
 
 ### 4.6 第六层：少量完整 WF 回归
 
@@ -258,7 +376,7 @@
 建议保留的完整回归类型：
 
 1. stitched 边界无事件时资金不出现断崖
-2. 单窗口退化场景下 stitched 必须与该窗口的 `test_active_result` 等价，而不是与完整 `test_pack_result` 等价
+2. 单窗口退化场景下，`backtest_schedule` 必须退化成单段 schedule，最终 stitched 必须与该窗口的 `test_active_result` 等价，而不是与完整 `test_pack_result` 等价
 3. 无交易场景资金保持常数
 4. 同 seed 同配置结果可复现
 5. `ignore_indicator_warmup = false / true` 的对照实验链路可运行，但 `true` 不作为严格预热正确性测试
@@ -299,7 +417,7 @@
 
 1. 所有 contract test 默认固定 seed
 2. 所有工具函数测试优先无 gaps
-3. stitched / 资金列测试优先选择“有边界、但样本不大”的场景
+3. stitched / segmented replay 测试优先选择“有边界、但样本不大”的场景
 
 ## 7. 建议新增测试文件清单
 
@@ -312,8 +430,8 @@
 5. `py_entry/Test/walk_forward/test_window_indices_contract.py`
 6. `py_entry/Test/walk_forward/test_window_slice_contract.py`
 7. `py_entry/Test/walk_forward/test_stitched_contract.py`
-8. `py_entry/Test/walk_forward/test_stitched_capital_rebuild.py`
-9. `py_entry/Test/walk_forward/test_wf_ignore_indicator_warmup_contract.py`
+8. `py_entry/Test/walk_forward/test_wf_ignore_indicator_warmup_contract.py`
+9. `src/backtest_engine/backtester/tests.rs`
 
 继续沿用并扩展：
 
@@ -331,7 +449,7 @@
 2. 再补 `extract_active(...)`
 3. 再补窗口索引与窗口切片
 4. 再补跨窗注入
-5. 再补 stitched
+5. 再补 stitched / segmented replay
 6. 最后才补完整 WF 回归
 
 ## 9. AI 审阅清单
@@ -343,3 +461,4 @@
 3. 是否出现大样本、过多优化轮次的慢测试
 4. 是否把摘要文档里的强不变量漏成了弱断言
 5. 是否在 stitched 测试里直接比较了不该直接比较的原始 `mapping` 整数值
+6. 是否仍按旧的资金列重建口径写 stitched 测试，而没有切到 `run_backtest_with_schedule(...)` 与 `backtest_schedule` 重基契约

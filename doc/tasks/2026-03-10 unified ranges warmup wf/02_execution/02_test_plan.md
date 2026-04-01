@@ -97,12 +97,24 @@
 最小必测项：
 
 1. `build_data_pack(...)`
+   - `mapping.columns == [\"time\"] + S_keys`
    - `mapping.time` 严格递增
+   - `mapping.time.dtype == Int64`
+   - `mapping.time` 不允许存在 null
+   - 对每个非时间列 `mapping[k]`：
+     - `dtype == UInt32`
+     - 不允许存在 null
    - `mapping.height() == source[base].height()`
    - `ranges[base].pack_bars == mapping.height()`
    - `warmup_bars + active_bars == pack_bars`
    - `DataPackFetchPlannerInput.effective_limit = 0` 必须直接 fail-fast 报错
 2. `build_result_pack(...)`
+   - `result.mapping.columns == [\"time\"] + indicator_source_keys`
+   - `result.mapping.time.dtype == Int64`
+   - `result.mapping.time` 不允许存在 null
+   - 对每个非时间列 `result.mapping[k]`：
+     - `dtype == UInt32`
+     - 不允许存在 null
    - `result.mapping.time == data.mapping.time`
    - `result.mapping[k] == data.mapping[k]`（对子集 `indicator_source_keys`）
    - `result.ranges[k] == data.ranges[k]`（对子集）
@@ -189,16 +201,31 @@
 
 1. `py_entry/Test/walk_forward/test_window_indices_contract.py`
 2. `py_entry/Test/walk_forward/test_window_slice_contract.py`
+3. `py_entry/Test/walk_forward/test_next_window_hint_contract.py`
 
 最小必测项：
 
 1. `step = test_active_bars`
 2. `P_train = 0` 时：
    - `train_warmup` 允许空区间
-3. 第 `0` 窗：
+3. `warmup_mode` 的几何差异必须作为独立 contract 锁死：
+   - `BorrowFromTrain` 下：
+     - `test_warmup = [P_train + T - P_test, P_train + T)`
+     - `test_active = [P_train + T, P_train + T + S)`
+     - `test_warmup` 与 `train_active` 尾部允许重叠
+   - `ExtendTest` 下：
+     - `test_warmup = [P_train + T, P_train + T + P_test)`
+     - `test_active = [P_train + T + P_test, P_train + T + P_test + S)`
+     - `train_active / test_warmup / test_active` 在 base 轴上必须顺排
+   - 不允许把两种 mode 静默收敛成同一套窗口公式
+4. `BorrowFromTrain` 的可行性约束必须单独锁死：
+   - `P_test <= T`
+   - 若 `P_test > T`，必须 fail-fast
+   - 不允许静默截断、回退到 `ExtendTest` 或接受成未定义行为
+5. 第 `0` 窗：
    - `train_warmup / train_active / test_warmup` 不足直接报错
    - `test_active` 允许截短
-4. `test_active < 3`
+6. `test_active < 3`
    - 第 `0` 窗报错
    - 后续最后一窗不生成
    - `test_active = 2` 也必须显式视为非法：
@@ -206,28 +233,52 @@
      - 继承开仓在第二根 active bar 开盘执行
      - 尾部强平写在 `pack_bars - 2`
      - 三条语义在 `active_bars = 2` 时会冲突
-5. `slice_data_pack_by_base_window(...)`
+7. `slice_data_pack_by_base_window(...)`
    - `source_ranges` 直接切旧 `DataPack.source`
    - `ranges_draft` 直接写新 pack 的 `ranges`
    - `mapping` 由 `build_data_pack(...)` 统一重建
-6. `build_window_indices(...)`
-   - 必须显式产出 `test_active_base_row_range`
+8. `build_window_indices(...)`
+   - 必须返回 `WalkForwardPlan`
+   - `WalkForwardPlan` 必须只承接：
+     - `required_warmup_by_key`
+     - `windows`
+   - `WindowPlan` 必须只绑定：
+     - `window_idx`
+     - `indices: WindowIndices`
+   - 不允许在 `WindowPlan` 上重复挂一份 `test_active_base_row_range`
+   - `WindowIndices` 必须显式产出 `test_active_base_row_range`
    - 它表示当前窗口 `test_active` 在原始 WF 输入 `DataPack.base` 轴上的绝对半开区间
    - 后续 stitched `backtest_schedule` 只能消费这份区间做重基
-7. `resolve_backtest_exec_warmup_base(wf_params.backtest)`
+9. `resolve_backtest_exec_warmup_base(wf_params.backtest)`
    - 必须单独做 contract 测试
    - 对会影响 warmup 的可优化字段，锁死：
      - `optimize = false -> Param.value`
      - `optimize = true -> Param.max`
    - 不能把 `wf_params.backtest` 先手工物化成另一套 concrete params 再送进 helper
-8. `best_params`
+10. `best_params`
    - 必须单独做 contract 测试
    - 与 `rebuild_param_set(...)` 对齐：保留原始参数树形状与 `min / max / step / optimize`，只覆盖各叶子 `.value`
    - 后续 stitched / replay 消费必须只认 `.value`
    - 不允许把 `best_params` 当成搜索空间再按 `.optimize / .max / .min / .step` 二次解释
-9. `min_warmup_bars`
+11. `min_warmup_bars`
    - 只作为 WF-local constraint 测试
    - 不反向要求初始 planner 前推处理
+12. `NextWindowHint`
+   - 必须作为独立 contract 锁死
+   - 完整窗口场景下：
+     - `last_window_is_complete = true`
+     - `expected_window_switch_time_ms = last_window.meta.test_active_time_range.end`
+     - `eta_days = 0`
+   - 多窗口且最后一窗不完整时：
+     - 必须按历史完整窗口 `test_active_time_range` 跨度的中位数做 heuristic
+   - 单窗口 fallback 时：
+     - 必须使用
+       - `observed_test_active_span_ms`
+       - `config.test_active_bars / observed_test_active_bars`
+       做比例估算
+     - 若 `observed_test_active_bars < 3`，必须 fail-fast
+   - `based_on_window_id` 必须等于最后一窗 `window_id`
+   - 不允许把 `NextWindowHint` 静默降级成空值、固定 0 或第二套估算公式
 
 ### 4.4 第四层：WF 跨窗注入测试
 
@@ -291,7 +342,7 @@
 
 目标：
 
-1. 锁死 stitched 真值来源、`backtest_schedule` 重基和 segmented replay 输入契约。
+1. 锁死 stitched 真值来源、`backtest_schedule` 重基和 `StitchedReplayInput` 输入契约。
 2. 锁死最终 stitched `ResultPack` 仍统一走 `strip_indicator_time_columns(...) -> build_result_pack(...)`。
 3. 锁死单段 schedule 与旧单次回测 reference 的等价性基线。
 
@@ -302,31 +353,39 @@
 
 最小必测项：
 
-1. `backtest_schedule` 的每段 `start_row / end_row` 必须由 `window_results[i].meta.test_active_base_row_range` 做减法重基得到：
+1. `StitchedReplayInput` 必须作为 `04 -> 05` 的正式边界对象存在，并只收纳 stitched 阶段已经生成的正式输入真值：
+   - `stitched_data`
+   - `stitched_signals`
+   - `backtest_schedule`
+   - `stitched_atr_by_row`
+   - `stitched_indicators_with_time`
+   - replay 直接消费前四类
+   - 最终 stitched `ResultPack` 构建再消费 `stitched_indicators_with_time`
+2. `backtest_schedule` 的每段 `start_row / end_row` 必须由 `window_results[i].meta.test_active_base_row_range` 做减法重基得到：
    - `base0 = first_window.test_active_base_row_range.start`
    - `start_row_i = original_start_i - base0`
    - `end_row_i = original_end_i - base0`
-2. `backtest_schedule` 必须满足 contiguity：
+3. `backtest_schedule` 必须满足 contiguity：
    - 第一个 `start_row == 0`
    - 相邻段首尾相接
    - 最终 `last_end_row == stitched_signals.height()`
    - 最终 `last_end_row == stitched_data.mapping.height()`
    - 若有 `stitched_atr_by_row`，长度也必须等于 `last_end_row`
-3. 最终 `WalkForwardResult.stitched_result.meta.backtest_schedule` 必须与 replay 实际使用的 `backtest_schedule` 一致，不能只作为 `04 -> 05` 的临时输入后丢弃。
-4. `stitched_atr_by_row` 必须按唯一算法生成：
+4. 最终 `WalkForwardResult.stitched_result.meta.backtest_schedule` 必须与 replay 实际使用的 `backtest_schedule` 一致，不能只作为 `04 -> 05` 的临时输入后丢弃。
+5. `stitched_atr_by_row` 必须按唯一算法生成：
    - 先按 unique `resolved_atr_period` 计算 stitched base 全量 ATR cache
    - 再按 `backtest_schedule` 做 segment 级 slice + concat
    - 不允许按 row 逐行现算
    - 还必须校验逐段语义：
      - 若某段启用 ATR 逻辑，则该段每一行都必须等于对应 `resolved_atr_period` 的 full-series cache 在同一绝对行号上的值
      - 若某段不启用 ATR 逻辑，则该段切片必须为 `null`
-5. `stitched_result.mapping.time == stitched_data.mapping.time`
-6. `stitched_result.indicators[k]["time"] == stitched_data.source[k].time`
-7. mapping 语义投影时间一致
-8. 非 base `indicators[k]`
+6. `stitched_result.mapping.time == stitched_data.mapping.time`
+7. `stitched_result.indicators[k]["time"] == stitched_data.source[k].time`
+8. mapping 语义投影时间一致
+9. 非 base `indicators[k]`
    - 0 根重叠：直接拼
    - 1 根重叠：后窗口覆盖前窗口
-9. 多窗口 stitched carry 语义必须单独锁成一条端到端 contract：
+10. 多窗口 stitched carry 语义必须单独锁成一条端到端 contract：
    - 构造至少两个相邻窗口
    - 第一窗 `natural_test_pack_backtest_result` 末根仍有持仓
    - 第二窗 stitched 正式输入信号必须直接来自 `test_active_result.signals`
@@ -335,26 +394,35 @@
      - 第二窗 `active 区间` 第一根只保留 carry 信号，不完成继承开仓
      - 第二窗 `active 区间` 第二根开盘才完成继承开仓
    - 也就是说，这条测试锁的不是旧的无缝边界语义，而是当前文档已经写死的保守延迟语义
-10. 这条 stitched carry contract 还必须额外验证一件事：
+11. 这条 stitched carry contract 还必须额外验证一件事：
    - carry 语义只依赖 `test_active_result.signals`
    - 不依赖已经被 `extract_active(...)` 裁掉的 warmup 行
    - 否则 stitched 输入虽然长度和 schedule 都对，跨窗语义仍可能 quietly wrong
-11. stitched / WF 这条链还必须显式覆盖最小合法长度约束：
+12. stitched / WF 这条链还必须显式覆盖最小合法长度约束：
    - `active_bars = 2` 必须 fail-fast
    - `active_bars = 3` 是当前正式语义下的最小合法 case
    - >1 根重叠：直接报错
-9. 最终 stitched `ResultPack` 必须统一走：
+13. 最终 stitched `ResultPack` 必须统一走：
    - `stitched_indicators_with_time -> strip_indicator_time_columns(...) -> build_result_pack(...)`
    - 不允许绕过 builder 直接手写最终结果
-10. multi-segment output schema 的默认值 contract 必须单独锁死：
+14. multi-segment output schema 的默认值 contract 必须单独锁死：
    - 当前按 segment 启停变化的可选功能列全部是 `f64` 风险价格列
    - 未启用 segment 的默认值统一为 `NaN`
    - 需要显式验证列集合、列顺序、dtype 与默认值同时成立
    - 不能把默认值静默实现成 `0.0`、`null` 或其他占位值
-10. `run_backtest_with_schedule(...)`
+15. `run_backtest_with_schedule(...)`
    - 多段 schedule 的 contiguity 校验
    - 单段 schedule 退化路径
-11. multi-segment output schema 必须作为独立 contract 锁死：
+   - `validate_schedule_atr_contract(...)` 必须作为独立 contract 锁死：
+     - 若任一 segment 的 `params.validate_atr_consistency()? == true`，则 `atr_by_row` 必须是 `Some(...)`
+     - 若所有 segment 的 `params.validate_atr_consistency()? == false`，则 `atr_by_row` 必须是 `None`
+     - 若 `atr_by_row.is_some()`，其长度必须严格等于 `stitched_data.mapping.height()`
+     - 不允许把 `atr_by_row` 静默接受成“有也行、没有也行”的未定义行为
+   - `validate_backtest_param_schedule_policy(...)` 必须作为独立 contract 锁死：
+     - 对 `initial_capital / fee_fixed / fee_pct`，构造跨 segment 漂移 case，必须 fail-fast
+     - 对文档明确允许 `segment_vary = true` 的字段，构造跨 segment 变化 case，必须允许通过
+     - 不允许出现“未显式列入 policy、但实现里静默接受或静默拒绝”的字段
+16. multi-segment output schema 必须作为独立 contract 锁死：
    - 列集合必须等于所有 segment 功能列的并集
    - 列顺序必须稳定且与 `build_schedule_output_schema(schedule)` 一致
    - 各列 dtype 必须稳定，不允许因某段未启用而漂移

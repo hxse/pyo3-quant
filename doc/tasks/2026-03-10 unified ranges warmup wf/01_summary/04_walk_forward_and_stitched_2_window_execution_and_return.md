@@ -32,13 +32,14 @@ required_warmup_by_key =
         backtest_exec_warmup_base,
     )
 
-windows = build_window_indices(data, config, required_warmup_by_key)
+wf_plan = build_window_indices(data, config, required_warmup_by_key)
 window_results = []
 prev_last_bar_position = None
 
-for (window_id, window) in windows:
-    train_pack_data = slice_data_pack_by_base_window(data, window.train_pack)
-    test_pack_data = slice_data_pack_by_base_window(data, window.test_pack)
+for window_plan in wf_plan.windows:
+    window_id = window_plan.window_idx
+    train_pack_data = slice_data_pack_by_base_window(data, window_plan.indices.train_pack)
+    test_pack_data = slice_data_pack_by_base_window(data, window_plan.indices.test_pack)
 
     best_params = run_optimization(train_pack_data, wf_params, config.optimize_metric, ...)
 
@@ -97,7 +98,7 @@ for (window_id, window) in windows:
     )
     final_test_pack_result = final_ctx.into_summary(false, ExecutionStage::Performance)
 
-    test_active_base_row_range = window.test_active_base_row_range
+    test_active_base_row_range = window_plan.indices.test_active_base_row_range
     meta = WindowMeta {
         window_id,
         best_params,
@@ -128,46 +129,47 @@ for (window_id, window) in windows:
 2. 对 `optimize = true` 的 warmup 相关字段，helper 内部统一按 `Param.max` 解析，因此 planner 和 WF 共享同一份“最坏 warmup 真值”。
 3. `ignore_indicator_warmup` 只影响 `applied_contract_warmup_by_key`，不影响 `backtest_exec_warmup_base`。
 4. `eval_settings` 继承外部 `settings` 的其余字段，只覆盖 `execution_stage` 与 `return_only_final`。
-5. 当前窗口内部必须显式区分 5 个对象名：
+5. `wf_plan` 是窗口规划阶段的正式产物；窗口主循环只消费 `wf_plan.windows`，不在执行阶段重新推导窗口几何真值。
+6. 当前窗口内部必须显式区分 5 个对象名：
    - `raw_signal_stage_result`
    - `carry_only_signals`
    - `natural_test_pack_backtest_result`
    - `final_signals`
    - `final_test_pack_result`
-6. `raw_signal_stage_result` 必须至少保证：
+7. `raw_signal_stage_result` 必须至少保证：
    - `indicators` 可用
    - `signals` 可用
-7. `natural_test_pack_backtest_result` 只服务跨窗状态传播：
+8. `natural_test_pack_backtest_result` 只服务跨窗状态传播：
    - 这里的末根状态代表“已经继承上一窗口 carry、但尚未注入当前窗口尾部强平”的结果
    - 它不进入正式返回值，不进入 stitched，不参与正式 performance
-8. `natural_test_pack_backtest_result` 必须至少保证：
+9. `natural_test_pack_backtest_result` 必须至少保证：
    - `backtest` 可用
-9. `final_test_pack_result` 才是窗口正式结果：
+10. `final_test_pack_result` 才是窗口正式结果：
    - 用于 `window_results`
    - 用于 stitched 的正式信号语义来源
    - 用于正式 performance
    - 当前正式语义下，跨窗 carry 开仓写在 active 第一根，因此 `extract_active(...)` 得到的 `test_active_result.signals` 可以直接作为 stitched 正式信号来源
-10. `final_test_pack_result` 必须保证：
+11. `final_test_pack_result` 必须保证：
    - `indicators` 可用
    - `signals` 可用
    - `backtest` 可用
    - `performance` 可用
-11. 正式 stitched backtest 真值来源统一写死为 [05_segmented_backtest_truth_and_kernel.md](./05_segmented_backtest_truth_and_kernel.md) 定义的 segmented replay 方案。
-12. `final_ctx` 直接手动构造 `BacktestContext`，复用第一次评估已经算好的 `indicators` 和注入后的 `signals`；这一阶段只执行回测与绩效。
-13. 这里的绩效函数直接接受完整 `test_pack_data` 和完整 `backtest`，再由函数内部根据 `test_pack_data.ranges[data.base_data_key].warmup_bars` 只统计测试 `active 区间`。
-14. `final_test_pack_result` 自身已经是完整的测试包 `ResultPack`，其预热边界直接由自己的 `ranges` 表达。
-15. `prev_last_bar_position` 只在主循环里准备一次：
+12. 正式 stitched backtest 真值来源统一写死为 [05_segmented_backtest_truth_and_kernel.md](./05_segmented_backtest_truth_and_kernel.md) 定义的 segmented replay 方案。
+13. `final_ctx` 直接手动构造 `BacktestContext`，复用第一次评估已经算好的 `indicators` 和注入后的 `signals`；这一阶段只执行回测与绩效。
+14. 这里的绩效函数直接接受完整 `test_pack_data` 和完整 `backtest`，再由函数内部根据 `test_pack_data.ranges[data.base_data_key].warmup_bars` 只统计测试 `active 区间`。
+15. `final_test_pack_result` 自身已经是完整的测试包 `ResultPack`，其预热边界直接由自己的 `ranges` 表达。
+16. `prev_last_bar_position` 只在主循环里准备一次：
    - 来自上一窗口 `natural_test_pack_backtest_result.backtest`
    - `build_carry_only_signals(...)` 只接受这个参数
-16. WF 侧的窗口切片发生在 `DataPack` 这一层；绩效计算直接消费完整 `test_pack_data + backtest`。
-17. 窗口级 `ResultPack` 由回测引擎基于窗口 `DataPack` 直接生成。
-18. 可以补一条一致性校验：
+17. WF 侧的窗口切片发生在 `DataPack` 这一层；绩效计算直接消费完整 `test_pack_data + backtest`。
+18. 窗口级 `ResultPack` 由回测引擎基于窗口 `DataPack` 直接生成。
+19. 可以补一条一致性校验：
     - `final_test_pack_result.ranges[final_test_pack_result.base_data_key].warmup_bars == test_pack_data.ranges[test_pack_data.base_data_key].warmup_bars`
     - `final_test_pack_result.ranges[final_test_pack_result.base_data_key].pack_bars == test_pack_data.ranges[test_pack_data.base_data_key].pack_bars`
-19. `run_optimization(...)` 的搜索空间来源必须唯一：
+20. `run_optimization(...)` 的搜索空间来源必须唯一：
     - 直接读取 `run_walk_forward(...)` 输入的 `wf_params: &SingleParamSet`
     - 不允许从 `template` 或 `settings` 再派生第二套搜索空间定义
-20. `run_optimization(...)` 的优化目标来源也必须唯一：
+21. `run_optimization(...)` 的优化目标来源也必须唯一：
     - 直接读取 `config.optimize_metric`
     - 不允许从 `template`、`settings` 或窗口局部结果再推导第二套优化目标
 
@@ -235,6 +237,14 @@ struct StitchedArtifact {
     meta: StitchedMeta,          // stitched 的结构性元数据
 }
 
+struct StitchedReplayInput {
+    stitched_data: DataPack,                          // replay 与最终 stitched_result 共用的数据容器
+    stitched_signals: DataFrame,                      // replay 直接消费的正式 stitched 信号
+    backtest_schedule: Vec<BacktestParamSegment>,     // replay 直接消费的正式 schedule
+    stitched_atr_by_row: Option<Series>,              // replay 直接消费的可变 ATR 输入
+    stitched_indicators_with_time: HashMap<String, DataFrame>, // 最终 stitched_result 构建阶段消费的结果态 indicators
+}
+
 struct WalkForwardResult {
     optimize_metric: OptimizeMetric,   // 本次 WF 的全局优化目标
     window_results: Vec<WindowArtifact>, // 每个窗口的测试包产物
@@ -265,7 +275,7 @@ struct WalkForwardResult {
    - 因为它不是窗口局部重基结果，也不是 stitched 行号
    - 它是当前窗口 `test_active` 在原始 WF 输入 `DataPack.base` 轴上的绝对半开区间真值
    - 后续 `backtest_schedule` 需要直接基于它做重基
-   - 这个字段应直接从 `build_window_indices(...)` 产出的 `window.test_active_base_row_range` 透传进入 `WindowMeta`
+   - 这个字段应直接从 `build_window_indices(...)` 产出的 `window_plan.indices.test_active_base_row_range` 透传进入 `WindowMeta`
    - 不允许在窗口执行结束后，再根据 `mapping.height()`、时间范围或别的派生量重新反推一遍
    - 虽然它作为 `WindowMeta` 字段对外暴露，但语义上只服务 stitched `backtest_schedule` 重基，不应被理解成通用业务元数据
 8. 时间范围元数据必须返回
@@ -299,6 +309,16 @@ struct WalkForwardResult {
 13. `StitchedArtifact` 也沿用同一口径
    - `stitched_result.performance` 保存 stitched 统计型元数据
    - `StitchedMeta` 保留 stitched 结构性上下文、schedule 解释元数据与调度提示
+13.1 `StitchedReplayInput` 是 `04 -> 05` 的正式边界对象：
+   - 它只收纳 stitched 阶段已经产出的正式输入真值
+   - 不新增第二套 schedule / ATR / signals / indicators 解释逻辑
+   - 其中 replay 直接消费：
+     - `stitched_data`
+     - `stitched_signals`
+     - `backtest_schedule`
+     - `stitched_atr_by_row`
+   - 最终 `stitched_result` 构建阶段再消费：
+     - `stitched_indicators_with_time`
 14. stitched 的 `bars / span_ms / span_days / span_months`
     - 统一放进 `stitched_result.performance`
 15. `StitchedMeta` 里的 stitched 总时间范围字段统一命名为 `stitched_pack_time_range_from_active`

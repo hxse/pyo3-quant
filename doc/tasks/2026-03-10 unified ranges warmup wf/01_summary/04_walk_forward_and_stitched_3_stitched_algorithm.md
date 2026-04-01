@@ -6,18 +6,18 @@
 
 1. `04` 负责窗口级执行、跨窗注入、窗口正式结果与 stitched 上游输入准备。
 2. 正式 stitched backtest 真值由 `05` 定义的 segmented replay 方案生成。
-3. 本篇 stitched 阶段产出的是交给 `05` 的 stitched 输入。
+3. 本篇 stitched 阶段产出的是交给 `05` 的 `StitchedReplayInput`。
 
-先把 stitched 正式产物压成一张表：
+先把 stitched 阶段的正式产物压成一张表；其中进入 `StitchedReplayInput` 的字段单独标明：
 
 | 产物 | 正式来源 | 说明 |
 | --- | --- | --- |
 | `stitched_data` | 从最初输入的 `full_data: DataPack` 上按 stitched 全局 `test_active` 时间范围重新切片 | 不是窗口 `DataPack` 直接拼接 |
-| `window_active_results` | 对每个窗口执行 `extract_active(...)` 后得到的 `test_active_result` | stitched 后续只允许消费这组 active 结果 |
-| `stitched_signals` | 各窗口 `test_active_result.signals` | 也就是窗口 `final_signals` 的 active-only 可见部分；直接继承窗口正式信号语义 |
-| `backtest_schedule` | `window_results[i].meta.best_params.backtest` + `test_active_base_row_range` 重基 | replay 的正式 schedule 输入 |
-| `stitched_atr_by_row` | stitched 阶段按 schedule 语义物化 | 只有 schedule 需要 ATR 时才存在 |
-| `stitched_indicators_with_time` | stitched 阶段 own algorithm 产物 | 最终回灌 `build_result_pack(...)` 前仍需先降级成 raw indicators |
+| `window_active_results` | 对每个窗口执行 `extract_active(...)` 后得到的 `test_active_result` | stitched 阶段的中间产物；不是 `StitchedReplayInput` 字段 |
+| `stitched_signals` | 各窗口 `test_active_result.signals` | `StitchedReplayInput` 中 replay 直接消费的正式信号 |
+| `backtest_schedule` | `window_results[i].meta.best_params.backtest` + `test_active_base_row_range` 重基 | `StitchedReplayInput` 中 replay 直接消费的正式 schedule |
+| `stitched_atr_by_row` | stitched 阶段按 schedule 语义物化 | `StitchedReplayInput` 中 replay 直接消费的 ATR 输入；只有 schedule 需要 ATR 时才存在 |
+| `stitched_indicators_with_time` | stitched 阶段 own algorithm 产物 | `StitchedReplayInput` 中供最终 `stitched_result` 构建消费的结果态 indicators |
 
 补充硬约束：
 
@@ -34,6 +34,7 @@
    - 若恰好重叠 1 根，按“后窗口覆盖前窗口”处理
    - 若重叠超过 1 根，直接报错
 6. 本项目彻底不兼容 renko 等重复时间戳 source；若任一窗口内部本身存在重复时间戳，直接报错。
+7. `StitchedReplayInput` 只收纳 stitched 阶段已经生成的正式输入真值，不新增第二套 replay 解释层。
 
 ## 9. stitched 算法
 
@@ -252,12 +253,12 @@ else:
      - 在最终生成新的独立 `stitched_result` 前，必须先统一调用 [03_backtest_and_result_pack.md](./03_backtest_and_result_pack.md) 中定义的 `strip_indicator_time_columns(...)`
      - 得到 `stitched_raw_indicators`
      - 再把 `stitched_raw_indicators` 作为 `build_result_pack(...)` 的正式 indicators 入参
-8. 最后把这些交给 `05`：
+8. 最后把这些组装成 `StitchedReplayInput` 交给 `05`：
    - `stitched_data`
-   - `stitched_indicators_with_time`
    - `stitched_signals`
    - `backtest_schedule`
    - `stitched_atr_by_row`
+   - `stitched_indicators_with_time`
    交给 [05_segmented_backtest_truth_and_kernel.md](./05_segmented_backtest_truth_and_kernel.md) 定义的 segmented replay 链路，生成最终 `stitched_result`
    - 最终结果保存 replay 实际使用的这份 `backtest_schedule` 到 `stitched_result.meta.backtest_schedule`
    - 因为最终多段 backtest 输出的解释层仍要依赖这份正式 schedule 元数据

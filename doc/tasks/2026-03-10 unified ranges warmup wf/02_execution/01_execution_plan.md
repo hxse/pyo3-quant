@@ -19,6 +19,7 @@
 5. 测试与验收
 
 不再重复摘要文档里的方案解释。
+执行文档只记录代码落地与阶段回补，不记录摘要是否审阅通过、执行文档是否审阅通过等流程 gate 状态。
 
 ## 0. 摘要归属与落地引用
 
@@ -188,16 +189,16 @@
 主要任务：
 
 1. 用新窗口索引工具函数替换旧 `generate_windows(...)` 逻辑。
-2. 落地 `build_window_indices(...)` 及其 3 个私有步骤。
+2. 落地 `WalkForwardPlan`、`WindowPlan` 与 `build_window_indices(...)` 及其 3 个私有步骤。
 3. 落地跨窗注入。
 4. 落地窗口主循环。
-5. 落地 stitched 输入构造：
+5. 落地 `StitchedReplayInput` 与 stitched 输入构造：
    - `stitched_data`
    - `stitched_signals`
-   - `stitched_indicators_with_time`
    - `backtest_schedule: Vec<BacktestParamSegment>`
-    - `stitched_atr_by_row`
-   - 这里的 `backtest_schedule` 只作为阶段 D 产出的 stitched replay 上游输入
+   - `stitched_atr_by_row`
+   - `stitched_indicators_with_time`
+   - `StitchedReplayInput` 只收纳这批既有正式输入真值，不新增第二套 replay 解释层
    - `stitched_atr_by_row` 必须按唯一算法落地：
      - 先按 unique `resolved_atr_period` 计算 stitched base 全量 ATR cache
      - 再按 `backtest_schedule` 做 segment 级 slice + concat
@@ -407,7 +408,7 @@
 阶段约束：
 
 1. `step = test_active_bars` 写死。
-2. `build_window_indices(...)` 是唯一窗口索引入口；`required_warmup_by_key` 是它的正式 warmup 输入，`min_warmup_bars` 仍是 WF-local constraint。
+2. `build_window_indices(...)` 是唯一窗口索引入口；它的正式产物是 `WalkForwardPlan`；`required_warmup_by_key` 是它的正式 warmup 输入，`min_warmup_bars` 仍是 WF-local constraint。
 3. `ignore_indicator_warmup = true` 只允许通过 `apply_wf_warmup_policy(...)` 把指标契约 warmup 截获为 `0`；`backtest_exec_warmup_base` 不受影响。
 4. `wf_params.backtest` 仍然只是参数容器，不是已物化 concrete runtime params；`resolve_backtest_exec_warmup_base(...)` 必须在 helper 内部统一按 `Param.value / Param.max` 解析。
 5. `best_params` 的冻结语义唯一落点是 `src/backtest_engine/optimizer/runner/rebuild.rs`：
@@ -415,32 +416,44 @@
    - 保留原始参数树形状与 `min / max / step / optimize`
    - 只把最优解写回各叶子 `.value`
    - 不允许在 WF / stitched 层再做第二次 canonicalize
-6. `build_window_indices(...)` 必须显式产出 `test_active_base_row_range`；虽然它会通过 `WindowMeta` 对外暴露，但语义上只供 stitched `backtest_schedule` 内部重基使用。
-7. 窗口测试执行固定三段：
+6. `WalkForwardPlan` 只负责窗口规划真值：
+   - `required_warmup_by_key`
+   - `windows: Vec<WindowPlan>`
+   - 不负责 `best_params`、窗口执行结果或 stitched replay 输入
+7. `build_window_indices(...)` 必须显式产出 `test_active_base_row_range`；它只保留在 `WindowIndices` 里，不再额外挂第二份同义字段；虽然它会通过 `WindowMeta` 对外暴露，但语义上只供 stitched `backtest_schedule` 内部重基使用。
+8. 窗口主循环只消费 `wf_plan.windows`，不允许在执行阶段重新推导第二套窗口几何真值。
+9. 窗口测试执行固定三段：
    - `raw_signal_stage_result`
    - `natural_test_pack_backtest_result`
    - `final_test_pack_result`
-8. `run_walk_forward(...)` 必须显式忽略 `settings.execution_stage` 与 `settings.return_only_final`；这两个字段属于单次回测阶段返回控制，不允许在 WF 内继续透传。
-9. `final_test_pack_result` 才是窗口正式结果；`natural_test_pack_backtest_result` 只用于跨窗 carry 与边界判断，不进入正式返回值，不进入 stitched，不参与正式 performance。
-10. `detect_last_bar_position(...)` 只从 `natural_test_pack_backtest_result.backtest` 读取。
-11. `04` 的 stitched 末段只负责构造：
+10. `run_walk_forward(...)` 必须显式忽略 `settings.execution_stage` 与 `settings.return_only_final`；这两个字段属于单次回测阶段返回控制，不允许在 WF 内继续透传。
+11. `final_test_pack_result` 才是窗口正式结果；`natural_test_pack_backtest_result` 只用于跨窗 carry 与边界判断，不进入正式返回值，不进入 stitched，不参与正式 performance。
+12. `detect_last_bar_position(...)` 只从 `natural_test_pack_backtest_result.backtest` 读取。
+13. `04` 的 stitched 末段只负责构造 `StitchedReplayInput`：
    - `stitched_data`
    - `stitched_signals`
    - `backtest_schedule: Vec<BacktestParamSegment>`
    - `stitched_atr_by_row`
    - `stitched_indicators_with_time`
+   - replay 直接消费：
+     - `stitched_data`
+     - `stitched_signals`
+     - `backtest_schedule`
+     - `stitched_atr_by_row`
+   - 最终 `stitched_result` 构建阶段再消费：
+     - `stitched_indicators_with_time`
    - 这些对象在阶段 D 只作为 replay 上游输入存在，不在本阶段回填最终 `stitched_result`
    - 这里的 `stitched_signals` 必须直接来自各窗口 `test_active_result.signals`
    - 不允许再回退去拼完整 `final_signals`
    - 当前正式语义接受这条保守约束：
      - carry 开仓写在 active 第一根
      - 真正继承开仓在第二根 active bar 开盘执行
-12. `backtest_schedule` 只允许读取各窗口 `window_results[i].meta.test_active_base_row_range`，再以第一窗 `start` 做减法重基；不允许按 `cursor += active_rows` 第二次规划。
-13. `stitched_atr_by_row` 必须按唯一算法落地：
+14. `backtest_schedule` 只允许读取各窗口 `window_results[i].meta.test_active_base_row_range`，再以第一窗 `start` 做减法重基；不允许按 `cursor += active_rows` 第二次规划。
+15. `stitched_atr_by_row` 必须按唯一算法落地：
    - 先按 unique `resolved_atr_period` 计算 stitched base 全量 ATR cache
    - 再按 `backtest_schedule` 做 segment 级 `slice + concat`
    - 不允许按 row 逐行现算，也不允许先按窗口各算一条 ATR 再二次拼接
-14. `run_optimization(...)` 的搜索空间来源与优化目标来源都必须唯一：
+16. `run_optimization(...)` 的搜索空间来源与优化目标来源都必须唯一：
    - 搜索空间只读取 `run_walk_forward(...)` 输入的 `wf_params`
    - 优化目标只读取 `config.optimize_metric`
    - 不允许在 `template / settings` 或其他入口再派生第二套搜索域或第二套优化目标
@@ -542,9 +555,19 @@ struct SourceRange {
    这些都应分别放在 `DataPack / ResultPack`、WF 窗口合法性和 stitched / hint 专项约束里，不属于 `SourceRange` 的通用定义
 6. `warmup_bars` 允许为 `0`
 
-### 5.2 `WindowSliceIndices / WindowIndices`
+### 5.2 `WalkForwardPlan / WindowPlan / WindowIndices`
 
 ```rust
+struct WindowPlan {
+    window_idx: usize,
+    indices: WindowIndices,
+}
+
+struct WalkForwardPlan {
+    required_warmup_by_key: HashMap<String, usize>,
+    windows: Vec<WindowPlan>,
+}
+
 struct WindowSliceIndices {
     source_ranges: HashMap<String, Range<usize>>,
     ranges_draft: HashMap<String, SourceRange>,
@@ -559,14 +582,18 @@ struct WindowIndices {
 
 强约束：
 
-1. `source_ranges` 指向 WF 输入 `DataPack.source` 的局部行号区间。
-2. `ranges_draft` 只描述新窗口 `DataPack` 的 `ranges`。
-3. `source_ranges` 必须包含 `data.base_data_key`。
-4. `ranges_draft` 不能用于切旧容器。
-5. `test_active_base_row_range` 指向原始 WF 输入 `DataPack.base` 轴上的绝对半开区间。
-6. 虽然它会通过 `WindowMeta` 对外暴露，但语义上只供 stitched `backtest_schedule` 内部重基使用，不应被理解成通用业务元数据。
+1. `WalkForwardPlan` 只承接窗口规划真值：
+   - `required_warmup_by_key`
+   - `windows`
+2. `WindowPlan` 只负责把 `window_idx` 和 `WindowIndices` 绑定起来，不新增第二份窗口几何真值。
+3. `source_ranges` 指向 WF 输入 `DataPack.source` 的局部行号区间。
+4. `ranges_draft` 只描述新窗口 `DataPack` 的 `ranges`。
+5. `source_ranges` 必须包含 `data.base_data_key`。
+6. `ranges_draft` 不能用于切旧容器。
+7. `test_active_base_row_range` 指向原始 WF 输入 `DataPack.base` 轴上的绝对半开区间。
+8. 虽然它会通过 `WindowMeta` 对外暴露，但语义上只供 stitched `backtest_schedule` 内部重基使用，不应被理解成通用业务元数据。
 
-### 5.3 `BacktestParamSegment` 与 stitched replay 输入
+### 5.3 `BacktestParamSegment` 与 `StitchedReplayInput`
 
 ```rust
 struct BacktestParamSegment {
@@ -574,34 +601,45 @@ struct BacktestParamSegment {
     end_row: usize,
     params: BacktestParams,
 }
+
+struct StitchedReplayInput {
+    stitched_data: DataPack,
+    stitched_signals: DataFrame,
+    backtest_schedule: Vec<BacktestParamSegment>,
+    stitched_atr_by_row: Option<Series>,
+    stitched_indicators_with_time: HashMap<String, DataFrame>,
+}
 ```
 
 强约束：
 
-1. `04` 最终交给 `05` 的 stitched replay 输入固定为：
-   - `stitched_data: DataPack`
-   - `stitched_signals: DataFrame`
-   - `backtest_schedule: Vec<BacktestParamSegment>`
-   - `stitched_atr_by_row: Option<Series>`
+1. `04` 最终交给 `05` 的 stitched replay 输入固定收敛为 `StitchedReplayInput`。
+2. `StitchedReplayInput` 只收纳 stitched 阶段已经生成的正式输入真值，不新增第二套 replay 解释层。
+3. replay 直接消费：
+   - `stitched_data`
+   - `stitched_signals`
+   - `backtest_schedule`
+   - `stitched_atr_by_row`
+4. 最终 `stitched_result` 构建阶段再消费：
    - `stitched_indicators_with_time`
-2. `backtest_schedule` 的每段 `start_row / end_row` 必须只从各窗口 `test_active_base_row_range` 做减法重基得到：
+5. `backtest_schedule` 的每段 `start_row / end_row` 必须只从各窗口 `test_active_base_row_range` 做减法重基得到：
    - `base0 = window_results[0].meta.test_active_base_row_range.start`
    - `start_row_i = original_start_i - base0`
    - `end_row_i = original_end_i - base0`
-3. 不允许在 stitched 阶段按 `cursor += active_rows` 第二次规划 schedule。
-4. segmented replay 完成后，最终 stitched `ResultPack` 仍然统一走 `build_result_pack(...)`。
-5. stitched 阶段先拼出来的 `stitched_indicators_with_time` 属于结果态 indicators，带 `time` 列。
-6. 因此在最终生成 stitched `ResultPack` 前，必须先统一调用：
+6. 不允许在 stitched 阶段按 `cursor += active_rows` 第二次规划 schedule。
+7. segmented replay 完成后，最终 stitched `ResultPack` 仍然统一走 `build_result_pack(...)`。
+8. stitched 阶段先拼出来的 `stitched_indicators_with_time` 属于结果态 indicators，带 `time` 列。
+9. 因此在最终生成 stitched `ResultPack` 前，必须先统一调用：
    - `stitched_raw_indicators = strip_indicator_time_columns(stitched_indicators_with_time)`
-7. 再基于 segmented replay 产出的 `stitched_backtest_truth` 计算 `stitched_performance`。
-8. 最后统一调用 `build_result_pack(...)`：
+10. 再基于 segmented replay 产出的 `stitched_backtest_truth` 计算 `stitched_performance`。
+11. 最后统一调用 `build_result_pack(...)`：
    - `data = stitched_data`
    - `indicators = stitched_raw_indicators`
    - `signals = stitched_signals`
    - `backtest = stitched_backtest_truth`
    - `performance = stitched_performance`
-9. 不允许把带 `time` 的 `stitched_indicators_with_time` 直接回灌到 `build_result_pack(...)`。
-10. 不允许绕过 `build_result_pack(...)` 直接手写最终 stitched `ResultPack`。
+12. 不允许把带 `time` 的 `stitched_indicators_with_time` 直接回灌到 `build_result_pack(...)`。
+13. 不允许绕过 `build_result_pack(...)` 直接手写最终 stitched `ResultPack`。
 
 ## 6. 删除项与不保留兼容层
 
@@ -667,7 +705,9 @@ struct BacktestParamSegment {
    - `just test`
 5. 不要一边改一边跑 `just check`；每个阶段内部先完成逻辑修改，再统一验收。
 
-## 9. AI 审阅报告
+## 9. 执行前审阅检查项
+
+本节只列执行前审阅时必须覆盖的检查项，不记录“是否审阅通过”的状态结论；执行文档只记录代码落地与阶段回补。
 
 执行前审阅应至少覆盖：
 
@@ -699,6 +739,7 @@ struct BacktestParamSegment {
 ## 10. 阶段完成回补记录
 
 每个阶段完成后，直接回填对应小节；不要等到全部结束再统一补。
+本节只记录代码落地、验收命令、验收结果与剩余风险，不记录审阅通过状态。
 
 ### 10.1 阶段 A 完成记录
 

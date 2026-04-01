@@ -114,6 +114,16 @@ enum WfWarmupMode {
 这里把 base 索引和 source 索引统一收成一个总工具函数：
 
 ```rust
+struct WindowPlan {
+    window_idx: usize,
+    indices: WindowIndices,
+}
+
+struct WalkForwardPlan {
+    required_warmup_by_key: HashMap<String, usize>,
+    windows: Vec<WindowPlan>,
+}
+
 struct WindowSliceIndices {
     source_ranges: HashMap<String, Range<usize>>, // WF 输入 DataPack.source 各表的切片区间，必须包含 data.base_data_key
     ranges_draft: HashMap<String, SourceRange>,   // 新窗口 DataPack 的 ranges 草稿
@@ -129,7 +139,7 @@ fn build_window_indices(
     data: &DataPack,
     config: &WalkForwardConfig,
     required_warmup_by_key: &HashMap<String, usize>,
-) -> Vec<WindowIndices>
+) -> WalkForwardPlan
 ```
 
 这个工具函数的适用范围要写死：
@@ -150,8 +160,21 @@ fn build_window_indices(
 1. 先调用私有函数 `build_base_window_ranges(...)`，生成每个窗口的 base 规划。
 2. 再调用私有函数 `project_pack_source_ranges(...)`，计算每个 pack 里各个 `source[k]` 在 WF 输入 `DataPack.source` 上的切片区间。
 3. 最后调用私有函数 `build_pack_ranges_draft(...)`，基于这些 `source_ranges` 和 `warmup_by_key`，一次性算出每个 pack 的 `ranges_draft`。
+4. `build_window_indices(...)` 最终只把这些既有真值收进 `WalkForwardPlan`，不新增第二套窗口规划语义。
 
-返回值 `Vec<WindowIndices>` 里，每个元素都同时包含：
+`WalkForwardPlan` 只负责窗口规划真值：
+
+1. `required_warmup_by_key`
+2. `windows`
+
+它不负责：
+
+1. `best_params`
+2. 窗口执行结果
+3. stitched replay 输入
+4. `NextWindowHint` 最终结果
+
+其中 `WalkForwardPlan.windows` 里的每个 `WindowPlan` 都同时包含：
 
 1. 当前窗口训练包容器和测试包容器各自的 `source_ranges`
 2. 当前窗口训练包容器和测试包容器各自已经算好的 `ranges_draft`
@@ -419,7 +442,10 @@ source_run_end = pack_src_end
    - `train_pack = { source_ranges, ranges_draft }`
    - `test_pack = { source_ranges, ranges_draft }`
    - `test_active_base_row_range = [test_active.start, test_active.end)`
-2. `build_window_indices(...)` 最终返回的 `Vec<WindowIndices>`，就是由这两部分组装而成。
+2. `build_window_indices(...)` 最终返回的 `WalkForwardPlan`，就是把：
+   - 共享 `required_warmup_by_key`
+   - `Vec<WindowPlan { window_idx, indices: WindowIndices }>`
+   组装成一个正式的窗口规划对象。
 
 ## 4. DataPack 窗口切片工具函数
 

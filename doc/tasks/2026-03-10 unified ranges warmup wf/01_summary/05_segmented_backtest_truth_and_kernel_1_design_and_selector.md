@@ -13,8 +13,8 @@
 
 1. 指标按窗口算。
 2. 信号按窗口算。
-3. stitched 阶段把窗口级指标和窗口级 active 信号序列拼成全局序列。
-4. backtest 真值由 stitched 后的全局序列一次性连续执行得到。
+3. `04` stitched 阶段把窗口级指标和窗口级 active 信号序列收成 `StitchedReplayInput`。
+4. backtest 真值由 `StitchedReplayInput` 驱动的一次性连续执行得到。
 
 ## 1. 要解决的核心问题
 
@@ -35,8 +35,9 @@
 
 1. stitched 正式信号语义与 `04` 的窗口正式 WF 语义保持一致。
 2. 本篇目标是：**得到与 `04` 当前正式 WF 语义一致的一次性连续重放结果**。
-3. 因而正式 stitched 输入信号直接使用各窗口 `test_active_result.signals`，也就是窗口 `final_signals` 的 active-only 可见部分。
-4. 当前正式语义接受一条保守约束：
+3. 正式 stitched replay 输入统一由 `StitchedReplayInput` 承接。
+4. 其中正式 stitched 输入信号直接使用各窗口 `test_active_result.signals`，也就是窗口 `final_signals` 的 active-only 可见部分。
+5. 当前正式语义接受一条保守约束：
    - 跨窗 carry 开仓写在 active 第一根
    - 因而真正的继承开仓会延后一根 active bar 执行
 
@@ -50,16 +51,17 @@
    - 信号生成
    - 优化/选参与窗口级结果构建
 
-2. stitched 阶段直接构造 replay 输入。
+2. stitched 阶段直接构造 `StitchedReplayInput`。
 
-3. stitched 阶段产出四样全局输入：
-   - stitched_data_pack
-   - stitched_indicators_with_time (作为最终 `stitched_result` 指标字段的 stitched 结果态中间产物)
-   - stitched_signals             (直接由各窗口 `test_active_result.signals` 拼接得到的正式 backtest 输入)
-   - backtest_schedule: Vec<BacktestParamSegment> (每段对应哪套 BacktestParams)
+3. `StitchedReplayInput` 统一包含：
+   - stitched_data
+   - stitched_signals
+   - backtest_schedule: Vec<BacktestParamSegment>
+   - stitched_atr_by_row
+   - stitched_indicators_with_time
 
 4. 若 schedule 中存在 ATR 相关参数：
-   - 再额外产出 stitched_atr_by_row
+   - `StitchedReplayInput.stitched_atr_by_row` 必须存在
    - 它的唯一正式物化算法统一引用 `04`：
      - 先按 unique `resolved_atr_period` 计算全量 ATR cache
      - 再按 `backtest_schedule` 做 segment 级 slice + concat
@@ -67,30 +69,37 @@
 
 5. 调用：
    run_backtest_with_schedule(
-       data = stitched_data_pack,
-       signals = stitched_signals,
-       atr_by_row = stitched_atr_by_row,
-       schedule = backtest_schedule,
+       data = stitched_replay_input.stitched_data,
+       signals = stitched_replay_input.stitched_signals,
+       atr_by_row = stitched_replay_input.stitched_atr_by_row,
+       schedule = stitched_replay_input.backtest_schedule,
    )
 
 6. 得到一份一次性连续执行出来的 stitched_backtest_truth
 
 7. `stitched_raw_indicators =
-      strip_indicator_time_columns(stitched_indicators_with_time)`
+      strip_indicator_time_columns(stitched_replay_input.stitched_indicators_with_time)`
 
 8. 再基于：
-   - `stitched_data_pack`
+   - `stitched_replay_input.stitched_data`
    - `stitched_raw_indicators`
-   - `stitched_signals`
+   - `stitched_replay_input.stitched_signals`
    - `stitched_backtest_truth`
    - `stitched_performance`
 统一调用 `build_result_pack(...)`，生成最终 stitched `ResultPack`
 ```
 
-这里的 `backtest_schedule` 一律指 `Vec<BacktestParamSegment>`：
+这里的 `StitchedReplayInput` 是 `04 -> 05` 的正式边界对象：
 
-1. 它是 stitched 阶段产出的正式输入对象。
-2. 它不是阶段名，也不是抽象流程名。
+1. 它只收纳 `04` stitched 阶段已经产出的正式输入真值。
+2. replay 直接消费：
+   - `stitched_data`
+   - `stitched_signals`
+   - `backtest_schedule`
+   - `stitched_atr_by_row`
+3. 最终 `stitched_result` 构建阶段再消费：
+   - `stitched_indicators_with_time`
+4. 它不是阶段名，也不是第二套 stitched 解释层。
 
 这里的关键转变只有一条：
 

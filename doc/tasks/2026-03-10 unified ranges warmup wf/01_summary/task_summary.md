@@ -2,112 +2,176 @@
 
 本目录承载这次 `unified ranges / warmup / walk forward / stitched` 重构的摘要文档。
 
-这组文档的目标只有一个：把高耦合链路里的真值、对象来源、索引空间、失败语义一次性钉死，避免后续实现出现 quietly wrong。
+这组文档只做一件事：把高耦合链路里的真值、计划、运行输入、消费边界一次性钉死，避免后续实现 quietly wrong。
 
-## 如何读这组文档
+## 阅读顺序
 
-先按“共享定义 -> 取数 -> 单次回测 -> WF / stitched -> segmented replay”的顺序读。
+按“共享真值 -> 取数状态机 -> 单次运行产物 -> WF / stitched -> segmented replay”的顺序读：
 
-若你只想回答局部问题，不必通读整套文档，但要先确认这个问题属于哪一层：
+1. [01_overview_and_foundation.md](./01_overview_and_foundation.md)
+2. [02_python_fetch_and_initial_build.md](./02_python_fetch_and_initial_build.md)
+3. [03_backtest_and_result_pack.md](./03_backtest_and_result_pack.md)
+4. [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md)
+5. [05_segmented_backtest_truth_and_kernel.md](./05_segmented_backtest_truth_and_kernel.md)
 
-1. 共享术语、warmup 真值链、容器不变式、mapping / coverage / 时间投影工具函数：
-   - 先看 [01_overview_and_foundation.md](./01_overview_and_foundation.md)
-2. Python / Rust 职责划分、初始取数状态机、首尾补拉、初始 `ranges`：
+## 按问题检索
+
+若不是顺读，而是针对某个局部 contract 回跳核对，按下面的入口最快：
+
+1. warmup 真值链、shared helper、`W_required` 与容器真实 `warmup_bars` 的层次关系：
+   - 看 [01_overview_and_foundation.md](./01_overview_and_foundation.md)
+2. `mapping`、coverage、时间投影、`DataPack / ResultPack` 容器 contract：
+   - 看 [01_overview_and_foundation.md](./01_overview_and_foundation.md)
+3. Python / Rust 职责、初始取数状态机、首尾补拉、初始 `ranges`：
    - 看 [02_python_fetch_and_initial_build.md](./02_python_fetch_and_initial_build.md)
-3. 单次回测主流程、`build_result_pack(...)`、`extract_active(...)`：
+   - 取数算法、初始 `ranges` 与 `finish()` 细节见 [02_python_fetch_and_initial_build_1_fetch_algorithm_and_finish.md](./02_python_fetch_and_initial_build_1_fetch_algorithm_and_finish.md)
+4. 单次回测主流程、`build_result_pack(...)`、`extract_active(...)`、同源配对边界：
    - 看 [03_backtest_and_result_pack.md](./03_backtest_and_result_pack.md)
-4. WF 窗口规划、窗口切片、跨窗注入、stitched 上游输入准备：
+5. WF 窗口公式、跨窗注入、窗口返回、`NextWindowHint`、stitched 上游输入：
    - 看 [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md)
-5. segmented replay、schedule、kernel、schema、测试基线：
+6. segmented replay、schedule、kernel、schema、等价性与测试基线：
    - 看 [05_segmented_backtest_truth_and_kernel.md](./05_segmented_backtest_truth_and_kernel.md)
 
-## 阅读时先记住的 4 条总原则
+## 核心真值链速览
 
-1. 这次重构按破坏性更新处理，不保留兼容层，不维护旧名残留。
-2. 全文统一使用半开区间 `[start, end)`；索引默认都是“相对于当前容器自身 DataFrame 的局部行号”。
-3. 真正参与切片、重基、拼接的边界，只认当前容器里的 `ranges[k].warmup_bars`；不能直接拿契约 warmup 裁数据。
-4. Rust 是核心边界类型与错误体系的唯一事实源；Python 不维护镜像核心类型。
-
-## 场景与设计出发点
-
-1. 这次重构的目标是把原本就存在的复杂度收回到框架内部，避免继续外包给调用方。
-2. 项目需要同时支持多周期数据、自动预热、统一回测、向前测试、窗口切片与 stitched；这些能力组合起来，问题就从单函数实现变成了时间轴、mapping、ranges 与窗口语义的一致性。
-3. 因此本任务追求的是唯一写法、唯一语义、唯一工作流，让用户层与 AI 调用层尽量只做配置和网络请求，不承担高风险真值逻辑。
-
-## 全局硬约束
-
-### 类型边界
-
-1. 只要某个核心输入/输出类型可以直接在 Rust 端定义并通过 PyO3 暴露，就必须以 Rust 为唯一事实源，并通过 `just stub` 自动生成 `.pyi`。
-2. 对这类核心边界类型，Python 侧不得再维护同语义的镜像类型、平行 dataclass、平行 Pydantic 模型或手写 `.pyi`。
-3. 本任务里的 `DataPack / ResultPack / SourceRange / WalkForwardConfig / WalkForwardResult / WindowArtifact / StitchedArtifact / NextWindowHint` 都属于这条约束覆盖范围。
-
-### 错误系统
-
-1. 本任务涉及的新错误与失败分支，必须优先复用项目现有的 Rust 错误体系，不新增平行错误系统。
-2. 优先复用 `src/error` 下已经存在的错误入口与子错误类型，例如 `QuantError / BacktestError / IndicatorError / SignalError / OptimizerError`。
-3. 只有在现有错误枚举无法表达时，才允许在原有错误体系内部补分支；Python / PyO3 暴露层也应直接承接这套 Rust 错误映射。
-
-## 核心真值链
-
-这一组文档最容易反复出现的是 warmup 与容器边界。先把真值链压成一张表，后面各卷默认引用这里。
+对 quietly wrong 风险最高的链路，入口页保留精简真值表，不只保留抽象对象名。
 
 | 层级 | 正式名称 | 含义 | 主要消费方 |
 | --- | --- | --- | --- |
-| 指标契约原始聚合 | `W_resolved[k]` | `resolve_indicator_contracts(...)` 返回的 source 级原始 warmup 聚合结果；允许不覆盖全部 `S_keys` | `01` |
+| 指标契约原始聚合 | `W_resolved[k]` | `resolve_indicator_contracts(...)` 返回的 source 级原始 warmup 聚合结果 | `01` |
 | 补全到当前 source 全集 | `W_normalized[k]` | 把 `W_resolved[k]` 补全到当前 `S_keys`；缺失 key 统一补 `0` | `01` |
 | WF 指标策略作用后 | `W_applied[k]` | 在 `W_normalized[k]` 上应用 `ignore_indicator_warmup` 后的指标 warmup | `01`、`04` |
-| 合并回测执行预热后 | `W_required[k]` | 把 `W_applied[k]` 与 base 轴 backtest exec warmup 合并后的最终 required warmup | `02`、`04` |
-| 当前窗口或当前容器真实前导边界 | `warmup_by_key[k]` / `ranges[k].warmup_bars` | 当前切片结果实际落地到容器里的真实预热长度 | `03`、`04`、`05` |
+| base 轴回测执行预热 | `W_backtest_exec_base` | base 轴 backtest exec warmup | `01`、`02`、`04` |
+| 合并回测执行预热后 | `W_required[k]` | 把 `W_applied[k]` 与 `W_backtest_exec_base` 合并后的最终 required warmup | `02`、`04` |
+| 当前容器真实前导边界 | `data.ranges[k].warmup_bars` | 当前切片结果最终落地到容器里的真实预热长度 | `03`、`04`、`05` |
 
-## 每一卷真正拥有的内容
+## 对象归属总表
+
+本组文档采用“对象归属优先，阶段消费次之”的组织方式。稳定真值按对象写，强流程逻辑按阶段写。
+
+| 对象 | 类别 | 边界层级 | 总定义文档 / 阶段强化文档 | 生产阶段 | 主要消费阶段 |
+| --- | --- | --- | --- | --- | --- |
+| `WarmupRequirements` | 共享真值对象 | 概念对象 | `01` | shared resolvers / WF precheck | `02`、`04`、`05`、回测入口 |
+| `TimeProjectionIndex` | 共享真值对象 | 概念对象 | `01` | initial build / slicing | `02`、`03`、`04` |
+| `DataPack` | 容器真值对象 | 正式 Rust-PyO3 边界对象 | `01` | initial build / slicing | 全流程 |
+| `ResultPack` | 容器真值对象 | 正式 Rust-PyO3 边界对象 | `01` 总定义；`03` 阶段强化 | single run / stitched build | `03`、`04`、导出 |
+| `RawIndicators / TimedIndicators` | 结果状态对象 | 概念对象 | `01` 总定义；`03` 流转与 builder 强化 | indicator stage / result build | `03`、`04`、最终 stitched 构建 |
+| `DataPackFetchPlanner / SourceFetchState` | 计划对象 | 内部计划对象 | `02` | Python fetch planning | fetch loop |
+| `RunArtifact` | 运行配对对象 | 概念对象 | `03` | single run | `extract_active(...)`、WF 测试侧同源 `DataPack / ResultPack` 路径、导出、调试 |
+| `WalkForwardConfig` | 公共输入对象 | 正式 Rust-PyO3 边界对象 | `04` | WF 入口配置 | `run_walk_forward(...)` |
+| `WalkForwardPlan` | 计划对象 | 内部计划对象 | `04` | WF precompute | window runner |
+| `WindowIndices / WindowSliceIndices` | 窗口切片计划对象 | 内部计划对象 | `04` | `WalkForwardPlan` 内部 | per-window pack materialization |
+| `WindowArtifact / StitchedArtifact / NextWindowHint` | 返回对象 | 正式 Rust-PyO3 边界对象 | `04` | per-window execution / stitched assembly | Python 展示 / 调度提示 / 总结果导出 |
+| `WalkForwardResult` | 公共返回对象 | 正式 Rust-PyO3 边界对象 | `04` | WF 总流程尾部 | Python 消费与导出 |
+| `StitchedReplayInput` | 运行输入对象 | 内部运行输入对象 | `04` | stitched materialization | `05` replay 与最终 stitched 构建 |
+| `ResolvedRegimePlan` | 计划对象 | 概念对象 | `05` | schedule validation / selector construction | replay kernel |
+
+补充边界：
+
+1. 边界层级解释：
+   - 概念对象：用于收纳既有真值链与 contract 归属，不要求等于单一 Rust 公共结构体。
+   - 内部计划对象 / 内部运行输入对象：摘要里的阶段对象，用于组织执行边界，不要求直接成为公共 PyO3 类型。
+   - 正式 Rust-PyO3 边界对象：必须落到 Rust 类型定义、PyO3 暴露与 stub 生成链上。
+2. `WindowSliceIndices` 是窗口切片计划对象的正式名字；它在 `04` 中承担窗口切片计划对象角色，不单独再引入第二套平行命名。
+3. `StitchedReplayInput` 是 `04 -> 05` 的正式运行输入对象名字；它不是顶层公共 PyO3 输入对象。
+4. 表中的“总定义文档 / 阶段强化文档”表示：
+   - 总定义文档负责对象通用形状与基础 contract
+   - 阶段强化文档只负责在具体流程里施加更强阶段约束
+   - 同一事实仍然只保留一个归属，不允许两边各自改真值
+5. `ResultPack.performance` 保持通用指标字典形态：`Option<HashMap<String, f64>>`；键集由 `PerformanceParams.metrics` 与 `PerformanceMetric` 决定。
+
+## 阶段消费总图
+
+```text
+01 共享真值层
+    -> 定义 WarmupRequirements / TimeProjectionIndex / DataPack / ResultPack
+
+02 取数状态机
+    -> 消费 01 的共享真值
+    -> 产出 DataPack
+
+03 单次运行
+    -> 消费 DataPack
+    -> 产出 ResultPack
+    -> 以 RunArtifact 视角绑定同源 DataPack + ResultPack
+
+04 WF / stitched
+    -> 消费 DataPack / WalkForwardConfig
+    -> 产出 WalkForwardPlan / WindowArtifact / StitchedArtifact / NextWindowHint / StitchedReplayInput / WalkForwardResult
+
+05 segmented replay
+    -> 消费 StitchedReplayInput
+    -> 在 ResolvedRegimePlan 约束下执行 replay kernel
+    -> 产出正式 stitched backtest 真值
+```
+
+## 全局原则
+
+1. 全文统一使用半开区间 `[start, end)`；索引默认都是相对于当前容器自身 DataFrame 的局部行号。
+2. 真正参与切片、重基、拼接的边界，只认当前容器里的 `ranges[k].warmup_bars`；不能直接拿契约 warmup 裁数据。
+3. 对象只收纳现有真值与现有 contract，不新增第二套解释路径。
+4. 同一事实只保留一个对象归属；执行器只消费对象，不反向拥有领域语义。
+5. 本任务按破坏性更新处理，不保留兼容层、旧字段、旧名残留或平行口径。
+6. Rust 类型、错误与核心 contract 是单一事实源；Python / PyO3 暴露直接承接这套定义。
+7. 摘要里的函数签名默认只表达对象来源、阶段顺序与返回主干；fail-fast 是否存在以及失败如何改变控制流，以正文、伪代码和 contract 表为准，不强制在伪签名里显式写成 `Result<...>`。
+
+## 错误体系约束
+
+1. 本任务涉及的新错误与失败分支，必须优先复用项目现有的 Rust 错误体系，不新增平行错误系统。
+2. 总入口优先使用 `QuantError`；能落到已有子错误类型时，优先复用已有 `BacktestError / IndicatorError / SignalError / OptimizerError`。
+3. 只有在现有错误枚举无法表达时，才允许在原有错误体系内部补分支；Python / PyO3 暴露层也直接承接这套 Rust 错误映射。
+
+## 各卷定位
 
 ### [01_overview_and_foundation.md](./01_overview_and_foundation.md)
 
-1. 共享 warmup resolver / helper
-2. `DataPack / ResultPack / SourceRange`
-3. `mapping.time`、ranges 不变式
-4. 三个统一时间投影工具函数
-5. coverage 校验与 mapping builder
+负责核心对象与共享真值：
+
+1. `WarmupRequirements`
+2. `TimeProjectionIndex`
+3. `DataPack / ResultPack / SourceRange`
+4. `RawIndicators / TimedIndicators`
 
 ### [02_python_fetch_and_initial_build.md](./02_python_fetch_and_initial_build.md)
 
-1. Python 只做网络请求
-2. Rust `DataPackFetchPlanner` 状态机
-3. base / source 的补尾覆盖、补首时间覆盖、补首预热
-4. 初始 `ranges` 的正式计算
-5. Rust 内部调用 `build_data_pack(...)`
+负责取数状态机与 `DataPack` 构建：
+
+1. `DataPackFetchPlanner`
+2. `SourceFetchState`
+3. `next_request() / ingest_response() / finish()`
+4. 取数算法、初始 `ranges` 与 `finish()` 细节见 [02_python_fetch_and_initial_build_1_fetch_algorithm_and_finish.md](./02_python_fetch_and_initial_build_1_fetch_algorithm_and_finish.md)
 
 ### [03_backtest_and_result_pack.md](./03_backtest_and_result_pack.md)
 
-1. 单次回测主流程
-2. 绩效只统计 `active 区间` 的正式口径
-3. `build_result_pack(...)` 的字段构建规则
-4. `extract_active(...)` 的轻量 active view 语义
+负责单次运行产物与配对关系：
+
+1. `ResultPack`
+2. `RunArtifact`
+3. `build_result_pack(...)`
+4. `extract_active(...)`
 
 ### [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md)
 
-1. `WalkForwardConfig`、参数来源与窗口模式
-2. `build_window_indices(...)`
-3. `slice_data_pack_by_base_window(...)`
-4. 跨窗 carry 注入与尾部强平
-5. stitched 上游输入准备
+负责窗口规划、窗口执行与 stitched 上游输入：
+
+1. `WalkForwardConfig`
+2. `WalkForwardPlan`
+3. `WindowIndices / WindowSliceIndices`
+4. `WindowArtifact / StitchedArtifact`
+5. `StitchedReplayInput`
+6. `NextWindowHint / WalkForwardResult`
 
 ### [05_segmented_backtest_truth_and_kernel.md](./05_segmented_backtest_truth_and_kernel.md)
 
-1. 正式 stitched backtest 真值从“窗口 backtest 拼接”切换到“segmented replay”
-2. `run_backtest_with_schedule(...)`
-3. 通用 kernel 与 `ParamsSelector`
-4. output schema、policy、测试与等价性校验
+负责 replay 计划对象与执行边界：
 
-## 这次拆分后的阅读策略
-
-1. 目录页只负责导航。
-2. 共享定义只在 `01` 写完整一遍；后续章节只写“本章怎样消费这些定义”。
-3. `04` 只负责 WF / stitched 上游与窗口级真值；`05` 只负责 segmented replay 和 schedule backtest 真值。
-4. 若要核对是否丢逻辑，应看分卷正文是否完整承接原章节，不看目录页长短。
+1. `ResolvedRegimePlan`
+2. `BacktestParamSegment / ParamsSelector`
+3. `run_backtest_with_schedule(...)`
+4. kernel、schema、policy、测试基线
 
 ## 执行文档入口
 
 1. [../02_execution/01_execution_plan.md](../02_execution/01_execution_plan.md)
 2. [../02_execution/02_test_plan.md](../02_execution/02_test_plan.md)
+3. [../02_execution/06_test_plan_supplementary.md](../02_execution/06_test_plan_supplementary.md)

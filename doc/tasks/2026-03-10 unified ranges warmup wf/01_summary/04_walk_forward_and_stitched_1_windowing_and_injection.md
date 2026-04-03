@@ -1,5 +1,29 @@
 # 向前测试、窗口切片、跨窗注入与 stitched
 
+## 0. 对象归属与边界
+
+本篇直接拥有两类对象：
+
+1. `WalkForwardPlan`
+   - 负责窗口几何真值
+   - 不承接 `best_params`、窗口结果或 stitched 输入
+2. `WindowIndices / WindowSliceIndices`
+   - 负责窗口切片真值
+   - `WindowSliceIndices` 是本篇使用的正式名字，并承担窗口切片计划对象角色
+
+本篇消费：
+
+1. `WarmupRequirements`
+2. `TimeProjectionIndex`
+3. `DataPack`
+
+本篇不负责：
+
+1. `WindowArtifact`
+2. `StitchedReplayInput`
+3. segmented replay
+4. schedule policy / schema
+
 ## 1. 输入与模式
 
 ```rust
@@ -27,7 +51,7 @@ struct WalkForwardConfig {
     min_warmup_bars: usize,
     warmup_mode: WfWarmupMode,
     ignore_indicator_warmup: bool,
-    optimize_metric: OptimizeMetric,
+    optimizer_config: OptimizerConfig,
 }
 ```
 
@@ -40,9 +64,9 @@ struct WalkForwardConfig {
 | `min_warmup_bars`         | 训练包和测试包至少保留多少 base 预热 bar | 默认 `0`                              |
 | `warmup_mode`             | WF 预热处理模式                          | `BorrowFromTrain` 或 `ExtendTest`     |
 | `ignore_indicator_warmup` | 是否在 WF 内部忽略指标聚合预热           | 默认 `false`                          |
-| `optimize_metric`         | WF 全局优化目标                          | 默认 `OptimizeMetric::CalmarRatioRaw` |
+| `optimizer_config`       | WF 内嵌优化器配置                        | 默认 `OptimizerConfig::default()`     |
 
-### 1.1 当前 WF 的产品边界
+### 1.1 WF 的产品边界
 
 1. 窗口步长固定取 `step = test_active_bars`。
 2. 只支持相邻窗口 `test_active` 在 base 轴上首尾相接。
@@ -68,7 +92,7 @@ struct WalkForwardConfig {
 | 优化搜索空间                     | `wf_params: &SingleParamSet`   | 从 `template` 或 `settings` 再派生第二套搜索空间              |
 | 指标 warmup helper 输入          | `wf_params.indicators`         | 在 WF 层手工物化第二套 concrete indicator params              |
 | backtest exec warmup helper 输入 | `wf_params.backtest`           | 在 WF 层手工物化第二套 concrete runtime params                |
-| 优化目标                         | `config.optimize_metric`       | 从窗口局部结果、`template` 或 `settings` 再推导第二套优化目标 |
+| 优化目标                         | `config.optimizer_config.optimize_metric` | 从窗口局部结果、`template` 或 `settings` 再推导第二套优化目标 |
 | `template`                       | 模板与执行规则                 | 优化搜索空间或优化目标                                        |
 | `settings`                       | 执行阶段、返回控制与运行时设置 | 优化搜索空间或优化目标                                        |
 
@@ -447,7 +471,7 @@ source_run_end = pack_src_end
    - `Vec<WindowPlan { window_idx, indices: WindowIndices }>`
    组装成一个正式的窗口规划对象。
 
-## 4. DataPack 窗口切片工具函数
+## 3. DataPack 窗口切片工具函数
 
 ```rust
 fn slice_data_pack_by_base_window(
@@ -497,7 +521,7 @@ DataPack 各字段处理：
 5. 调 `build_data_pack(source_slice_map, base_data_key, ranges_draft, skip_mask_slice)`
 6. 返回新的窗口 `DataPack`
 
-## 5. 跨窗信号注入
+## 4. 跨窗信号注入
 
 这里先把跨窗持仓方向的最小类型定义清楚：
 
@@ -508,7 +532,7 @@ enum CrossSide {
 }
 ```
 
-### 5.1 末根持仓方向判定
+### 4.1 末根持仓方向判定
 
 ```rust
 fn detect_last_bar_position(
@@ -534,7 +558,7 @@ fn detect_last_bar_position(
    - `Ok(None)`
    - `Err(...)`
 
-### 5.2 只注入 carry 的信号
+### 4.2 只注入 carry 的信号
 
 ```rust
 fn build_carry_only_signals(
@@ -588,7 +612,7 @@ fn build_carry_only_signals(
    - 真正的继承开仓会在第二根 active bar 的开盘执行
    - 这属于有意接受的一根延迟，窗口边界不追求无缝衔接
    - 这类跨窗继承带来的额外偏差可以视为悲观预估；若希望尽量减小这部分额外偏差，建议使用更小的进场周期
-### 5.3 最终正式信号
+### 4.3 最终正式信号
 
 ```rust
 fn build_final_signals(
@@ -611,7 +635,7 @@ fn build_final_signals(
    - `exit_short = true`
 5. 原因是信号通常在下一根 bar 才真正触发，因此要在倒数第二根注入，才能保证最后一根完成平仓
 
-### 5.4 两份信号的职责边界
+### 4.4 两份信号的职责边界
 
 1. `carry_only_signals`
    - 只用于判定“当前窗口如果不做尾部强平，是否会自然把仓位带到下一窗口”

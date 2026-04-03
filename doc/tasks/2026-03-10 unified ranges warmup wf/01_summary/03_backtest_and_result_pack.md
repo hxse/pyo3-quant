@@ -1,5 +1,39 @@
 # 回测主流程、ResultPack 构建与 active 切片
 
+## 0. 对象归属与边界
+
+本篇定义：
+
+1. `ResultPack` 的运行期字段 contract
+2. `RunArtifact`
+3. `build_result_pack(...)`
+4. `extract_active(...)`
+
+本篇消费：
+
+1. `DataPack`
+2. `RawIndicators / TimedIndicators`
+3. `TimeProjectionIndex` 与 builder contract
+
+本篇不负责：
+
+1. WF 窗口规划
+2. stitched replay 输入组装
+3. schedule backtest kernel
+
+本篇把一对同源的 `DataPack + ResultPack` 按对象视角统一称为 `RunArtifact`。这里的重点是“同源配对关系”：
+
+```rust
+struct RunArtifact {
+    data: DataPack,
+    result: ResultPack,
+}
+```
+
+`RunArtifact` 在本篇里是概念对象，不要求等于单一 Rust 公共类型；它只表达一条边界：`extract_active(...)`、pair consistency 校验和导出语义，都必须建立在同源的 `DataPack / ResultPack` 配对之上。
+
+`RawIndicators / TimedIndicators` 的状态定义统一归 `01`；本篇只继续定义它们在 `build_result_pack(...)` 与 `strip_indicator_time_columns(...)` 里的流转算法，不再新增第二套状态口径。
+
 ## 1. 全量回测主流程
 
 ```text
@@ -41,19 +75,6 @@
    - 只保留在 `signals` 输出里
    - `backtest` 输出不包含该字段
    - `performance` 输出与绩效计算都不消费该字段
-
-当前代码现状需要特别说明：
-
-1. `src/backtest_engine/backtester/mod.rs` 目前仍会把 `signals.has_leading_nan` 透传到 `backtest`
-2. `src/backtest_engine/backtester/signal_preprocessor.rs` 目前仍会用 `has_leading_nan` 屏蔽进场
-3. `src/backtest_engine/performance_analyzer/mod.rs` 目前仍会从 `backtest_df` 读取 `has_leading_nan`
-4. 本次重构目标是把这三处都清掉，收口为：
-   - `has_leading_nan` 只保留在 `signals`
-   - 仅供调试
-   - 回测核心逻辑不消费该字段
-   - `backtest` 不输出该字段
-   - `performance` 不消费该字段
-   - 一句话概括：除 `signals` 外，其他模块都不应再感知或消费 `has_leading_nan`
 
 ### 1.1.1 绩效函数的目标口径
 
@@ -106,6 +127,7 @@
 8. 单次回测、WF、stitched 都复用同一口径：
    - 谁调用绩效模块，谁传当前 pack 对应的完整 `DataPack`
    - 绩效模块内部再统一裁掉 `[0, base_warmup)` 这段预热区
+9. 这条输入高度校验、内部切片与 fail-fast 语义必须有 dedicated contract test，不能只靠回归间接覆盖。
 
 ### 1.2 指标 NaN 校验
 
@@ -136,6 +158,8 @@ fn build_result_pack(
     performance: Option<HashMap<String, f64>>,
 ) -> Result<ResultPack, QuantError>
 ```
+
+`ResultPack.performance` 保持通用指标字典口径：`Option<HashMap<String, f64>>`。键集由 `PerformanceParams.metrics` 与 `PerformanceMetric` 决定；当前通用时间跨度指标只直接覆盖 `span_ms / span_days`，不把 `bars / span_months` 写成固定字段 contract。
 
 这里对 `indicators` 再写死一条契约：
 
@@ -198,7 +222,9 @@ fn strip_indicator_time_columns(
 1. 继承 `data` 的 base 身份：
    - `ResultPack.base_data_key = data.base_data_key`
 2. 继承 `data` 的 mapping / ranges 子集：
-   - `ResultPack.mapping` 直接取 `data.mapping` 的子集，字段集合为 `["time"] + indicator_source_keys`
+   - `ResultPack.mapping` 直接取 `data.mapping` 的子集
+   - 第一列固定为 `time`
+   - 其余列集合严格等于 `indicator_source_keys`
    - `ResultPack.ranges` 直接取 `data.ranges` 的子集，字段集合为 `data.base_data_key + indicator_source_keys`
    - 这里只裁掉不需要的字段，不做索引裁减、重基或重新编号
 3. 直接接受并写入入参结果字段：
@@ -225,7 +251,7 @@ fn strip_indicator_time_columns(
 
 ## 4. 非预热切片 `extract_active(...)`
 
-这里是 [01_overview_and_foundation_2_types_and_mapping.md](./01_overview_and_foundation_2_types_and_mapping.md) `3.6 校验收口原则` 的唯一例外：
+这里是 [01_overview_and_foundation_2_types_and_mapping.md](./01_overview_and_foundation_2_types_and_mapping.md) `3.7 校验收口原则` 的唯一例外：
 
 1. `extract_active(...)` 不负责重新构建一个可继续运行的新 Pack。
 2. 它只对一对已经同源且已验证的 `DataPack / ResultPack` 做机械化非预热提取。

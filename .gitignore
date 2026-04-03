@@ -11,6 +11,8 @@ source_ref/polars/
 source_ref/ta-lib/
 source_ref/example_source/
 
+.codex
+
 # search_spaces 默认仅上传示例策略 sma_2tf
 py_entry/strategy_hub/search_spaces/*
 !py_entry/strategy_hub/search_spaces/__init__.py

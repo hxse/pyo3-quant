@@ -16,12 +16,27 @@
 3. `04` stitched 阶段把窗口级指标和窗口级 active 信号序列收成 `StitchedReplayInput`。
 4. backtest 真值由 `StitchedReplayInput` 驱动的一次性连续执行得到。
 
+本篇把一份已经通过 schedule 验证、并已经绑定 selector / schema contract 的 replay 计划，统一按对象视角称为 `ResolvedRegimePlan`。
+
+`ResolvedRegimePlan` 只承接：
+
+1. `BacktestParamSegment`
+2. contiguity
+3. schedule policy
+4. output schema
+5. `ParamsSelector` 的构造前提
+
+`ResolvedRegimePlan` 不承接：
+
+1. stitched 指标拼接
+2. `stitched_atr_by_row` 的物化算法
+3. kernel 内部执行细节
+
+这里的 `ResolvedRegimePlan` 是本篇的概念对象，不要求等于单一 Rust 公共结构体；它只负责把 `05` 已经拥有的 schedule 真值与 contract 收在同一层解释。
+
 ## 1. 要解决的核心问题
 
-当前 stitched backtest 的根本问题不是“实现麻烦”，而是**真值口径不单一**：
-
-1. 资金列和回撤列经过了 stitched 级别重建。
-2. 但部分事件列、手续费列、交易列携带窗口局部语义。
+当前 stitched backtest 的正式目标是：**让最终 backtest 真值沿 stitched 连续时间轴一次性生成**。
 
 因此本篇直接采用下面这条正式路径：
 
@@ -29,7 +44,7 @@
 2. 再把这些输入真值喂给回测引擎。
 3. 让回测引擎沿连续时间轴直接执行出最终 backtest。
 
-也就是说，目标不是“把 stitched backtest 修补得更像真值”，而是**让正式 stitched backtest 直接由回测引擎生成**。
+正式 stitched backtest 真值只走 segmented replay 这条链，不走重建资金列路径。
 
 本篇口径在这里一并写死：
 
@@ -97,7 +112,7 @@
    - `stitched_signals`
    - `backtest_schedule`
    - `stitched_atr_by_row`
-3. 最终 `stitched_result` 构建阶段再消费：
+3. 最终 `StitchedArtifact.result` 构建阶段再消费：
    - `stitched_indicators_with_time`
 4. 它不是阶段名，也不是第二套 stitched 解释层。
 
@@ -122,6 +137,8 @@
 
 ### 3.2 真正变化的部分
 
+本篇涉及 stitched 输入边界时，统一引用 [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md) 里的“stitched 单一事实块”；这里只写 `05` 对这些正式输入的消费结论。
+
 真正变化的只在 stitched 末段：
 
 1. stitched 阶段产出：
@@ -131,7 +148,7 @@
    - 全局 `stitched_indicators_with_time`
 2. 调用一次连续回测入口，得到 `stitched_backtest_truth`。
 3. 先把 `stitched_indicators_with_time` 统一降级成 `stitched_raw_indicators`。
-4. 再基于 `stitched_data_pack + stitched_backtest_truth` 计算 stitched `performance`。
+4. 再基于 `stitched_data + stitched_backtest_truth` 计算 stitched `performance`。
 5. 最后统一通过 `build_result_pack(...)` 构建最终 stitched `ResultPack`。
 
 ### 3.3 stitched indicators 的地位
@@ -142,7 +159,7 @@
 2. `stitched_atr_by_row`
 3. `backtest_schedule`
 
-因此，`stitched_indicators_with_time` 不是 replay 的硬前置条件，但属于最终 `stitched_result` 指标字段的正式中间产物，不能省略。
+因此，`stitched_indicators_with_time` 不是 replay 的硬前置条件，但属于最终 `StitchedArtifact.result` 指标字段的正式中间产物，不能省略。
 
 它按 [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md) 的 stitched 规则生成；正式 stitched backtest 的计算不依赖它本身。
 
@@ -177,82 +194,20 @@
 1. **两套外部入口**
 2. **一套内部 kernel**
 
-## 5. 边界问题为什么可以写得很简单
+## 5. 边界语义的正式口径
 
-这一节只说明三件事：
+本篇只采用一条边界语义：
 
-1. 就算不保留跨窗注入，`exit_in_bar / next-bar` 本身也没有边界问题。
-2. 如果不保留跨窗注入，真正可能出现轻微问题的是 `TSL_PCT / TSL_ATR / PSAR` 这类“状态会持续更新”的跟踪止损。
-3. 而本篇已经决定直接复用 [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md) 注入后的 active-only stitched 信号，所以这些轻微问题也一起被消掉了。
+1. `04` 在窗口边界显式写入跨窗注入与窗口尾部强平信号。
+2. `05` stitched replay 直接消费各窗口 `test_active_result.signals`。
+3. 因此窗口边界上的“平仓再开仓”在信号层已经写死，不再依赖回测 kernel 内部补状态或额外推断。
 
-### 5.1 就算不注入，`exit_in_bar` 也没有问题
+这条正式口径带来的结果也一并写死：
 
-这部分可以直接写死：
-
-1. 若某类离场走 in-bar 语义，则当前 bar 直接完成 trigger、exit 与结算。
-   - 状态和结算都发生在当前 bar，不存在跨窗边界问题。
-2. 若某类离场走 next-bar 语义，则当前 bar 只记录触发，下一根 bar 再执行 exit 与结算。
-   - 这里的历史只负责决定“是否触发”。
-   - 真正的结算落在执行 bar 本身。
-   - 结算时只需要执行 bar 上已经确定的 `entry_price / exit_price / fee_fixed / fee_pct`，不需要回头改写历史数据。
-
-因此，无论是否保留跨窗注入，`exit_in_bar / next-bar` 这层都不是难点。
-
-### 5.2 如果不注入，真正可能有轻微问题的是 `TSL_PCT / TSL_ATR / PSAR`
-
-如果让仓位无声跨窗延续，再在新窗口切换参数，那么轻微问题主要出在“旧状态存续，新参数开始接管”。
-
-`TSL_PCT / TSL_ATR` 的情况是：
-
-1. `anchor_since_entry` 会沿用旧窗口里已经积累出的锚点。
-2. `tsl_pct_price / tsl_atr_price` 也会沿用旧窗口里的已有止损线。
-3. 新窗口如果改了 `tsl_pct / tsl_atr / tsl_anchor_mode / tsl_atr_tight`，之后的更新会按新参数推进。
-
-这类问题通常是轻微的，原因是：
-
-1. `TSL_PCT / TSL_ATR` 都是单向更新。
-2. 旧止损线不会被推翻重算，只会朝允许的方向移动。
-3. 因此更像“边界附近更新节奏或阈值轻微不纯”，而不是数值爆炸或明显 bug。
-
-`PSAR` 的情况比 `TSL` 更敏感一点，但通常也只是轻微问题：
-
-1. `PSAR` 会把旧窗口里的 `PsarState` 带入新窗口。
-2. 新窗口如果改了 `tsl_psar_af0 / tsl_psar_af_step / tsl_psar_max_af / tsl_anchor_mode`，后续更新就会变成“旧状态 + 新参数”共同演化。
-3. 它比 `TSL_PCT / TSL_ATR` 更不纯，因为 `PSAR` 是完整状态机，不只是单条止损线。
-
-但即便如此，它通常也只是：
-
-1. 边界附近几根 bar 的止损语义不那么纯。
-2. 不太会恶化成 `NaN`、大幅乱跳或明显数值 bug。
-
-所以，不注入时真正需要说明的，不是 `exit_in_bar`，而是：
-
-1. `TSL_PCT / TSL_ATR / PSAR` 在静默跨窗持仓下会有轻微语义污染。
-2. 这种污染通常是局部且温和的，不属于高危数值风险。
-
-### 5.3 一旦保留注入，上述轻微问题就没有了
-
-而本篇最终并不选择“静默跨窗持仓”这条路。
-
-本篇直接写死：
-
-1. `04` 保留跨窗注入与窗口尾部强平语义。
-2. `05` stitched replay 直接拼接各窗口 `test_active_result.signals`。
-3. 因此窗口边界上的“平仓再开仓”已经在信号层显式写死。
-
-这样一来：
-
-1. `exit_in_bar / next-bar` 本来就没有边界难题。
-2. `TSL_PCT / TSL_ATR / PSAR` 也无需无声带着旧状态跨到新窗口。
-3. `05` 的职责就是对这条已经注入好的 stitched 信号流做一次性连续回放。
-
-### 5.4 这一版写法的直接好处
-
-1. `04` 的窗口正式返回和 `05` 的 stitched 回放，使用的是同一份信号语义，更一致。
-2. `05` 的边界状态讨论可以保持在较小范围内。
-3. 对实盘也更友好：
-   - 窗口换参时，显式平仓再开仓比“让机器人在持仓中悄悄切参数”更容易实现。
-   - 这也更接近真实可执行的换参流程。
+1. `05` 只对已经注入完成的 stitched 信号流做一次性连续回放。
+2. `exit_in_bar / next-bar`、`TSL_PCT / TSL_ATR / PSAR` 等边界行为都统一建立在这条 stitched 信号语义上。
+3. `04` 的窗口正式返回与 `05` 的 stitched 回放使用同一份信号语义。
+4. 这条边界语义也直接对应实盘换参时“先平再开”的可执行流程。
 
 ## 6. 为什么 `atr_period` 可以允许变化
 
@@ -309,11 +264,24 @@
 
 ### 6.3 为什么不要求对 `prev_bar.atr` 做特殊边界修补
 
-因为在这版方案里，跨窗语义已经由注入后的 `stitched_signals` 先写死了，`prev_bar.atr` 只剩下“上一行历史输入”这一个角色：
+因为在这版方案里，跨窗语义已经由注入后的 `stitched_signals` 先写死了，首段执行预热也已经前移到 `04` 的 `stitched_atr_by_row` 物化阶段，`prev_bar.atr` 只剩下“上一行历史输入”这一个角色：
 
 1. 它都是“上一行已经物化好的历史输入”。
 2. 当前 bar 只负责读取它，不负责改写它。
 3. `05` 的职责中不包含窗口边界专属的 ATR 状态延续规则。
+4. 也就是说，`05` 不做首段 ATR 修补的前提是：
+   - `04` 不能在 active-only `stitched_data.base` 上直接现算 ATR
+   - 而必须先基于 `full_data.base` 左侧已有上下文物化 `stitched_atr_by_row`
+
+当前再补一条边界：
+
+1. `W_backtest_exec_base` 在窗口公式里同时覆盖 ATR 与 PSAR。
+2. stitched replay 里，外层需要显式物化的执行预热输入只有 ATR。
+3. 当前 `TSL_PSAR` 不额外引入 stitched 首段专属补丁：
+   - 现有主循环固定先初始化第 `0/1` 行，再从第 `2` 行开始真正执行
+   - 本任务已经把 `test_active >= 3` 写成最小合法长度
+   - 当前 `psar_required_warmup_bars() = 2`
+4. 因而在当前主循环约束下，PSAR 初始化所需的局部历史已经由 stitched active 轴自身满足。
 
 所以本篇的正式结论是：
 

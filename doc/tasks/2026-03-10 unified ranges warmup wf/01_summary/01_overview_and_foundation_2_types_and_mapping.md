@@ -1,5 +1,24 @@
 # 统一 Ranges / Warmup / WF 重构总述与基础约束（二）核心类型、builder 与 mapping
 
+本章把时间投影、coverage、mapping builder 与容器结构 contract 这一组共享真值，统一按对象视角称为 `TimeProjectionIndex`。
+
+## 2. TimeProjectionIndex 的对象归属
+
+`TimeProjectionIndex` 在本章里不是单个运行时结构体，而是时间投影真值的统一归属对象。它完整承接：
+
+1. `exact_index_by_time(...)`
+2. `map_source_row_by_time(...)`
+3. `map_source_end_by_base_end(...)`
+4. `validate_coverage(...)`
+5. `build_mapping_frame(...)`
+6. `mapping` 的列集合、dtype、non-null 与 `time` 主列 contract
+
+这意味着：
+
+1. 后续流程文档可以按章节分别引用 mapping、coverage、builder 或时间投影步骤。
+2. 但这几部分在归属层面仍然只算同一个对象：`TimeProjectionIndex`。
+3. `02~04` 里不允许再额外拼出第二套“时间投影 + coverage + mapping builder”解释链。
+
 ## 3. 核心类型
 
 ### 3.1 重命名方案
@@ -22,12 +41,25 @@
 ```rust
 struct DataPack {
     source:        HashMap<String, DataFrame>,
-    mapping:       DataFrame,                   // 列 = ["time"] + S_keys
-    skip_mask:     Option<DataFrame>,
+    mapping:       DataFrame,                   // 第一列固定为 time；其余列集合严格对应 S_keys
+    skip_mask:     Option<DataFrame>,           // 单列表 DataFrame，挂在 base 行空间
     base_data_key: String,
     ranges:        HashMap<String, SourceRange>, // 必须覆盖全部 S_keys
 }
 ```
+
+`DataPack.skip_mask` 的正式 contract 在共享层直接写死：
+
+1. `skip_mask` 的类型是 `Option<DataFrame>`，不是 `Series`。
+2. 若存在，必须是**单列表** `DataFrame`。
+3. 唯一合法列名固定为 `"skip"`。
+4. `skip_mask["skip"]` 的 dtype 必须是 `Boolean`。
+5. `skip_mask["skip"]` 不允许存在 null。
+6. `skip_mask` 挂在当前容器的 base 行空间上：
+   - `skip_mask.height() == source[base_data_key].height()`
+   - 对已经通过 `build_data_pack(...)` 的容器，还必须满足 `skip_mask.height() == mapping.height()`
+7. `build_data_pack(...)` 必须统一校验这组约束；外部流程不再额外维护第二套 `skip_mask` 结构校验。
+8. 后续 `extract_active(...)`、窗口切片和回测预处理都直接复用这条 base 轴 contract，不再各写一套 `skip_mask` 解释。
 
 ### 3.3 ResultPack
 
@@ -81,7 +113,31 @@ struct SourceRange {
 1. 这里显式保留 `warmup_bars / active_bars / pack_bars` 三个字段，避免后续到处写 `total - warmup`。
 2. 这三个字段必须同时满足：`warmup_bars + active_bars == pack_bars`。
 
-### 3.5 mapping 结构约束
+### 3.5 `RawIndicators / TimedIndicators` 的状态定义
+
+本任务把指标结果显式分成两种正式状态：
+
+1. `RawIndicators`
+   - 指每个 `indicators[k]` 还没有 `time` 列的原始指标结果
+   - 它是 `build_result_pack(...)` 的合法输入形态
+2. `TimedIndicators`
+   - 指每个 `indicators[k]` 都已经显式带有 `time` 列的结果态指标
+   - 它是 `ResultPack.indicators` 的合法存储形态
+
+这两种状态的唯一转换口径是：
+
+1. `RawIndicators -> TimedIndicators`
+   - 由 `build_result_pack(...)` 负责补入 `time` 列并完成结果态校验
+2. `TimedIndicators -> RawIndicators`
+   - 由 `strip_indicator_time_columns(...)` 负责去掉结果态 `time` 列
+
+因此这里把对象状态定义先写死：
+
+1. `01` 负责定义 `RawIndicators / TimedIndicators` 这两个状态本身，以及它们和 `ResultPack.indicators` 的对应关系。
+2. `03` 再负责定义它们在 `build_result_pack(...)` 与 `strip_indicator_time_columns(...)` 里的具体流转算法。
+3. 后续 `04` stitched 里若复用已有 `ResultPack.indicators`，必须先降级回 `RawIndicators`，不允许各处手写第二套 time 列处理。
+
+### 3.6 mapping 结构约束
 
 `mapping` 是一个带 `time` 主列的 base 对齐关系表。
 
@@ -113,22 +169,27 @@ struct SourceRange {
 DataPack 的 `mapping`：
 
 1. 必须存在。
-2. 完整列集合固定为 `["time"] + S_keys`。
-3. `mapping.time` 由 `source[base_data_key].time` 提取并构建。
+2. 第一列固定为 `time`。
+3. 除 `time` 外，其余列集合必须严格等于 `S_keys`。
+4. `S_keys` 本身只表示 source key 集合，不表达顺序语义；除 `time` 外，`mapping` 的其余列序不承载业务语义，所有下游都不得依赖列序。
+5. `mapping.time` 由 `source[base_data_key].time` 提取并构建。
 
 ResultPack 的 `mapping`：
 
 1. 必须存在。
-2. 列集合固定为 `["time"] + indicator_source_keys`，其中 `indicator_source_keys ⊆ S_keys`。
-3. `ResultPack.mapping` 直接来自对应 `DataPack.mapping` 的子集：
+2. 第一列固定为 `time`。
+3. 除 `time` 外，其余列集合必须严格等于 `indicator_source_keys`，其中 `indicator_source_keys ⊆ S_keys`。
+4. `indicator_source_keys` 本身只表示指标 source key 集合，不表达顺序语义；除 `time` 外，`ResultPack.mapping` 的其余列序同样不承载业务语义。
+5. `ResultPack.mapping` 直接来自对应 `DataPack.mapping` 的子集：
    - `mapping.time` 直接继承 `DataPack.mapping.time`
    - 其余列只保留当前实际存在指标结果的 `indicator_source_keys`
    - 不重新构建映射列，也不调整索引
+   - 不在 `ResultPack` 层重新定义第二套非 `time` 列排序规则
    理由：`ResultPack` 的其他结果字段如 `indicators / signals / backtest / performance` 都可能在某个阶段为 `None`，因此不能要求 ResultPack 仅靠自身字段稳定拿到一条完整且可信的 base 时间轴；最稳妥也最统一的做法，是直接复用对应 DataPack 已经确定好的 mapping 子集。
-4. `ResultPack.base_data_key` 必须显式存在，并直接继承对应 `DataPack.base_data_key`；文中 `ResultPack` 相关的 `base`，始终指 `ResultPack.base_data_key`。
-5. 若当前阶段拿不到 `mapping.time`，ResultPack 不合法。
+6. `ResultPack.base_data_key` 必须显式存在，并直接继承对应 `DataPack.base_data_key`；文中 `ResultPack` 相关的 `base`，始终指 `ResultPack.base_data_key`。
+7. 若当前阶段拿不到 `mapping.time`，ResultPack 不合法。
 
-### 3.6 校验收口原则
+### 3.7 校验收口原则
 
 后续绝大多数容器级操作，都必须回到统一入口函数：
 
@@ -149,8 +210,9 @@ ResultPack 的 `mapping`：
 1. `DataPack` 的 mapping 真值构建与校验统一集中在 `build_mapping_frame(...)`
 2. `ResultPack` 不重新构建 mapping，而是直接继承对应 `DataPack.mapping` 的子集
 3. 外部流程不再额外维护第二套 mapping 校验
-4. 外部只负责准备好原始 DF、`ranges` 和必要参数
-5. 真正的时间列校验、覆盖校验、mapping 列类型校验，都由 `build_mapping_frame(...)` 收口到 `DataPack` 这一层
+4. `skip_mask` 的结构校验也统一收口到 `build_data_pack(...)`
+5. 外部只负责准备好原始 DF、`ranges`、`skip_mask` 和必要参数
+6. 真正的时间列校验、覆盖校验、mapping 列类型校验与 `skip_mask` contract，都由 `DataPack` builder 链收口到这一层
 
 补充说明：
 
@@ -158,7 +220,7 @@ ResultPack 的 `mapping`：
 2. 为了测试与调试方便，`build_mapping_frame(...)` 仍然可以保留 PyO3 暴露，作为小样本 contract test 的工具函数。
 3. 这不代表业务流程可以绕过 `build_data_pack(...)`，把 `build_mapping_frame(...)` 当成第二套正式 builder 入口。
 
-### 3.7 ranges 不变式
+### 3.8 ranges 不变式
 
 `DataPack.ranges`：
 
@@ -186,6 +248,39 @@ ResultPack 的 `mapping`：
 
 ## 4. Mapping 与覆盖校验
 
+在展开 `4.1~4.5` 前，先把 `source_interval_ms / interval_ms` 的唯一来源写死：
+
+```rust
+fn resolve_source_interval_ms(source_key: &str) -> Result<i64, QuantError>
+```
+
+规则：
+
+1. `source_interval_ms(k)` 与 planner / coverage / 右边界投影里出现的 `interval_ms`，都只指 `resolve_source_interval_ms(source_key)` 的返回值。
+2. 当前任务里，该 helper 只按项目现有公开支持集解析声明周期，例如 `ohlcv_1m / ohlcv_4h / ohlcv_1d`。
+3. `source_key` 结构非法、周期值非法、周期单位非法或解析结果 `<= 0`，都必须直接 fail-fast。
+4. planner 只允许先从 `timeframes + base_data_key` 生成 `source_keys`，再对每个 `source_key` 调用同一个 `resolve_source_interval_ms(...)`；不允许在 planner 内部再维护第二套 timeframe -> interval 查表或私有换算逻辑。
+5. coverage、补拉、窗口右边界投影都只能消费这条 shared resolver 的结果，不允许各模块各自再推一遍。
+6. 若后续还需要校验 `src_times` 与声明周期是否一致，那属于数据校验，不改变 `interval_ms` 的唯一来源。
+7. 若 Rust 侧后续把支持集扩到当前 Python parser / 图表排序之外，必须在同一任务里同步更新 Python 侧对应 parser / sorter；不允许文档、Rust、Python 三边各自维护不同支持集。
+
+最小算法说明：
+
+1. 取 `source_key` 最后一个 `_` 之后的后缀，记为 `period_part`，例如：
+   - `ohlcv_15m -> 15m`
+   - `ohlcv_4h -> 4h`
+2. 从 `period_part` 左侧连续读取数字前缀，得到 `value`；剩余后缀作为 `unit`。
+3. `value` 必须是正整数；缺少数字、缺少单位、`value <= 0` 都直接报错。
+4. 当前任务里，`unit` 只允许这些正式单位：
+   - `m`
+   - `h`
+   - `d`
+5. 单位换算规则写死为：
+   - `m = 60_000`
+   - `h = 3_600_000`
+   - `d = 86_400_000`
+6. 最终返回 `value * unit_ms`；若乘法溢出，也直接报错。
+
 ### 4.1 统一时间投影工具函数
 
 本任务里所有“精确时间定位 / 把 base 时间映射到 source 行号 / 把 base 半开右边界映射到 source 半开右边界”的地方，都必须统一收口到下面三个工具函数：
@@ -205,20 +300,20 @@ fn exact_index_by_time(
     times: &[i64],
     target_time: i64,
     column_name: &str,
-) -> Result<usize, Error>
+) -> Result<usize, QuantError>
 
 fn map_source_row_by_time(
     anchor_time: i64,
     src_times: &[i64],
     source_key: &str,
-) -> Result<usize, Error>
+) -> Result<usize, QuantError>
 
 fn map_source_end_by_base_end(
     base_times: &[i64],
     src_times: &[i64],
     base_end_exclusive_idx: usize,
     source_key: &str,
-) -> Result<usize, Error>
+) -> Result<usize, QuantError>
 ```
 
 `exact_index_by_time(...)`：
@@ -231,7 +326,7 @@ fn map_source_end_by_base_end(
    - 要精确查找的时间戳
 3. `column_name: &str`
    - 当前时间列的名字，只用于报错信息
-4. 返回值 `Result<usize, Error>`
+4. 返回值 `Result<usize, QuantError>`
    - `Ok(idx)` 表示 `target_time` 在该时间列中的唯一局部行号
    - `Err(...)` 表示该时间戳不存在
 
@@ -261,7 +356,7 @@ idx = matched["idx"][0]
    - 当前 source 的 `time` 列，要求非空、严格递增、无重复
 3. `source_key: &str`
    - 当前 source 的 key，只用于报错信息与上下文定位
-4. 返回值 `Result<usize, Error>`
+4. 返回值 `Result<usize, QuantError>`
    - `Ok(mapped_idx)` 表示 backward asof 映射得到的 source 局部行号
    - `Err(...)` 表示当前时间锚点无法合法映射到该 source
 ```text
@@ -292,7 +387,7 @@ joined = left.join_asof(&right, "time", "time", AsofStrategy::Backward, None)
    - base 半开右边界索引，即区间 `[start, base_end_exclusive_idx)` 的右端点
 4. `source_key: &str`
    - 当前 source 的 key，只用于报错信息与上下文定位
-5. 返回值 `Result<usize, Error>`
+5. 返回值 `Result<usize, QuantError>`
    - `Ok(source_end_exclusive_idx)` 表示映射后的 source 半开右边界
    - `Err(...)` 表示该右边界无法合法映射
 
@@ -372,8 +467,9 @@ source `k` 严格覆盖 `base_times`，当且仅当：
 
 1. 首覆盖用 `<=`，不是 `<`。
 2. 尾覆盖必须是 `last + interval > base_last`，不是 `last >= base_last`。
-3. `mapping` 列不允许 null，因此这里的覆盖校验不是“优化项”，而是构建成功的前置条件。
-4. backward asof join 只负责生成映射索引；首尾覆盖仍然必须由 `validate_coverage(...)` 单独保证。
+3. 这里的 `source_interval_ms(k)` 统一指 `resolve_source_interval_ms(source_key)` 的返回值。
+4. `mapping` 列不允许 null，因此这里的覆盖校验不是“优化项”，而是构建成功的前置条件。
+5. backward asof join 只负责生成映射索引；首尾覆盖仍然必须由 `validate_coverage(...)` 单独保证。
 
 ### 4.4 覆盖校验函数
 
@@ -383,7 +479,7 @@ fn validate_coverage(
     src_times: &[i64],
     source_interval_ms: i64,
     source_key: &str,
-) -> Result<(), Error>
+) -> Result<(), QuantError>
 ```
 
 规则：
@@ -425,8 +521,9 @@ build_mapping_frame(...) -> Result<DataFrame, QuantError>
    - 第一列直接写入 `time = base_times`
    - 然后按 `source_key` 逐列构建 mapping
 2. 每构建一列时：
-   - 先执行 `3.5 mapping 结构约束` 里的完整校验
-   - 其中覆盖部分由 `validate_coverage(base_times, src_times, interval_ms, source_key)` 承担
+   - 先执行 `3.6 mapping 结构约束` 里的完整校验
+   - 其中 `interval_ms = resolve_source_interval_ms(source_key)`
+   - 覆盖部分由 `validate_coverage(base_times, src_times, interval_ms, source_key)` 承担
    - 再调用 `build_mapping_column_unchecked(base_times, src_times, source_key)`
 3. `build_mapping_column_unchecked(...)`
    - 只做 backward asof
@@ -438,9 +535,12 @@ build_mapping_frame(...) -> Result<DataFrame, QuantError>
    - `map_source_end_by_base_end(...)`
    不允许另发明平行 helper。
 5. `build_mapping_frame(...)` 对每一列再断言：
-   - 结果满足 `3.5` 的输出结构约束
+   - 结果满足 `3.6` 的输出结构约束
 6. 所有 source 列都构建完成后
-   - `build_mapping_frame(...)` 返回 `["time"] + source_keys` 的关系表
+   - `build_mapping_frame(...)` 返回的关系表必须满足：
+     - 第一列固定是 `time`
+     - 其余列集合严格等于 `source_keys`
+     - 除 `time` 外的列序不承载业务语义
 
 职责分工：
 

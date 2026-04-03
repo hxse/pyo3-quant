@@ -217,6 +217,7 @@ run_backtest_with_schedule(data, signals, atr_by_row, schedule):
     5. `let prepared_data = PreparedData::new(data, signals.clone(), &atr_by_row)`
     6. `let params_selector = build_schedule_params_selector(schedule)`
     7. `let output_schema = build_schedule_output_schema(schedule)`
+       - 列集合、列顺序与 dtype 必须直接复用 [05_segmented_backtest_truth_and_kernel_3_schema_outputs_and_tests.md](./05_segmented_backtest_truth_and_kernel_3_schema_outputs_and_tests.md) 已写死的唯一生成算法
     8. `let output_buffers = run_backtest_kernel(prepared_data, params_selector, output_schema)`
     9. `output_buffers.validate_array_lengths()`
    10. `let mut result_df = output_buffers.to_dataframe()`

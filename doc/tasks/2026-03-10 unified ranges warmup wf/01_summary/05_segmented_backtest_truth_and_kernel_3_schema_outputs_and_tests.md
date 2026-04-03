@@ -14,9 +14,47 @@
    - 该列保留
    - 但当前 row 只写文档已定义的非激活态默认值
 
+`build_schedule_output_schema(schedule)` 的列顺序还要写成唯一算法：
+
+1. 先固定当前单段回测 schema 的基底列顺序：
+   - `balance`
+   - `equity`
+   - `trade_pnl_pct`
+   - `total_return_pct`
+   - `entry_long_price`
+   - `entry_short_price`
+   - `exit_long_price`
+   - `exit_short_price`
+   - `fee`
+   - `fee_cum`
+   - `current_drawdown`
+   - `risk_in_bar_direction`
+   - `first_entry_side`
+   - `frame_state`
+2. 再只允许按下面这份预定义可选列顺序依次追加并集列：
+   - `sl_pct_price_long`
+   - `sl_pct_price_short`
+   - `tp_pct_price_long`
+   - `tp_pct_price_short`
+   - `tsl_pct_price_long`
+   - `tsl_pct_price_short`
+   - `atr`
+   - `sl_atr_price_long`
+   - `sl_atr_price_short`
+   - `tp_atr_price_long`
+   - `tp_atr_price_short`
+   - `tsl_atr_price_long`
+   - `tsl_atr_price_short`
+   - `tsl_psar_price_long`
+   - `tsl_psar_price_short`
+3. 对这份预定义序列中的每个候选列，只要它在任意一个 segment 中可能被写入，就追加一次。
+4. 不允许按字母序、首次出现顺序、`HashMap` 迭代顺序或其他隐式顺序决定列顺序。
+5. 因而单段 schedule 的 `output schema` 等于“基底列顺序 + 当前参数启用的那部分可选列顺序”；多段 schedule 的 `output schema` 等于“基底列顺序 + 过滤后的预定义并集列顺序”。
+
 当前这条 contract 要再写死一层：
 
-1. 当前 multi-segment output schema 里，按 segment 启用/停用变化的可选功能列，正式范围只包括各类风险价格列：
+1. 当前 multi-segment output schema 里，按 segment 启用/停用变化的可选列，正式范围包括一条 `atr` 列和各类风险价格列：
+   - `atr`
    - `sl_pct_price_*`
    - `tp_pct_price_*`
    - `tsl_pct_price_*`
@@ -40,7 +78,7 @@
 3. 因此对某个具体 row 来说：
    - 列存在，不代表当前 row 所属 segment 一定启用了这类风控
    - 当前值为 `NaN`，可能表示“该功能已启用但当前 row 没有有效价格”，也可能表示“当前 segment 根本没开这类功能”
-4. 所以下游若要判断某 row / 某 segment 是否真的启用了某类风控，不能只看列是否存在或当前值是否为 `NaN`，必须结合最终结果里保留的 `stitched_result.meta.backtest_schedule` 判断。
+4. 所以下游若要判断某 row / 某 segment 是否真的启用了某类风控，不能只看列是否存在或当前值是否为 `NaN`，必须结合最终结果里保留的 `WalkForwardResult.stitched_result.meta.backtest_schedule` 判断。
 5. 因而真正需要显式承认差异的，不是“单参数入口 vs schedule 入口”，而是“单段 schedule vs 多段 schedule”。
 
 ## 11. stitched 阶段到底要产出什么
@@ -49,14 +87,14 @@ stitched 阶段的正式产物如下。
 
 ### 11.1 必需产物
 
-1. `stitched_data_pack`
+1. `stitched_data`
    - 表示 stitched test-active 轴上的正式 `DataPack`
 2. `stitched_indicators_with_time`
    - stitched 阶段拼出来的结果态 indicators
    - 每个 `k` 都带 `time` 列
    - 在最终生成 stitched `ResultPack` 前，必须先统一走 `strip_indicator_time_columns(...)`
 3. `stitched_signals`
-   - 与 `stitched_data_pack.base` 一一对齐
+   - 与 `stitched_data.base` 一一对齐
    - 直接由各窗口 `test_active_result.signals` 拼接得到
    - 也就是各窗口 `final_signals` 的 active-only 可见部分
    - 当前正式语义下，carry 开仓写在 active 第一根，因此 `extract_active(...)` 会保留 carry 行
@@ -64,10 +102,10 @@ stitched 阶段的正式产物如下。
      - carry 开仓会在第二根 active bar 开盘执行
 4. `backtest_schedule`
    - 每段对应一套 `BacktestParams`
-   - replay 完成后保存到 `stitched_result.meta.backtest_schedule`
+   - replay 完成后保存到 `WalkForwardResult.stitched_result.meta.backtest_schedule`
    - 这里保存的必须是 replay 实际使用并已通过校验的同一份 schedule，不允许在 replay 后再反推第二份
 5. `stitched_atr_by_row`
-   - 若存在，则与 `stitched_data_pack.base` 一一对齐
+   - 若存在，则与 `stitched_data.base` 一一对齐
 
 ### 11.1.1 `stitched_atr_by_row` 的双层校验
 
@@ -89,12 +127,7 @@ kernel 不允许在内部重算 ATR 反向验证外层结果；这里只做 fail
 1. 窗口级调试 artifact
    - 若需要审计窗口内部行为，则保留
 
-### 11.3 不再作为正式 stitched 真值来源的产物
-
-下面这些产物不再作为 stitched backtest 正式真值来源：
-
-1. 窗口 `backtest` 直接拼接结果
-2. stitched 后再人工重建资金列的 backtest 草稿
+### 11.3 正式 stitched 真值入口
 
 最终 stitched `ResultPack` 的落地顺序也要写死：
 
@@ -104,103 +137,10 @@ kernel 不允许在内部重算 ATR 反向验证外层结果；这里只做 fail
    - `stitched_raw_indicators = strip_indicator_time_columns(stitched_indicators_with_time)`
 4. 最后统一调用 `build_result_pack(...)` 构建最终 stitched `ResultPack`
 5. 最终结果里正式保留：
-   - `stitched_result.meta.backtest_schedule`
+   - `WalkForwardResult.stitched_result.meta.backtest_schedule`
    - 作为多段 backtest 输出的正式解释元数据
 
-它们若保留，只能是 debug artifact，不是正式结果入口。
-
-## 12. 对 `03-10` 现有方案的影响范围
-
-本方案对现有 `03-10` 文档体系的影响很集中：
-
-### 12.1 基本不受影响
-
-1. [01_overview_and_foundation.md](./01_overview_and_foundation.md) 的 shared resolver 与 warmup 三层口径。
-2. [02_python_fetch_and_initial_build.md](./02_python_fetch_and_initial_build.md) 的 planner 与初始构建。
-3. [03_backtest_and_result_pack.md](./03_backtest_and_result_pack.md) 里单次回测、`build_result_pack(...)`、`extract_active(...)` 的基本容器语义。
-
-### 12.2 主要受影响
-
-真正需要替换思路的，主要是 [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md) 里 stitched backtest 生成末段：
-
-1. 不再拼窗口 `backtest`。
-2. 不再重建资金列作为 stitched backtest 正式真值。
-3. 改为：
-   - stitched `signals`（直接拼接窗口 `test_active_result.signals`）
-   - stitched `atr_by_row`
-   - `backtest_schedule`
-   - `run_backtest_with_schedule(...)`
-
-因此，本方案对 `03-10` 的影响不是“全盘推倒重来”，而是：
-
-1. 上游窗口级生产逻辑基本不动。
-2. 最终 stitched backtest 的构建方式整体替换。
-
-### 12.3 如何验证“精准改造且语义等价”
-
-1. 主测试只放 Rust，不放 pytest。
-2. 更合适的落点是：
-   - 在 [mod.rs](/home/hxse/pyo3-quant/src/backtest_engine/backtester/mod.rs) 增加 `#[cfg(test)] mod tests;`
-   - 新建 [tests.rs](/home/hxse/pyo3-quant/src/backtest_engine/backtester/tests.rs)
-3. 测试直接比较：
-   - `legacy_run_backtest_reference(...)`
-   - `run_backtest(...)`
-   - 冻结顺序必须写死：
-     1. 先在当前旧 `run_backtest(...)` 实现上完成 [03_backtest_and_result_pack.md](./03_backtest_and_result_pack.md) 已写死的 `has_leading_nan` 收口修正，即：
-        - `has_leading_nan` 只保留在 `signals`
-        - 不再参与回测核心逻辑
-        - 不再透传到 `backtest`
-        - 不再被 `performance` 读取
-        - 一句话概括：除 `signals` 外，其他模块都不应再感知或消费 `has_leading_nan`
-     2. 再把这份已经收口后的旧实现改名存档为 `legacy_run_backtest_reference(...)`
-   - 也就是说，这个 reference 不是“带着历史错误行为的冷冻拷贝”，而是“先完成正式契约修正，再冻结”的测试基线
-   - 除这条 `has_leading_nan` 收口修正外，其余旧实现逻辑都按原样冻结，只作为等价性测试基线使用
-4. 这里的“一致”不能只做模糊比较，至少要显式断言：
-   - 列名集合一致
-   - 列顺序一致
-   - 每列 dtype 一致
-   - 行数一致
-   - 每列逐值一致
-   - `backtest` 输出里都不应再出现 `has_leading_nan`
-5. 测试数据的构造也必须写死：
-   - 不要求所有价格数据都手工一根根写出
-   - 原始 `source` 数据可以使用**固定 seed 的确定性随机 fixture**
-   - 但随机数据不能过于平缓，必须刻意做出**足够大的趋势**和**足够大的波动**
-   - 否则很多 case 只会验证“能跑完”，却覆盖不到真实的开平仓、风控触发和资金变化
-   - 但 `signals` 最好手工构造，以便明确覆盖开仓、平仓、冲突信号和预处理分支
-   - 同一份 fixture 必须同时喂给：
-     - `legacy_run_backtest_reference(...)`
-     - 新的 `run_backtest(...)`
-   - 不能让两边各自造一份近似数据再比较
-6. 这份 fixture 至少应包含：
-   - 一份单 source 的原始 `source` 数据
-   - base source 上完整的 `time/open/high/low/close`
-   - 可直接喂给 `build_data_pack(...)` 的 `base_data_key + ranges`
-   - `entry_long / exit_long / entry_short / exit_short` 四列 signals
-7. 这里的正式 `DataPack` 应优先复用 [01_overview_and_foundation.md](./01_overview_and_foundation.md) 与 [02_python_fetch_and_initial_build.md](./02_python_fetch_and_initial_build.md) 已定义的 `build_data_pack(...)` 构造：
-   - 测试里可以准备固定 seed 的原始 `source` 数据，并手工准备 `ranges / signals`
-   - 但不应再手工拼 `mapping` 充当正式输入
-   - `mapping` 真值仍应由 `build_data_pack(...)` 内部收口生成
-8. 为了避免“主流程大体能跑，但关键分支没覆盖”，测试数据最好至少拆成三类确定性 case：
-   - 基础 case：
-     - 不启用 ATR
-     - 不带 `skip_mask`
-     - 只验证基础单次回测流程等价
-   - ATR case：
-     - 启用至少一个 ATR 相关参数
-     - 让 `calculate_atr_if_needed(...)` 明确走到 `Some(atr_series)` 分支
-     - 覆盖 ATR 输入链与可选列 schema
-   - 预处理 case：
-     - 显式带 `skip_mask`
-     - 最好再带一两处冲突 signals
-     - 用来验证 `PreparedData::new(...)` 前的信号预处理没有被重构破坏
-9. 所有 case 都应满足：
-    - `data_length > 2`
-    - 至少发生一次真实开平仓
-    - 价格路径要有足够大的趋势与波动，避免回测结果过于平淡
-    - 不只是“能跑完”，而是能让资金列、价格列、可选列都真正写出非平凡结果
-
-## 13. 本方案不解决什么
+## 12. 本方案不解决什么
 
 为了避免范围膨胀，本篇直接把非目标写死：
 
@@ -209,7 +149,7 @@ kernel 不允许在内部重算 ATR 反向验证外层结果；这里只做 fail
 3. 不引入 trade-owned 参数快照语义。
 4. 不处理“窗口之间重叠 test_active”的情况；仍沿用 [04_walk_forward_and_stitched.md](./04_walk_forward_and_stitched.md) 的非重叠前提。
 
-## 14. 本篇最终结论
+## 13. 本篇最终结论
 
 1. stitched 真值的正式路径是：先 stitched 出输入，再让回测引擎沿连续时间轴执行一次。
 2. 指标和信号维持按窗口生成，不需要连带重写上游架构；其中 stitched 正式信号直接复用窗口 `test_active_result.signals`。

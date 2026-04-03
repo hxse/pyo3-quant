@@ -17,7 +17,7 @@
 | `stitched_signals` | 各窗口 `test_active_result.signals` | `StitchedReplayInput` 中 replay 直接消费的正式信号 |
 | `backtest_schedule` | `window_results[i].meta.best_params.backtest` + `test_active_base_row_range` 重基 | `StitchedReplayInput` 中 replay 直接消费的正式 schedule |
 | `stitched_atr_by_row` | stitched 阶段按 schedule 语义物化 | `StitchedReplayInput` 中 replay 直接消费的 ATR 输入；只有 schedule 需要 ATR 时才存在 |
-| `stitched_indicators_with_time` | stitched 阶段 own algorithm 产物 | `StitchedReplayInput` 中供最终 `stitched_result` 构建消费的结果态 indicators |
+| `stitched_indicators_with_time` | stitched 阶段 own algorithm 产物 | `StitchedReplayInput` 中供最终 `StitchedArtifact.result` 构建消费的结果态 indicators |
 
 补充硬约束：
 
@@ -81,6 +81,9 @@ fn stitch_window_results(
    - 然后显式调用：
      - `stitched_data = slice_data_pack_by_base_window(full_data, stitched_indices)`
    - `stitched_data` 来自原始 `full_data` 切片，而不是窗口 `DataPack` 拼接
+   - 这里的零预热只定义最终 stitched 的 active 行轴：
+     - 不表示执行预热相关输入也可以直接按 active-only 口径在 `stitched_data.base` 上现算
+     - 当前 stitched replay 里，首段执行预热相关的外部输入只体现在 `stitched_atr_by_row`
 5. 先对每个 `window_result` 提取 `test_active` 结果视图：
    - `window_result.test_pack_data / test_pack_result` 包含测试预热
    - 因此 stitched 前，直接复用 [03_backtest_and_result_pack.md](./03_backtest_and_result_pack.md) 里定义的 `extract_active(...)`
@@ -167,16 +170,36 @@ else:
         unique(non_null(resolved_atr_periods_by_segment))
     # 这里只是为了避免对相同 atr_period 重复计算 full-series ATR cache；
     # 不会丢段，因为后面仍按完整的 resolved_atr_periods_by_segment 和 backtest_schedule 顺序逐段取 slice
+    max_atr_exec_warmup_bars =
+        max(
+            atr_required_warmup_bars(p)
+            for p in unique_resolved_atr_periods
+        )
+
+    stitched_active_base_start_idx =
+        first_window.meta.test_active_base_row_range.start
+    stitched_active_base_end_idx =
+        last_window.meta.test_active_base_row_range.end
+
+    atr_context_base_start_idx =
+        stitched_active_base_start_idx.saturating_sub(max_atr_exec_warmup_bars)
+    atr_context_offset =
+        stitched_active_base_start_idx - atr_context_base_start_idx
 
     base_ohlcv =
-        stitched_data.base.select(["high", "low", "close"])
+        full_data.base
+            .slice(
+                offset = atr_context_base_start_idx,
+                length = stitched_active_base_end_idx - atr_context_base_start_idx,
+            )
+            .select(["high", "low", "close"])
 
     atr_series_by_period = {}
 
     for p in unique_resolved_atr_periods:
         atr_series_by_period[p] =
             atr_eager(base_ohlcv, ATRConfig::new(p))
-        # 返回一条与 stitched_data.base 等长的 Polars Series
+        # 返回一条与左扩 ATR context 等长的 Polars Series
 
     atr_segment_slices = []
 
@@ -184,7 +207,7 @@ else:
         if resolved_atr_period_i.is_some():
             atr_segment_slices.push(
                 atr_series_by_period[resolved_atr_period_i].slice(
-                    offset = segment.start_row,
+                    offset = atr_context_offset + segment.start_row,
                     length = segment.end_row - segment.start_row,
                 )
             )
@@ -201,10 +224,10 @@ else:
        - 若某个 stitched 绝对行号 `row` 落在第 `i` 段
        - 且该段 `segment.params.validate_atr_consistency()? = true`
        - 则 `stitched_atr_by_row[row]` 必须直接取自：
-         - `atr_series_by_period[resolved_atr_period_i][row]`
+         - `atr_series_by_period[resolved_atr_period_i][atr_context_offset + row]`
        - 若该段 ATR 逻辑未启用，则该段对应切片直接填 `null`
        - 这里的 `full_null_series(...)` 只是表达“构造一段与 segment 长度相同的全 null Polars Series”，不是新的业务 helper
-       - 也就是说，先在 stitched 全局 base 轴上把 ATR 按 period 整条算好，再按 segment 把对应行区间切出来
+       - 也就是说，先在覆盖 stitched 首段执行预热的左扩 base 上把 ATR 按 period 整条算好，再投影回 stitched 行轴
      - 这里不允许按 row 做逐行 for 循环物化 ATR；真正允许的结构性循环只有：
        - 按 unique ATR period 计算缓存
        - 按 segment 做向量化 slice + concat
@@ -213,6 +236,10 @@ else:
        - `Series.slice(...)`
        - `pl.concat(...)`
        而不是按 row 逐个取值
+     - 因而 stitched 的首段执行预热口径在这里统一写死：
+       - `stitched_data` 继续保持 active-only 零预热
+       - `stitched_atr_by_row` 不允许直接基于 active-only `stitched_data.base` 现算
+       - 它必须先吃到 `full_data.base` 左侧已有上下文，再回投到 stitched 行轴
      - 这里还要把“复用现有实现”和“伪代码占位”区分写死：
        - 必须直接复用现有实现：
          - `segment.params.validate_atr_consistency()?`
@@ -224,33 +251,37 @@ else:
          - `resolve_schedule_segment_atr_period(...)`
          - `calculate_atr_series(...)`
        - 这里只允许把这些现有实现包进局部变量或伪代码步骤名里，不允许再造一层平行语义
-       - `unique(...)`、`non_null(...)`、`pl.concat(...)`、`full_null_series(...)` 这些只是集合处理 / Polars API / 伪代码占位，不是新的业务真值函数
+     - `unique(...)`、`non_null(...)`、`pl.concat(...)`、`full_null_series(...)` 这些只是集合处理 / Polars API / 伪代码占位，不是新的业务真值函数
      - 这样做的语义是：
-       - ATR 真值先在 stitched 全局 base 轴上按 period 向量化计算
+       - ATR 真值先在覆盖 stitched 首段执行预热的左扩 base 轴上按 period 向量化计算
        - schedule 只负责从这些 full-series cache 中切出对应区间并拼回 stitched 行轴
      - 其双层校验统一引用 `05`
-7. 再构造最终 `stitched_result` 所需的 `stitched_indicators_with_time`：
+7. 再构造最终 `StitchedArtifact.result` 所需的 `stitched_indicators_with_time`：
    - `stitched_indicators_with_time` 是 stitched 阶段 owned algorithm 的正式产物
    - 它已经属于结果态 indicators，带 `time` 列
-   - 它最终仍对应 `stitched_result` 的正式指标字段，但在回灌 `build_result_pack(...)` 前必须先降级回 raw indicators
+   - 它最终仍对应 `StitchedArtifact.result` 的正式指标字段，但在回灌 `build_result_pack(...)` 前必须先降级回 raw indicators
+   - `stitched_indicators_with_time` 的键集固定等于正式 `indicator_source_keys`
+   - 原因是每个向前测试窗口使用同一套策略与指标定义，优化器只改变参数，不改变指标集合
+   - 因此各窗口 `window_active_results[i].indicators` 的键集必须一致，不采用 stitched 后再取并集键集的写法
+   - 任一窗口若缺少某个 `indicator_source_keys` 中的 `k`，直接报错
    - 这里不重新调用 `map_source_row_by_time(...)` 或别的 source mapping helper
    - 原因是 `window_active_results[i].indicators[k]["time"]` 这列本身就已经由 [03_backtest_and_result_pack.md](./03_backtest_and_result_pack.md) 中 `build_result_pack(...)` 从同源 `DataPack.source[k]["time"]` 注入
    - 而 stitched 前对窗口做的 `extract_active(...)` 又只会做同源切片与重基，不会改变这条 source-local 时间语义
    - 因此 stitched indicators 的拼接，直接按 `indicators[k]["time"]` 比较即可；这里比较的已经是对应 source 上的正式时间真值，不需要第二次 mapping 计算
    - 其中 stitched indicators 的拼接规则写死为：
-     - 对任意相邻窗口 `i, i+1`，先比较 `window_active_results[i].indicators[k]["time"].last()` 与 `window_active_results[i + 1].indicators[k]["time"].first()`
+     - 对任意 `indicator_source_keys` 中的 `k`，以及任意相邻窗口 `i, i+1`，先比较 `window_active_results[i].indicators[k]["time"].last()` 与 `window_active_results[i + 1].indicators[k]["time"].first()`
      - 若后者大于前者，直接追加
      - 若两者相等，用后窗口覆盖前窗口
      - 若后者小于前者，直接报错
    - 指标拼完后还必须补一条对齐校验：
-     - 对每个保留的 `k`，`stitched_indicators_with_time[k]["time"] == stitched_data.source[k].time`
+     - 对每个 `indicator_source_keys` 中的 `k`，`stitched_indicators_with_time[k]["time"] == stitched_data.source[k].time`
      - 若不一致，直接报错
      - 若后续还要校验 `mapping`，校验目标也必须是映射后的时间语义一致，而不是裸整数索引值一致
    - 这些指标拼接规则属于 `04` 的 owned algorithm
    - 若还需窗口级调试 artifact，可以从 `window_active_results` 中单独准备，但这不影响 stitched indicators 的正式必需地位
    - 但这里还要把总契约写死：
      - `stitched_indicators_with_time` 不能直接喂给最终 `build_result_pack(...)`
-     - 在最终生成新的独立 `stitched_result` 前，必须先统一调用 [03_backtest_and_result_pack.md](./03_backtest_and_result_pack.md) 中定义的 `strip_indicator_time_columns(...)`
+     - 在最终生成新的独立 `StitchedArtifact.result` 前，必须先统一调用 [03_backtest_and_result_pack.md](./03_backtest_and_result_pack.md) 中定义的 `strip_indicator_time_columns(...)`
      - 得到 `stitched_raw_indicators`
      - 再把 `stitched_raw_indicators` 作为 `build_result_pack(...)` 的正式 indicators 入参
 8. 最后把这些组装成 `StitchedReplayInput` 交给 `05`：
@@ -259,28 +290,28 @@ else:
    - `backtest_schedule`
    - `stitched_atr_by_row`
    - `stitched_indicators_with_time`
-   交给 [05_segmented_backtest_truth_and_kernel.md](./05_segmented_backtest_truth_and_kernel.md) 定义的 segmented replay 链路，生成最终 `stitched_result`
-   - 最终结果保存 replay 实际使用的这份 `backtest_schedule` 到 `stitched_result.meta.backtest_schedule`
+   交给 [05_segmented_backtest_truth_and_kernel.md](./05_segmented_backtest_truth_and_kernel.md) 定义的 segmented replay 链路，生成最终 `StitchedArtifact.result`
+   - 最终结果保存 replay 实际使用的这份 `backtest_schedule` 到 `WalkForwardResult.stitched_result.meta.backtest_schedule`
    - 因为最终多段 backtest 输出的解释层仍要依赖这份正式 schedule 元数据
    - 这里的保存动作必须直接复用 replay 实际使用并已完成 contiguity / 长度校验的同一份 `backtest_schedule`
-   - 不允许在 replay 完成后，再依据 `stitched_result.backtest` 二次计算或重新生成另一份 `meta.backtest_schedule`
+   - 不允许在 replay 完成后，再依据 `StitchedArtifact.result.backtest` 二次计算或重新生成另一份 `meta.backtest_schedule`
 
 这条边界要写死：
 
 1. `04` 负责窗口级真值与 stitched 上游输入准备。
 2. `05` 负责正式 stitched backtest 真值生成。
-3. `04` 的正式 stitched 输入链不包含 `stitched_result_pre_capital + capital rebuild` 这条路线。
+3. `04` 的正式 stitched 输入链只包含 `StitchedReplayInput` 这组字段。
 4. stitched 正式信号只拼 active-only 的 `test_active_result.signals`：
    - 不拼完整 `test_pack_result.signals`
    - 当前方案接受 carry 开仓保守延后一根 active bar，以换取 stitched 输入行轴完全自洽
+5. 正式 stitched backtest 真值只走 segmented replay 这条链，不走重建资金列路径。
 
-## 10. stitched 为什么不直接拼窗口 DataPack / backtest
+## 10. stitched 的正式真值来源
 
-原因现在可以一起写清楚：
+当前 stitched 真值链直接写死为：
 
 1. 大周期 source 在相邻 `test_active` 窗口边界处很可能共享同一根 bar，因此窗口级 `DataPack` 不适合作为 stitched 真值直接拼接。
-2. 同理，窗口级 `backtest` 不适合作为 stitched 正式真值来源；因为那条路会再次回到“先拼局部结果，再补全局资金列”的混合口径。
-3. 因此当前对齐 `05` 后的正式方向是：
+2. stitched 正式输入由 `StitchedReplayInput` 统一承接：
    - `stitched_data` 以初始 `full_data` 切片为真值
    - stitched 正式信号直接继承窗口 `final_signals` 的 active-only 可见部分
    - stitched 正式 backtest 统一由 segmented replay 一次性连续生成

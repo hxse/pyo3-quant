@@ -1,15 +1,40 @@
 # 向前测试、窗口切片、跨窗注入与 stitched
 
-本卷是 WF / stitched 的 owned 文档入口。
+本卷是 WF / stitched 的摘要入口。
 
-本卷统一引用共享 warmup / mapping / container 定义，正文只写窗口级真值、窗口执行流程和 stitched 上游输入准备。
+本卷统一引用共享 warmup / mapping / container 定义，正文只写窗口规划对象、窗口执行对象和 stitched 上游运行输入。
 
-## 本卷作用
+## 对象归属与边界
 
-1. 定义 `WalkForwardConfig`、参数来源、窗口模式与窗口几何。
-2. 定义 `build_window_indices(...)`、窗口 `DataPack` 切片与 ranges 草稿。
-3. 定义跨窗 carry 注入、尾部强平与窗口正式返回。
-4. 定义 stitched 上游输入如何准备，并把 replay 真值边界交给 `05`。
+本卷定义：
+
+1. `WalkForwardConfig`
+2. `WalkForwardPlan`
+3. `WindowIndices / WindowSliceIndices`
+4. `WindowArtifact / StitchedArtifact`
+5. `StitchedReplayInput`
+6. `NextWindowHint / WalkForwardResult`
+
+本卷消费：
+
+1. `WarmupRequirements`
+2. `TimeProjectionIndex`
+3. `DataPack / ResultPack`
+
+本卷不负责：
+
+1. segmented replay kernel
+2. schedule policy / schema contract
+3. 最终 stitched backtest 真值的 replay 算法与 contract 定义
+
+本卷保持流程主线，因为 WF 的核心复杂度仍然是“规划 -> 窗口执行 -> stitched 组装”这条阶段链；对象化的作用是收住真值归属，不是把流程拆散。
+
+本卷同时保留 WF 的顶层公共边界：
+
+1. 正式输入是 `config: &WalkForwardConfig`
+2. 正式总返回是 `WalkForwardResult`
+3. `WalkForwardPlan / WindowArtifact / StitchedReplayInput` 都是这条公共输入输出 contract 内部的阶段对象
+4. `03` 定义的 `RunArtifact` 边界只在本卷的测试侧同源 `DataPack / ResultPack` 路径上复用，不扩展到训练阶段
 
 ## 分卷地图
 
@@ -17,8 +42,8 @@
 
 负责：
 
-1. WF 输入与参数来源
-2. `build_window_indices(...)`
+1. `WalkForwardPlan`
+2. `WindowIndices / WindowSliceIndices`
 3. `slice_data_pack_by_base_window(...)`
 4. 跨窗信号注入
 
@@ -27,8 +52,8 @@
 负责：
 
 1. 每个窗口的执行流程
-2. 阶段对象契约
-3. `WindowArtifact / WalkForwardResult / StitchedArtifact`
+2. `WindowArtifact / WalkForwardResult / StitchedArtifact`
+3. `StitchedReplayInput` 的对象定义、返回落点与 `NextWindowHint`
 
 ### [04_walk_forward_and_stitched_3_stitched_algorithm.md](./04_walk_forward_and_stitched_3_stitched_algorithm.md)
 
@@ -36,15 +61,34 @@
 
 1. stitched 正式上游输入
 2. `stitched_data`
-3. `stitched_signals / stitched_indicators_with_time / backtest_schedule / stitched_atr_by_row`
+3. `stitched_signals / backtest_schedule / stitched_atr_by_row / stitched_indicators_with_time`
+4. `StitchedReplayInput` 的构造算法与字段来源
 
-## 和其他卷的边界
+## stitched 单一事实块
 
-1. `01` 归属 warmup 真值链、容器不变式、时间投影工具函数。
-2. `03` 归属 `build_result_pack(...)` 与 `extract_active(...)` 的容器语义。
-3. `05` 归属 segmented replay、schedule backtest、kernel 与 schema 真值。
+涉及 stitched 输入边界时，统一以这 3 条为准；后续分卷只写各自消费后的结论，不再平行定义第二套口径。
+
+1. `StitchedReplayInput` 的正式字段固定为：
+   - `stitched_data`
+   - `stitched_signals`
+   - `backtest_schedule`
+   - `stitched_atr_by_row`
+   - `stitched_indicators_with_time`
+2. `backtest_schedule` 的单一来源固定为：
+   - 各窗口 `window_results[i].meta.test_active_base_row_range`
+   - stitched 阶段只允许对这份绝对 base 半开区间做减法重基
+3. stitched 正式信号语义固定为：
+   - 直接消费各窗口 `test_active_result.signals`
+   - 跨窗 carry 开仓写在 active 第一根
+   - 继承开仓在第二根 active bar 开盘执行
+   - 这是当前 stitched 输入行轴上的唯一正式语义
 
 ## 阅读提醒
 
 1. `04` 真正直接消费的是 `W_required[k]`，但真正落地到切片与重基时，只能认当前窗口的 `warmup_by_key[k]` 与最终 `ranges[k].warmup_bars`。
-2. stitched 阶段的职责是准备 replay 输入；正式 stitched backtest 真值由 `05` 的 segmented replay 生成。
+2. `WindowSliceIndices` 是本卷使用的正式名字；它承担窗口切片计划对象角色，不再平行引入第二套同义命名。
+3. `04` 负责 stitched orchestration：
+   - 准备 `StitchedReplayInput`
+   - 调用 `05`
+   - 回收最终 `StitchedArtifact`
+   `05` 负责定义并执行正式 stitched backtest 真值的 segmented replay 算法与 contract。

@@ -9,11 +9,13 @@
 1. 全文校验策略：Fail-Fast，直接报错，不做静默回退。
 2. 全文区间语义：半开区间 `[start, end)`。
 3. 全文索引语义：相对于当前容器自身 DataFrame 的局部行号，不是全局绝对索引。
-4. 实现风格必须遵守当前项目的 Rust 单一事实源 + PyO3 暴露 + 自动 stub 范式。
+4. 实现风格必须遵守 Rust 单一事实源 + PyO3 暴露 + 自动 stub 范式。
 
 ## 0. 文档归属与引用规则
 
 本章是整套文档的 shared truth layer。
+
+本章把 `W_resolved / W_normalized / W_applied / W_backtest_exec_base / W_required` 这一整条共享 warmup 真值链，统一按对象视角称为 `WarmupRequirements`。
 
 后续 `02~05` 里凡是涉及：
 
@@ -30,7 +32,7 @@
 | --- | --- |
 | 统一 warmup 真值链命名 | 取数状态机步骤 |
 | 定义 shared resolver / helper 的输入、输出与失败语义 | `build_result_pack(...)` 的字段处理 |
-| 解释 `W_resolved / W_normalized / W_applied / W_required` | WF 窗口公式、切片流程与 stitched 拼接步骤 |
+| 解释 `W_resolved / W_normalized / W_applied / W_backtest_exec_base / W_required` | WF 窗口公式、切片流程与 stitched 拼接步骤 |
 | 解释“契约 warmup”与“容器真实 warmup”不是同一层 | 任何具体流程的阶段返回结构 |
 
 这里统一的是“真值如何被解释”，不是“所有模块共享同一个运行时对象实例”。
@@ -82,10 +84,11 @@ resolve_indicator_contracts(indicators_params).warmup_bars_by_source
 4. `resolve_indicator_contracts(...)` 的正式聚合公式与边界，统一归本章 `2.2` 说明；这里不再重复写第二遍。
 5. 它返回的 map 就是本文统一命名的 `resolved_contract_warmup_by_key`，也就是 `W_resolved`。
 6. 这份结果允许只覆盖“实际被指标使用到的 source keys”。
-7. 这里的 `indicators_params` 继续直接复用当前项目已有的指标参数容器，不允许在 planner / WF 层先手工物化第二套 indicator concrete params。
+7. 这里的 `indicators_params` 直接使用指标参数容器，不允许在 planner / WF 层先手工物化第二套 indicator concrete params。
 8. 对 `optimize = true` 的指标参数，唯一合法解释入口仍是 `resolve_indicator_contracts(...)`：
    - `optimize = false` 时取 `Param.value`
    - `optimize = true` 时取 `Param.max`
+   - `Param.max` 是正式字段，不存在“`optimize = true` 但缺失 max，于是回退到 `Param.value`”的第二条解释规则
 9. 它只回答指标契约层的原始 warmup，不回答容器真实裁剪边界。
 
 #### 0.3.2 工具函数二：补全到当前 source 全集
@@ -158,7 +161,7 @@ fn resolve_backtest_exec_warmup_base(
 
 1. 这个函数只计算回测执行层自身的启动 warmup，不参与指标契约聚合。
 2. 当前第一版只作用在 `base_data_key` 对应的 base 轴。
-3. 这里的 `BacktestParams` 不是“已经完全物化成 runtime concrete 值的最终回测参数”，而是当前项目本来就在 `SingleParamSet.backtest` 中使用的那份回测参数容器：
+3. 这里的 `BacktestParams` 不是“已经完全物化成 runtime concrete 值的最终回测参数”，而是 `SingleParamSet.backtest` 使用的那份回测参数容器：
    - 固定字段继续按固定值读取
    - 可优化字段仍然可能以 `Param` 叶子存在
 4. 因而这个 resolver 的职责不是“直接读取最终 concrete 回测参数”，而是：
@@ -171,6 +174,7 @@ fn resolve_backtest_exec_warmup_base(
 1. 对会影响 backtest exec warmup 的可优化字段，沿用与指标 warmup 同级的唯一解析规则：
    - `optimize = false` 时，取 `Param.value`
    - `optimize = true` 时，取 `Param.max`
+   - `Param.max` 是正式字段，不存在“`optimize = true` 但缺失 max，于是回退到 `Param.value`”的回退分支
 2. 当前第一版真正会改变 exec warmup 的关键字段，至少包括：
    - `atr_period`
 3. 是否启用 ATR 风控、是否启用 `TSL_PSAR`，继续按 `BacktestParams` 当前布尔 / 可选字段语义判断。
@@ -363,8 +367,8 @@ resolve_indicator_contracts(indicators_params).warmup_bars_by_source
 
 ```text
 resolved_params_i[p] =
-    Param.max,   若 param_i[p].optimize = true 且 max 存在
-    Param.value, 其余情况
+    Param.max,   若 param_i[p].optimize = true
+    Param.value, 若 param_i[p].optimize = false
 
 warmup_i =
     required_warmup_bars(resolved_params_i)

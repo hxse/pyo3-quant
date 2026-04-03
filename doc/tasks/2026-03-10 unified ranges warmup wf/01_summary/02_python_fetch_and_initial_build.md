@@ -1,5 +1,32 @@
 # Python 网络请求、Rust 取数状态机与 DataPack 构建
 
+## 0. 对象归属与边界
+
+本篇定义：
+
+1. `DataPackFetchPlanner`
+2. `SourceFetchState`
+3. planner 如何产出 `DataPack`
+
+本篇消费：
+
+1. `WarmupRequirements`
+2. `TimeProjectionIndex`
+3. `DataPack` builder contract
+
+本篇不负责：
+
+1. 单次回测执行
+2. `ResultPack` 构建
+3. WF 窗口执行与 stitched replay
+
+本篇仍然保持流程主线，因为 `DataPackFetchPlanner` 本身就是状态机对象；这里的重点不是把状态机写成纯对象说明书，而是把状态机步骤明确绑定到 `DataPackFetchPlanner / SourceFetchState` 这两个对象上。
+
+本卷已拆成两层：
+
+1. 本文保留对象归属、PyO3 边界与 `SourceFetchState` contract。
+2. 取数算法、初始 `ranges` 与 `finish()` 见 [02_python_fetch_and_initial_build_1_fetch_algorithm_and_finish.md](./02_python_fetch_and_initial_build_1_fetch_algorithm_and_finish.md)。
+
 ## 1. Rust 内部如何消费共享预热真值
 
 这一层也继续收口到 Rust 内部，不再由 Python 先调用 `resolve_indicator_contracts(...)`。
@@ -14,8 +41,11 @@ normalized_contract_warmup_by_key =
     normalize_contract_warmup_by_key(S_keys, resolved_contract_warmup_by_key)
 
 applied_contract_warmup_by_key =
-    normalized_contract_warmup_by_key
-    # planner 路径当前没有 ignore_indicator_warmup 分支，因此这里直接退化为恒等赋值
+    apply_wf_warmup_policy(
+        normalized_contract_warmup_by_key,
+        false,
+    )
+    # planner 路径当前固定不忽略指标 warmup，但仍统一复用同一个 helper
 
 backtest_exec_warmup_base =
     resolve_backtest_exec_warmup_base(backtest_params)
@@ -32,7 +62,8 @@ required_warmup_by_key =
 
 1. 上述 helper 的公式、边界与“唯一实现源”约束统一引用 [01_overview_and_foundation.md](./01_overview_and_foundation.md)，本篇不再重复展开。
 2. planner 初始化阶段必须在 Rust 内部显式跑完这条链，并且后续统一消费最终的 `required_warmup_by_key`。
-3. 这份 `required_warmup_by_key` 同时服务初始取数 planner 和后续 WF 的共享基础 warmup 约束；它不覆盖 WF 专属的 `min_warmup_bars`，后者仍留在 WF 层单独校验。若后续公式需要调整，只允许回到 `01` 改 helper 契约。
+3. planner 路径即使当前没有 `ignore_indicator_warmup` 分支，也必须显式复用 `apply_wf_warmup_policy(..., false)`；不允许把 `W_applied` 手写退化成另一条平行赋值分支。
+4. 这份 `required_warmup_by_key` 同时服务初始取数 planner 和后续 WF 的共享基础 warmup 约束；它不覆盖 WF 专属的 `min_warmup_bars`，后者仍留在 WF 层单独校验。若后续公式需要调整，只允许回到 `01` 改 helper 契约。
 
 ## 2. Python / Rust 职责划分
 
@@ -98,10 +129,10 @@ data_pack = planner.finish()
 
 这里要明确分成两层：
 
-1. Python 用户层继续复用现有 `OhlcvDataFetchConfig`
+1. Python 用户层使用 `OhlcvDataFetchConfig`
 2. Rust 状态机的 PyO3 边界只暴露最小必要类型，不直接吃 Python 侧 `BaseModel / dataclass`
 
-这样设计也符合当前项目的 PyO3 stub 最佳实践：
+这样设计符合 PyO3 stub 最佳实践：
 
 1. Rust 边界类型必须在 Rust 中定义，作为唯一源头
 2. Python 侧只消费由 Rust 自动生成的 `.pyi` 存根，不再镜像维护一份平行类型
@@ -155,25 +186,31 @@ class DataPackFetchPlanner:
    - `base_data_key`：从用户层 `OhlcvDataFetchConfig.base_data_key` 拿到
    - `effective_since`：从用户层 `OhlcvDataFetchConfig.since` 拿到；这里强约束要求必须是显式整数
    - `effective_limit`：从用户层 `OhlcvDataFetchConfig.limit` 拿到；这里强约束要求必须是显式整数，且必须满足 `effective_limit >= 1`
-   - `indicators_params`：与回测引擎当前使用的指标参数同型；这里继续直接复用当前项目已有的指标参数容器，不要求 Python 侧先手工物化第二套 indicator concrete params；Rust 在状态机初始化时内部调用 `resolve_indicator_contracts(...)` 完成 warmup 聚合
-   - `backtest_params`：与当前回测引擎使用的 `BacktestParams` 同型；这里仍然是当前项目本来就在运行参数里使用的回测参数容器，而不是额外物化出来的一套 concrete runtime params
+   - `indicators_params`：与回测引擎指标参数同型；这里直接使用指标参数容器，不要求 Python 侧先手工物化第二套 indicator concrete params；Rust 在状态机初始化时内部调用 `resolve_indicator_contracts(...)` 完成 warmup 聚合
+   - `backtest_params`：与回测引擎 `BacktestParams` 同型；这里表达运行参数容器，而不是额外物化出来的一套 concrete runtime params
    - Rust 在状态机初始化时内部调用 `resolve_backtest_exec_warmup_base(backtest_params)`，由该 helper 自己统一解析会影响 exec warmup 的 `Param.value / Param.max` 真值，并把 base 执行预热并入最终 `required_warmup_by_key`
    - `min_request_bars`：每次循环补拉的最小 bar 数量
    - `max_rounds_per_source`：每个 source 最多允许补拉多少轮，防止死循环
-   - Rust 在初始化阶段基于 `timeframes + base_data_key` 推导：
-     - `source_keys = {"ohlcv_" + timeframe}`
-     - 每个 `source_key` 对应的 `interval_ms`
-   - `base_data_key` 必须在 `source_keys` 中
+   - Rust 在初始化阶段基于 `timeframes + base_data_key` 只生成：
+     - `source_keys = unique({base_data_key} ∪ {"ohlcv_" + timeframe})`
+   - 然后对每个 `source_key` 统一调用 [01_overview_and_foundation_2_types_and_mapping.md](./01_overview_and_foundation_2_types_and_mapping.md) 里定义的 `resolve_source_interval_ms(source_key)`，得到唯一合法的 `interval_ms`
+   - 不允许在 planner 内部再维护第二套 timeframe -> interval 推导逻辑
+   - `base_data_key` 只能通过这条唯一生成式进入 `source_keys`
    - `indicators_params` 里出现的 `source_key` 也必须全部属于 `source_keys`
+   - 任一 `source_key` 解析不到合法 `interval_ms`，必须在 planner 初始化阶段直接报错
    - 这里必须把 `effective_limit >= 1` 写死：
      - 因为初始取数算法后续要直接定义 `base_effective_start_time / base_first_live_time`
      - 这要求 base 至少有 `1` 根 live bar
      - 因此 `effective_limit = 0` 属于非法输入，必须在 planner 输入阶段直接报错
+   - base 首次有效段长度也必须写死：
+     - 首次 `base` 请求只负责拿 `effective_limit` 根 live bar
+     - 若 `base_effective_df.height() < effective_limit`，必须直接 fail-fast
+     - 不为 `base` 再额外引入一套“右侧补拉到凑满 effective_limit”的分支逻辑
 2. `FetchRequest`
    - `source_key`：这一轮请求要补哪一个 source
    - `since`：这一轮请求起点
    - `limit`：这一轮请求数量
-   - Python 拿到后，再结合原始 `OhlcvDataFetchConfig` 里的网络字段，组装当前项目现有的 `OhlcvRequestParams`
+   - Python 拿到后，再结合原始 `OhlcvDataFetchConfig` 里的网络字段，组装 `OhlcvRequestParams`
 
 两层转换关系：
 
@@ -186,6 +223,46 @@ class DataPackFetchPlanner:
 3. Rust `next_request()` 只返回最小请求描述 `FetchRequest`
 4. Python 再把 `FetchRequest + OhlcvDataFetchConfig` 组合成现有 `OhlcvRequestParams`
 5. 然后直接调用现有 `get_ohlcv_data(...)`
+
+### 4.2 `SourceFetchState` 的对象归属
+
+`SourceFetchState` 是 `DataPackFetchPlanner` 内部的 per-source 真值对象。它不直接暴露为顶层公共 PyO3 类型，但这条状态必须在摘要层写死，不能只靠流程段落拼出来。
+
+它至少承接 4 组状态：
+
+1. source 静态身份：
+   - `source_key`
+   - `interval_ms`
+2. 当前请求快照：
+   - 当前轮的 `since`
+   - 当前轮的 `limit`
+   - 当前持有的完整 `df`
+3. 三段补拉进度：
+   - 尾覆盖是否完成
+   - 首时间覆盖是否完成
+   - 首预热 bars 是否完成
+4. 迭代控制状态：
+   - 当前 source 已补拉多少轮
+   - 是否达到 `max_rounds_per_source`
+   - 是否满足最终完成条件
+
+它的状态迁移也统一只有一条正式顺序：
+
+1. 先拿到当前 source 的首份完整快照
+2. 再补尾覆盖
+3. 再补首时间覆盖
+4. 最后补首预热 bars
+5. 三段都完成后，当前 source 才进入 `is_complete = true`
+
+失败语义固定为：
+
+1. 结构非法输入：
+   - 直接在 `ingest_response(...)` 报错
+2. 结构合法但覆盖不足：
+   - 继续推进三段补拉
+3. 任一 source 的轮次超过 `max_rounds_per_source`：
+   - 直接 fail-fast
+4. 只有全部 `SourceFetchState` 都完成后，`DataPackFetchPlanner.is_complete()` 才能变成 `true`
 
 方法语义：
 
@@ -250,255 +327,16 @@ Python 侧职责因此固定为：
    - **结构非法**：立刻报错
    - **结构合法但覆盖不足**：允许继续补拉
 
-## 5. 两阶段取数算法
+## 5. 取数算法与 finish
 
-这部分不要再理解成“先粗暴估一次，然后希望一次命中”。
+取数算法、初始 `ranges` 计算与 `finish()` 的唯一落点已经拆到：
 
-更准确的口径是：
+1. [02_python_fetch_and_initial_build_1_fetch_algorithm_and_finish.md](./02_python_fetch_and_initial_build_1_fetch_algorithm_and_finish.md)
 
-1. 先把 `base` 有效段拿到。
-2. 再用两个统一工具函数，分别把尾部覆盖和首部预热补齐。
-3. 预估永远只是首轮近似；若节假日、停盘、缺口导致估算不足，就继续按剩余缺口循环补拉。
-4. 允许多取。
-5. `base` 只左裁预热；`source` 不裁。
+该分卷唯一负责：
 
-统一参数：
-
-1. `min_request_bars`：每次循环最少补拉多少根，默认 `10`
-2. 作用：避免剩余缺口很小时，每轮只加 `1~2` 根，导致请求次数过多
-
-### 5.1 先请求 base 有效段
-
-1. 先请求 `base`：`since=t_start, limit=L`
-2. 得到 `base_effective_df` 后，记录：
-   - `base_effective_start_time = base_effective_df.time.first()`
-   - `base_effective_end_time = base_effective_df.time.last()`
-3. 这里不要假设 `base_effective_start_time == since`
-4. 一切后续计算都以**真实返回时间列**为准，不直接拿请求参数时间戳代替
-
-### 5.2 Rust 内部方法一：补齐尾部覆盖
-
-方法名：`ensure_tail_coverage(...)`
-
-作用：
-
-1. 给定目标尾部时间 `target_end_time`
-2. 估算当前还差多少根 bar 才能覆盖到右边界
-3. 若估算不足，就继续增大 `limit` 循环请求
-4. 直到满足尾覆盖：
-   - `last_time + interval_ms > target_end_time`
-
-每轮公式：
-
-1. `covered_end_time = last_time + interval_ms`
-2. `missing_ms = max(target_end_time - covered_end_time, 0)`
-3. `missing_bars = ceil(missing_ms / interval_ms) + 1`
-4. `append_bars = max(missing_bars, min_request_bars)`
-5. 重新请求时：
-   - `since` 不变
-   - `limit += append_bars`
-
-这里的 `ensure_tail_coverage(...)` 明确是 **Rust 状态机内部工具函数**，Python 不负责实现这段逻辑。
-当前 source 的 `since / limit / df` 都由状态机自己持有和更新；这个方法的职责是循环补拉并更新状态机内部的当前请求状态，而不是单独返回一个 `df`。
-
-### 5.3 Rust 内部方法二：补齐首部时间覆盖
-
-方法名：`ensure_head_time_coverage(...)`
-
-作用：
-
-1. 只处理左侧时间覆盖不足。
-2. 每轮请求后，都用**真实返回时间列**重新判断：
-   - `first_time <= target_start_time`
-3. 若不满足，就继续前移 `since` 并扩大 `limit`。
-
-这里的变量来源：
-
-1. `first_time`
-   - 就是当前这轮返回 DF 的第一根时间
-   - 即 `df.time.first()`
-2. `target_start_time`
-   - 就是当前这份数据至少要覆盖到的目标起点时间
-   - `base` 时：`target_start_time = base_effective_start_time`
-   - `source` 时：`target_start_time = base_full_start_time`
-
-每轮公式：
-
-1. `missing_by_head_coverage = ceil(max(first_time - target_start_time, 0) / interval_ms)`
-2. `prepend_bars = max(missing_by_head_coverage, min_request_bars)`
-3. 重新请求时：
-   - `since = old_since - prepend_bars * interval_ms`
-   - `limit += prepend_bars`
-
-这里的 `ensure_head_time_coverage(...)` 是 **Rust 状态机内部方法**，Python 不负责实现这段逻辑。
-当前 source 的 `since / limit / df` 都由状态机自己持有和更新。
-
-### 5.4 Rust 内部方法三：补齐首部预热数量
-
-方法名：`ensure_head_warmup_bars(...)`
-
-作用：
-
-1. 只处理左侧预热 bar 数量不足。
-2. 每轮请求后，都用**真实返回时间列**重新判断：
-   - 把 `anchor_time` 映射到当前 `src_times`
-   - 得到 `mapped_src_idx`
-   - 要求 `mapped_src_idx >= required_bars`
-
-这里的变量来源：
-
-1. `anchor_time`
-   - 是用来检查“左侧是否已经拿到足够预热 bar”的锚点时间
-   - `base` 时：`anchor_time = base_effective_start_time`
-   - `source` 时：`anchor_time = base_first_live_time`
-2. `mapped_src_idx`
-   - 用严格 backward asof 把 `anchor_time` 映射到当前 `src_times` 后得到的 source 行索引
-   - 这里必须直接复用 [01_overview_and_foundation.md](./01_overview_and_foundation.md) 里定义的统一时间投影工具函数 `map_source_row_by_time(...)`
-   - 也就是说，和 `build_mapping_column_unchecked(...)` 构建 mapping 时使用的是**同一套** Polars backward asof 向量化能力，不额外发明第二套映射逻辑
-3. `required_bars`
-   - 不是重新估算 warmup
-   - `base` 时：`required_bars = W_required[base]`
-   - `source` 时：`required_bars = W_required[k]`
-
-每轮公式：
-
-1. `missing_by_warmup = max(required_bars - mapped_src_idx, 0)`
-2. `prepend_bars = max(missing_by_warmup, min_request_bars)`
-3. 重新请求时：
-   - `since = old_since - prepend_bars * interval_ms`
-   - `limit += prepend_bars`
-
-这里的 `ensure_head_warmup_bars(...)` 也是 **Rust 状态机内部方法**，Python 不负责实现这段逻辑。
-当前 source 的 `since / limit / df` 同样由状态机自己持有和更新。
-
-### 5.5 Rust 侧主流程：先 base，再 source
-
-1. 先取到 `base_effective_df`
-2. 用 `ensure_head_time_coverage(...)` 补齐 `base` 左侧时间覆盖
-   - `target_start_time = base_effective_start_time`
-3. 再用 `ensure_head_warmup_bars(...)` 补齐 `base` 自己的预热
-   - `anchor_time = base_effective_start_time`
-   - `required_bars = W_required[base]`
-4. `base` 补完预热后，只做一次**左侧精确裁减**：
-   - 在补完后的 `base_full_raw` 里找到 `base_effective_start_time` 对应的索引 `live_start_idx`
-   - `base_slice_start = live_start_idx - W_required[base]`
-   - `base_full_df = base_full_raw[base_slice_start..]`
-5. 这里不裁右侧：
-   - `limit = L` 的语义本来就是“需要 L 根非预热 base bar”
-   - 因此 `base` 只裁多出来的左侧预热，不额外裁减右侧
-6. 得到最终 `base_full_df` 后，记录：
-   - `base_full_start_time = base_full_df.time.first()`
-   - `base_full_end_time = base_full_df.time.last()`
-   - `base_first_live_time = base_full_df.time[W_required[base]]`
-7. 对每个非 base source `k`：
-   - 首轮请求：
-     - `since = base_full_start_time`
-     - `limit = ceil((base_full_end_time - base_full_start_time) / interval_ms(k)) + 1`
-   - 先调用 `ensure_tail_coverage(...)`
-     - 目标：`base_full_end_time`
-   - 再调用 `ensure_head_time_coverage(...)`
-     - `target_start_time = base_full_start_time`
-   - 再调用 `ensure_head_warmup_bars(...)`
-     - `anchor_time = base_first_live_time`
-     - `required_bars = W_required[k]`
-8. 若任一循环达到重试上限仍未满足条件，直接报错
-
-最终状态：
-
-1. `base_full` 已包含完整预热段与有效执行段
-2. 所有 `source` 都对 `base_full` 完成**全量覆盖**
-3. 所有 `source` 都已满足各自的最终 required warmup
-4. `base` 只裁减多出来的左侧预热，不裁右侧
-5. `source` 允许多取，但不做隐式裁减
-6. 因此后续构建出来的 mapping 列不允许出现 null
-
-## 6. Rust 侧初始 ranges 计算
-
-这一步改到 Rust 取数状态机内部做，而且必须在**真实返回时间列**上做，不再预估。
-
-### 6.1 base 的 ranges
-
-1. `ranges[base].warmup_bars = W_required[base]`
-2. `ranges[base].pack_bars = source[base].height()`
-3. `ranges[base].active_bars = ranges[base].pack_bars - ranges[base].warmup_bars`
-
-这里有一个前提：
-
-1. 前面已经对 `base` 做过精确的左侧预热裁减
-2. 因此这里的 `source[base]` 已经是“左侧恰好保留 `W_required[base]` 根预热”的最终 `base_full`
-
-这里保留两个状态机内部一致性断言：
-
-1. `source[base].height() >= W_required[base] + 1`
-2. `source[base].time[W_required[base]] == base_effective_start_time`
-
-若任一不成立，直接报错，说明前面的 `base` 预热补拉或左侧精确裁减位置错误。
-
-### 6.2 非 base source 的 ranges
-
-核心思想：
-
-1. 只看 base 的首个非预热 bar。
-2. 看它在 source `k` 上严格 backward asof 映射到哪一根。
-3. 该根之前的所有行，就是 source `k` 的预热段。
-
-算法：
-
-1. 取 `base_first_live_time = source[base].time[W_required[base]]`
-2. 对每个非 base `k`：
-   - 只探测这一根 `base_first_live_time`
-   - 直接复用统一时间投影工具函数 `map_source_row_by_time(base_first_live_time, source[k].time, k)`，得到 `mapped_src_idx`
-   - `ranges[k].warmup_bars = mapped_src_idx`
-   - `ranges[k].pack_bars = source[k].height()`
-   - `ranges[k].active_bars = ranges[k].pack_bars - ranges[k].warmup_bars`
-3. 再做状态机内部一致性断言：
-   - `mapped_src_idx >= W_required[k]`
-   - 若不成立，说明前面的取数阶段其实没有把该 source 的最终 required warmup 补够，直接报错
-
-强约束：
-
-1. 只找一根 `base_first_live_time` 的映射，不扫描整段 base。
-2. 必须严格符合 backward asof 语义。
-3. 必须统一复用 `map_source_row_by_time(...)`，其内部再使用 Polars 向量化 API，例如 `join_asof(..., strategy=\"backward\")` 或等价实现。
-4. 不允许手写循环扫时间列，也不允许在这里再单独实现一套“看起来等价”的时间映射。
-5. 因为上一步已经保证 source 对 `base_full` 全量覆盖，所以这里的 `mapped_src_idx` 必然存在，不允许为 null。
-6. 这里得到的 `mapped_src_idx` 就是最终 warmup 真值，不再额外 `max(...)` 修正。
-
-## 7. Rust 状态机 finish 后如何返回 DataPack
-
-```rust
-fn build_data_pack(
-    source:        HashMap<String, DataFrame>,
-    base_data_key: String,
-    ranges:        HashMap<String, SourceRange>,
-    skip_mask:     Option<DataFrame>,
-) -> Result<DataPack, QuantError>
-```
-
-关键口径：
-
-1. `build_data_pack(...)` 仍然是统一入口。
-2. 但在这套架构里，它由 Rust 取数状态机内部调用。
-3. Python 侧不再直接调用 `build_data_pack(...)`。
-4. `build_data_pack(...)` 仍然保留 PyO3 暴露，主要服务 Python 侧测试、调试和最小构造场景。
-5. `planner.finish()` 的职责就是：
-   - 拿当前状态机里已经准备好的 `base_full + source + ranges`
-   - 在 Rust 内部调用 `build_data_pack(...)`
-   - 返回最终 `DataPack`
-
-## 8. Rust builder 的职责边界
-
-这里必须定死：
-
-1. `build_data_pack(...)` 不再自己推导 `ranges`。
-2. `ranges` 必须由调用方先算好。
-3. `build_data_pack(...)` 不做任何隐式 `align / trim / source 裁减`。
-4. `mapping` 只描述关系，不参与裁减 source。
-5. 当前没有明确需要 builder 裁 source 的场景。
-6. 在本方案里，`ranges` 的调用方不是 Python，而是 Rust 取数状态机。
-
-这条边界很重要：
-
-1. 一旦让 mapping 或 builder 参与裁 source，很容易把左侧预热裁没。
-2. 规划层如果需要裁数据，应由 Rust 取数状态机或后续切片/拼接第一层处理。
-3. 统一入口只做 [01_overview_and_foundation.md](./01_overview_and_foundation.md) 中定义的统一校验、构建与组装，不修改输入。
+1. `ensure_tail_coverage(...)`
+2. `ensure_head_time_coverage(...)`
+3. `ensure_head_warmup_bars(...)`
+4. 初始 `ranges` 的 Rust 侧唯一算法
+5. `planner.finish() -> build_data_pack(...) -> DataPack`

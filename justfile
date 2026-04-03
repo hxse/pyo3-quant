@@ -87,6 +87,10 @@ test-py path="py_entry/Test": develop
 test-rust:
     uv run --no-sync cargo test
 
+# 运行精确匹配的 Rust 单元测试
+test-rust-exact name:
+    uv run --no-sync cargo test {{name}} -- --exact
+
 # 运行所有测试
 test: test-rust test-py
 

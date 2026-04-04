@@ -21,14 +21,10 @@
 
 ## 3. 核心类型
 
-### 3.1 重命名方案
+### 3.1 正式名称
 
-本次直接强制重命名：
-
-| 旧名 | 新名 | 含义 |
-|---|---|---|
-| `DataContainer` | `DataPack` | 输入侧多周期数据包 |
-| `BacktestSummary` | `ResultPack` | 输出侧结果包 |
+正式输入侧多周期数据包名称是 `DataPack`。
+正式输出侧结果包名称是 `ResultPack`。
 
 约束：
 
@@ -257,7 +253,7 @@ fn resolve_source_interval_ms(source_key: &str) -> Result<i64, QuantError>
 规则：
 
 1. `source_interval_ms(k)` 与 planner / coverage / 右边界投影里出现的 `interval_ms`，都只指 `resolve_source_interval_ms(source_key)` 的返回值。
-2. 当前任务里，该 helper 只按项目现有公开支持集解析声明周期，例如 `ohlcv_1m / ohlcv_4h / ohlcv_1d`。
+2. 当前任务里，该 helper 只按项目现有公开支持集解析声明周期，例如 `ohlcv_1ms / ohlcv_1m / ohlcv_4h / ohlcv_1d`。
 3. `source_key` 结构非法、周期值非法、周期单位非法或解析结果 `<= 0`，都必须直接 fail-fast。
 4. planner 只允许先从 `timeframes + base_data_key` 生成 `source_keys`，再对每个 `source_key` 调用同一个 `resolve_source_interval_ms(...)`；不允许在 planner 内部再维护第二套 timeframe -> interval 查表或私有换算逻辑。
 5. coverage、补拉、窗口右边界投影都只能消费这条 shared resolver 的结果，不允许各模块各自再推一遍。
@@ -272,13 +268,23 @@ fn resolve_source_interval_ms(source_key: &str) -> Result<i64, QuantError>
 2. 从 `period_part` 左侧连续读取数字前缀，得到 `value`；剩余后缀作为 `unit`。
 3. `value` 必须是正整数；缺少数字、缺少单位、`value <= 0` 都直接报错。
 4. 当前任务里，`unit` 只允许这些正式单位：
+   - `ms`
+   - `s`
    - `m`
    - `h`
    - `d`
+   - `w`
+   - `M`
+   - `y`
 5. 单位换算规则写死为：
+   - `ms = 1`
+   - `s = 1_000`
    - `m = 60_000`
    - `h = 3_600_000`
    - `d = 86_400_000`
+   - `w = 7 * 86_400_000`
+   - `M = 28 * 86_400_000`
+   - `y = 364 * 86_400_000`
 6. 最终返回 `value * unit_ms`；若乘法溢出，也直接报错。
 
 ### 4.1 统一时间投影工具函数

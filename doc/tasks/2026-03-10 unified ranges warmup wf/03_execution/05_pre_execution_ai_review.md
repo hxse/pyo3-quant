@@ -6,21 +6,21 @@
 2. [02_test_plan.md](./02_test_plan.md)
 3. [06_test_plan_supplementary.md](./06_test_plan_supplementary.md)
 4. [03_execution_stages_and_acceptance.md](./03_execution_stages_and_acceptance.md)
-5. [../01_summary/task_summary.md](../01_summary/task_summary.md)
-6. [../01_summary/04_walk_forward_and_stitched.md](../01_summary/04_walk_forward_and_stitched.md)
-7. [../01_summary/05_segmented_backtest_truth_and_kernel.md](../01_summary/05_segmented_backtest_truth_and_kernel.md)
+5. [../00_meta/task_summary.md](../00_meta/task_summary.md)
+6. [../02_spec/04_walk_forward_and_stitched.md](../02_spec/04_walk_forward_and_stitched.md)
+7. [../02_spec/05_segmented_backtest_truth_and_kernel.md](../02_spec/05_segmented_backtest_truth_and_kernel.md)
 
-本页只记录执行前 AI 审阅结论与执行后补充审阅结论；不记录代码落地过程。
+本页只记录执行前 AI 审阅结论；执行后补充审阅见 [../04_review/01_post_execution_review.md](../04_review/01_post_execution_review.md)。
 
 ## 1. 本次执行前审阅
 
 审阅范围：
 
-1. `01_summary/*`
-2. `02_execution/01_execution_plan.md`
-3. `02_execution/02_test_plan.md`
-4. `02_execution/06_test_plan_supplementary.md`
-5. `02_execution/03_execution_stages_and_acceptance.md`
+1. `02_spec/*`
+2. `03_execution/01_execution_plan.md`
+3. `03_execution/02_test_plan.md`
+4. `03_execution/06_test_plan_supplementary.md`
+5. `03_execution/03_execution_stages_and_acceptance.md`
 
 审阅结论：
 
@@ -56,14 +56,3 @@
 执行前 gate 结论：
 
 1. 在当前修正后的阶段拆分与桥接策略前提下，可进入阶段 A1。
-
-## 2. 执行后补充审阅
-
-1. 状态：`未开始 / 进行中 / 已完成`
-2. 实际执行阶段：
-3. 与执行前审阅是否一致：
-4. 若出现偏差：
-   - 偏差位置
-   - 是否回补摘要
-   - 是否回补执行文档
-5. 最终审阅结论：

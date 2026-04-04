@@ -184,11 +184,10 @@ fn run_backtest_with_schedule(
 
 这里必须再写死一层：
 
-1. `run_backtest(...)` 对外接口保留不变，但内部也要改。
-2. 本篇现在明确选择最直接的收敛方式：
-   - `run_backtest(...)` 在内部构造单段 `schedule`
-   - 然后直接调用 `run_backtest_with_schedule(...)`
-3. 也就是说，这次不是“新增 schedule 入口 + 旧入口完全不动”，而是“保留两个外部入口，但把 schedule 路径明确收敛成内部 canonical path”。
+1. `run_backtest(...)` 对外保留单参数标准回测入口。
+2. `run_backtest(...)` 在内部构造单段 `schedule`。
+3. `run_backtest(...)` 直接调用 `run_backtest_with_schedule(...)`。
+4. schedule 路径是内部唯一执行主链；单次回测只是它的一个特例。
 
 两条入口的内部流程应直接写成下面这种伪代码调用流：
 
@@ -226,9 +225,9 @@ run_backtest_with_schedule(data, signals, atr_by_row, schedule):
 
 这里的结论要非常明确：
 
-1. `run_backtest(...)` 也属于这次改造范围。
+1. `run_backtest(...)` 也属于本篇定义范围。
 2. 它把“固定参数 + 单条 ATR 输入”先降成“单段 schedule + 单条 ATR 输入”，再直接调用 `run_backtest_with_schedule(...)`。
-3. 因此 schedule 路径是内部 canonical path；单次回测只是它的一个特例。
+3. 因此 schedule 路径是内部唯一执行主链；单次回测只是它的一个特例。
 4. `BacktestParams` 在回测模块执行过程中，按当前 Rust 签名设计始终以 `&BacktestParams` 形式传递，属于语法层面的只读输入，不是仅靠语义约定“不修改”。
 5. 两条入口在“构造 PreparedData”这一步，都必须保留当前 `PreparedData::new(...)` 已有的信号预处理语义：
    - 冲突信号消解
@@ -261,7 +260,7 @@ run_backtest_with_schedule(data, signals, atr_by_row, schedule):
 6. 原因很直接：
    - 若只看摘要文档写，很容易在局部调用顺序、初始化细节、输出 schema 上和当前源码不等价
    - 若只看当前源码写，又很容易在 selector / kernel / schedule 这层分工上偏离本篇方案
-7. 因而这次重构的正确姿势是：
+7. 因而实现时的正确姿势是：
    - 用摘要文档约束目标结构与责任边界
    - 用当前源码校对调用顺序、初始化细节与等价行为
 

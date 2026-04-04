@@ -4,8 +4,8 @@
 
 1. [01_execution_plan.md](./01_execution_plan.md)
 2. [02_test_plan.md](./02_test_plan.md)
-3. [../01_summary/04_walk_forward_and_stitched.md](../01_summary/04_walk_forward_and_stitched.md)
-4. [../01_summary/05_segmented_backtest_truth_and_kernel.md](../01_summary/05_segmented_backtest_truth_and_kernel.md)
+3. [../02_spec/04_walk_forward_and_stitched.md](../02_spec/04_walk_forward_and_stitched.md)
+4. [../02_spec/05_segmented_backtest_truth_and_kernel.md](../02_spec/05_segmented_backtest_truth_and_kernel.md)
 5. [05_pre_execution_ai_review.md](./05_pre_execution_ai_review.md)
 
 ## 1. 通用规则
@@ -13,7 +13,7 @@
 1. 必须按阶段串行执行，不要一次性并行改大块逻辑。
 2. 只有当前阶段通过验收，才能进入下一阶段。
 3. 开始代码落地前，必须先落定 [05_pre_execution_ai_review.md](./05_pre_execution_ai_review.md)。
-4. 每个阶段结束后，必须立刻回填 [04_execution_backfill_template.md](./04_execution_backfill_template.md)。
+4. 每个阶段结束后，必须立刻回填 [../04_review/04_execution_backfill_template.md](../04_review/04_execution_backfill_template.md)。
 5. 每个阶段的正式验收顺序固定为：
    - 先 `just check`
    - 再跑该阶段的最小测试
@@ -22,6 +22,7 @@
 8. 阶段 E 完成后，才允许跑最终总验收：
    - `just check`
    - `just test`
+9. 本文保留的是 planning 阶段冻结的历史 gate 名称与验收意图；若后续测试文件重组或路径漂移，当前仓库实际可回放入口统一以 [../04_review/04_execution_backfill_template.md](../04_review/04_execution_backfill_template.md) 为准。
 
 ## 2. 阶段与测试映射
 
@@ -67,6 +68,11 @@
 
 阶段验收：
 
+说明：
+
+1. 下面列的是 A1 planning 阶段冻结的历史原 gate 路径。
+2. 若当前仓库已不存在同名文件，不在本文回写“现行替代路径”；统一以后验回填为准。
+
 1. `just check`
 2. `just test-py path="py_entry/Test/backtest/test_data_pack_contract.py"`
 3. `just test-py path="py_entry/Test/backtest/test_mapping_projection_contract.py"`
@@ -88,6 +94,11 @@
 5. A2 建立在 A1 已冻结的 `DataPack / mapping / WarmupRequirements` contract 之上。
 
 阶段验收：
+
+说明：
+
+1. 下面列的是 A2 planning 阶段冻结的历史原 gate 路径。
+2. 若当前仓库已不存在同名文件，不在本文回写“现行替代路径”；统一以后验回填为准。
 
 1. `just check`
 2. `just test-py path="py_entry/Test/backtest/test_result_pack_contract.py"`
@@ -124,7 +135,7 @@
 阶段验收：
 
 1. `just check`
-2. `just test-py path="py_entry/Test/backtest/test_data_fetch_planner_contract.py"`
+2. `just test-py path="py_entry/Test/data_generator/test_data_fetch_planner_contract.py"`
 
 ## 6. 阶段 C
 
@@ -180,9 +191,9 @@
 
 1. `just check`
 2. 定向 Rust 单测；不允许用全量 `just test-rust` 或模糊 substring 过滤替代阶段最小 gate：
-   - `just test-rust-exact name="test_build_window_indices_contract"`
-   - `just test-rust-exact name="test_next_window_hint_contract"`
-   - `just test-rust-exact name="test_build_window_time_ranges_contract"`
+   - `just test-rust-exact backtest_engine::walk_forward::data_splitter::tests::test_build_window_indices_contract`
+   - `just test-rust-exact backtest_engine::walk_forward::next_window_hint::tests::test_next_window_hint_contract`
+   - `just test-rust-exact backtest_engine::walk_forward::time_ranges::tests::test_build_window_time_ranges_contract`
 3. `just test-py path="py_entry/Test/walk_forward/test_window_slice_contract.py"`
    - 必须实际覆盖：
      - 窗口切片后的 `skip_mask` 对齐
@@ -228,9 +239,9 @@
 
 1. `just check`
 2. 定向 Rust 单测；不允许用全量 `just test-rust` 或模糊 substring 过滤替代阶段最小 gate：
-   - `just test-rust-exact name="test_stitched_replay_input_contract"`
-   - `just test-rust-exact name="test_wf_signal_injection_contract"`
-   - `just test-rust-exact name="test_ignore_indicator_warmup_contract"`
+   - `just test-rust-exact backtest_engine::walk_forward::stitch::tests::test_stitched_replay_input_contract`
+   - `just test-rust-exact backtest_engine::walk_forward::injection::tests::test_wf_signal_injection_contract`
+   - `just test-rust-exact backtest_engine::data_ops::warmup_requirements::tests::test_ignore_indicator_warmup_contract`
 3. `just test-py path="py_entry/Test/walk_forward/test_wf_signal_injection_contract.py"`
 4. `just test-py path="py_entry/Test/walk_forward/test_wf_ignore_indicator_warmup_contract.py"`
 5. 本阶段不要求 Python gate 直接观察 `StitchedReplayInput`、`backtest_schedule` 或 `NextWindowHint` 内部真值。
@@ -265,14 +276,13 @@
 1. `just check`
 2. `just stub`
 3. 定向 Rust 单测；不允许用全量 `just test-rust` 或模糊 substring 过滤替代阶段最小 gate：
-   - `just test-rust-exact name="test_params_selector_contract"`
-   - `just test-rust-exact name="test_validate_schedule_contiguity_contract"`
-   - `just test-rust-exact name="test_validate_backtest_param_schedule_policy_contract"`
-   - `just test-rust-exact name="test_build_schedule_output_schema_contract"`
+   - `just test-rust-exact backtest_engine::backtester::params_selector::tests::test_params_selector_contract`
+   - `just test-rust-exact backtest_engine::backtester::schedule_contract::tests::test_validate_schedule_contiguity_contract`
+   - `just test-rust-exact backtest_engine::backtester::schedule_policy::tests::test_validate_backtest_param_schedule_policy_contract`
+   - `just test-rust-exact backtest_engine::backtester::output_schema::tests::test_build_schedule_output_schema_contract`
 4. `just test-py path="py_entry/Test/test_public_api_stub_contract.py"`
-5. `just test-py path="py_entry/Test/walk_forward/test_stitched_contract.py"`
-6. `just test-py path="py_entry/Test/walk_forward/test_walk_forward_guards.py"`
-7. 上述 stitched 测试里必须实际覆盖：
+5. `just test-py path="py_entry/Test/walk_forward/test_walk_forward_guards.py"`
+6. 上述 stitched 测试里必须实际覆盖：
    - 多窗口 stitched carry contract
    - 不能只覆盖 `backtest_schedule / ATR / schema`
 

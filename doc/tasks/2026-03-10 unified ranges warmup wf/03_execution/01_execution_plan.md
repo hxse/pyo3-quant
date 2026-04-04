@@ -2,14 +2,14 @@
 
 对应文档：
 
-1. [../01_summary/task_summary.md](../01_summary/task_summary.md)
-2. [../01_summary/01_overview_and_foundation.md](../01_summary/01_overview_and_foundation.md)
-3. [../01_summary/02_python_fetch_and_initial_build.md](../01_summary/02_python_fetch_and_initial_build.md)
-4. [../01_summary/03_backtest_and_result_pack.md](../01_summary/03_backtest_and_result_pack.md)
-5. [../01_summary/04_walk_forward_and_stitched.md](../01_summary/04_walk_forward_and_stitched.md)
-6. [../01_summary/05_segmented_backtest_truth_and_kernel.md](../01_summary/05_segmented_backtest_truth_and_kernel.md)
+1. [../00_meta/task_summary.md](../00_meta/task_summary.md)
+2. [../02_spec/01_overview_and_foundation.md](../02_spec/01_overview_and_foundation.md)
+3. [../02_spec/02_python_fetch_and_initial_build.md](../02_spec/02_python_fetch_and_initial_build.md)
+4. [../02_spec/03_backtest_and_result_pack.md](../02_spec/03_backtest_and_result_pack.md)
+5. [../02_spec/04_walk_forward_and_stitched.md](../02_spec/04_walk_forward_and_stitched.md)
+6. [../02_spec/05_segmented_backtest_truth_and_kernel.md](../02_spec/05_segmented_backtest_truth_and_kernel.md)
 7. [03_execution_stages_and_acceptance.md](./03_execution_stages_and_acceptance.md)
-8. [04_execution_backfill_template.md](./04_execution_backfill_template.md)
+8. [../04_review/04_execution_backfill_template.md](../04_review/04_execution_backfill_template.md)
 9. [02_test_plan.md](./02_test_plan.md)
 10. [05_pre_execution_ai_review.md](./05_pre_execution_ai_review.md)
 
@@ -22,7 +22,7 @@
 分阶段执行、阶段验收与回补模板已拆到：
 
 1. [03_execution_stages_and_acceptance.md](./03_execution_stages_and_acceptance.md)
-2. [04_execution_backfill_template.md](./04_execution_backfill_template.md)
+2. [../04_review/04_execution_backfill_template.md](../04_review/04_execution_backfill_template.md)
 3. [05_pre_execution_ai_review.md](./05_pre_execution_ai_review.md)
 
 ## 0. 摘要归属与落地引用

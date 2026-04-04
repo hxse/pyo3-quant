@@ -4,11 +4,11 @@
 
 1. [01_execution_plan.md](./01_execution_plan.md)
 2. [03_execution_stages_and_acceptance.md](./03_execution_stages_and_acceptance.md)
-3. [../01_summary/task_summary.md](../01_summary/task_summary.md)
-4. [../01_summary/01_overview_and_foundation.md](../01_summary/01_overview_and_foundation.md)
-5. [../01_summary/03_backtest_and_result_pack.md](../01_summary/03_backtest_and_result_pack.md)
-6. [../01_summary/04_walk_forward_and_stitched.md](../01_summary/04_walk_forward_and_stitched.md)
-7. [../01_summary/05_segmented_backtest_truth_and_kernel.md](../01_summary/05_segmented_backtest_truth_and_kernel.md)
+3. [../00_meta/task_summary.md](../00_meta/task_summary.md)
+4. [../02_spec/01_overview_and_foundation.md](../02_spec/01_overview_and_foundation.md)
+5. [../02_spec/03_backtest_and_result_pack.md](../02_spec/03_backtest_and_result_pack.md)
+6. [../02_spec/04_walk_forward_and_stitched.md](../02_spec/04_walk_forward_and_stitched.md)
+7. [../02_spec/05_segmented_backtest_truth_and_kernel.md](../02_spec/05_segmented_backtest_truth_and_kernel.md)
 
 本文只保留阶段 gate 必需项：
 
@@ -61,6 +61,12 @@
 3. 默认只用小样本数据。
 
 建议新增或改造测试文件：
+
+说明：
+
+1. 下面保留的是 planning 阶段建议新增或改造的测试文件名。
+2. 这些文件名用于表达覆盖意图，不等于当前仓库必须保留同名文件。
+3. 当前仓库实际 gate 入口、路径漂移与覆盖吸收关系，统一以后验记录为准，见 `../04_review/04_execution_backfill_template.md`。
 
 1. `py_entry/Test/backtest/test_data_pack_contract.py`
 2. `py_entry/Test/backtest/test_result_pack_contract.py`
@@ -441,6 +447,11 @@
 
 建议新增测试文件：
 
+说明：
+
+1. 本节保留 planning 阶段建议新增的测试文件名与覆盖方向。
+2. 若后续执行与当前仓库出现路径漂移、替代 gate 或覆盖吸收，统一在 `../04_review/04_execution_backfill_template.md` 记录。
+
 1. `py_entry/Test/walk_forward/test_stitched_contract.py`
 2. `src/backtest_engine/backtester/tests.rs`
 3. `src/backtest_engine/walk_forward/stitch.rs` 中对应的 Rust 单测
@@ -451,7 +462,7 @@
 1. 阶段 D2 的 stitched 上游输入 contract 默认走 Rust 单测：
    - `src/backtest_engine/walk_forward/stitch.rs`
    - 不要求为了阶段 D2 gate 额外暴露 PyO3 入口
-2. `test_stitched_contract.py` 在阶段 E 作为公开黑盒回归，覆盖 segmented replay 与最终 stitched 结果 contract。
+2. `test_stitched_contract.py` 表示阶段 E 期望存在一条公开黑盒回归，用于覆盖 segmented replay 与最终 stitched 结果 contract。
 3. `test_public_api_stub_contract.py` 在阶段 E 作为公共边界 smoke test：
    - 先跑 `just stub`
    - 再检查生成的 `.pyi` 与公开导出只保留新口径

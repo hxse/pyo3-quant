@@ -72,6 +72,11 @@
 
 ## 4. 建议新增测试文件清单
 
+说明：
+
+1. 本节保留的是原 planning 阶段建议新增的测试文件清单，不等于当前仓库必须存在的现行测试文件。
+2. 当前仓库实际落地的测试文件、阶段回放入口与最终验收，以 `../04_review/04_execution_backfill_template.md` 为准。
+
 建议新增：
 
 1. `py_entry/Test/backtest/test_data_pack_contract.py`

@@ -91,7 +91,7 @@ class TestMinOrderCheck:
         checks = RuntimeChecks(mock)
         params = StrategyParams(base_data_key="ohlcv_15m", symbol="BTC/USDT")
 
-        result = checks.min_order_check(params, amount=0.005, price=50000)
+        result = checks.min_order_check(params, amount=0.005)
 
         assert result.success is True
         assert result.data == "fail"
@@ -103,13 +103,13 @@ class TestMinOrderCheck:
         checks = RuntimeChecks(mock)
         params = StrategyParams(base_data_key="ohlcv_15m", symbol="BTC/USDT")
 
-        result = checks.min_order_check(params, amount=0.1, price=50000)
+        result = checks.min_order_check(params, amount=0.1)
 
         assert result.success is True
         assert result.data == "pass"
 
-    def test_amount_fallback_to_precision(self):
-        """测试 min_amount 为 0 时回退使用 precision_amount"""
+    def test_amount_uses_precision_when_min_amount_is_zero(self):
+        """测试 min_amount 为 0 时使用 precision_amount。"""
         mock = MockCallbacks()
         mock.market_info.min_amount = 0.0  # Missing/Zero
         mock.market_info.precision_amount = 0.001  # Should be used as threshold
@@ -118,12 +118,12 @@ class TestMinOrderCheck:
         params = StrategyParams(base_data_key="ohlcv_15m", symbol="BTC/USDT")
 
         # Case 1: amount < precision_amount -> Fail
-        result_fail = checks.min_order_check(params, amount=0.0005, price=50000)
+        result_fail = checks.min_order_check(params, amount=0.0005)
         assert result_fail.success is True
         assert result_fail.data == "fail"
 
         # Case 2: amount >= precision_amount -> Pass
-        result_pass = checks.min_order_check(params, amount=0.001, price=50000)
+        result_pass = checks.min_order_check(params, amount=0.001)
         assert result_pass.success is True
         assert result_pass.data == "pass"
 
@@ -136,7 +136,7 @@ class TestMinOrderCheck:
         checks = RuntimeChecks(mock)
         params = StrategyParams(base_data_key="ohlcv_15m", symbol="BTC/USDT")
 
-        result = checks.min_order_check(params, amount=0.1, price=50000)
+        result = checks.min_order_check(params, amount=0.1)
 
         # 预期：直接报错 (success=False)
         assert result.success is False
@@ -232,8 +232,8 @@ class TestOrderAmountCalculation:
         assert result.success is True
         assert result.data == 10.0
 
-    def test_calculate_amount_invalid_precision_cleanup(self):
-        """测试无效精度回退到原始值"""
+    def test_calculate_amount_invalid_precision_uses_raw_amount(self):
+        """测试无效精度时直接使用原始数量。"""
         mock = MockCallbacks()
         mock.balance = BalanceStructure(
             free={"USDT": 1000.0},

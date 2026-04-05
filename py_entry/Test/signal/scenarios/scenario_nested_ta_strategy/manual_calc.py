@@ -14,10 +14,10 @@ from py_entry.Test.signal.utils import (
 
 def calculate_entry_long(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
     """
     entry_long:
@@ -34,16 +34,16 @@ def calculate_entry_long(
     2. rsi < 30
     """
     # 提取数据
-    close_15m = get_mapped_ohlcv(mapped_data_container, "ohlcv_15m", "close")
-    high_15m = get_mapped_ohlcv(mapped_data_container, "ohlcv_15m", "high")
+    close_15m = get_mapped_ohlcv(mapped_data_pack, "ohlcv_15m", "close")
+    high_15m = get_mapped_ohlcv(mapped_data_pack, "ohlcv_15m", "high")
 
-    ema_0_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "ema_0")
-    ema_1_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "ema_1")
-    rsi_0_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "rsi_0")
-    adx_0_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "adx_0_adx")
+    ema_0_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "ema_0")
+    ema_1_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "ema_1")
+    rsi_0_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "rsi_0")
+    adx_0_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "adx_0_adx")
 
     # 1h数据已在test层面映射到基准周期
-    ema_0_1h = get_mapped_indicator(mapped_backtest_summary, "ohlcv_1h", "ema_0")
+    ema_0_1h = get_mapped_indicator(mapped_result_pack, "ohlcv_1h", "ema_0")
 
     # 参数
     adx_threshold = signal_params["adx_threshold"].value
@@ -90,10 +90,10 @@ def calculate_entry_long(
 
 def calculate_exit_long(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
     """
     exit_long:
@@ -101,9 +101,9 @@ def calculate_exit_long(
     1. ema_0 (15m) < ema_1 (15m)
     2. rsi > 70
     """
-    ema_0_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "ema_0")
-    ema_1_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "ema_1")
-    rsi_0_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "rsi_0")
+    ema_0_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "ema_0")
+    ema_1_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "ema_1")
+    rsi_0_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "rsi_0")
 
     rsi_overbought = signal_params["rsi_overbought"].value
 
@@ -118,10 +118,10 @@ def calculate_exit_long(
 
 def calculate_entry_short(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
     """
     entry_short:
@@ -138,16 +138,16 @@ def calculate_entry_short(
     2. rsi > 70
     """
     # 提取数据
-    close_15m = get_mapped_ohlcv(mapped_data_container, "ohlcv_15m", "close")
-    low_15m = get_mapped_ohlcv(mapped_data_container, "ohlcv_15m", "low")
+    close_15m = get_mapped_ohlcv(mapped_data_pack, "ohlcv_15m", "close")
+    low_15m = get_mapped_ohlcv(mapped_data_pack, "ohlcv_15m", "low")
 
-    ema_0_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "ema_0")
-    ema_1_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "ema_1")
-    rsi_0_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "rsi_0")
-    adx_0_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "adx_0_adx")
+    ema_0_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "ema_0")
+    ema_1_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "ema_1")
+    rsi_0_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "rsi_0")
+    adx_0_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "adx_0_adx")
 
     # 1h数据已在test层面映射到基准周期
-    ema_0_1h = get_mapped_indicator(mapped_backtest_summary, "ohlcv_1h", "ema_0")
+    ema_0_1h = get_mapped_indicator(mapped_result_pack, "ohlcv_1h", "ema_0")
 
     # 参数
     adx_threshold = signal_params["adx_threshold"].value
@@ -192,10 +192,10 @@ def calculate_entry_short(
 
 def calculate_exit_short(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
     """
     exit_short:
@@ -203,9 +203,9 @@ def calculate_exit_short(
     1. ema_0 (15m) > ema_1 (15m)
     2. rsi < 30
     """
-    ema_0_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "ema_0")
-    ema_1_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "ema_1")
-    rsi_0_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "rsi_0")
+    ema_0_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "ema_0")
+    ema_1_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "ema_1")
+    rsi_0_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "rsi_0")
 
     rsi_oversold = signal_params["rsi_oversold"].value
 
@@ -220,41 +220,41 @@ def calculate_exit_short(
 
 def calculate_signals(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.DataFrame:
     """
     计算所有信号并返回DataFrame
     """
     entry_long = calculate_entry_long(
         signal_params,
-        data_container,
-        backtest_summary,
-        mapped_data_container,
-        mapped_backtest_summary,
+        data_pack,
+        result_pack,
+        mapped_data_pack,
+        mapped_result_pack,
     )
     exit_long = calculate_exit_long(
         signal_params,
-        data_container,
-        backtest_summary,
-        mapped_data_container,
-        mapped_backtest_summary,
+        data_pack,
+        result_pack,
+        mapped_data_pack,
+        mapped_result_pack,
     )
     entry_short = calculate_entry_short(
         signal_params,
-        data_container,
-        backtest_summary,
-        mapped_data_container,
-        mapped_backtest_summary,
+        data_pack,
+        result_pack,
+        mapped_data_pack,
+        mapped_result_pack,
     )
     exit_short = calculate_exit_short(
         signal_params,
-        data_container,
-        backtest_summary,
-        mapped_data_container,
-        mapped_backtest_summary,
+        data_pack,
+        result_pack,
+        mapped_data_pack,
+        mapped_result_pack,
     )
 
     return create_signal_dataframe(entry_long, exit_long, entry_short, exit_short)

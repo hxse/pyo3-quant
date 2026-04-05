@@ -88,8 +88,7 @@ def _run_signal_template(
     )
 
     result = runner.run()
-    assert result.summary is not None
-    signals = result.summary.signals
+    signals = result.result.signals
     assert signals is not None
 
     return signals["entry_long"].slice(

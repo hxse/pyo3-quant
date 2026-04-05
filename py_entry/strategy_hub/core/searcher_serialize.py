@@ -47,7 +47,7 @@ def _serialize_backtest_params(backtest: Any) -> dict[str, Any]:
     out: dict[str, Any] = {}
     names = list(getattr(backtest, "__dict__", {}).keys())
     if not names:
-        # 中文注释：PyO3 对象可能没有 __dict__，回退到 dir() 兜底。
+        # 中文注释：PyO3 对象可能没有 __dict__，此时改为枚举 dir()。
         names = dir(backtest)
     for name in names:
         if name.startswith("_"):
@@ -74,8 +74,8 @@ def serialize_single_param_set(param_set: Any) -> dict[str, Any]:
 def _extract_base_times_ms(run_result: Any) -> list[int]:
     """提取基准周期时间序列。"""
 
-    base_key = run_result.data_dict.base_data_key
-    base_df = run_result.data_dict.source[base_key]
+    base_key = run_result.data_pack.base_data_key
+    base_df = run_result.data_pack.source[base_key]
     return [int(x) for x in base_df["time"].to_list()]
 
 
@@ -104,31 +104,44 @@ def extract_wf_window_logs(
     last_window_best_params: dict[str, Any] | None = None
 
     for window in wf_result.raw.window_results:
-        train_time_range = window.train_time_range
-        transition_time_range = window.transition_time_range
-        test_time_range = window.test_time_range
-        full_time_range = window.full_time_range
+        meta = window.meta
         row = {
-            "window_id": int(window.window_id),
-            "train_range": list(window.train_range),
-            "transition_range": list(window.transition_range),
-            "test_range": list(window.test_range),
-            "train_time_range_ms": [int(train_time_range[0]), int(train_time_range[1])],
-            "transition_time_range_ms": [
-                int(transition_time_range[0]),
-                int(transition_time_range[1]),
+            "window_id": int(meta.window_id),
+            "test_active_base_row_range": list(meta.test_active_base_row_range),
+            "train_warmup_time_range_ms": (
+                [
+                    int(meta.train_warmup_time_range[0]),
+                    int(meta.train_warmup_time_range[1]),
+                ]
+                if meta.train_warmup_time_range is not None
+                else None
+            ),
+            "train_active_time_range_ms": [
+                int(meta.train_active_time_range[0]),
+                int(meta.train_active_time_range[1]),
             ],
-            "test_time_range_ms": [int(test_time_range[0]), int(test_time_range[1])],
-            "full_time_range_ms": [int(full_time_range[0]), int(full_time_range[1])],
-            "train_bars": int(window.train_bars),
-            "transition_bars": int(window.transition_bars),
-            "test_bars": int(window.test_bars),
-            "full_bars": int(window.full_bars),
-            "best_params": serialize_single_param_set(window.best_params),
-            "test_metrics": window.summary.performance or {},
+            "train_pack_time_range_ms": [
+                int(meta.train_pack_time_range[0]),
+                int(meta.train_pack_time_range[1]),
+            ],
+            "test_warmup_time_range_ms": [
+                int(meta.test_warmup_time_range[0]),
+                int(meta.test_warmup_time_range[1]),
+            ],
+            "test_active_time_range_ms": [
+                int(meta.test_active_time_range[0]),
+                int(meta.test_active_time_range[1]),
+            ],
+            "test_pack_time_range_ms": [
+                int(meta.test_pack_time_range[0]),
+                int(meta.test_pack_time_range[1]),
+            ],
+            "best_params": serialize_single_param_set(meta.best_params),
+            "has_cross_boundary_position": bool(meta.has_cross_boundary_position),
+            "test_metrics": window.test_pack_result.performance or {},
         }
         windows.append(row)
-        last_window_start_time_ms = int(test_time_range[0])
+        last_window_start_time_ms = int(meta.test_active_time_range[0])
         last_window_best_params = row["best_params"]
 
     return windows, {
@@ -143,7 +156,7 @@ def extract_optimize_info(opt_result: Any) -> dict[str, Any]:
     return {
         "performance": opt_result.best_metrics,
         "optimize_best_params": serialize_single_param_set(opt_result.best_params),
-        "optimize_metric": str(opt_result.optimize_metric),
+        "optimize_metric": opt_result.optimize_metric.as_str(),
         "optimize_value": float(opt_result.optimize_value),
         "optimize_total_samples": int(opt_result.total_samples),
         "optimize_rounds": int(opt_result.rounds),

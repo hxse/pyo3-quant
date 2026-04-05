@@ -8,7 +8,7 @@ from typing import Any
 
 
 def _to_json_safe(value: Any) -> Any:
-    """将报告对象转换为严格 JSON 兼容结构。"""
+    """将报告对象转换为严格 JSON 可序列化结构。"""
 
     if isinstance(value, float):
         if math.isfinite(value):

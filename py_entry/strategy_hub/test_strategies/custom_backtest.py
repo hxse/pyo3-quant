@@ -1,7 +1,7 @@
 """
 custom_backtest 公共示例策略
 
-该策略复刻旧示例 custom_backtest 的核心参数，
+该策略复刻示例 custom_backtest 的核心参数，
 作为 strategy_hub 测试策略注册。
 """
 
@@ -89,7 +89,6 @@ def build_strategy_bundle() -> TestStrategySpec:
             PerformanceMetric.MaxDrawdown,
             PerformanceMetric.CalmarRatio,
             PerformanceMetric.AnnualizationFactor,
-            PerformanceMetric.HasLeadingNanCount,
         ],
         leverage_safety_factor=0.8,
     )

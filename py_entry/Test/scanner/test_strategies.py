@@ -383,6 +383,15 @@ class TestEngineStrategies(unittest.TestCase):
         ] + int(5 * 60 * 1e9)
         ctx.klines[trigger_storage_key] = trigger_df
 
+        # 中文注释：5m 触发级别被手动后移后，1h 过滤级别也必须同步补足尾覆盖；
+        # 否则会触发统一 coverage fail-fast，而不是策略语义本身失败。
+        wave_storage_key = ctx.get_storage_key(ScanLevel.WAVE)
+        wave_df = ctx.klines[wave_storage_key].copy()
+        wave_df.loc[len(wave_df) - 1, "datetime"] = trigger_df.loc[
+            len(trigger_df) - 1, "datetime"
+        ] - int(30 * 60 * 1e9)
+        ctx.klines[wave_storage_key] = wave_df
+
         sig = self.topdown_ema_alignment_long_strategy.scan(ctx)
         self.assertIsNotNone(sig)
         if sig:

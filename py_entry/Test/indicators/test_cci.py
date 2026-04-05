@@ -37,7 +37,7 @@ def cci_pandas_ta_extractor(
 
     # 注意：我们的 Rust 实现是对齐 TA-Lib 的
     # 所以无论 enable_talib 是 True 還是 False，我们都期望对齐 TA-Lib
-    # 但为了测试框架的兼容性，这里还是透传 enable_talib
+    # 中文注释：这里保持透传 enable_talib，便于复用统一测试入口。
 
     # 强制让 pandas_ta 使用与 Rust 一致的逻辑
     # 如果 enable_talib=False，pandas-ta 算出来会和 Rust 不一致 (正如我们发现的 BUG)
@@ -74,14 +74,14 @@ config = IndicatorTestConfig(
 )
 
 
-def test_cci_strict_mode(data_dict):
+def test_cci_strict_mode(data_params):
     """
     严格模式测试：Rust vs TA-Lib (高精度对齐)
     """
     # 1. 验证与 TA-Lib (enable_talib=True) 一致
     validate_indicator_accuracy(
         config,
-        data_dict,
+        data_params,
         enable_talib=True,
         assert_mode_talib=True,  # 必须一致
         assert_mode_pandas_ta=False,  # 忽略纯 pandas 模式的比对结果

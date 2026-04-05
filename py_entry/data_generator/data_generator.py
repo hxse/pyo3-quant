@@ -25,7 +25,7 @@ from .time_utils import parse_timeframe
 from .ohlcv_generator import generate_multi_timeframe_ohlcv
 from .heikin_ashi_generator import calculate_heikin_ashi
 from .renko_generator import calculate_renko
-from py_entry.types import DataContainer
+from py_entry.types import DataPack
 from py_entry.io import (
     get_ohlcv_data,
     convert_to_ohlcv_dataframe,
@@ -138,13 +138,13 @@ def _fetch_with_coverage_backfill(
     return source_df
 
 
-def generate_data_dict(
+def generate_data_pack(
     data_source: DataSourceConfig,
     other_params: OtherParams | None = None,
     align_to_base_range: bool | None = None,
-) -> DataContainer:
+) -> DataPack:
     """
-    生成完整的数据字典
+    生成完整的 DataPack。
 
     Args:
         data_source: 数据源配置，可以是三种类型之一：
@@ -154,7 +154,7 @@ def generate_data_dict(
         other_params: 其他参数配置对象,如果为None则使用默认值
 
     Returns:
-        包含以下键的字典:
+        符合最新公开契约的 DataPack。
     """
     source_dict: dict[str, pl.DataFrame] = {}
     base_data_key: str = ""
@@ -186,7 +186,7 @@ def generate_data_dict(
             allow_gaps=simulated_data_config.allow_gaps,
         )
 
-        # 将列表转换为字典
+        # 中文注释：将生成结果整理为 source 映射。
         for tf, df in zip(simulated_data_config.timeframes, ohlcv_dfs):
             source_dict[f"ohlcv_{tf}"] = df
 
@@ -239,7 +239,7 @@ def generate_data_dict(
     else:
         raise ValueError("不支持的数据源类型")
 
-    # 只有启用的数据类型才会生成并添加到源数据字典
+    # 中文注释：只为显式启用的类型生成对应 source 数据。
     # 注意：这里我们假设 source_dict 中以 "ohlcv_" 开头的都是 OHLCV 数据
     # 并且我们为每个 OHLCV 数据生成对应的 HA 和 Renko 数据
 
@@ -277,15 +277,11 @@ def generate_data_dict(
     if align_to_base_range is not None:
         align_to_base_for_mapping = align_to_base_range
 
-    # 中文注释：mapping 统一迁移到 Rust 端构建，Python 不再维护 mapping 算法。
-    container = DataContainer(
-        mapping=pl.DataFrame(),
-        skip_mask=skip_mask_df,
-        source=source_dict,
-        base_data_key=base_data_key,
-    )
-    # 中文注释：默认按 base 对齐；scanner 等多周期研究场景可关闭保留完整高周期历史。
+    # 中文注释：mapping 统一迁移到 Rust 端构建，直接生成正式 DataPack。
+    source_payload: dict[str, object] = {key: df for key, df in source_dict.items()}
     return pyo3_quant.backtest_engine.data_ops.build_time_mapping(
-        container,
+        source_payload,
+        base_data_key,
+        skip_mask_df,
         align_to_base_range=align_to_base_for_mapping,
     )

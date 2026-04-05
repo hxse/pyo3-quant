@@ -8,10 +8,10 @@ import polars as pl
 
 def calculate_signals(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.DataFrame:
     """
     这个函数不应该被调用，因为应该在解析或运行阶段就报错

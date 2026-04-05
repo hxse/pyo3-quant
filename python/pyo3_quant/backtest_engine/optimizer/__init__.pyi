@@ -11,7 +11,7 @@ __all__ = [
 ]
 
 def py_run_optimizer(
-    data_dict: _pyo3_quant.DataContainer,
+    data: _pyo3_quant.DataPack,
     param: _pyo3_quant.SingleParamSet,
     template: _pyo3_quant.TemplateContainer,
     engine_settings: _pyo3_quant.SettingContainer,

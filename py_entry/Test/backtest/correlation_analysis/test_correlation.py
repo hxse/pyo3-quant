@@ -74,10 +74,10 @@ class TestEngineCorrelation:
         # 2.5 验证数据一致性
         # 从 Pyo3 runner 获取原始数据
         pyo3_ohlc = None
-        if pyo3_adapter.runner and pyo3_adapter.runner.data_dict:
+        if pyo3_adapter.runner and pyo3_adapter.runner.data_pack:
             base_key = f"ohlcv_{config.timeframe}"
-            if base_key in pyo3_adapter.runner.data_dict.source:
-                pyo3_source = pyo3_adapter.runner.data_dict.source[base_key]
+            if base_key in pyo3_adapter.runner.data_pack.source:
+                pyo3_source = pyo3_adapter.runner.data_pack.source[base_key]
                 pyo3_ohlc = {
                     "open": pyo3_source["open"].to_numpy(),
                     "high": pyo3_source["high"].to_numpy(),

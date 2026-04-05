@@ -112,8 +112,8 @@ def test_chart_config_generation(runner_with_results):
         # Check files exist
         files = zf.namelist()
         assert "chartConfig.json" in files
-        # 检查是否包含数据文件 (名称取决于实际生成，通常是 data_dict/source_ohlcv_15m.csv)
-        assert any("data_dict/source_ohlcv_15m" in f for f in files)
+        # 检查是否包含数据文件 (名称取决于实际生成，通常是 data_pack/source_ohlcv_15m.csv)
+        assert any("data_pack/source_ohlcv_15m" in f for f in files)
 
         # Check content of config
         with zf.open("chartConfig.json") as f:

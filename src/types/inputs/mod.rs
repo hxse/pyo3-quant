@@ -11,7 +11,7 @@ pub use self::backtest::{
     BacktestParams, IndicatorsParams, ParamContainer, PerformanceMetric, PerformanceParams,
     SignalParams, SingleParamSet,
 };
-pub use self::data::{DataContainer, DataSource};
+pub use self::data::{DataPack, DataSource, SourceRange};
 pub use self::optimizer::{BenchmarkFunction, OptimizeMetric, OptimizerConfig};
 pub use self::params_base::{Param, ParamType};
 pub use self::sensitivity::SensitivityConfig;

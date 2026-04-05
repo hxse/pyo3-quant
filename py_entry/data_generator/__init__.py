@@ -20,7 +20,7 @@ from .type_guards import (
 )
 
 # 导入核心数据生成函数
-from .data_generator import generate_data_dict
+from .data_generator import generate_data_pack
 
 # 导入时间工具函数
 from .time_utils import parse_timeframe, time_format, fixed_cols
@@ -34,7 +34,7 @@ from .heikin_ashi_generator import generate_ha, calculate_heikin_ashi
 # 导入Renko生成器
 from .renko_generator import generate_renko, calculate_renko
 
-# 导出所有主要函数，以便兼容原有导入方式
+# 导出所有主要函数
 __all__ = [
     "DataGenerationParams",
     "OtherParams",
@@ -46,7 +46,7 @@ __all__ = [
     "is_fetched_data",
     "is_predefined_data",
     "parse_timeframe",
-    "generate_data_dict",
+    "generate_data_pack",
     "generate_ohlcv",
     "generate_multi_timeframe_ohlcv",
     "generate_ha",

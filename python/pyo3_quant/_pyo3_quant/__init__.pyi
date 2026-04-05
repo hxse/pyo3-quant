@@ -6,11 +6,14 @@ import enum
 import typing
 
 __all__ = [
+    "BacktestParamSegment",
     "BacktestParams",
-    "BacktestSummary",
     "BenchmarkFunction",
-    "DataContainer",
+    "DataPack",
+    "DataPackFetchPlanner",
+    "DataPackFetchPlannerInput",
     "ExecutionStage",
+    "FetchRequest",
     "IndicatorContract",
     "IndicatorContractReport",
     "LogicOp",
@@ -22,6 +25,7 @@ __all__ = [
     "ParamType",
     "PerformanceMetric",
     "PerformanceParams",
+    "ResultPack",
     "RoundSummary",
     "SamplePoint",
     "SensitivityConfig",
@@ -31,13 +35,31 @@ __all__ = [
     "SignalGroup",
     "SignalTemplate",
     "SingleParamSet",
+    "SourceRange",
     "StitchedArtifact",
+    "StitchedMeta",
     "TemplateContainer",
     "WalkForwardConfig",
     "WalkForwardResult",
     "WfWarmupMode",
     "WindowArtifact",
+    "WindowMeta",
 ]
+
+@typing.final
+class BacktestParamSegment:
+    r"""
+    中文注释：分段回测的正式 schedule 输入对象，统一使用 stitched 绝对行轴的半开区间。
+    """
+    @property
+    def start_row(self) -> builtins.int: ...
+    @property
+    def end_row(self) -> builtins.int: ...
+    @property
+    def params(self) -> BacktestParams: ...
+    def __new__(
+        cls, start_row: builtins.int, end_row: builtins.int, params: BacktestParams
+    ) -> BacktestParamSegment: ...
 
 @typing.final
 class BacktestParams:
@@ -351,41 +373,10 @@ class BacktestParams:
         """
 
 @typing.final
-class BacktestSummary:
-    @property
-    def indicators(self) -> typing.Optional[dict]: ...
-    @indicators.setter
-    def indicators(
-        self, value: typing.Optional[builtins.dict[builtins.str, typing.Any]]
-    ) -> None: ...
-    @property
-    def signals(self) -> typing.Optional[typing.Any]: ...
-    @signals.setter
-    def signals(self, value: typing.Optional[typing.Any]) -> None: ...
-    @property
-    def backtest_result(self) -> typing.Optional[typing.Any]: ...
-    @backtest_result.setter
-    def backtest_result(self, value: typing.Optional[typing.Any]) -> None: ...
-    @property
-    def performance(
-        self,
-    ) -> typing.Optional[builtins.dict[builtins.str, builtins.float]]: ...
-    @performance.setter
-    def performance(
-        self, value: typing.Optional[builtins.dict[builtins.str, builtins.float]]
-    ) -> None: ...
-    def __new__(
-        cls,
-        performance: typing.Optional[
-            typing.Mapping[builtins.str, builtins.float]
-        ] = None,
-        indicators: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        signals: typing.Optional[typing.Any] = None,
-        backtest_result: typing.Optional[typing.Any] = None,
-    ) -> BacktestSummary: ...
-
-@typing.final
-class DataContainer:
+class DataPack:
+    r"""
+    输入侧多周期数据包。
+    """
     @property
     def mapping(self) -> typing.Any: ...
     @mapping.setter
@@ -399,6 +390,8 @@ class DataContainer:
     @source.setter
     def source(self, value: builtins.dict[builtins.str, typing.Any]) -> None: ...
     @property
+    def ranges(self) -> builtins.dict[builtins.str, SourceRange]: ...
+    @property
     def base_data_key(self) -> builtins.str: ...
     @base_data_key.setter
     def base_data_key(self, value: builtins.str) -> None: ...
@@ -408,7 +401,97 @@ class DataContainer:
         skip_mask: typing.Optional[typing.Any],
         source: typing.Mapping[builtins.str, typing.Any],
         base_data_key: builtins.str,
-    ) -> DataContainer: ...
+        ranges: typing.Mapping[builtins.str, SourceRange],
+    ) -> DataPack: ...
+
+@typing.final
+class DataPackFetchPlanner:
+    r"""
+    中文注释：阶段 B 先落独立 planner，不直接切现有 Python 主流程。
+    """
+    @property
+    def source_keys(self) -> builtins.list[builtins.str]: ...
+    @property
+    def required_warmup_by_key(self) -> builtins.dict[builtins.str, builtins.int]: ...
+    def __new__(cls, input: DataPackFetchPlannerInput) -> DataPackFetchPlanner: ...
+    def next_request(self) -> typing.Optional[FetchRequest]: ...
+    def ingest_response(self, request: FetchRequest, df: typing.Any) -> None: ...
+    def is_complete(self) -> builtins.bool: ...
+    def finish(self) -> DataPack: ...
+
+@typing.final
+class DataPackFetchPlannerInput:
+    @property
+    def timeframes(self) -> builtins.list[builtins.str]: ...
+    @timeframes.setter
+    def timeframes(self, value: builtins.list[builtins.str]) -> None: ...
+    @property
+    def base_data_key(self) -> builtins.str: ...
+    @base_data_key.setter
+    def base_data_key(self, value: builtins.str) -> None: ...
+    @property
+    def effective_since(self) -> builtins.int: ...
+    @effective_since.setter
+    def effective_since(self, value: builtins.int) -> None: ...
+    @property
+    def effective_limit(self) -> builtins.int: ...
+    @effective_limit.setter
+    def effective_limit(self, value: builtins.int) -> None: ...
+    @property
+    def indicators_params(
+        self,
+    ) -> builtins.dict[
+        builtins.str, builtins.dict[builtins.str, builtins.dict[builtins.str, Param]]
+    ]: ...
+    @indicators_params.setter
+    def indicators_params(
+        self,
+        value: builtins.dict[
+            builtins.str,
+            builtins.dict[builtins.str, builtins.dict[builtins.str, Param]],
+        ],
+    ) -> None: ...
+    @property
+    def backtest_params(self) -> BacktestParams: ...
+    @backtest_params.setter
+    def backtest_params(self, value: BacktestParams) -> None: ...
+    @property
+    def min_request_bars(self) -> builtins.int: ...
+    @min_request_bars.setter
+    def min_request_bars(self, value: builtins.int) -> None: ...
+    @property
+    def max_rounds_per_source(self) -> builtins.int: ...
+    @max_rounds_per_source.setter
+    def max_rounds_per_source(self, value: builtins.int) -> None: ...
+    def __new__(
+        cls,
+        *,
+        timeframes: typing.Sequence[builtins.str],
+        base_data_key: builtins.str,
+        effective_since: builtins.int,
+        effective_limit: builtins.int,
+        indicators_params: typing.Optional[
+            typing.Mapping[
+                builtins.str,
+                typing.Mapping[builtins.str, typing.Mapping[builtins.str, Param]],
+            ]
+        ] = None,
+        backtest_params: typing.Optional[BacktestParams] = None,
+        min_request_bars: builtins.int = 10,
+        max_rounds_per_source: builtins.int = 20,
+    ) -> DataPackFetchPlannerInput: ...
+
+@typing.final
+class FetchRequest:
+    @property
+    def source_key(self) -> builtins.str: ...
+    @property
+    def since(self) -> builtins.int: ...
+    @property
+    def limit(self) -> builtins.int: ...
+    def __new__(
+        cls, source_key: builtins.str, since: builtins.int, limit: builtins.int
+    ) -> FetchRequest: ...
 
 @typing.final
 class IndicatorContract:
@@ -462,15 +545,7 @@ class NextWindowHint:
     下次窗口时间提示（UTC ms）
     """
     @property
-    def expected_train_start_time_ms(self) -> builtins.int: ...
-    @property
-    def expected_transition_start_time_ms(self) -> builtins.int: ...
-    @property
-    def expected_test_start_time_ms(self) -> builtins.int: ...
-    @property
-    def expected_test_end_time_ms(self) -> builtins.int: ...
-    @property
-    def expected_window_ready_time_ms(self) -> builtins.int: ...
+    def expected_window_switch_time_ms(self) -> builtins.int: ...
     @property
     def eta_days(self) -> builtins.float: ...
     @property
@@ -758,6 +833,53 @@ class PerformanceParams:
         r"""
         业务层设置杠杆安全系数。
         """
+
+@typing.final
+class ResultPack:
+    @property
+    def indicators(self) -> typing.Optional[dict]: ...
+    @indicators.setter
+    def indicators(
+        self, value: typing.Optional[builtins.dict[builtins.str, typing.Any]]
+    ) -> None: ...
+    @property
+    def signals(self) -> typing.Optional[typing.Any]: ...
+    @signals.setter
+    def signals(self, value: typing.Optional[typing.Any]) -> None: ...
+    @property
+    def backtest_result(self) -> typing.Optional[typing.Any]: ...
+    @backtest_result.setter
+    def backtest_result(self, value: typing.Optional[typing.Any]) -> None: ...
+    @property
+    def mapping(self) -> typing.Any: ...
+    @mapping.setter
+    def mapping(self, value: typing.Any) -> None: ...
+    @property
+    def ranges(self) -> builtins.dict[builtins.str, SourceRange]: ...
+    @property
+    def performance(
+        self,
+    ) -> typing.Optional[builtins.dict[builtins.str, builtins.float]]: ...
+    @performance.setter
+    def performance(
+        self, value: typing.Optional[builtins.dict[builtins.str, builtins.float]]
+    ) -> None: ...
+    @property
+    def base_data_key(self) -> builtins.str: ...
+    @base_data_key.setter
+    def base_data_key(self, value: builtins.str) -> None: ...
+    def __new__(
+        cls,
+        mapping: typing.Any,
+        ranges: typing.Mapping[builtins.str, SourceRange],
+        base_data_key: builtins.str,
+        performance: typing.Optional[
+            typing.Mapping[builtins.str, builtins.float]
+        ] = None,
+        indicators: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        signals: typing.Optional[typing.Any] = None,
+        backtest_result: typing.Optional[typing.Any] = None,
+    ) -> ResultPack: ...
 
 @typing.final
 class RoundSummary:
@@ -1128,34 +1250,52 @@ class SingleParamSet:
         """
 
 @typing.final
+class SourceRange:
+    r"""
+    source 级别的真实预热 / 生效 / pack 边界。
+    """
+    @property
+    def warmup_bars(self) -> builtins.int: ...
+    @property
+    def active_bars(self) -> builtins.int: ...
+    @property
+    def pack_bars(self) -> builtins.int: ...
+    def __new__(
+        cls,
+        warmup_bars: builtins.int,
+        active_bars: builtins.int,
+        pack_bars: builtins.int,
+    ) -> SourceRange: ...
+
+@typing.final
 class StitchedArtifact:
     r"""
     拼接级完整产物
     """
     @property
-    def data(self) -> DataContainer: ...
+    def stitched_data(self) -> DataPack: ...
     @property
-    def summary(self) -> BacktestSummary: ...
+    def result(self) -> ResultPack: ...
     @property
-    def time_range(self) -> tuple[builtins.int, builtins.int]: ...
-    @property
-    def bar_range(self) -> tuple[builtins.int, builtins.int]: ...
-    @property
-    def span_ms(self) -> builtins.int: ...
-    @property
-    def span_days(self) -> builtins.float: ...
-    @property
-    def span_months(self) -> builtins.float: ...
-    @property
-    def bars(self) -> builtins.int: ...
+    def meta(self) -> StitchedMeta: ...
+
+@typing.final
+class StitchedMeta:
+    r"""
+    拼接级完整产物
+    """
     @property
     def window_count(self) -> builtins.int: ...
     @property
-    def first_test_time_ms(self) -> builtins.int: ...
+    def stitched_pack_time_range_from_active(
+        self,
+    ) -> tuple[builtins.int, builtins.int]: ...
     @property
-    def last_test_time_ms(self) -> builtins.int: ...
+    def stitched_window_active_time_ranges(
+        self,
+    ) -> builtins.list[tuple[builtins.int, builtins.int]]: ...
     @property
-    def rolling_every_days(self) -> builtins.float: ...
+    def backtest_schedule(self) -> builtins.list[BacktestParamSegment]: ...
     @property
     def next_window_hint(self) -> NextWindowHint: ...
 
@@ -1173,54 +1313,54 @@ class WalkForwardConfig:
     向前滚动优化配置
     """
     @property
-    def train_bars(self) -> builtins.int:
+    def train_active_bars(self) -> builtins.int:
         r"""
-        训练窗口长度（固定 bar 数）
+        训练 active 区间长度（固定 bar 数）
         """
-    @train_bars.setter
-    def train_bars(self, value: builtins.int) -> None:
+    @train_active_bars.setter
+    def train_active_bars(self, value: builtins.int) -> None:
         r"""
-        训练窗口长度（固定 bar 数）
-        """
-    @property
-    def transition_bars(self) -> builtins.int:
-        r"""
-        过渡窗口长度（固定 bar 数）
-        """
-    @transition_bars.setter
-    def transition_bars(self, value: builtins.int) -> None:
-        r"""
-        过渡窗口长度（固定 bar 数）
+        训练 active 区间长度（固定 bar 数）
         """
     @property
-    def test_bars(self) -> builtins.int:
+    def test_active_bars(self) -> builtins.int:
         r"""
-        测试窗口长度（固定 bar 数）
+        测试 active 区间长度（固定 bar 数）
         """
-    @test_bars.setter
-    def test_bars(self, value: builtins.int) -> None:
+    @test_active_bars.setter
+    def test_active_bars(self, value: builtins.int) -> None:
         r"""
-        测试窗口长度（固定 bar 数）
-        """
-    @property
-    def wf_warmup_mode(self) -> WfWarmupMode:
-        r"""
-        WF 预热模式（BorrowFromTrain / ExtendTest / NoWarmup）
-        """
-    @wf_warmup_mode.setter
-    def wf_warmup_mode(self, value: WfWarmupMode) -> None:
-        r"""
-        WF 预热模式（BorrowFromTrain / ExtendTest / NoWarmup）
+        测试 active 区间长度（固定 bar 数）
         """
     @property
-    def inherit_prior(self) -> builtins.bool:
+    def min_warmup_bars(self) -> builtins.int:
         r"""
-        是否从上一窗口继承权重先验，默认 true
+        训练包和测试包至少保留多少 base 预热 bar
         """
-    @inherit_prior.setter
-    def inherit_prior(self, value: builtins.bool) -> None:
+    @min_warmup_bars.setter
+    def min_warmup_bars(self, value: builtins.int) -> None:
         r"""
-        是否从上一窗口继承权重先验，默认 true
+        训练包和测试包至少保留多少 base 预热 bar
+        """
+    @property
+    def warmup_mode(self) -> WfWarmupMode:
+        r"""
+        WF 预热模式（BorrowFromTrain / ExtendTest）
+        """
+    @warmup_mode.setter
+    def warmup_mode(self, value: WfWarmupMode) -> None:
+        r"""
+        WF 预热模式（BorrowFromTrain / ExtendTest）
+        """
+    @property
+    def ignore_indicator_warmup(self) -> builtins.bool:
+        r"""
+        是否忽略指标预热，只保留 WF 几何与 backtest 执行预热
+        """
+    @ignore_indicator_warmup.setter
+    def ignore_indicator_warmup(self, value: builtins.bool) -> None:
+        r"""
+        是否忽略指标预热，只保留 WF 几何与 backtest 执行预热
         """
     @property
     def optimizer_config(self) -> OptimizerConfig:
@@ -1235,11 +1375,11 @@ class WalkForwardConfig:
     def __new__(
         cls,
         *,
-        train_bars: builtins.int,
-        transition_bars: builtins.int,
-        test_bars: builtins.int,
-        wf_warmup_mode: WfWarmupMode = WfWarmupMode.ExtendTest,
-        inherit_prior: builtins.bool = True,
+        train_active_bars: builtins.int,
+        test_active_bars: builtins.int,
+        min_warmup_bars: builtins.int = 0,
+        warmup_mode: WfWarmupMode = WfWarmupMode.ExtendTest,
+        ignore_indicator_warmup: builtins.bool = False,
         optimizer_config: typing.Optional[OptimizerConfig] = None,
     ) -> WalkForwardConfig: ...
 
@@ -1261,51 +1401,41 @@ class WindowArtifact:
     窗口级完整产物
     """
     @property
-    def data(self) -> DataContainer: ...
+    def train_pack_data(self) -> DataPack: ...
     @property
-    def summary(self) -> BacktestSummary: ...
+    def test_pack_data(self) -> DataPack: ...
     @property
-    def time_range(self) -> tuple[builtins.int, builtins.int]: ...
+    def test_pack_result(self) -> ResultPack: ...
     @property
-    def bar_range(self) -> tuple[builtins.int, builtins.int]: ...
-    @property
-    def span_ms(self) -> builtins.int: ...
-    @property
-    def span_days(self) -> builtins.float: ...
-    @property
-    def span_months(self) -> builtins.float: ...
-    @property
-    def bars(self) -> builtins.int: ...
+    def meta(self) -> WindowMeta: ...
+
+@typing.final
+class WindowMeta:
+    r"""
+    窗口级结构性元数据
+    """
     @property
     def window_id(self) -> builtins.int: ...
     @property
-    def train_range(self) -> tuple[builtins.int, builtins.int]: ...
-    @property
-    def transition_range(self) -> tuple[builtins.int, builtins.int]: ...
-    @property
-    def test_range(self) -> tuple[builtins.int, builtins.int]: ...
-    @property
-    def train_time_range(self) -> tuple[builtins.int, builtins.int]: ...
-    @property
-    def transition_time_range(self) -> tuple[builtins.int, builtins.int]: ...
-    @property
-    def test_time_range(self) -> tuple[builtins.int, builtins.int]: ...
-    @property
-    def full_time_range(self) -> tuple[builtins.int, builtins.int]: ...
-    @property
-    def train_bars(self) -> builtins.int: ...
-    @property
-    def transition_bars(self) -> builtins.int: ...
-    @property
-    def test_bars(self) -> builtins.int: ...
-    @property
-    def full_bars(self) -> builtins.int: ...
-    @property
     def best_params(self) -> SingleParamSet: ...
     @property
-    def optimize_metric(self) -> OptimizeMetric: ...
-    @property
     def has_cross_boundary_position(self) -> builtins.bool: ...
+    @property
+    def test_active_base_row_range(self) -> tuple[builtins.int, builtins.int]: ...
+    @property
+    def train_warmup_time_range(
+        self,
+    ) -> typing.Optional[tuple[builtins.int, builtins.int]]: ...
+    @property
+    def train_active_time_range(self) -> tuple[builtins.int, builtins.int]: ...
+    @property
+    def train_pack_time_range(self) -> tuple[builtins.int, builtins.int]: ...
+    @property
+    def test_warmup_time_range(self) -> tuple[builtins.int, builtins.int]: ...
+    @property
+    def test_active_time_range(self) -> tuple[builtins.int, builtins.int]: ...
+    @property
+    def test_pack_time_range(self) -> tuple[builtins.int, builtins.int]: ...
 
 @typing.final
 class BenchmarkFunction(enum.Enum):
@@ -1595,10 +1725,6 @@ class PerformanceMetric(enum.Enum):
     r"""
     年化因子
     """
-    HasLeadingNanCount = ...
-    r"""
-    前置无效数据计数
-    """
 
     def __str__(self) -> builtins.str: ...
     def __repr__(self) -> builtins.str: ...
@@ -1616,10 +1742,6 @@ class WfWarmupMode(enum.Enum):
     ExtendTest = ...
     r"""
     训练后扩展过渡区再进入测试
-    """
-    NoWarmup = ...
-    r"""
-    关闭指标预热补全，仅保留最小过渡锚点
     """
 
     def as_str(self) -> builtins.str:

@@ -7,11 +7,13 @@ import pytest
 from py_entry.runner import Backtest
 from py_entry.types import (
     BacktestParams,
+    DataPack,
     ExecutionStage,
     LogicOp,
     Param,
     SignalGroup,
     SignalTemplate,
+    SourceRange,
 )
 from py_entry.data_generator import DataGenerationParams
 from py_entry.Test.shared import make_engine_settings
@@ -110,7 +112,7 @@ class TestAtrColumnRegression:
         )
         runner = _build_minimal_runner(num_bars=120, backtest_params=params)
         result = runner.run()
-        df = result.summary.backtest_result
+        df = result.result.backtest_result
         assert df is not None, "backtest_result 不应为空"
 
         assert "atr" in df.columns, "启用 ATR 风控参数后，输出缺少 atr 列"
@@ -150,7 +152,7 @@ class TestShortDatasetRegression:
 
         runner = _build_minimal_runner(num_bars=num_bars, backtest_params=params)
         result = runner.run()
-        df = result.summary.backtest_result
+        df = result.result.backtest_result
         assert df is not None, "backtest_result 不应为空"
 
         assert df.height == num_bars, f"回测结果行数应为 {num_bars}"
@@ -212,42 +214,132 @@ class TestBacktestParamDefaultsAndValidation:
 
 
 class TestHasLeadingNanPassthrough:
-    """has_leading_nan 透传回归测试。"""
+    """has_leading_nan 输出边界回归测试。"""
 
-    def test_backtest_output_passthroughs_has_leading_nan_when_present(self):
-        """signals 包含 has_leading_nan 时，backtest 输出应透传且值一致。"""
+    def test_top_level_backtest_output_omits_has_leading_nan_when_present(self):
+        """顶层单次回测结果中，backtest 输出不应继续透传 has_leading_nan。"""
         runner = _build_minimal_runner(num_bars=80, include_indicators=True)
-        summary = runner.run().summary
+        result = runner.run().result
 
-        signals_df = summary.signals
-        backtest_df = summary.backtest_result
+        signals_df = result.signals
+        backtest_df = result.backtest_result
         assert signals_df is not None, "signals 不应为空"
         assert backtest_df is not None, "backtest_result 不应为空"
 
         assert "has_leading_nan" in signals_df.columns, (
             "signals 结果应包含 has_leading_nan"
         )
-        assert "has_leading_nan" in backtest_df.columns, (
-            "backtest 结果应透传 has_leading_nan"
+        assert "has_leading_nan" not in backtest_df.columns, (
+            "顶层 backtest 结果不应继续透传 has_leading_nan"
         )
-        assert (
-            signals_df["has_leading_nan"] == backtest_df["has_leading_nan"]
-        ).all(), "has_leading_nan 透传值不一致"
 
     def test_backtest_output_omits_has_leading_nan_when_input_missing(self):
-        """signals 不包含 has_leading_nan 时，backtest 输出不应凭空生成该列。"""
+        """低层 backtester 在输入缺少该列时，不应凭空生成 has_leading_nan。"""
         runner = _build_minimal_runner(num_bars=80, include_indicators=True)
-        summary = runner.run().summary
+        result = runner.run().result
 
-        signals_df = summary.signals
+        signals_df = result.signals
         assert signals_df is not None, "signals 不应为空"
         signals_without_nan_col = signals_df.drop("has_leading_nan")
 
         df = pyo3_quant.backtest_engine.backtester.run_backtest(
-            runner.data_dict,
+            runner.data_pack,
             signals_without_nan_col,
             runner.params.backtest,
         )
         assert "has_leading_nan" not in df.columns, (
             "输入 signals 缺少 has_leading_nan 时，backtest 输出不应包含该列"
+        )
+
+    def test_backtest_output_omits_has_leading_nan_when_input_present(self):
+        """低层 backtester 即使收到该列，也不应继续把它透传到 backtest 输出。"""
+        runner = _build_minimal_runner(num_bars=80, include_indicators=True)
+        result = runner.run().result
+
+        signals_df = result.signals
+        assert signals_df is not None, "signals 不应为空"
+        assert "has_leading_nan" in signals_df.columns, (
+            "signals 结果应包含 has_leading_nan"
+        )
+
+        df = pyo3_quant.backtest_engine.backtester.run_backtest(
+            runner.data_pack,
+            signals_df,
+            runner.params.backtest,
+        )
+        assert "has_leading_nan" not in df.columns, (
+            "低层 backtester 不应继续透传 has_leading_nan"
+        )
+
+
+class TestWarmupEntrySuppression:
+    """预热禁开仓必须在信号模块内部完成。"""
+
+    def test_signal_module_suppresses_entry_by_base_warmup_range(self):
+        """仅由 backtest-exec warmup 产生的预热区，也必须在 signals 中禁开仓。"""
+        base_key = "ohlcv_15m"
+        runner = Backtest(
+            data_source=DataGenerationParams(
+                timeframes=["15m"],
+                start_time=TEST_START_TIME_MS,
+                num_bars=80,
+                fixed_seed=11,
+                base_data_key=base_key,
+                allow_gaps=False,
+            ),
+            indicators={},
+            backtest=BacktestParams(
+                initial_capital=10_000.0,
+                fee_fixed=0.0,
+                fee_pct=0.0,
+                sl_atr=Param(2.0),
+                atr_period=Param(5.0),
+                sl_exit_in_bar=False,
+                tp_exit_in_bar=False,
+                sl_trigger_mode=False,
+                tp_trigger_mode=False,
+                tsl_trigger_mode=False,
+            ),
+            signal_template=SignalTemplate(
+                entry_long=SignalGroup(
+                    logic=LogicOp.AND,
+                    comparisons=[f"close, {base_key}, 0 > -1"],
+                ),
+                entry_short=None,
+                exit_long=None,
+                exit_short=None,
+            ),
+            engine_settings=make_engine_settings(
+                execution_stage=ExecutionStage.Signals,
+                return_only_final=False,
+            ),
+        )
+
+        warmup_bars = 5
+        source_df = runner.data_pack.source[base_key]
+        custom_data_pack = DataPack(
+            mapping=runner.data_pack.mapping,
+            skip_mask=runner.data_pack.skip_mask,
+            source=runner.data_pack.source,
+            base_data_key=base_key,
+            ranges={
+                base_key: SourceRange(
+                    warmup_bars=warmup_bars,
+                    active_bars=source_df.height - warmup_bars,
+                    pack_bars=source_df.height,
+                )
+            },
+        )
+        signals = pyo3_quant.backtest_engine.signal_generator.generate_signals(
+            custom_data_pack,
+            {},
+            runner.params.signal,
+            runner.template_config.signal,
+        )
+
+        assert signals["has_leading_nan"].sum() == 0, (
+            "该用例只验证 ranges[base].warmup_bars 禁开仓，不应依赖 has_leading_nan"
+        )
+        assert signals["entry_long"][:warmup_bars].sum() == 0, (
+            "预热区 entry_long 必须由信号模块按 base warmup 统一置为 false"
         )

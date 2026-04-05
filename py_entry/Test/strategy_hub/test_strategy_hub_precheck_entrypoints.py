@@ -22,12 +22,13 @@ class _DummyBacktest:
         return {
             "base_data_key": "ohlcv_15m",
             "indicator_warmup_bars_base": 10,
-            "effective_transition_bars": 10,
+            "train_warmup_bars_base": 10,
+            "test_warmup_bars_base": 10,
         }
 
     def run(self):
         return SimpleNamespace(
-            summary=SimpleNamespace(performance={"total_return": 0.1})
+            result=SimpleNamespace(performance={"total_return": 0.1})
         )
 
     def optimize(self, _):

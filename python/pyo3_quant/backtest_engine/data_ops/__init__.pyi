@@ -2,33 +2,65 @@
 # ruff: noqa: E501, F401, F403, F405
 
 import pyo3_quant
+import typing
 
 __all__ = [
+    "build_data_pack",
+    "build_mapping_frame",
+    "build_result_pack",
     "build_time_mapping",
-    "concat_backtest_summaries",
+    "extract_active",
     "is_natural_mapping_column",
     "rebuild_stitched_capital_columns",
-    "slice_backtest_summary",
-    "slice_data_container",
+    "slice_data_pack",
+    "slice_result_pack",
+    "strip_indicator_time_columns",
 ]
 
+def build_data_pack(
+    source: dict[str, object],
+    base_data_key: str,
+    ranges: dict[str, pyo3_quant.SourceRange],
+    skip_mask: typing.Any = None,
+) -> pyo3_quant.DataPack:
+    r"""
+    按统一 contract 构建 DataPack
+    """
+
+def build_mapping_frame(source: dict[str, object], base_data_key: str) -> object:
+    r"""
+    按 DataPack contract 构建 mapping DataFrame
+    """
+
+def build_result_pack(
+    data: pyo3_quant.DataPack,
+    indicators: typing.Any = None,
+    signals: typing.Any = None,
+    backtest_result: typing.Any = None,
+    performance: typing.Any = None,
+) -> pyo3_quant.ResultPack:
+    r"""
+    按统一 contract 构建 ResultPack
+    """
+
 def build_time_mapping(
-    data_dict: pyo3_quant.DataContainer, align_to_base_range: bool = False
-) -> pyo3_quant.DataContainer:
+    source: dict[str, object],
+    base_data_key: str,
+    skip_mask: typing.Any = None,
+    align_to_base_range: bool = False,
+) -> pyo3_quant.DataPack:
     r"""
-    在 Rust 端构建 DataContainer.mapping（可选按 base 时间范围对齐）
+    从原始 source 直接构建带统一 mapping 的正式 DataPack
     """
 
-def concat_backtest_summaries(
-    summaries: list[pyo3_quant.BacktestSummary],
-) -> pyo3_quant.BacktestSummary:
+def extract_active(
+    data: pyo3_quant.DataPack, result: pyo3_quant.ResultPack
+) -> tuple[pyo3_quant.DataPack, pyo3_quant.ResultPack]:
     r"""
-    严格拼接多个 BacktestSummary（不拼接 performance）
+    提取同源 DataPack / ResultPack 的 active 视图
     """
 
-def is_natural_mapping_column(
-    data_dict: pyo3_quant.DataContainer, source_key: str
-) -> bool:
+def is_natural_mapping_column(data: pyo3_quant.DataPack, source_key: str) -> bool:
     r"""
     判断 mapping[source_key] 是否为 0..n-1 自然序列（fast-path 判定）
     """
@@ -40,19 +72,23 @@ def rebuild_stitched_capital_columns(
     按 stitched 口径重建资金列（balance/equity/total_return_pct/fee_cum/current_drawdown）
     """
 
-def slice_backtest_summary(
-    summary: pyo3_quant.BacktestSummary,
-    data_dict: pyo3_quant.DataContainer,
-    start: int,
-    length: int,
-) -> pyo3_quant.BacktestSummary:
+def slice_data_pack(
+    data: pyo3_quant.DataPack, start: int, length: int
+) -> pyo3_quant.DataPack:
     r"""
-    按 base 窗口切 BacktestSummary（含 indicators mapping 语义）
+    按 base 窗口切 DataPack，并重基窗口内 mapping
     """
 
-def slice_data_container(
-    data_dict: pyo3_quant.DataContainer, start: int, length: int
-) -> pyo3_quant.DataContainer:
+def slice_result_pack(
+    result: pyo3_quant.ResultPack, data: pyo3_quant.DataPack, start: int, length: int
+) -> pyo3_quant.ResultPack:
     r"""
-    按 base 窗口切 DataContainer，并重基窗口内 mapping
+    按 base 窗口切 ResultPack（含 indicators mapping 语义）
+    """
+
+def strip_indicator_time_columns(
+    indicators_with_time: dict[str, object],
+) -> dict[str, object]:
+    r"""
+    把 ResultPack.indicators 降级回 raw indicators
     """

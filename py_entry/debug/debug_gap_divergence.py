@@ -42,7 +42,7 @@ def run_debug():
     pyo3_adapter.run("reversal_extreme")
     assert pyo3_adapter.result is not None
     assert pyo3_adapter.runner is not None
-    assert pyo3_adapter.runner.data_dict is not None
+    assert pyo3_adapter.runner.data_pack is not None
 
     pyo3_df = pyo3_adapter.result.backtest_df.with_row_index("bar_index")
 
@@ -92,7 +92,7 @@ def run_debug():
 
     # 4. 获取 OHLCV 数据
     base_key = f"ohlcv_{config.timeframe}"
-    pyo3_source = pyo3_adapter.runner.data_dict.source[base_key]
+    pyo3_source = pyo3_adapter.runner.data_pack.source[base_key]
 
     open_arr = pyo3_source["open"].to_numpy()
     close_arr = pyo3_source["close"].to_numpy()

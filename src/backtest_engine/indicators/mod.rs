@@ -21,8 +21,7 @@ use self::contracts::resolve_indicator_contracts;
 use self::registry::get_indicator_registry;
 use self::registry::WarmupMode;
 use crate::types::{
-    DataContainer, IndicatorContract, IndicatorContractReport, IndicatorResults, IndicatorsParams,
-    Param,
+    DataPack, IndicatorContract, IndicatorContractReport, IndicatorResults, IndicatorsParams, Param,
 };
 
 use crate::error::{IndicatorError, QuantError};
@@ -62,7 +61,7 @@ pub fn calculate_single_period_indicators(
 /// 计算多周期指标
 /// 对每个数据源的每个周期分别计算指标,返回 IndicatorResults
 pub fn calculate_indicators(
-    processed_data: &DataContainer,
+    processed_data: &DataPack,
     indicators_params: &IndicatorsParams,
 ) -> Result<IndicatorResults, QuantError> {
     let mut all_indicators: IndicatorResults = HashMap::new();
@@ -88,7 +87,7 @@ use pyo3_stub_gen::derive::*;
 #[pyfunction(name = "calculate_indicators")]
 pub fn py_calculate_indicators(
     py: Python<'_>,
-    processed_data: DataContainer,
+    processed_data: DataPack,
     indicators_params: IndicatorsParams,
 ) -> PyResult<HashMap<String, Py<PyAny>>> {
     let result_map = calculate_indicators(&processed_data, &indicators_params)?;

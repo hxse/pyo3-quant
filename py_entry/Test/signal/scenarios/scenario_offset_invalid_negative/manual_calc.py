@@ -8,7 +8,7 @@ import polars as pl
 
 
 def calculate_signals(
-    data_container,
+    data_pack,
     signal_params,
     indicators_15m,
     indicators_1h,

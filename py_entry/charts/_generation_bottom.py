@@ -1,11 +1,11 @@
-from py_entry.types import BacktestSummary, SeriesItemConfig
+from py_entry.types import ResultPack, SeriesItemConfig
 
 from .core_helpers import get_style_option
 from .settings import BOTTOM_PANEL_LAYOUT
 
 
 def build_bottom_row_chart(
-    result: BacktestSummary,
+    result: ResultPack,
     dataframe_format: str,
 ) -> list[list[list[SeriesItemConfig]]]:
     """构建底栏图表结构（Slot > Pane > Series）。"""

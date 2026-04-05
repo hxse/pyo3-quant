@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Any
 
 from py_entry.types import BacktestParams
+from py_entry.types import BacktestParamSegment
 from py_entry.types import ExecutionStage
 from py_entry.types import LogicOp
 from py_entry.types import Param
@@ -113,6 +114,13 @@ def convert_to_serializable(obj: Any) -> Any:
             k: convert_to_serializable(getattr(obj, k))
             for k in backtest_fields
             if getattr(obj, k) is not None
+        }
+
+    if isinstance(obj, BacktestParamSegment):
+        return {
+            "start_row": obj.start_row,
+            "end_row": obj.end_row,
+            "params": convert_to_serializable(obj.params),
         }
 
     if isinstance(obj, SignalGroup):

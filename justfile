@@ -79,7 +79,7 @@ debug name: develop
 
 # ==================== 测试 ====================
 
-# 运行 Python 测试 (可选 path 参数，例: just test-py path="py_entry/Test/backtest")
+# 运行 Python 测试 (可选 path 参数，例: just test-py py_entry/Test/backtest)
 test-py path="py_entry/Test": develop
     uv run --no-sync python -m pytest {{path}}
 
@@ -87,7 +87,7 @@ test-py path="py_entry/Test": develop
 test-rust:
     uv run --no-sync cargo test
 
-# 运行精确匹配的 Rust 单元测试
+# 运行精确匹配的 Rust 单元测试 (例: just test-rust-exact backtest_engine::backtester::tests::foo)
 test-rust-exact name:
     uv run --no-sync cargo test {{name}} -- --exact
 

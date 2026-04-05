@@ -1,14 +1,14 @@
 """
 图表配置通用辅助工具
 
-提供通用工具函数，并重新导出其他模块的函数以保持向后兼容性。
+提供通用工具函数，并统一聚合导出图表辅助能力。
 """
 
 from typing import Dict, Any
 
 from .options import ColorSchemes
 
-# 为了保持向后兼容，重新导出其他模块的函数
+# 统一聚合导出其他模块的函数
 from .series_builders import (
     create_candle_series,
     create_line_series,

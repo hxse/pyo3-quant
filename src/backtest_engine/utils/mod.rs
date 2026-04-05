@@ -9,7 +9,6 @@ pub use common::get_ohlcv_dataframe;
 pub use context::BacktestContext;
 pub use data_utils::{get_data_length, validate_timestamp_ms};
 pub use memory_optimizer::{
-    create_backtest_summary, maybe_release_backtest, maybe_release_indicators,
-    maybe_release_signals,
+    maybe_release_backtest, maybe_release_indicators, maybe_release_signals,
 };
 pub use rayon_parallel::process_param_in_single_thread;

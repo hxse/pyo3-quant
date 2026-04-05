@@ -6,7 +6,7 @@ from typing import Tuple
 
 from py_entry.io._converters_serialization import dumps_json_bytes
 from py_entry.io.configs import ParquetCompression
-from py_entry.types import BacktestSummary
+from py_entry.types import ResultPack
 
 
 def _dataframe_to_buffer(
@@ -24,7 +24,7 @@ def _dataframe_to_buffer(
 
 
 def convert_backtest_result_to_buffers(
-    result: BacktestSummary,
+    result: ResultPack,
     dataframe_format: str,
     parquet_compression: ParquetCompression,
 ) -> List[Tuple[Path, io.BytesIO]]:

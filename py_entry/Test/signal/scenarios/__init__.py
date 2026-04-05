@@ -72,10 +72,6 @@ from py_entry.Test.signal.scenarios.scenario_multi_timeframe_indicator_compariso
     config as multi_timeframe_indicator_comparison_config,
     manual_calc as multi_timeframe_indicator_comparison_calc,
 )
-from py_entry.Test.signal.scenarios.scenario_cross_data_source import (
-    config as cross_data_source_config,
-    manual_calc as cross_data_source_calc,
-)
 from py_entry.Test.signal.scenarios.scenario_cross_non_base_invalid import (
     config as cross_non_base_invalid_config,
     manual_calc as cross_non_base_invalid_calc,
@@ -332,15 +328,6 @@ _ALL_SCENARIOS = [
         signal_params=multi_timeframe_indicator_comparison_config.SIGNAL_PARAMS,
         signal_template=multi_timeframe_indicator_comparison_config.SIGNAL_TEMPLATE,
         manual_calculator=multi_timeframe_indicator_comparison_calc.calculate_signals,
-        expected_exception=None,  # 预期成功
-    ),
-    TestScenario(
-        name="scenario_cross_data_source",
-        description=cross_data_source_config.DESCRIPTION,
-        indicators_params=cross_data_source_config.INDICATORS_PARAMS,
-        signal_params=cross_data_source_config.SIGNAL_PARAMS,
-        signal_template=cross_data_source_config.SIGNAL_TEMPLATE,
-        manual_calculator=cross_data_source_calc.calculate_signals,
         expected_exception=None,  # 预期成功
     ),
     TestScenario(

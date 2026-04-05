@@ -17,8 +17,10 @@ import pytest
 from py_entry.Test.shared.constants import TEST_START_TIME_MS
 from py_entry.data_generator import DataGenerationParams
 from py_entry.runner import Backtest
+from py_entry.runner import FormatResultsConfig
 from py_entry.types import (
     ExecutionStage,
+    HorizontalLineLayoutItem,
     LogicOp,
     Param,
     ParamType,
@@ -27,6 +29,15 @@ from py_entry.types import (
     SignalTemplate,
     WalkForwardConfig,
 )
+
+
+def _window_active_backtest(window) -> pl.DataFrame:
+    """从窗口正式 test_pack_result 中切出 active-only backtest。"""
+    backtest_df = window.test_pack_result.backtest_result
+    assert backtest_df is not None
+    base_key = window.test_pack_result.base_data_key
+    base_range = window.test_pack_result.ranges[base_key]
+    return backtest_df.slice(base_range.warmup_bars, base_range.active_bars)
 
 
 @pytest.fixture(scope="module")
@@ -41,9 +52,9 @@ def wf_default(
         with_backtest_params=True,
     )
     cfg = build_wf_cfg(
-        train_bars=400,
-        transition_bars=100,
-        test_bars=200,
+        train_active_bars=400,
+        test_active_bars=200,
+        min_warmup_bars=100,
         optimizer_rounds=24,
     )
     return bt.walk_forward(cfg)
@@ -56,7 +67,7 @@ def test_wf_boundary_no_event_no_cliff(
     """边界无进出场事件时，stitched 资金曲线不应出现断崖跳变。"""
     wf = wf_default
 
-    stitched = wf.stitched_summary.backtest_result
+    stitched = wf.stitched_pack_result.backtest_result
     assert stitched is not None
     equity = stitched["equity"].cast(pl.Float64, strict=False)
     event_mask = stitched.select(
@@ -74,9 +85,7 @@ def test_wf_boundary_no_event_no_cliff(
     boundaries: list[int] = []
     acc = 0
     for idx, w in enumerate(wf.window_results):
-        window_backtest = w.summary.backtest_result
-        assert window_backtest is not None
-        h = window_backtest.height
+        h = _window_active_backtest(w).height
         if idx > 0:
             boundaries.append(acc)
         acc += h
@@ -113,17 +122,17 @@ def test_wf_single_window_degenerate_equivalence(
     )
     wf = bt.walk_forward(
         build_wf_cfg(
-            train_bars=400,
-            transition_bars=100,
-            test_bars=200,
+            train_active_bars=400,
+            test_active_bars=200,
+            min_warmup_bars=100,
             optimizer_rounds=24,
         )
     )
 
     assert len(wf.window_results) == 1
-    stitched_df = wf.stitched_summary.backtest_result
-    window_df = wf.window_results[0].summary.backtest_result
-    assert stitched_df is not None and window_df is not None
+    stitched_df = wf.stitched_pack_result.backtest_result
+    window_df = _window_active_backtest(wf.window_results[0])
+    assert stitched_df is not None
     assert stitched_df.height == window_df.height
 
     # 中文注释：比较关键资金列，使用向量化差值最大值断言。
@@ -147,14 +156,14 @@ def test_wf_no_trade_invariance(
     )
     wf = bt.walk_forward(
         build_wf_cfg(
-            train_bars=400,
-            transition_bars=100,
-            test_bars=200,
+            train_active_bars=400,
+            test_active_bars=200,
+            min_warmup_bars=100,
             optimizer_rounds=24,
         )
     )
 
-    stitched_df = wf.stitched_summary.backtest_result
+    stitched_df = wf.stitched_pack_result.backtest_result
     assert stitched_df is not None
     balance = stitched_df["balance"].cast(pl.Float64, strict=False)
     equity = stitched_df["equity"].cast(pl.Float64, strict=False)
@@ -176,9 +185,9 @@ def test_wf_reproducibility_same_seed_same_result(
 ):
     """同配置同 seed 连续运行两次，结果应保持一致（2000 bars + 20 次优化）。"""
     cfg = build_wf_cfg(
-        train_bars=500,
-        transition_bars=150,
-        test_bars=200,
+        train_active_bars=500,
+        test_active_bars=200,
+        min_warmup_bars=150,
         optimizer_rounds=20,
     )
     bt1 = build_sma_cross_backtest(
@@ -202,8 +211,8 @@ def test_wf_reproducibility_same_seed_same_result(
         assert abs(float(m1.get(key, 0.0)) - float(m2.get(key, 0.0))) < 1e-12
 
     # 中文注释：再比较 stitched 资金曲线，向量化检查最大差值为 0。
-    s1 = wf1.stitched_summary.backtest_result
-    s2 = wf2.stitched_summary.backtest_result
+    s1 = wf1.stitched_pack_result.backtest_result
+    s2 = wf2.stitched_pack_result.backtest_result
     assert s1 is not None and s2 is not None
     eq1 = s1["equity"].cast(pl.Float64, strict=False)
     eq2 = s2["equity"].cast(pl.Float64, strict=False)
@@ -216,7 +225,7 @@ def test_wf_window_order_and_stitched_bars_consistent(wf_default):
     """窗口顺序与 stitched 长度必须一致，防止窗口拼接错位。"""
     wf = wf_default
 
-    stitched_df = wf.stitched_summary.backtest_result
+    stitched_df = wf.stitched_pack_result.backtest_result
     assert stitched_df is not None
     stitched_h = stitched_df.height
 
@@ -225,32 +234,59 @@ def test_wf_window_order_and_stitched_bars_consistent(wf_default):
     prev_window_id: int | None = None
 
     for w in wf.window_results:
-        w_df = w.summary.backtest_result
-        assert w_df is not None
-        sum_h += w_df.height
+        sum_h += _window_active_backtest(w).height
 
-        # 中文注释：窗口必须按自然时间顺序返回（window_id 与 test_range 都应单调）。
+        # 中文注释：窗口必须按自然时间顺序返回（window_id 与 test_active_base_row_range 都应单调）。
         if prev_window_id is not None:
-            assert w.window_id > prev_window_id
+            assert w.meta.window_id > prev_window_id
         if prev_test_end is not None:
-            assert w.test_range[0] >= prev_test_end
-        prev_window_id = w.window_id
-        prev_test_end = w.test_range[1]
+            assert w.meta.test_active_base_row_range[0] >= prev_test_end
+        prev_window_id = w.meta.window_id
+        prev_test_end = w.meta.test_active_base_row_range[1]
 
     assert stitched_h == sum_h, "stitched bars 与窗口 test bars 累计不一致"
-    assert int(wf.stitched_result.bars) == stitched_h
+    assert int(wf.stitched_result.stitched_data.mapping.height) == stitched_h
 
 
 def test_wf_stitched_time_strictly_increasing(wf_default, wf_base_key: str):
     """stitched 时间列必须严格递增且无重复。"""
     wf = wf_default
 
-    data = wf.stitched_result.data
+    data = wf.stitched_result.stitched_data
     time_col = data.source[wf_base_key]["time"].cast(pl.Int64, strict=False)
     assert len(time_col) > 1
     # 中文注释：严格递增等价于差分最小值大于 0。
     min_step = int(time_col.diff().drop_nulls().min() or 0)
     assert min_step > 0, f"time 非严格递增, min_step={min_step}"
+
+
+def test_wf_stitched_export_uses_backtest_schedule_not_single_param_set(wf_default):
+    """stitched 导出必须以 segmented replay schedule 为正式参数解释层。"""
+    wf = wf_default.format_for_export(FormatResultsConfig(dataframe_format="csv"))
+    assert wf.export_buffers is not None
+
+    exported_paths = {str(path) for path, _ in wf.export_buffers}
+    assert "backtest_schedule/backtest_schedule.json" in exported_paths
+    assert "param_set/param.json" not in exported_paths
+
+
+def test_wf_stitched_indicator_layout_rejects_param_key_hline(wf_default):
+    """stitched 默认图表生成不得再借用单窗口参数解释 paramKey 型 hline。"""
+    with pytest.raises(ValueError, match="paramKey 型 hline"):
+        wf_default.format_for_export(
+            FormatResultsConfig(
+                dataframe_format="csv",
+                indicator_layout={
+                    "main": [
+                        HorizontalLineLayoutItem(
+                            indicator="signal_threshold",
+                            paramKey="signal_threshold",
+                            anchorIndicator="sma_fast",
+                        )
+                    ]
+                },
+            )
+        )
 
 
 def test_wf_boundary_cross_inheritance_not_reset_to_initial(
@@ -305,16 +341,16 @@ def test_wf_boundary_cross_inheritance_not_reset_to_initial(
         signal_template=template,
         engine_settings=settings,
     )
-    # 中文注释：用较小优化轮次和适中的 test_bars，保持跨窗继承语义同时显著降低窗口总数。
+    # 中文注释：用较小优化轮次和适中的 test_active_bars，保持跨窗继承语义同时显著降低窗口总数。
     wf = bt.walk_forward(
         build_wf_cfg(
-            train_bars=200,
-            transition_bars=30,
-            test_bars=20,
+            train_active_bars=200,
+            test_active_bars=20,
+            min_warmup_bars=30,
             optimizer_rounds=6,
         )
     )
-    stitched = wf.stitched_summary.backtest_result
+    stitched = wf.stitched_pack_result.backtest_result
     assert stitched is not None
     equity = stitched["equity"].cast(pl.Float64, strict=False)
 
@@ -322,9 +358,8 @@ def test_wf_boundary_cross_inheritance_not_reset_to_initial(
     acc = 0
     checked = 0
     for idx, w in enumerate(wf.window_results):
-        w_df = w.summary.backtest_result
-        assert w_df is not None
-        if idx > 0 and bool(w.has_cross_boundary_position):
+        w_df = _window_active_backtest(w)
+        if idx > 0 and bool(w.meta.has_cross_boundary_position):
             b = acc
             if 0 <= b < equity.len():
                 assert abs(float(equity[b]) - initial_capital) > 1e-9, (

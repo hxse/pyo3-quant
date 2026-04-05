@@ -24,29 +24,29 @@ def test_full_intermediate_results(base_backtest):
         execution_stage=ExecutionStage.Indicator, return_only_final=False
     )
     res = base_backtest.run()
-    assert res.summary.indicators is not None
-    assert res.summary.signals is None
-    assert res.summary.backtest_result is None
-    assert res.summary.performance is None
+    assert res.result.indicators is not None
+    assert res.result.signals is None
+    assert res.result.backtest_result is None
+    assert res.result.performance is None
 
     # 2. 信号阶段
     base_backtest.engine_settings = make_engine_settings(
         execution_stage=ExecutionStage.Signals, return_only_final=False
     )
     res = base_backtest.run()
-    assert res.summary.indicators is not None
-    assert res.summary.signals is not None
-    assert res.summary.backtest_result is None
+    assert res.result.indicators is not None
+    assert res.result.signals is not None
+    assert res.result.backtest_result is None
 
     # 3. 回测阶段
     base_backtest.engine_settings = make_engine_settings(
         execution_stage=ExecutionStage.Backtest, return_only_final=False
     )
     res = base_backtest.run()
-    assert res.summary.indicators is not None
-    assert res.summary.signals is not None
-    assert res.summary.backtest_result is not None
-    assert res.summary.performance is None
+    assert res.result.indicators is not None
+    assert res.result.signals is not None
+    assert res.result.backtest_result is not None
+    assert res.result.performance is None
 
 
 def test_memory_optimization_final_only(base_backtest):
@@ -56,14 +56,14 @@ def test_memory_optimization_final_only(base_backtest):
         execution_stage=ExecutionStage.Signals, return_only_final=True
     )
     res = base_backtest.run()
-    assert res.summary.indicators is None  # 应该被释放
-    assert res.summary.signals is not None
-    assert res.summary.backtest_result is None
+    assert res.result.indicators is None  # 应该被释放
+    assert res.result.signals is not None
+    assert res.result.backtest_result is None
 
     # 2. 回测阶段 (只返回回测结果)
     base_backtest.engine_settings = make_engine_settings(
         execution_stage=ExecutionStage.Backtest, return_only_final=True
     )
     res = base_backtest.run()
-    assert res.summary.signals is None  # 应该被释放
-    assert res.summary.backtest_result is not None
+    assert res.result.signals is None  # 应该被释放
+    assert res.result.backtest_result is not None

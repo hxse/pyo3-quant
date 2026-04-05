@@ -9,6 +9,10 @@ use super::pipeline::psar_eager;
 
 pub struct PsarIndicator;
 
+pub(crate) fn psar_required_warmup_bars() -> usize {
+    2
+}
+
 impl Indicator for PsarIndicator {
     fn calculate(
         &self,
@@ -77,7 +81,7 @@ impl Indicator for PsarIndicator {
     ) -> Result<usize, QuantError> {
         // 中文注释：全列口径按全部输出列前导空值最大值计算。
         // 当前实现下最大前导空值为 2。
-        Ok(2)
+        Ok(psar_required_warmup_bars())
     }
 
     fn warmup_mode(&self) -> WarmupMode {

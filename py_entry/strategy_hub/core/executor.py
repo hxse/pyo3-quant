@@ -59,7 +59,7 @@ def build_backtest(spec: CommonStrategySpec, *, symbol: str | None = None) -> Ba
 
 
 def get_stage_configs(spec: CommonStrategySpec) -> dict[str, Any]:
-    """读取阶段配置，无 research 时回退默认。"""
+    """读取阶段配置，无 research 时使用默认配置。"""
 
     if isinstance(spec, SearchSpaceSpec):
         return {

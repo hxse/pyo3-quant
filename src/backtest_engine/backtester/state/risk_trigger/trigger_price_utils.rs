@@ -117,7 +117,7 @@ pub fn get_tsl_check_price(
     }
 }
 
-/// 获取 next_bar 模式下用于检查离场条件的价格（兼容接口）
+/// 获取 next_bar 模式下用于检查离场条件的价格
 ///
 /// # 参数
 /// * `current_bar` - 当前K线数据

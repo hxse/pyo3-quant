@@ -1,13 +1,8 @@
-use crate::backtest_engine::{
-    backtester, indicators, performance_analyzer, signal_generator, utils,
-};
+use crate::backtest_engine::data_ops::build_result_pack;
+use crate::backtest_engine::{backtester, utils};
 use crate::error::QuantError;
 use crate::types::ExecutionStage;
-use crate::types::SignalTemplate;
-use crate::types::{
-    BacktestParams, DataContainer, IndicatorsParams, PerformanceParams, SignalParams,
-};
-use crate::types::{BacktestSummary, IndicatorResults, PerformanceMetrics};
+use crate::types::{BacktestParams, DataPack, IndicatorResults, PerformanceMetrics, ResultPack};
 use polars::prelude::DataFrame;
 
 /// 回测执行上下文：持有所有阶段的中间结果
@@ -30,51 +25,12 @@ impl BacktestContext {
         }
     }
 
-    /// 执行技术指标计算阶段
-    pub fn execute_indicator_if_needed(
-        &mut self,
-        target_stage: ExecutionStage,
-        data: &DataContainer,
-        params: &IndicatorsParams,
-    ) -> Result<(), QuantError> {
-        if target_stage >= ExecutionStage::Indicator {
-            self.indicator_dfs = Some(indicators::calculate_indicators(data, params)?);
-        }
-        Ok(())
-    }
-
-    /// 执行信号生成阶段
-    pub fn execute_signals_if_needed(
-        &mut self,
-        target_stage: ExecutionStage,
-        return_only_final: bool,
-        data: &DataContainer,
-        signal_params: &SignalParams,
-        signal_template: &SignalTemplate,
-    ) -> Result<(), QuantError> {
-        if target_stage >= ExecutionStage::Signals {
-            if let Some(ref ind_dfs) = self.indicator_dfs {
-                let df = signal_generator::generate_signals(
-                    data,
-                    ind_dfs,
-                    signal_params,
-                    signal_template,
-                )?;
-                self.signals_df = Some(df);
-
-                // 在 return_only_final 模式下，信号计算完成后释放指标数据
-                utils::maybe_release_indicators(return_only_final, &mut self.indicator_dfs);
-            }
-        }
-        Ok(())
-    }
-
     /// 执行回测阶段
     pub fn execute_backtest_if_needed(
         &mut self,
         target_stage: ExecutionStage,
         return_only_final: bool,
-        data: &DataContainer,
+        data: &DataPack,
         backtest_params: &BacktestParams,
     ) -> Result<(), QuantError> {
         if target_stage >= ExecutionStage::Backtest {
@@ -89,40 +45,28 @@ impl BacktestContext {
         Ok(())
     }
 
-    /// 执行绩效分析阶段
-    pub fn execute_performance_if_needed(
-        &mut self,
-        target_stage: ExecutionStage,
-        return_only_final: bool,
-        data: &DataContainer,
-        performance_params: &PerformanceParams,
-    ) -> Result<(), QuantError> {
-        if target_stage >= ExecutionStage::Performance {
-            if let Some(ref bt_df) = self.backtest_df {
-                let metrics =
-                    performance_analyzer::analyze_performance(data, bt_df, performance_params)?;
-                self.performance = Some(metrics);
-
-                // 在 return_only_final 模式下，绩效分析完成后释放回测结果
-                utils::maybe_release_backtest(return_only_final, &mut self.backtest_df);
-            }
-        }
-        Ok(())
-    }
-
-    /// 转换为最终的 BacktestSummary
-    pub fn into_summary(
+    /// 转换为阶段结果对象
+    pub fn into_result_pack(
         self,
+        data: &DataPack,
         return_only_final: bool,
         stop_stage: ExecutionStage,
-    ) -> BacktestSummary {
-        utils::create_backtest_summary(
-            return_only_final,
-            stop_stage,
-            self.indicator_dfs,
-            self.signals_df,
-            self.backtest_df,
-            self.performance,
-        )
+    ) -> Result<ResultPack, QuantError> {
+        let indicators = if return_only_final && stop_stage >= ExecutionStage::Signals {
+            None
+        } else {
+            self.indicator_dfs
+        };
+        let signals = if return_only_final && stop_stage >= ExecutionStage::Backtest {
+            None
+        } else {
+            self.signals_df
+        };
+        let backtest = if return_only_final && stop_stage >= ExecutionStage::Performance {
+            None
+        } else {
+            self.backtest_df
+        };
+        build_result_pack(data, indicators, signals, backtest, self.performance)
     }
 }

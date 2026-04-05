@@ -3,6 +3,7 @@
 //! 负责根据回测参数初始化输出缓冲区
 
 use super::output_struct::OutputBuffers;
+use crate::backtest_engine::backtester::output_schema::ScheduleOutputSchema;
 use crate::types::BacktestParams;
 
 impl OutputBuffers {
@@ -33,83 +34,120 @@ impl OutputBuffers {
 
             // 可选列根据参数决定是否初始化
             sl_pct_price_long: if params.is_sl_pct_param_valid() {
-                Some(vec![0.0; capacity])
+                Some(vec![f64::NAN; capacity])
             } else {
                 None
             },
             sl_pct_price_short: if params.is_sl_pct_param_valid() {
-                Some(vec![0.0; capacity])
+                Some(vec![f64::NAN; capacity])
             } else {
                 None
             },
             tp_pct_price_long: if params.is_tp_pct_param_valid() {
-                Some(vec![0.0; capacity])
+                Some(vec![f64::NAN; capacity])
             } else {
                 None
             },
             tp_pct_price_short: if params.is_tp_pct_param_valid() {
-                Some(vec![0.0; capacity])
+                Some(vec![f64::NAN; capacity])
             } else {
                 None
             },
             tsl_pct_price_long: if params.is_tsl_pct_param_valid() {
-                Some(vec![0.0; capacity])
+                Some(vec![f64::NAN; capacity])
             } else {
                 None
             },
             tsl_pct_price_short: if params.is_tsl_pct_param_valid() {
-                Some(vec![0.0; capacity])
+                Some(vec![f64::NAN; capacity])
             } else {
                 None
             },
             // ATR相关列
             atr: if params.has_any_atr_param() {
-                Some(vec![0.0; capacity])
+                Some(vec![f64::NAN; capacity])
             } else {
                 None
             },
             sl_atr_price_long: if params.is_sl_atr_param_valid() {
-                Some(vec![0.0; capacity])
+                Some(vec![f64::NAN; capacity])
             } else {
                 None
             },
             sl_atr_price_short: if params.is_sl_atr_param_valid() {
-                Some(vec![0.0; capacity])
+                Some(vec![f64::NAN; capacity])
             } else {
                 None
             },
             tp_atr_price_long: if params.is_tp_atr_param_valid() {
-                Some(vec![0.0; capacity])
+                Some(vec![f64::NAN; capacity])
             } else {
                 None
             },
             tp_atr_price_short: if params.is_tp_atr_param_valid() {
-                Some(vec![0.0; capacity])
+                Some(vec![f64::NAN; capacity])
             } else {
                 None
             },
             tsl_atr_price_long: if params.is_tsl_atr_param_valid() {
-                Some(vec![0.0; capacity])
+                Some(vec![f64::NAN; capacity])
             } else {
                 None
             },
             tsl_atr_price_short: if params.is_tsl_atr_param_valid() {
-                Some(vec![0.0; capacity])
+                Some(vec![f64::NAN; capacity])
             } else {
                 None
             },
             tsl_psar_price_long: if params.is_tsl_psar_param_valid() {
-                Some(vec![0.0; capacity])
+                Some(vec![f64::NAN; capacity])
             } else {
                 None
             },
             tsl_psar_price_short: if params.is_tsl_psar_param_valid() {
-                Some(vec![0.0; capacity])
+                Some(vec![f64::NAN; capacity])
             } else {
                 None
             },
 
             // Risk State Output
+            risk_in_bar_direction: vec![0; capacity],
+            first_entry_side: vec![0; capacity],
+            frame_state: vec![0; capacity],
+        }
+    }
+
+    /// 中文注释：schedule 路径按 union schema 一次性分配可选列，未激活 row 保持 NaN。
+    pub fn from_schema(schema: &ScheduleOutputSchema, capacity: usize) -> Self {
+        let has = |name: &str| schema.has_column(name);
+
+        Self {
+            balance: vec![0.0; capacity],
+            equity: vec![0.0; capacity],
+            trade_pnl_pct: vec![0.0; capacity],
+            total_return_pct: vec![0.0; capacity],
+            fee: vec![0.0; capacity],
+            fee_cum: vec![0.0; capacity],
+            current_drawdown: vec![0.0; capacity],
+            entry_long_price: vec![0.0; capacity],
+            entry_short_price: vec![0.0; capacity],
+            exit_long_price: vec![0.0; capacity],
+            exit_short_price: vec![0.0; capacity],
+            sl_pct_price_long: has("sl_pct_price_long").then(|| vec![f64::NAN; capacity]),
+            sl_pct_price_short: has("sl_pct_price_short").then(|| vec![f64::NAN; capacity]),
+            tp_pct_price_long: has("tp_pct_price_long").then(|| vec![f64::NAN; capacity]),
+            tp_pct_price_short: has("tp_pct_price_short").then(|| vec![f64::NAN; capacity]),
+            tsl_pct_price_long: has("tsl_pct_price_long").then(|| vec![f64::NAN; capacity]),
+            tsl_pct_price_short: has("tsl_pct_price_short").then(|| vec![f64::NAN; capacity]),
+            atr: has("atr").then(|| vec![f64::NAN; capacity]),
+            sl_atr_price_long: has("sl_atr_price_long").then(|| vec![f64::NAN; capacity]),
+            sl_atr_price_short: has("sl_atr_price_short").then(|| vec![f64::NAN; capacity]),
+            tp_atr_price_long: has("tp_atr_price_long").then(|| vec![f64::NAN; capacity]),
+            tp_atr_price_short: has("tp_atr_price_short").then(|| vec![f64::NAN; capacity]),
+            tsl_atr_price_long: has("tsl_atr_price_long").then(|| vec![f64::NAN; capacity]),
+            tsl_atr_price_short: has("tsl_atr_price_short").then(|| vec![f64::NAN; capacity]),
+            tsl_psar_price_long: has("tsl_psar_price_long").then(|| vec![f64::NAN; capacity]),
+            tsl_psar_price_short: has("tsl_psar_price_short").then(|| vec![f64::NAN; capacity]),
             risk_in_bar_direction: vec![0; capacity],
             first_entry_side: vec![0; capacity],
             frame_state: vec![0; capacity],

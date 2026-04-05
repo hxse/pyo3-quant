@@ -45,10 +45,10 @@ def run_batch_mode(
         batch_result = backtest.batch(batch_param_sets)
 
         # 3) 反馈结果 (Tell)
-        for trial, summary in zip(trials, batch_result.summaries):
+        for trial, result in zip(trials, batch_result.results):
             val = 0.0
-            if summary.performance:
-                val = summary.performance.get(metric_key, 0.0)
+            if result.performance:
+                val = result.performance.get(metric_key, 0.0)
             study.tell(trial, val)
 
         n_trials_done += current_batch_size
@@ -75,8 +75,8 @@ def run_parallel_mode(
 
         # 单次回测
         result = backtest.run(params_override=new_params)
-        if result.summary.performance:
-            return result.summary.performance.get(metric_key, 0.0)
+        if result.result.performance:
+            return result.result.performance.get(metric_key, 0.0)
         return 0.0
 
     study.optimize(

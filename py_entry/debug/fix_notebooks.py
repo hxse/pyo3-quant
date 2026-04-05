@@ -82,7 +82,7 @@ def fix_notebook_cells(nb_path: Path):
 
             # 4. 修复 display_dashboard
             if ".display_dashboard(" in content:
-                # 移除旧的包装类
+                # 移除原包装类
                 content = content.replace("DisplayDashboardParams(", "")
                 # 如果有嵌套的 display_config=，将其改为 config=
                 content = content.replace("display_config=", "config=")

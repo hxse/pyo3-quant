@@ -1,6 +1,6 @@
 use crate::backtest_engine::utils::{column_names::ColumnName, get_ohlcv_dataframe};
 use crate::error::QuantError;
-use crate::types::DataContainer;
+use crate::types::DataPack;
 use polars::prelude::*;
 use polars::series::Series;
 
@@ -67,9 +67,9 @@ impl<'a> PreparedData<'a> {
     }
     /// 准备回测数据，将 Polars DataFrame/Series 转换为连续的内存数组切片
     pub fn new(
-        processed_data: &'a DataContainer,
+        processed_data: &'a DataPack,
         signals_df: DataFrame,
-        atr_series: &'a Option<Series>,
+        atr_series: Option<&'a Series>,
     ) -> Result<PreparedData<'a>, QuantError> {
         // 1. 预处理信号数据（处理冲突和屏蔽）
         let preprocessed_signals_df = super::signal_preprocessor::preprocess_signals(
@@ -107,7 +107,12 @@ impl<'a> PreparedData<'a> {
 
         // 4. 处理 ATR 数据
         let atr = match atr_series {
-            Some(series) => Some(series.f64()?.cont_slice()?.to_vec()),
+            Some(series) => {
+                // 中文注释：schedule stitched 路径里的 atr_by_row 可能由多段 slice + concat 得到，
+                // 这里统一先 rechunk，再取连续内存切片。
+                let rechunked = series.rechunk();
+                Some(rechunked.f64()?.cont_slice()?.to_vec())
+            }
             None => None,
         };
 

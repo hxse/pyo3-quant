@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from py_entry.data_generator import OhlcvDataFetchConfig, generate_data_dict
+from py_entry.data_generator import OhlcvDataFetchConfig, generate_data_pack
 from py_entry.io.types import RequestConfig
 
 
@@ -70,7 +70,7 @@ def test_start_side_backfill_moves_since_until_cover(monkeypatch):
         since=7_200_000,
         limit=3,
     )
-    out = generate_data_dict(cfg)
+    out = generate_data_pack(cfg)
 
     # 中文注释：验证 start 补拉触发了至少 2 次 1h 请求。
     calls_1h = [c for c in calls if c[0] == "1h"]
@@ -105,7 +105,7 @@ def test_end_side_backfill_increases_limit_with_min_step(monkeypatch):
         limit=5,
         end_backfill_min_step_bars=5,
     )
-    out = generate_data_dict(cfg)
+    out = generate_data_pack(cfg)
 
     calls_1h = [c for c in calls if c[0] == "1h"]
     # 中文注释：首轮 limit=5，下一轮至少 +5（而不是 +1）。

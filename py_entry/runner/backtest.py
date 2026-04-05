@@ -6,10 +6,9 @@ import polars as pl
 
 import pyo3_quant
 from py_entry.types import (
-    BacktestSummary,
     IndicatorContractReport,
     SingleParamSet,
-    DataContainer,
+    DataPack,
     TemplateContainer,
     SettingContainer,
     ExecutionStage,
@@ -73,13 +72,13 @@ class Backtest:
         start_time = time.perf_counter() if enable_timing else None
 
         # 1. 配置数据
-        self.data_dict: DataContainer = build_data(
+        self.data_pack: DataPack = build_data(
             data_source=data_source,
             other_params=other_params,
         )
 
-        if self.data_dict is None:
-            raise ValueError("data_dict 不能为空")
+        if self.data_pack is None:
+            raise ValueError("data_pack 不能为空")
 
         # 2. 配置参数 (单个)
         self.params: SingleParamSet = SingleParamSet(
@@ -108,17 +107,17 @@ class Backtest:
         target_params = params_override or self.params
 
         # 直接调用 Rust 的单回测 API, #[pyclass] 类型直接传过去
-        summary = pyo3_quant.backtest_engine.run_single_backtest(
-            self.data_dict,
+        result = pyo3_quant.backtest_engine.run_single_backtest(
+            self.data_pack,
             target_params,
             self.template_config,
             self.engine_settings,
         )
 
-        result = RunResult(
-            summary=summary,
+        run_result = RunResult(
+            result=result,
             params=target_params,
-            data_dict=self.data_dict,
+            data_pack=self.data_pack,
             template_config=self.template_config,
             engine_settings=self.engine_settings,
             enable_timing=self.enable_timing,
@@ -128,7 +127,7 @@ class Backtest:
             elapsed = time.perf_counter() - start_time
             logger.info(f"Backtest.run() 耗时: {elapsed:.4f}秒")
 
-        return result
+        return run_result
 
     def resolve_indicator_contracts(
         self, params_override: Optional[SingleParamSet] = None
@@ -210,7 +209,7 @@ class Backtest:
 
         report = self.resolve_indicator_contracts(precheck_params)
 
-        base_data_key = self.data_dict.base_data_key
+        base_data_key = self.data_pack.base_data_key
         # 中文注释：无指标策略允许通过，base 预热按 0 处理。
         if not report.warmup_bars_by_source:
             indicator_warmup_bars_base = 0
@@ -223,41 +222,44 @@ class Backtest:
                 report.warmup_bars_by_source[base_data_key]
             )
 
-        # 中文注释：WF 基础参数硬约束，直接报错，不做回退。
-        if int(wf_cfg.transition_bars) < 1:
-            raise ValueError("WF 预检失败：transition_bars 必须 >= 1")
-        if int(wf_cfg.test_bars) < 2:
-            raise ValueError("WF 预检失败：test_bars 必须 >= 2")
+        if bool(getattr(wf_cfg, "ignore_indicator_warmup", False)):
+            indicator_warmup_bars_base = 0
 
-        effective_transition = max(int(wf_cfg.transition_bars), 1)
-        if wf_cfg.wf_warmup_mode != WfWarmupMode.NoWarmup:
-            effective_transition = max(effective_transition, indicator_warmup_bars_base)
-        else:
-            if indicator_warmup_bars_base > effective_transition:
-                raise ValueError(
-                    "WF 预检失败：NoWarmup 模式下 transition_bars 不足以承载指标预热需求 "
-                    f"(required={indicator_warmup_bars_base}, transition={effective_transition})"
-                )
+        train_warmup_bars = max(
+            int(indicator_warmup_bars_base),
+            int(wf_cfg.min_warmup_bars),
+        )
+        test_warmup_bars = max(
+            int(indicator_warmup_bars_base),
+            int(wf_cfg.min_warmup_bars),
+            1,
+        )
+
+        # 中文注释：WF 基础参数硬约束，直接报错。
+        if int(wf_cfg.train_active_bars) < 1:
+            raise ValueError("WF 预检失败：train_active_bars 必须 >= 1")
+        if int(wf_cfg.test_active_bars) < 3:
+            raise ValueError("WF 预检失败：test_active_bars 必须 >= 3")
         if (
-            wf_cfg.wf_warmup_mode == WfWarmupMode.BorrowFromTrain
-            and effective_transition > int(wf_cfg.train_bars)
+            wf_cfg.warmup_mode == WfWarmupMode.BorrowFromTrain
+            and test_warmup_bars > int(wf_cfg.train_active_bars)
         ):
             raise ValueError(
                 "WF 预检失败：BorrowFromTrain 要求 "
-                f"effective_transition_bars({effective_transition}) <= train_bars({wf_cfg.train_bars})"
+                f"test_warmup_bars({test_warmup_bars}) <= train_active_bars({wf_cfg.train_active_bars})"
             )
 
         indicator_settings = SettingContainer(
             execution_stage=ExecutionStage.Indicator,
             return_only_final=False,
         )
-        indicator_summary = pyo3_quant.backtest_engine.run_single_backtest(
-            self.data_dict,
+        indicator_result = pyo3_quant.backtest_engine.run_single_backtest(
+            self.data_pack,
             precheck_params,
             self.template_config,
             indicator_settings,
         )
-        if indicator_summary.indicators is None:
+        if indicator_result.indicators is None:
             raise ValueError("WF 预检失败：Indicator 阶段未返回指标结果")
 
         for instance_key, contract in report.contracts_by_indicator.items():
@@ -266,11 +268,11 @@ class Backtest:
             mode = str(contract.warmup_mode)
             indicator_key = instance_key.split("::", 1)[1]
 
-            if source not in indicator_summary.indicators:
+            if source not in indicator_result.indicators:
                 raise ValueError(
                     f"WF 预检失败：指标结果缺少 source={source}（{instance_key}）"
                 )
-            source_df = indicator_summary.indicators[source]
+            source_df = indicator_result.indicators[source]
             output_cols = self._indicator_output_columns(source_df, indicator_key)
             if not output_cols:
                 raise ValueError(f"WF 预检失败：找不到指标输出列（{instance_key}）")
@@ -345,7 +347,8 @@ class Backtest:
         return {
             "base_data_key": base_data_key,
             "indicator_warmup_bars_base": indicator_warmup_bars_base,
-            "effective_transition_bars": effective_transition,
+            "train_warmup_bars_base": train_warmup_bars,
+            "test_warmup_bars_base": test_warmup_bars,
             "warmup_bars_by_source": report.warmup_bars_by_source,
             "contracts_by_indicator": report.contracts_by_indicator,
         }
@@ -354,18 +357,18 @@ class Backtest:
         """批量并发回测"""
         start_time = time.perf_counter() if self.enable_timing else None
 
-        summaries = pyo3_quant.backtest_engine.run_backtest_engine(
-            self.data_dict,
+        results = pyo3_quant.backtest_engine.run_backtest_engine(
+            self.data_pack,
             param_list,
             self.template_config,
             self.engine_settings,
         )
 
-        result = BatchResult(
-            summaries=summaries,
+        batch_result = BatchResult(
+            results=results,
             param_list=param_list,
             context={
-                "data_dict": self.data_dict,
+                "data_pack": self.data_pack,
                 "template_config": self.template_config,
                 "engine_settings": self.engine_settings,
                 "enable_timing": self.enable_timing,
@@ -378,7 +381,7 @@ class Backtest:
                 f"Backtest.batch() 耗时: {elapsed:.4f}秒 (tasks={len(param_list)})"
             )
 
-        return result
+        return batch_result
 
     def optimize(
         self,
@@ -392,7 +395,7 @@ class Backtest:
         target_params = params_override or self.params
 
         raw_result = pyo3_quant.backtest_engine.optimizer.py_run_optimizer(
-            self.data_dict,
+            self.data_pack,
             target_params,
             self.template_config,
             self.engine_settings,
@@ -429,7 +432,7 @@ class Backtest:
         target_params = params_override or self.params
 
         raw_result = pyo3_quant.backtest_engine.walk_forward.run_walk_forward(
-            self.data_dict,
+            self.data_pack,
             target_params,
             self.template_config,
             self.engine_settings,
@@ -439,7 +442,7 @@ class Backtest:
         result = WalkForwardResultWrapper(
             raw_result,
             context={
-                "data_dict": self.data_dict,
+                "data_pack": self.data_pack,
                 "template_config": self.template_config,
                 "engine_settings": self.engine_settings,
                 "enable_timing": self.enable_timing,
@@ -465,7 +468,7 @@ class Backtest:
 
         # Rust 接口需对应 py_run_sensitivity_test
         raw_result = pyo3_quant.backtest_engine.sensitivity.run_sensitivity_test(
-            self.data_dict,
+            self.data_pack,
             target_params,
             self.template_config,
             self.engine_settings,

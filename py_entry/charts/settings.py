@@ -109,7 +109,7 @@ def merge_layout(overrides: IndicatorLayout | None = None) -> IndicatorLayout:
     return merged
 
 
-# 默认布局快照（兼容旧入口变量名）
+# 默认布局快照
 INDICATOR_LAYOUT: IndicatorLayout = base_layout()
 
 

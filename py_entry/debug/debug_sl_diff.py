@@ -124,11 +124,11 @@ def main():
 
     assert pyo3_adapter.result is not None
     assert pyo3_adapter.runner is not None
-    assert pyo3_adapter.runner.data_dict is not None
+    assert pyo3_adapter.runner.data_pack is not None
 
     # 获取 OHLCV 数据
     base_key = f"ohlcv_{config.timeframe}"
-    pyo3_pl_df = pyo3_adapter.runner.data_dict.source[base_key]
+    pyo3_pl_df = pyo3_adapter.runner.data_pack.source[base_key]
     ohlcv_df = pyo3_pl_df.to_pandas()
 
     ohlcv_df = ohlcv_df.rename(

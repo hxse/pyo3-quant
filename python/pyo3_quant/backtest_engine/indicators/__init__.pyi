@@ -11,7 +11,7 @@ __all__ = [
 ]
 
 def calculate_indicators(
-    processed_data: _pyo3_quant.DataContainer,
+    processed_data: _pyo3_quant.DataPack,
     indicators_params: typing.Mapping[
         builtins.str,
         typing.Mapping[builtins.str, typing.Mapping[builtins.str, _pyo3_quant.Param]],

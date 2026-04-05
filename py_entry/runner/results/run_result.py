@@ -1,14 +1,15 @@
 import time
-from typing import TYPE_CHECKING, Any, List, Tuple, Self, Union
+from typing import TYPE_CHECKING, Any, List, Tuple, Self, Union, cast
 from io import BytesIO
 from pathlib import Path
 from loguru import logger
 import polars as pl
 
 from py_entry.types import (
-    BacktestSummary,
+    BacktestParamSegment,
+    ResultPack,
     SingleParamSet,
-    DataContainer,
+    DataPack,
     TemplateContainer,
     SettingContainer,
     ChartConfig,
@@ -37,6 +38,8 @@ if TYPE_CHECKING:
 # Assuming display doesn't import run_result.
 from py_entry.runner import display as _display
 
+_USE_DEFAULT_EXPORT_PARAMS = object()
+
 
 def _clone_optional_df(df: pl.DataFrame | None) -> pl.DataFrame | None:
     """克隆可选 DataFrame。"""
@@ -45,32 +48,39 @@ def _clone_optional_df(df: pl.DataFrame | None) -> pl.DataFrame | None:
     return df.clone()
 
 
-def _copy_data_container(container: DataContainer) -> DataContainer:
-    """深拷贝 DataContainer，避免导出逻辑污染计算态对象。"""
-    mapping = _clone_optional_df(container.mapping)
+def _copy_data_pack(pack: DataPack) -> DataPack:
+    """深拷贝 DataPack，避免导出逻辑污染计算态对象。"""
+    ranges = {k: v for k, v in pack.ranges.items()}
+    mapping = _clone_optional_df(pack.mapping)
     if mapping is None:
         mapping = pl.DataFrame()
-    skip_mask = _clone_optional_df(container.skip_mask)
-    source = {k: v.clone() for k, v in container.source.items()}
-    return DataContainer(
+    skip_mask = _clone_optional_df(pack.skip_mask)
+    source = {k: v.clone() for k, v in pack.source.items()}
+    return DataPack(
         mapping=mapping,
         skip_mask=skip_mask,
         source=source,
-        base_data_key=container.base_data_key,
+        base_data_key=pack.base_data_key,
+        ranges=ranges,
     )
 
 
-def _copy_summary(summary: BacktestSummary) -> BacktestSummary:
-    """深拷贝 BacktestSummary，确保 format_for_export 不改原始结果。"""
+def _copy_result_pack(result: ResultPack) -> ResultPack:
+    """深拷贝 ResultPack，确保 format_for_export 不改原始结果。"""
     indicators = None
-    if summary.indicators is not None:
-        indicators = {k: v.clone() for k, v in summary.indicators.items()}
-
-    signals = _clone_optional_df(summary.signals)
-    backtest_result = _clone_optional_df(summary.backtest_result)
-    performance = dict(summary.performance) if summary.performance is not None else None
-
-    return BacktestSummary(
+    if result.indicators is not None:
+        indicators = {k: v.clone() for k, v in result.indicators.items()}
+    signals = _clone_optional_df(result.signals)
+    backtest_result = _clone_optional_df(result.backtest_result)
+    performance = dict(result.performance) if result.performance is not None else None
+    ranges = {k: v for k, v in result.ranges.items()}
+    mapping = _clone_optional_df(result.mapping)
+    if mapping is None:
+        mapping = pl.DataFrame()
+    return ResultPack(
+        mapping=mapping,
+        ranges=ranges,
+        base_data_key=result.base_data_key,
         performance=performance,
         indicators=indicators,
         signals=signals,
@@ -83,34 +93,33 @@ class RunResult:
 
     def __init__(
         self,
-        summary: BacktestSummary,
+        result: ResultPack,
         params: SingleParamSet,
-        data_dict: DataContainer,
+        data_pack: DataPack,
         template_config: TemplateContainer,
         engine_settings: SettingContainer,
         enable_timing: bool = False,
+        export_params: SingleParamSet | None | object = _USE_DEFAULT_EXPORT_PARAMS,
+        backtest_schedule: list[BacktestParamSegment] | None = None,
     ):
-        self.summary = summary
+        self.result = result
         self.params = params
-        self.data_dict = data_dict
+        self.data_pack = data_pack
         self.template_config = template_config
         self.engine_settings = engine_settings
         self.enable_timing = enable_timing
+        # 中文注释：默认沿用单次回测 params；WF stitched 可显式传 None，表示导出时不再伪造单一参数集。
+        if export_params is _USE_DEFAULT_EXPORT_PARAMS:
+            resolved_export_params: SingleParamSet | None = params
+        else:
+            resolved_export_params = cast(SingleParamSet | None, export_params)
+        self.export_params: SingleParamSet | None = resolved_export_params
+        self.backtest_schedule = backtest_schedule
 
         # 导出缓存
         self._export_buffers: List[Tuple[Path, BytesIO]] | None = None
         self._export_zip_buffer: bytes | None = None
         self._chart_config: ChartConfig | None = None
-
-    @property
-    def results(self) -> List[BacktestSummary]:
-        """兼容属性：返回单元素列表"""
-        return [self.summary]
-
-    @property
-    def param_set(self) -> List[SingleParamSet]:
-        """兼容属性：返回单元素列表"""
-        return [self.params]
 
     @property
     def export_buffers(self):
@@ -128,14 +137,14 @@ class RunResult:
         """为导出准备数据"""
         start_time = time.perf_counter() if self.enable_timing else None
 
-        # 1. 导出链路在副本上处理，避免污染计算态 data_dict/summary。
-        export_data = _copy_data_container(self.data_dict)
-        export_summary = _copy_summary(self.summary)
+        # 1. 导出链路在副本上处理，避免污染计算态 data_pack/result。
+        export_data = _copy_data_pack(self.data_pack)
+        export_result = _copy_result_pack(self.result)
 
         # 2. 为导出副本添加上下文列
         add_contextual_columns_to_dataframes(
             export_data,
-            export_summary,
+            export_result,
             config.add_index,
             config.add_time,
             config.add_date,
@@ -145,13 +154,14 @@ class RunResult:
         if config.chart_config is not None:
             self._chart_config = config.chart_config
         else:
-            # 中文注释：仅使用调用方显式传入布局；不传则由图表层回退到全局默认布局。
+            # 中文注释：仅使用调用方显式传入布局；未传时由图表层使用全局默认布局。
             indicator_layout = config.indicator_layout
+            chart_params = None if self.backtest_schedule is not None else self.params
             if export_data:
                 self._chart_config = generate_default_chart_config(
                     export_data,
-                    export_summary,
-                    self.params,
+                    export_result,
+                    chart_params,
                     config.dataframe_format,
                     indicator_layout,
                 )
@@ -159,13 +169,14 @@ class RunResult:
         # 4. Convert to buffers
         self._export_buffers = convert_backtest_data_to_buffers(
             export_data,
-            self.params,
+            self.export_params,
             self.template_config,
             self.engine_settings,
-            export_summary,
+            export_result,
             config.dataframe_format,
             config.parquet_compression,
             self._chart_config,
+            self.backtest_schedule,
         )
 
         # 5. Generate ZIP
@@ -224,24 +235,12 @@ class RunResult:
         self, config: DisplayConfig | None = None
     ) -> Union["HTML", "ChartDashboardWidget", "MarimoAnyWidget"]:
         """显示图表"""
-        # Create a temporary runner-like object or modify display_dashboard to accept RunResult
-        # Since _display.display_dashboard expects a runner, we can pass self if we duck-type enough attributes.
-        # RunResult has .data_dict, .results, .param_set (properties), .chart_config
-        # display_dashboard uses runner.results[0], runner.param_set[0], runner.data_dict, runner.chart_config
-        # So RunResult should work if we mock the list attributes.
-
-        # However, _display.display_dashboard implementation:
-        # It calls render_as_html or render_as_widget.
-        # These renderers likely use runner.data_dict, runner.results, etc.
-        # Let's verify what display_dashboard needs.
-        # But to be safe and clean, we should probably refactor display or make RunResult compatible.
-        # I added properties .results and .param_set to mimic BacktestRunner.
-
+        # 中文注释：展示层直接消费正式字段 result / params / data_pack / chart_config。
         return _display.display_dashboard(self, config)
 
     def build_report(self) -> dict[str, Any]:
         """构建统一回测报告。"""
-        perf = self.summary.performance or {}
+        perf = self.result.performance or {}
         # 中文注释：日志输出仅保留单一结构，不再区分 brief/detailed。
         return {
             "stage": "backtest",

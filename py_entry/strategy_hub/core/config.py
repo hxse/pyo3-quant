@@ -63,10 +63,10 @@ DEFAULT_SENS_CONFIG: dict[str, Any] = {
 # 中文注释：统一默认 WF 窗口配置。
 DEFAULT_WF_CONFIG: dict[str, Any] = {
     # 中文注释：全局默认窗口按研究主场景口径设置。
-    "train_bars": 6000,
-    "transition_bars": 500,
-    "test_bars": 3000,
-    "wf_warmup_mode": WfWarmupMode.ExtendTest,
+    "train_active_bars": 6000,
+    "test_active_bars": 3000,
+    "min_warmup_bars": 500,
+    "warmup_mode": WfWarmupMode.ExtendTest,
 }
 
 # 中文注释：统一默认引擎设置（策略文件与搜索空间共用）。

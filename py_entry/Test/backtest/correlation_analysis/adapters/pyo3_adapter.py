@@ -74,9 +74,7 @@ class Pyo3Adapter:
         result = self.runner.run()
 
         # 提取结果
-        assert result.summary is not None, "回测结果为空"
-        summary = result.summary
-        backtest_df = summary.backtest_result
+        backtest_df = result.result.backtest_result
 
         assert backtest_df is not None, "回测结果 DataFrame 为空"
 

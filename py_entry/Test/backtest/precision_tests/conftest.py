@@ -19,7 +19,7 @@ def backtest_with_config(request):
     """
     参数化回测结果 fixture（包含策略配置和原始数据）
 
-    返回 (results, strategy_config, data_dict) 元组
+    返回 (results, strategy_config, data_pack) 元组
     """
     strategy: TestStrategySpec = request.param
     return run_strategy_backtest(strategy)
@@ -28,8 +28,8 @@ def backtest_with_config(request):
 @pytest.fixture
 def backtest_df(backtest_with_config):
     """从回测结果中提取 DataFrame，并添加 close 价格列"""
-    results, _, data_dict = backtest_with_config
-    return extract_backtest_df_with_close(results, data_dict)
+    results, _, data_pack = backtest_with_config
+    return extract_backtest_df_with_close(results, data_pack)
 
 
 @pytest.fixture

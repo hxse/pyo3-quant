@@ -62,14 +62,14 @@ config = IndicatorTestConfig(
 )
 
 
-def test_er_strict_mode(data_dict):
+def test_er_strict_mode(data_params):
     """
     严格模式测试：Rust vs TA-Lib/pandas-ta (高精度对齐)
     """
     # 验证与 pandas-ta 一致
     validate_indicator_accuracy(
         config,
-        data_dict,
+        data_params,
         enable_talib=False,  # ER is pandas-ta native
         assert_mode_talib=False,
         assert_mode_pandas_ta=True,  # Must match pandas-ta

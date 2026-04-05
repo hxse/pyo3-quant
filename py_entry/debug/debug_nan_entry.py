@@ -44,9 +44,9 @@ def main():
     result = bt.run()
 
     # 获取回测结果和信号
-    backtest_summary = result.results[0]
-    backtest_df = backtest_summary.backtest_result
-    signals_df = backtest_summary.signals  # 这是回测过程中实际使用的信号吗？
+    result_pack = result.result
+    backtest_df = result_pack.backtest_result
+    signals_df = result_pack.signals  # 这是回测过程中实际使用的信号吗？
 
     if backtest_df is None:
         print("❌ 回测结果为空")

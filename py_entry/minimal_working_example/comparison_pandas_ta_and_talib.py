@@ -1,7 +1,7 @@
 import pandas_ta as ta
 
 from py_entry.data_generator import (
-    generate_data_dict,
+    generate_data_pack,
     DataGenerationParams,
 )
 from py_entry.Test.utils.comparison_tool import assert_indicator_same
@@ -18,9 +18,9 @@ def main():
         fixed_seed=42,
         base_data_key="ohlcv_15m",
     )
-    data_dict = generate_data_dict(data_source=simulated_data_config)
+    data_pack = generate_data_pack(data_source=simulated_data_config)
 
-    ohlcv_data_pl = data_dict.source["ohlcv"][0]
+    ohlcv_data_pl = data_pack.source["ohlcv"][0]
 
     ohlcv_data_pd = ohlcv_data_pl.to_pandas()
 

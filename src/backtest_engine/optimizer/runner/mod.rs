@@ -15,8 +15,8 @@ use crate::backtest_engine::optimizer::param_extractor::{
 use crate::backtest_engine::utils;
 use crate::error::{OptimizerError, QuantError};
 use crate::types::{
-    BenchmarkFunction, DataContainer, OptimizationResult, OptimizerConfig, RoundSummary,
-    SamplePoint, SettingContainer, SingleParamSet, TemplateContainer,
+    BenchmarkFunction, DataPack, OptimizationResult, OptimizerConfig, RoundSummary, SamplePoint,
+    SettingContainer, SingleParamSet, TemplateContainer,
 };
 use rand::rngs::StdRng;
 use rand::SeedableRng;
@@ -30,7 +30,7 @@ use sampling::generate_samples;
 pub enum EvalMode<'a> {
     /// 回测模式
     Backtest {
-        data_dict: &'a DataContainer,
+        data_pack: &'a DataPack,
         template: &'a TemplateContainer,
         settings: &'a SettingContainer,
     },
@@ -110,15 +110,15 @@ pub fn run_optimization_generic(
 
                 let (metric_value, all_metrics) = match &eval_mode {
                     EvalMode::Backtest {
-                        data_dict,
+                        data_pack,
                         template,
                         settings,
                     } => {
                         // 单任务内部强制 Polars 单线程，避免双层并行冲突
-                        let summary = utils::process_param_in_single_thread(|| {
-                            execute_single_backtest(data_dict, &current_set, template, settings)
+                        let result_pack = utils::process_param_in_single_thread(|| {
+                            execute_single_backtest(data_pack, &current_set, template, settings)
                         })?;
-                        let val = summary
+                        let val = result_pack
                             .performance
                             .as_ref()
                             .and_then(|p| p.get(optimize_metric))
@@ -126,7 +126,7 @@ pub fn run_optimization_generic(
                             .unwrap_or(0.0);
 
                         let mut metrics = HashMap::new();
-                        if let Some(perf) = &summary.performance {
+                        if let Some(perf) = &result_pack.performance {
                             for (k, v) in perf {
                                 metrics.insert(k.clone(), *v);
                             }
@@ -227,7 +227,7 @@ pub fn run_optimization_generic(
 
 /// 运行参数优化 (Backtest Wrapper)
 pub fn run_optimization(
-    data_dict: &DataContainer,
+    data_pack: &DataPack,
     param: &SingleParamSet,
     template: &TemplateContainer,
     settings: &SettingContainer,
@@ -235,7 +235,7 @@ pub fn run_optimization(
 ) -> Result<OptimizationResult, QuantError> {
     run_optimization_generic(
         EvalMode::Backtest {
-            data_dict,
+            data_pack,
             template,
             settings,
         },

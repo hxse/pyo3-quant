@@ -14,7 +14,11 @@ fn _pyo3_quant(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<types::PerformanceMetric>()?;
     m.add_class::<types::PerformanceParams>()?;
     m.add_class::<types::SingleParamSet>()?;
-    m.add_class::<types::DataContainer>()?;
+    m.add_class::<types::SourceRange>()?;
+    m.add_class::<types::DataPack>()?;
+    m.add_class::<backtest_engine::data_ops::DataPackFetchPlannerInput>()?;
+    m.add_class::<backtest_engine::data_ops::FetchRequest>()?;
+    m.add_class::<backtest_engine::data_ops::DataPackFetchPlanner>()?;
     m.add_class::<types::OptimizerConfig>()?;
     m.add_class::<types::OptimizeMetric>()?;
     m.add_class::<types::BenchmarkFunction>()?;
@@ -28,14 +32,17 @@ fn _pyo3_quant(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<types::WfWarmupMode>()?;
     m.add_class::<types::SensitivityConfig>()?;
 
-    m.add_class::<types::BacktestSummary>()?;
+    m.add_class::<types::ResultPack>()?;
+    m.add_class::<backtest_engine::backtester::BacktestParamSegment>()?;
     m.add_class::<types::IndicatorContract>()?;
     m.add_class::<types::IndicatorContractReport>()?;
     m.add_class::<types::RoundSummary>()?;
     m.add_class::<types::SamplePoint>()?;
     m.add_class::<types::OptimizationResult>()?;
     m.add_class::<types::NextWindowHint>()?;
+    m.add_class::<types::WindowMeta>()?;
     m.add_class::<types::WindowArtifact>()?;
+    m.add_class::<types::StitchedMeta>()?;
     m.add_class::<types::StitchedArtifact>()?;
     m.add_class::<types::WalkForwardResult>()?;
     m.add_class::<types::SensitivitySample>()?;

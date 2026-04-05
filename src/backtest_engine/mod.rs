@@ -37,7 +37,7 @@ mod module_registry;
 mod submodule_init;
 mod top_level_api;
 
-pub use crate::types::BacktestSummary;
+pub use crate::types::ResultPack;
 pub use module_registry::register_py_module;
 pub(crate) use top_level_api::execute_single_backtest;
 pub use top_level_api::run_backtest_engine;

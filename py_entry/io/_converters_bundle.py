@@ -9,9 +9,9 @@ from py_entry.io._converters_result import convert_backtest_result_to_buffers
 from py_entry.io._converters_serialization import convert_to_serializable
 from py_entry.io._converters_serialization import dumps_json_bytes
 from py_entry.io.configs import ParquetCompression
-from py_entry.types import BacktestSummary
 from py_entry.types import ChartConfig
-from py_entry.types import DataContainer
+from py_entry.types import DataPack
+from py_entry.types import ResultPack
 from py_entry.types import SettingContainer
 from py_entry.types import SingleParamSet
 from py_entry.types import TemplateContainer
@@ -32,14 +32,15 @@ def _write_df(
 
 
 def convert_backtest_data_to_buffers(
-    data_dict: Optional[DataContainer],
-    param: SingleParamSet,
+    data_pack: Optional[DataPack],
+    param: Optional[SingleParamSet],
     template_config: Optional[TemplateContainer],
     engine_settings: Optional[SettingContainer],
-    result: BacktestSummary,
+    result: ResultPack,
     dataframe_format: str,
     parquet_compression: ParquetCompression,
     chart_config: Optional[ChartConfig] = None,
+    backtest_schedule: Optional[list[Any]] = None,
 ) -> List[Tuple[Path, io.BytesIO]]:
     """将单个回测数据（配置 + 结果）转换为 buffer 列表。"""
     data_list: list[tuple[Path, io.BytesIO]] = []
@@ -52,41 +53,41 @@ def convert_backtest_data_to_buffers(
         (Path("backtest_results") / path, buffer) for path, buffer in result_buffers
     )
 
-    # 2) 数据字典
-    if data_dict is not None:
-        if data_dict.mapping is not None:
+    # 2) DataPack
+    if data_pack is not None:
+        if data_pack.mapping is not None:
             data_list.append(
                 (
-                    Path(f"data_dict/mapping.{dataframe_format}"),
-                    _write_df(data_dict.mapping, dataframe_format, parquet_compression),
+                    Path(f"data_pack/mapping.{dataframe_format}"),
+                    _write_df(data_pack.mapping, dataframe_format, parquet_compression),
                 )
             )
 
-        if data_dict.skip_mask is not None:
+        if data_pack.skip_mask is not None:
             data_list.append(
                 (
-                    Path(f"data_dict/skip_mask.{dataframe_format}"),
+                    Path(f"data_pack/skip_mask.{dataframe_format}"),
                     _write_df(
-                        data_dict.skip_mask, dataframe_format, parquet_compression
+                        data_pack.skip_mask, dataframe_format, parquet_compression
                     ),
                 )
             )
 
-        if data_dict.source is not None:
-            for key, df in data_dict.source.items():
+        if data_pack.source is not None:
+            for key, df in data_pack.source.items():
                 data_list.append(
                     (
-                        Path(f"data_dict/source_{key}.{dataframe_format}"),
+                        Path(f"data_pack/source_{key}.{dataframe_format}"),
                         _write_df(df, dataframe_format, parquet_compression),
                     )
                 )
 
-        if data_dict.base_data_key is not None:
+        if data_pack.base_data_key is not None:
             data_list.append(
                 (
-                    Path("data_dict/base_data_key.json"),
+                    Path("data_pack/base_data_key.json"),
                     io.BytesIO(
-                        dumps_json_bytes({"base_data_key": data_dict.base_data_key})
+                        dumps_json_bytes({"base_data_key": data_pack.base_data_key})
                     ),
                 )
             )
@@ -103,6 +104,15 @@ def convert_backtest_data_to_buffers(
         }
         data_list.append(
             (Path("param_set/param.json"), io.BytesIO(dumps_json_bytes(param_dict)))
+        )
+
+    if backtest_schedule is not None:
+        schedule_payload = convert_to_serializable(backtest_schedule)
+        data_list.append(
+            (
+                Path("backtest_schedule/backtest_schedule.json"),
+                io.BytesIO(dumps_json_bytes(schedule_payload)),
+            )
         )
 
     # 4) 模板配置

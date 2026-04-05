@@ -5,7 +5,7 @@ use super::types::{OffsetType, ParamOperand, SignalDataOperand, SignalRightOpera
 use crate::types::SignalParams;
 
 use crate::types::IndicatorResults;
-use crate::types::{DataContainer, DataSource};
+use crate::types::{DataPack, DataSource};
 use polars::prelude::*;
 
 /// 辅助函数：尝试从给定的数据源中解析 &Series
@@ -30,7 +30,7 @@ fn try_resolve_series<'a>(
 fn apply_mapping_if_needed(
     series_to_map: &Series,
     source_key: &str,
-    processed_data: &DataContainer,
+    processed_data: &DataPack,
 ) -> Result<Series, SignalError> {
     let key = source_key;
 
@@ -63,10 +63,10 @@ fn apply_mapping_if_needed(
     }
 }
 
-/// 从 DataContainer 或 indicator_dfs 中解析 SignalDataOperand 为 Series List
+/// 从 DataPack 或 indicator_dfs 中解析 SignalDataOperand 为 Series List
 pub fn resolve_data_operand(
     operand: &SignalDataOperand,
-    processed_data: &DataContainer,
+    processed_data: &DataPack,
     indicator_dfs: &IndicatorResults,
 ) -> Result<Vec<Series>, SignalError> {
     // 解析数据源：如果 operand.source 为空，则使用 base_data_key
@@ -137,7 +137,7 @@ pub enum ResolvedOperand {
 
 pub fn resolve_right_operand(
     operand: &SignalRightOperand,
-    processed_data: &DataContainer,
+    processed_data: &DataPack,
     indicator_dfs: &IndicatorResults,
     signal_params: &SignalParams,
 ) -> Result<ResolvedOperand, QuantError> {

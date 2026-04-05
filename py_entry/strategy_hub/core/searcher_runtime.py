@@ -106,7 +106,7 @@ def run_once(
         run_result = raw_result
         return {
             **base_row,
-            "performance": run_result.summary.performance or {},
+            "performance": run_result.result.performance or {},
             **extract_backtest_time_info(run_result),
         }
 

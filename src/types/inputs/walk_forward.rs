@@ -9,7 +9,6 @@ use pyo3_stub_gen::PyStubType;
 pub enum WfWarmupMode {
     BorrowFromTrain,
     ExtendTest,
-    NoWarmup,
 }
 
 impl WfWarmupMode {
@@ -17,7 +16,6 @@ impl WfWarmupMode {
         match self {
             Self::BorrowFromTrain => "BorrowFromTrain",
             Self::ExtendTest => "ExtendTest",
-            Self::NoWarmup => "NoWarmup",
         }
     }
 }
@@ -30,7 +28,6 @@ impl WfWarmupMode {
         match self {
             Self::BorrowFromTrain => "borrow_from_train",
             Self::ExtendTest => "extend_test",
-            Self::NoWarmup => "no_warmup",
         }
     }
 
@@ -58,7 +55,6 @@ pyo3_stub_gen::inventory::submit! {
         variants: &[
             ("BorrowFromTrain", "借训练尾部作为过渡预热"),
             ("ExtendTest", "训练后扩展过渡区再进入测试"),
-            ("NoWarmup", "关闭指标预热补全，仅保留最小过渡锚点"),
         ],
     }
 }
@@ -68,16 +64,16 @@ pyo3_stub_gen::inventory::submit! {
 #[pyclass(get_all, set_all)]
 #[derive(Debug, Clone)]
 pub struct WalkForwardConfig {
-    /// 训练窗口长度（固定 bar 数）
-    pub train_bars: usize,
-    /// 过渡窗口长度（固定 bar 数）
-    pub transition_bars: usize,
-    /// 测试窗口长度（固定 bar 数）
-    pub test_bars: usize,
-    /// WF 预热模式（BorrowFromTrain / ExtendTest / NoWarmup）
-    pub wf_warmup_mode: WfWarmupMode,
-    /// 是否从上一窗口继承权重先验，默认 true
-    pub inherit_prior: bool,
+    /// 训练 active 区间长度（固定 bar 数）
+    pub train_active_bars: usize,
+    /// 测试 active 区间长度（固定 bar 数）
+    pub test_active_bars: usize,
+    /// 训练包和测试包至少保留多少 base 预热 bar
+    pub min_warmup_bars: usize,
+    /// WF 预热模式（BorrowFromTrain / ExtendTest）
+    pub warmup_mode: WfWarmupMode,
+    /// 是否忽略指标预热，只保留 WF 几何与 backtest 执行预热
+    pub ignore_indicator_warmup: bool,
     /// 内嵌的单次优化器配置
     pub optimizer_config: OptimizerConfig,
 }
@@ -86,21 +82,21 @@ pub struct WalkForwardConfig {
 #[pymethods]
 impl WalkForwardConfig {
     #[new]
-    #[pyo3(signature = (*, train_bars, transition_bars, test_bars, wf_warmup_mode=self::WfWarmupMode::ExtendTest, inherit_prior=true, optimizer_config=None))]
+    #[pyo3(signature = (*, train_active_bars, test_active_bars, min_warmup_bars=0, warmup_mode=self::WfWarmupMode::ExtendTest, ignore_indicator_warmup=false, optimizer_config=None))]
     pub fn new(
-        train_bars: usize,
-        transition_bars: usize,
-        test_bars: usize,
-        wf_warmup_mode: WfWarmupMode,
-        inherit_prior: bool,
+        train_active_bars: usize,
+        test_active_bars: usize,
+        min_warmup_bars: usize,
+        warmup_mode: WfWarmupMode,
+        ignore_indicator_warmup: bool,
         optimizer_config: Option<OptimizerConfig>,
     ) -> Self {
         Self {
-            train_bars,
-            transition_bars,
-            test_bars,
-            wf_warmup_mode,
-            inherit_prior,
+            train_active_bars,
+            test_active_bars,
+            min_warmup_bars,
+            warmup_mode,
+            ignore_indicator_warmup,
             optimizer_config: optimizer_config.unwrap_or_default(),
         }
     }
@@ -108,7 +104,7 @@ impl WalkForwardConfig {
 
 impl Default for WalkForwardConfig {
     fn default() -> Self {
-        // 中文注释：默认使用固定 bar 口径，避免随总样本增长导致窗口漂移。
-        Self::new(500, 100, 200, WfWarmupMode::ExtendTest, true, None)
+        // 中文注释：默认使用固定 active bar 口径，避免随总样本增长导致窗口漂移。
+        Self::new(500, 200, 0, WfWarmupMode::ExtendTest, false, None)
     }
 }

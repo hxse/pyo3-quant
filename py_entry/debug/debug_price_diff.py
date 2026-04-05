@@ -42,7 +42,7 @@ def run_price_analysis():
     pyo3_adapter.run("reversal_extreme")
     assert pyo3_adapter.result is not None
     assert pyo3_adapter.runner is not None
-    assert pyo3_adapter.runner.data_dict is not None
+    assert pyo3_adapter.runner.data_pack is not None
 
     ohlcv_df = generate_ohlcv_for_backtestingpy(config)
     btp_adapter = BacktestingPyAdapter(config)
@@ -141,12 +141,12 @@ def run_price_analysis():
     # 3.5 Compare ATR
     print("\n[3.5/5] 比较 ATR...")
     pyo3_atr = None
-    if pyo3_adapter.runner and pyo3_adapter.runner.data_dict:
+    if pyo3_adapter.runner and pyo3_adapter.runner.data_pack:
         # Pyo3 stores indicators formatted as "indicator_name" (e.g. "atr")?
         # keys are usually "ohlcv_15m", etc.
         # Indicators might be in a separate storage or added to source?
         # Check available keys in source
-        print("  Pyo3 Keys:", pyo3_adapter.runner.data_dict.source.keys())
+        print("  Pyo3 Keys:", pyo3_adapter.runner.data_pack.source.keys())
         # Try to find something looking like ATR
         # Based on config, it might be stored? Or maybe internal?
         # If not exposed, we can't compare directly.

@@ -27,21 +27,21 @@ __all__ = [
 ]
 
 def run_backtest_engine(
-    data_dict: pyo3_quant.DataContainer,
-    param_set: list[pyo3_quant.SingleParamSet],
+    data: pyo3_quant.DataPack,
+    params: list[pyo3_quant.SingleParamSet],
     template: pyo3_quant.TemplateContainer,
     engine_settings: pyo3_quant.SettingContainer,
-) -> list[pyo3_quant.BacktestSummary]:
+) -> list[pyo3_quant.ResultPack]:
     r"""
     运行回测引擎
     """
 
 def run_single_backtest(
-    data_dict: pyo3_quant.DataContainer,
+    data: pyo3_quant.DataPack,
     param: pyo3_quant.SingleParamSet,
     template: pyo3_quant.TemplateContainer,
     engine_settings: pyo3_quant.SettingContainer,
-) -> pyo3_quant.BacktestSummary:
+) -> pyo3_quant.ResultPack:
     r"""
     运行单个回测
     """

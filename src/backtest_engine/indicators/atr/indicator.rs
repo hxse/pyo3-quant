@@ -8,6 +8,10 @@ use std::collections::HashMap;
 
 pub struct AtrIndicator;
 
+pub(crate) fn atr_required_warmup_bars(period: usize) -> usize {
+    period
+}
+
 impl Indicator for AtrIndicator {
     fn calculate(
         &self,
@@ -38,7 +42,7 @@ impl Indicator for AtrIndicator {
     ) -> Result<usize, QuantError> {
         // ATR 当前实现在 index < period 置空。
         let period = require_resolved_param(resolved_params, "period", "atr")? as i64;
-        Ok(period.max(0) as usize)
+        Ok(atr_required_warmup_bars(period.max(0) as usize))
     }
 
     fn warmup_mode(&self) -> crate::backtest_engine::indicators::registry::WarmupMode {

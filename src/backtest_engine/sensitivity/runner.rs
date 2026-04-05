@@ -5,7 +5,7 @@ use crate::backtest_engine::optimizer::param_extractor::{
 use crate::backtest_engine::utils;
 use crate::error::QuantError;
 use crate::types::{
-    DataContainer, SensitivityConfig, SensitivityResult, SensitivitySample, SettingContainer,
+    DataPack, SensitivityConfig, SensitivityResult, SensitivitySample, SettingContainer,
     SingleParamSet, TemplateContainer,
 };
 use pyo3::prelude::*;
@@ -72,7 +72,7 @@ fn generate_jitter_samples(
 
 /// 运行敏感性测试
 pub fn run_sensitivity_test(
-    data_dict: &DataContainer,
+    data_pack: &DataPack,
     center_param: &SingleParamSet,
     template: &TemplateContainer,
     settings: &SettingContainer,
@@ -116,11 +116,11 @@ pub fn run_sensitivity_test(
             apply_values_to_param(&mut current_set, &flat_params, &vals);
 
             // 强制单线程执行 Polars
-            let summary = utils::process_param_in_single_thread(|| {
-                execute_single_backtest(data_dict, &current_set, template, settings)
+            let result_pack = utils::process_param_in_single_thread(|| {
+                execute_single_backtest(data_pack, &current_set, template, settings)
             })?;
 
-            let val = summary
+            let val = result_pack
                 .performance
                 .as_ref()
                 .and_then(|p| p.get(metric_key))
@@ -128,7 +128,7 @@ pub fn run_sensitivity_test(
                 .unwrap_or(0.0);
 
             let mut all_metrics = HashMap::new();
-            if let Some(perf) = &summary.performance {
+            if let Some(perf) = &result_pack.performance {
                 for (k, v) in perf {
                     all_metrics.insert(k.clone(), *v);
                 }
@@ -159,8 +159,8 @@ pub fn run_sensitivity_test(
     }
 
     // 6. 计算中心参数的性能
-    let center_summary = execute_single_backtest(data_dict, center_param, template, settings)?;
-    let original_value = center_summary
+    let center_result_pack = execute_single_backtest(data_pack, center_param, template, settings)?;
+    let original_value = center_result_pack
         .performance
         .as_ref()
         .and_then(|p| p.get(metric_key))
@@ -243,7 +243,7 @@ pub fn run_sensitivity_test(
 import pyo3_quant
 
 def run_sensitivity_test(
-    data_dict: pyo3_quant.DataContainer,
+    data: pyo3_quant.DataPack,
     param: pyo3_quant.SingleParamSet,
     template: pyo3_quant.TemplateContainer,
     engine_settings: pyo3_quant.SettingContainer,
@@ -254,12 +254,12 @@ def run_sensitivity_test(
 )]
 #[pyfunction(name = "run_sensitivity_test")]
 pub fn py_run_sensitivity_test(
-    data_dict: DataContainer,
+    data: DataPack,
     center_param: SingleParamSet,
     template: TemplateContainer,
     settings: SettingContainer,
     config: crate::types::SensitivityConfig,
 ) -> PyResult<crate::types::SensitivityResult> {
-    let result = run_sensitivity_test(&data_dict, &center_param, &template, &settings, &config)?;
+    let result = run_sensitivity_test(&data, &center_param, &template, &settings, &config)?;
     Ok(result)
 }

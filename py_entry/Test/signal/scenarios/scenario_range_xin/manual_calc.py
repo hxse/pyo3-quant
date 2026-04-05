@@ -12,13 +12,13 @@ from py_entry.Test.signal.utils import (
 
 def calculate_entry_long(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
     """条件：rsi, ohlcv_15m, 0 xin 30..70"""
-    rsi_s = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "rsi")
+    rsi_s = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "rsi")
     low = min(30.0, 70.0)
     high = max(30.0, 70.0)
 
@@ -42,68 +42,68 @@ def calculate_entry_long(
 
 def calculate_exit_long(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
-    return create_false_series(get_data_length(mapped_data_container))
+    return create_false_series(get_data_length(mapped_data_pack))
 
 
 def calculate_entry_short(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
-    return create_false_series(get_data_length(mapped_data_container))
+    return create_false_series(get_data_length(mapped_data_pack))
 
 
 def calculate_exit_short(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
-    return create_false_series(get_data_length(mapped_data_container))
+    return create_false_series(get_data_length(mapped_data_pack))
 
 
 def calculate_signals(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.DataFrame:
     return create_signal_dataframe(
         calculate_entry_long(
             signal_params,
-            data_container,
-            backtest_summary,
-            mapped_data_container,
-            mapped_backtest_summary,
+            data_pack,
+            result_pack,
+            mapped_data_pack,
+            mapped_result_pack,
         ),
         calculate_exit_long(
             signal_params,
-            data_container,
-            backtest_summary,
-            mapped_data_container,
-            mapped_backtest_summary,
+            data_pack,
+            result_pack,
+            mapped_data_pack,
+            mapped_result_pack,
         ),
         calculate_entry_short(
             signal_params,
-            data_container,
-            backtest_summary,
-            mapped_data_container,
-            mapped_backtest_summary,
+            data_pack,
+            result_pack,
+            mapped_data_pack,
+            mapped_result_pack,
         ),
         calculate_exit_short(
             signal_params,
-            data_container,
-            backtest_summary,
-            mapped_data_container,
-            mapped_backtest_summary,
+            data_pack,
+            result_pack,
+            mapped_data_pack,
+            mapped_result_pack,
         ),
     )

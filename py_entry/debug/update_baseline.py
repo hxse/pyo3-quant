@@ -19,11 +19,11 @@ def regenerate_baseline():
     )
     result = runner.run()
 
-    if not result.summary:
+    if not result.result:
         print("Error: No backtest results generated.")
         return
 
-    current_performance = result.summary.performance
+    current_performance = result.result.performance
 
     # Path to performance.json
     json_path = Path(

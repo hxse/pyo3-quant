@@ -16,35 +16,37 @@ def test_wf_precheck_success_returns_base_binding(
     """成功路径：返回 base 绑定与有效过渡长度。"""
     bt = build_single_sma_backtest(period=48)
     cfg = build_wf_cfg(
-        train_bars=400,
-        transition_bars=30,
-        test_bars=120,
+        train_active_bars=400,
+        test_active_bars=120,
+        min_warmup_bars=30,
         mode=WfWarmupMode.ExtendTest,
     )
 
     report = bt.validate_wf_indicator_readiness(cfg)
     assert report["base_data_key"] == "ohlcv_15m"
     assert int(report["indicator_warmup_bars_base"]) > 0
-    assert int(report["effective_transition_bars"]) >= int(
+    assert int(report["test_warmup_bars_base"]) >= int(
         report["indicator_warmup_bars_base"]
     )
 
 
-def test_wf_precheck_no_warmup_fails_when_transition_insufficient(
+def test_wf_precheck_ignore_indicator_warmup_skips_contract_requirement(
     build_single_sma_backtest: Callable[..., Backtest],
     build_wf_cfg: Callable[..., WalkForwardConfig],
 ):
-    """失败路径：NoWarmup 下 transition 不足必须直接报错。"""
+    """ignore_indicator_warmup=true 时，应跳过指标 warmup 约束。"""
     bt = build_single_sma_backtest(period=80)
     cfg = build_wf_cfg(
-        train_bars=400,
-        transition_bars=5,
-        test_bars=120,
-        mode=WfWarmupMode.NoWarmup,
+        train_active_bars=400,
+        test_active_bars=120,
+        min_warmup_bars=5,
+        mode=WfWarmupMode.ExtendTest,
+        ignore_indicator_warmup=True,
     )
 
-    with pytest.raises(ValueError, match="NoWarmup"):
-        bt.validate_wf_indicator_readiness(cfg)
+    report = bt.validate_wf_indicator_readiness(cfg)
+    assert int(report["indicator_warmup_bars_base"]) == 0
+    assert int(report["test_warmup_bars_base"]) == 5
 
 
 def test_wf_precheck_borrow_requires_e_not_exceed_train(
@@ -54,9 +56,9 @@ def test_wf_precheck_borrow_requires_e_not_exceed_train(
     """BorrowFromTrain：E > T 必须报错。"""
     bt = build_single_sma_backtest(period=80)
     cfg = build_wf_cfg(
-        train_bars=30,
-        transition_bars=5,
-        test_bars=120,
+        train_active_bars=30,
+        test_active_bars=120,
+        min_warmup_bars=5,
         mode=WfWarmupMode.BorrowFromTrain,
     )
 
@@ -64,17 +66,17 @@ def test_wf_precheck_borrow_requires_e_not_exceed_train(
         bt.validate_wf_indicator_readiness(cfg)
 
 
-def test_wf_precheck_borrow_large_base_warmup_regression_currently_errors(
+def test_wf_precheck_borrow_large_base_warmup_must_fail_fast(
     build_single_sma_backtest: Callable[..., Backtest],
     build_wf_cfg: Callable[..., WalkForwardConfig],
 ):
-    """回归锁定：当前实现中 base 预热过大时 BorrowFromTrain 会报错。"""
-    # 中文注释：该用例用于先暴露问题，修复前预期抛错，修复后应改为“可通过”。
+    """BorrowFromTrain：base 预热过大导致 P_test > T 时必须直接报错。"""
+    # 中文注释：这不是临时回归，而是当前正式 spec 的 fail-fast 契约。
     bt = build_single_sma_backtest(period=120, num_bars=1_500, seed=17)
     cfg = build_wf_cfg(
-        train_bars=100,
-        transition_bars=1,
-        test_bars=120,
+        train_active_bars=100,
+        test_active_bars=120,
+        min_warmup_bars=1,
         mode=WfWarmupMode.BorrowFromTrain,
     )
 
@@ -89,15 +91,15 @@ def test_wf_precheck_supports_strategy_without_indicators(
     """无指标策略也应支持预检通过。"""
     bt = build_no_indicator_backtest()
     cfg = build_wf_cfg(
-        train_bars=200,
-        transition_bars=10,
-        test_bars=60,
-        mode=WfWarmupMode.NoWarmup,
+        train_active_bars=200,
+        test_active_bars=60,
+        min_warmup_bars=10,
+        mode=WfWarmupMode.ExtendTest,
     )
     report = bt.validate_wf_indicator_readiness(cfg)
     assert report["warmup_bars_by_source"] == {}
     assert int(report["indicator_warmup_bars_base"]) == 0
-    assert int(report["effective_transition_bars"]) == 10
+    assert int(report["test_warmup_bars_base"]) == 10
 
 
 def test_wf_precheck_error_message_is_diagnosable(
@@ -108,9 +110,9 @@ def test_wf_precheck_error_message_is_diagnosable(
     """预检失败信息必须包含实例/source/required/observed。"""
     bt = build_single_sma_backtest(period=48)
     cfg = build_wf_cfg(
-        train_bars=400,
-        transition_bars=60,
-        test_bars=120,
+        train_active_bars=400,
+        test_active_bars=120,
+        min_warmup_bars=60,
         mode=WfWarmupMode.ExtendTest,
     )
 

@@ -38,10 +38,11 @@ def build_wf_cfg() -> Callable[..., WalkForwardConfig]:
 
     def _build(
         *,
-        train_bars: int,
-        transition_bars: int,
-        test_bars: int,
+        train_active_bars: int,
+        test_active_bars: int,
+        min_warmup_bars: int = 0,
         mode: WfWarmupMode | None = None,
+        ignore_indicator_warmup: bool = False,
         optimizer_rounds: int = 8,
         optimizer_seed: int = 42,
     ) -> WalkForwardConfig:
@@ -56,16 +57,18 @@ def build_wf_cfg() -> Callable[..., WalkForwardConfig]:
         )
         if mode is None:
             return WalkForwardConfig(
-                train_bars=train_bars,
-                transition_bars=transition_bars,
-                test_bars=test_bars,
+                train_active_bars=train_active_bars,
+                test_active_bars=test_active_bars,
+                min_warmup_bars=min_warmup_bars,
+                ignore_indicator_warmup=ignore_indicator_warmup,
                 optimizer_config=optimizer_cfg,
             )
         return WalkForwardConfig(
-            train_bars=train_bars,
-            transition_bars=transition_bars,
-            test_bars=test_bars,
-            wf_warmup_mode=mode,
+            train_active_bars=train_active_bars,
+            test_active_bars=test_active_bars,
+            min_warmup_bars=min_warmup_bars,
+            warmup_mode=mode,
+            ignore_indicator_warmup=ignore_indicator_warmup,
             optimizer_config=optimizer_cfg,
         )
 

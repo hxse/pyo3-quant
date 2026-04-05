@@ -117,7 +117,7 @@ def validate_indicator_accuracy(
        c. 根据assert_mode参数决定使用assert_indicator_same还是assert_indicator_different
     """
 
-    backtest_results, data_container = run_indicator_backtest(
+    backtest_results, data_pack = run_indicator_backtest(
         data_params, config.params_config
     )
 
@@ -129,7 +129,7 @@ def validate_indicator_accuracy(
         indicators_df_current_timeframe = backtest_results[0].indicators[source_name]
 
         # 获取对应的 OHLCV DataFrame
-        ohlcv_df = data_container.source[source_name]
+        ohlcv_df = data_pack.source[source_name]
 
         for indicator_key, params_dict in timeframe_params.items():
             # 提取回测引擎结果
@@ -140,7 +140,7 @@ def validate_indicator_accuracy(
                 params_dict,
             )
 
-            # 将Polars DataFrame转换为Pandas DataFrame以兼容pandas_ta
+            # 将 Polars DataFrame 转换为 Pandas DataFrame 供 pandas_ta 使用
             pandas_df = ohlcv_df.to_pandas()
             # 提取pandas_ta结果
             pandas_ta_results = config.pandas_ta_result_extractor(

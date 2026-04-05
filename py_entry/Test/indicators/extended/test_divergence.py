@@ -41,7 +41,7 @@ def numpy_divergence_logic(prices, indicators, window, gap, recency, is_high=Tru
     return np.concatenate([np.zeros(window - 1), res_core])
 
 
-def test_divergence_logic_alignment(data_dict):
+def test_divergence_logic_alignment(data_params):
     """
     逻辑对齐测试：验证 Rust 计算出的背离信号与 NumPy 矢量化实现的参考值完全一致。
     现在背离指标一次性返回 top 和 bottom。
@@ -67,11 +67,11 @@ def test_divergence_logic_alignment(data_dict):
         }
     }
 
-    results, data_container = run_indicator_backtest(data_dict, indicator_configs)
+    results, data_pack = run_indicator_backtest(data_params, indicator_configs)
     indicators_results = results[0].indicators
     assert indicators_results is not None, "indicators results 不能为空"
     indicators_df = indicators_results["ohlcv_15m"]
-    ohlcv_df = data_container.source["ohlcv_15m"]
+    ohlcv_df = data_pack.source["ohlcv_15m"]
 
     # 1. 验证 RSI 背离 (_top 和 _bottom)
     rust_rsi_val = (
@@ -125,7 +125,7 @@ def test_divergence_logic_alignment(data_dict):
     )
 
 
-def test_divergence_column_names(data_dict):
+def test_divergence_column_names(data_params):
     """
     测试背离指标生成的列名是否符合规划
     """
@@ -148,7 +148,7 @@ def test_divergence_column_names(data_dict):
         }
     }
 
-    results, _ = run_indicator_backtest(data_dict, indicator_configs)
+    results, _ = run_indicator_backtest(data_params, indicator_configs)
     indicators_results = results[0].indicators
     assert indicators_results is not None, "indicators results 不能为空"
     indicators_df = indicators_results["ohlcv_15m"]

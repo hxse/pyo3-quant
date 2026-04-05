@@ -104,7 +104,7 @@ impl<'a> BacktestState<'a> {
         };
 
         if let (Some(exit_price), Some(entry_price)) = (exit_price, entry_price) {
-            // --- 1. 提取旧状态 ---
+            // --- 1. 提取前序状态 ---
             let initial_balance = self.capital_state.balance;
 
             // --- 2. 原始交易计算 ---

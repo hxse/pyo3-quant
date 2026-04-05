@@ -1,7 +1,7 @@
 use crate::backtest_engine::utils::column_names::ColumnName;
 use crate::backtest_engine::utils::get_data_length;
 use crate::error::QuantError;
-use crate::types::DataContainer;
+use crate::types::DataPack;
 use crate::types::IndicatorResults;
 use crate::types::SignalParams;
 use crate::types::{SignalGroup, SignalTemplate};
@@ -21,10 +21,45 @@ pub mod types; // 新增：解析器内部类型定义
 
 use group_processor::process_signal_group;
 
+fn suppress_entry_signals_in_warmup(
+    entry_series: &mut Series,
+    processed_data: &DataPack,
+    column_name: &str,
+) -> Result<(), QuantError> {
+    let base_range = processed_data
+        .ranges
+        .get(&processed_data.base_data_key)
+        .ok_or_else(|| {
+            QuantError::InvalidParam(format!(
+                "DataPack.ranges 缺少 base_data_key='{}'",
+                processed_data.base_data_key
+            ))
+        })?;
+    let warmup_bars = base_range.warmup_bars.min(entry_series.len());
+    if warmup_bars == 0 {
+        return Ok(());
+    }
+
+    let bool_col = entry_series.bool().map_err(|_| {
+        QuantError::Signal(crate::error::SignalError::InvalidInput(format!(
+            "signals.{column_name} 必须是 Boolean"
+        )))
+    })?;
+    let mut values = bool_col
+        .into_iter()
+        .map(|value| value.unwrap_or(false))
+        .collect::<Vec<_>>();
+    for item in values.iter_mut().take(warmup_bars) {
+        *item = false;
+    }
+    *entry_series = Series::new(column_name.into(), values);
+    Ok(())
+}
+
 // 辅助函数：处理单个信号字段的逻辑
 fn process_signal_field_helper(
     group: Option<&SignalGroup>,
-    processed_data: &DataContainer,
+    processed_data: &DataPack,
     indicator_dfs: &IndicatorResults,
     signal_params: &SignalParams,
     target_series: &mut Series,
@@ -44,7 +79,7 @@ fn process_signal_field_helper(
 }
 
 pub fn generate_signals(
-    processed_data: &DataContainer,
+    processed_data: &DataPack,
     indicator_dfs: &IndicatorResults,
     signal_params: &SignalParams,
     signal_template: &SignalTemplate,
@@ -106,6 +141,18 @@ pub fn generate_signals(
         &mut total_nan_mask,
     )?;
 
+    // 中文注释：正式预热禁开仓只认 ranges[base].warmup_bars，并在信号模块内部统一收口。
+    suppress_entry_signals_in_warmup(
+        &mut entry_long_series,
+        processed_data,
+        ColumnName::EntryLong.as_str(),
+    )?;
+    suppress_entry_signals_in_warmup(
+        &mut entry_short_series,
+        processed_data,
+        ColumnName::EntryShort.as_str(),
+    )?;
+
     let signals_df = DataFrame::new(vec![
         entry_long_series.into_column(),
         exit_long_series.into_column(),
@@ -123,7 +170,7 @@ use pyo3_stub_gen::derive::*;
 #[pyfunction(name = "generate_signals")]
 pub fn py_generate_signals(
     py: Python<'_>,
-    processed_data: DataContainer,
+    processed_data: DataPack,
     indicator_dfs_py: HashMap<String, Py<PyAny>>,
     signal_params: SignalParams,
     signal_template: SignalTemplate,

@@ -16,6 +16,7 @@ pub struct OutputBuffersIter<'a> {
     entry_short_price: std::slice::IterMut<'a, f64>,
     exit_long_price: std::slice::IterMut<'a, f64>,
     exit_short_price: std::slice::IterMut<'a, f64>,
+    atr: Option<std::slice::IterMut<'a, f64>>,
     risk_in_bar_direction: std::slice::IterMut<'a, i8>,
     first_entry_side: std::slice::IterMut<'a, i8>,
     frame_state: std::slice::IterMut<'a, u8>,
@@ -51,6 +52,10 @@ impl<'a> OutputBuffersIter<'a> {
             entry_short_price: buffers.entry_short_price[start..].iter_mut(),
             exit_long_price: buffers.exit_long_price[start..].iter_mut(),
             exit_short_price: buffers.exit_short_price[start..].iter_mut(),
+            atr: buffers
+                .atr
+                .as_mut()
+                .map(|values| values[start..].iter_mut()),
             risk_in_bar_direction: buffers.risk_in_bar_direction[start..].iter_mut(),
             first_entry_side: buffers.first_entry_side[start..].iter_mut(),
             frame_state: buffers.frame_state[start..].iter_mut(),
@@ -131,6 +136,7 @@ impl<'a> Iterator for OutputBuffersIter<'a> {
             entry_short_price: self.entry_short_price.next()?,
             exit_long_price: self.exit_long_price.next()?,
             exit_short_price: self.exit_short_price.next()?,
+            atr: self.atr.as_mut().and_then(|iter| iter.next()),
             risk_in_bar_direction: self.risk_in_bar_direction.next()?,
             first_entry_side: self.first_entry_side.next()?,
             frame_state: self.frame_state.next()?,

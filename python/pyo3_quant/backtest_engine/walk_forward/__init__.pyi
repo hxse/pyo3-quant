@@ -8,7 +8,7 @@ __all__ = [
 ]
 
 def run_walk_forward(
-    data_dict: pyo3_quant.DataContainer,
+    data: pyo3_quant.DataPack,
     param: pyo3_quant.SingleParamSet,
     template: pyo3_quant.TemplateContainer,
     engine_settings: pyo3_quant.SettingContainer,

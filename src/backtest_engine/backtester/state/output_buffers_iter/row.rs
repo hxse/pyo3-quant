@@ -17,6 +17,7 @@ pub struct OutputRow<'a> {
     pub entry_short_price: &'a mut f64,
     pub exit_long_price: &'a mut f64,
     pub exit_short_price: &'a mut f64,
+    pub atr: Option<&'a mut f64>,
     pub risk_in_bar_direction: &'a mut i8,
     pub first_entry_side: &'a mut i8,
     pub frame_state: &'a mut u8,
@@ -52,6 +53,9 @@ impl<'a> OutputRow<'a> {
         *self.entry_short_price = state.action.entry_short_price.unwrap_or(f64::NAN);
         *self.exit_long_price = state.action.exit_long_price.unwrap_or(f64::NAN);
         *self.exit_short_price = state.action.exit_short_price.unwrap_or(f64::NAN);
+        if let Some(atr) = self.atr.as_mut() {
+            **atr = state.current_bar.atr.unwrap_or(f64::NAN);
+        }
         *self.risk_in_bar_direction = state.risk_state.in_bar_direction;
         *self.first_entry_side = state.action.first_entry_side;
         *self.frame_state = state.frame_state as u8;

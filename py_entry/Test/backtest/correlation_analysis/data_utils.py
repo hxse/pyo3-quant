@@ -7,7 +7,7 @@ OHLCV 数据生成工具
 import pandas as pd
 from py_entry.data_generator import (
     DataGenerationParams,
-    generate_data_dict,
+    generate_data_pack,
 )
 from py_entry.Test.backtest.correlation_analysis.config import CommonConfig
 
@@ -34,11 +34,11 @@ def generate_ohlcv_for_backtestingpy(
         allow_gaps=config.allow_gaps,  # 使用统一配置
     )
 
-    data_dict = generate_data_dict(data_config)
+    data_pack = generate_data_pack(data_config)
 
     base_key = f"ohlcv_{config.timeframe}"
     # 提取 Polars DataFrame（使用 .source 字典）
-    ohlcv_pl = data_dict.source[base_key]
+    ohlcv_pl = data_pack.source[base_key]
 
     # 转换为 Pandas DataFrame 并重命名列
     ohlcv_pd = ohlcv_pl.to_pandas()

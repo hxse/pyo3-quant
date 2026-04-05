@@ -1,4 +1,5 @@
-use crate::types::{BacktestSummary, DataContainer, OptimizeMetric, SingleParamSet};
+use crate::backtest_engine::backtester::BacktestParamSegment;
+use crate::types::{DataPack, OptimizeMetric, ResultPack, SingleParamSet};
 use pyo3::prelude::*;
 use pyo3_stub_gen::derive::*;
 
@@ -7,13 +8,27 @@ use pyo3_stub_gen::derive::*;
 #[pyclass(get_all)]
 #[derive(Clone)]
 pub struct NextWindowHint {
-    pub expected_train_start_time_ms: i64,
-    pub expected_transition_start_time_ms: i64,
-    pub expected_test_start_time_ms: i64,
-    pub expected_test_end_time_ms: i64,
-    pub expected_window_ready_time_ms: i64,
+    pub expected_window_switch_time_ms: i64,
     pub eta_days: f64,
     pub based_on_window_id: usize,
+}
+
+/// 窗口级结构性元数据
+#[gen_stub_pyclass]
+#[pyclass(get_all)]
+#[derive(Clone)]
+pub struct WindowMeta {
+    pub window_id: usize,
+    pub best_params: SingleParamSet,
+    pub has_cross_boundary_position: bool,
+    // 中文注释：这里对外用半开区间 tuple 暴露，语义等价于摘要里的 Range<usize>。
+    pub test_active_base_row_range: (usize, usize),
+    pub train_warmup_time_range: Option<(i64, i64)>,
+    pub train_active_time_range: (i64, i64),
+    pub train_pack_time_range: (i64, i64),
+    pub test_warmup_time_range: (i64, i64),
+    pub test_active_time_range: (i64, i64),
+    pub test_pack_time_range: (i64, i64),
 }
 
 /// 窗口级完整产物
@@ -21,32 +36,22 @@ pub struct NextWindowHint {
 #[pyclass(get_all)]
 #[derive(Clone)]
 pub struct WindowArtifact {
-    // CorePayload
-    pub data: DataContainer,
-    pub summary: BacktestSummary,
-    // RangeIdentity
-    pub time_range: (i64, i64),
-    pub bar_range: (usize, usize),
-    pub span_ms: i64,
-    pub span_days: f64,
-    pub span_months: f64,
-    pub bars: usize,
-    // WindowContext
-    pub window_id: usize,
-    pub train_range: (usize, usize),
-    pub transition_range: (usize, usize),
-    pub test_range: (usize, usize),
-    pub train_time_range: (i64, i64),
-    pub transition_time_range: (i64, i64),
-    pub test_time_range: (i64, i64),
-    pub full_time_range: (i64, i64),
-    pub train_bars: usize,
-    pub transition_bars: usize,
-    pub test_bars: usize,
-    pub full_bars: usize,
-    pub best_params: SingleParamSet,
-    pub optimize_metric: OptimizeMetric,
-    pub has_cross_boundary_position: bool,
+    pub train_pack_data: DataPack,
+    pub test_pack_data: DataPack,
+    pub test_pack_result: ResultPack,
+    pub meta: WindowMeta,
+}
+
+/// 拼接级完整产物
+#[gen_stub_pyclass]
+#[pyclass(get_all)]
+#[derive(Clone)]
+pub struct StitchedMeta {
+    pub window_count: usize,
+    pub stitched_pack_time_range_from_active: (i64, i64),
+    pub stitched_window_active_time_ranges: Vec<(i64, i64)>,
+    pub backtest_schedule: Vec<BacktestParamSegment>,
+    pub next_window_hint: NextWindowHint,
 }
 
 /// 拼接级完整产物
@@ -54,23 +59,9 @@ pub struct WindowArtifact {
 #[pyclass(get_all)]
 #[derive(Clone)]
 pub struct StitchedArtifact {
-    // CorePayload
-    pub data: DataContainer,
-    pub summary: BacktestSummary,
-    // RangeIdentity
-    pub time_range: (i64, i64),
-    pub bar_range: (usize, usize),
-    pub span_ms: i64,
-    pub span_days: f64,
-    pub span_months: f64,
-    pub bars: usize,
-    // StitchContext
-    pub window_count: usize,
-    pub first_test_time_ms: i64,
-    pub last_test_time_ms: i64,
-    // ScheduleHint
-    pub rolling_every_days: f64,
-    pub next_window_hint: NextWindowHint,
+    pub stitched_data: DataPack,
+    pub result: ResultPack,
+    pub meta: StitchedMeta,
 }
 
 /// 向前测试完整结果（破坏性更新）

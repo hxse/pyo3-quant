@@ -50,7 +50,7 @@ class BarOption(BaseModel):
 
 
 class HorizontalLineOption(BaseModel):
-    # 中文注释：基础字段，兼容历史配置。
+    # 中文注释：基础字段。
     color: str
     value: Optional[float] = None
     label: Optional[str] = None
@@ -65,7 +65,7 @@ class HorizontalLineOption(BaseModel):
 
 
 class VerticalLineOption(BaseModel):
-    # 中文注释：基础字段，兼容历史配置。
+    # 中文注释：基础字段。
     color: str
     value: Union[float, str]
     label: Optional[str] = None

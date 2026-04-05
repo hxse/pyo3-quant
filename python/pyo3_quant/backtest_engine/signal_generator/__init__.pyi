@@ -10,7 +10,7 @@ __all__ = [
 ]
 
 def generate_signals(
-    processed_data: _pyo3_quant.DataContainer,
+    processed_data: _pyo3_quant.DataPack,
     indicator_dfs_py: typing.Mapping[builtins.str, typing.Any],
     signal_params: typing.Mapping[builtins.str, _pyo3_quant.Param],
     signal_template: _pyo3_quant.SignalTemplate,

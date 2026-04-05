@@ -3,7 +3,7 @@ from py_entry.Test.indicators.conftest import run_indicator_backtest
 from py_entry.types import Param
 
 
-def test_sma_close_pct_column_names(data_dict):
+def test_sma_close_pct_column_names(data_params):
     """
     测试 SMA-Close-PCT 指标生成的列名是否符合规划 (indicators_name_rule.md)
     规则: 单输出指标, 列名应与 Key 一致
@@ -15,7 +15,7 @@ def test_sma_close_pct_column_names(data_dict):
         }
     }
 
-    results, _ = run_indicator_backtest(data_dict, indicator_configs)
+    results, _ = run_indicator_backtest(data_params, indicator_configs)
 
     # 获取指标结果集
     indicators_results = results[0].indicators

@@ -51,9 +51,6 @@ class RuntimeChecks:
         self,
         params: StrategyParams,
         amount: float,
-        price: float,
     ) -> CallbackResult[Literal["pass", "fail"]]:
         """检查是否满足最小下单量。"""
-        # 保留 price 参数用于兼容现有调用签名，当前逻辑不使用该值。
-        _ = price
         return min_order_check(self.callbacks, params, amount)

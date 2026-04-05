@@ -78,11 +78,10 @@ def test_leading_nan_tracking():
     result = runner.run()
 
     # 5. 验证结果
-    assert result.summary is not None, "回测结果不应为空"
-    backtest_summary = result.summary
+    backtest_result = result.result
 
-    signals = backtest_summary.signals
-    indicators = backtest_summary.indicators
+    signals = backtest_result.signals
+    indicators = backtest_result.indicators
 
     assert signals is not None, "signals 不应为空"
     assert indicators is not None, "indicators 不应为空"

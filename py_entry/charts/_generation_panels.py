@@ -1,11 +1,11 @@
 from typing import Optional
 
 from py_entry.types import (
-    BacktestSummary,
-    DataContainer,
+    DataPack,
     HorizontalLineLayoutItem,
     HorizontalLineOption,
     IndicatorLayoutItem,
+    ResultPack,
     SeriesItemConfig,
     SingleParamSet,
     VerticalLineLayoutItem,
@@ -17,23 +17,23 @@ from .utils import sort_timeframe_keys
 
 
 def build_chart_groups(
-    data_dict: DataContainer,
-    result: BacktestSummary,
-    param: SingleParamSet,
+    data_pack: DataPack,
+    result: ResultPack,
+    param: Optional[SingleParamSet],
     layout: IndicatorLayout,
     dataframe_format: str,
 ) -> list[list[list[SeriesItemConfig]]]:
     """构建主图 chart 三维结构（时间周期 > 面板 > 系列）。"""
     chart_groups: list[list[list[SeriesItemConfig]]] = []
 
-    source_keys = set(data_dict.source.keys())
+    source_keys = set(data_pack.source.keys())
     ind_keys = set(result.indicators.keys()) if result.indicators else set()
     all_keys = source_keys | ind_keys
 
-    if not data_dict.base_data_key:
+    if not data_pack.base_data_key:
         return chart_groups
 
-    sorted_keys = sort_timeframe_keys(list(all_keys), data_dict.base_data_key)
+    sorted_keys = sort_timeframe_keys(list(all_keys), data_pack.base_data_key)
 
     for key in sorted_keys:
         available_columns = set()
@@ -63,6 +63,15 @@ def build_chart_groups(
                         continue
 
                     hline_value: Optional[float] = item_config.value
+                    if (
+                        hline_value is None
+                        and item_config.paramKey is not None
+                        and param is None
+                    ):
+                        raise ValueError(
+                            "stitched 图表不支持在默认图表生成阶段解析 paramKey 型 hline；"
+                            "请显式传入 chart_config，或改用固定 value。"
+                        )
                     if hline_value is None and param and param.signal:
                         param_name = item_config.paramKey or indicator_name
                         if param_name in param.signal:
@@ -125,7 +134,7 @@ def build_chart_groups(
                 item_type = item_config.type
 
                 if indicator_name == "ohlc" and item_type == "candle":
-                    if key in data_dict.source:
+                    if key in data_pack.source:
                         counter = init_counter(style_counters, indicator_name)
                         candle_opt = get_style_option(
                             item_config.candleOptions, counter
@@ -133,7 +142,7 @@ def build_chart_groups(
                         panel_series.append(
                             SeriesItemConfig(
                                 type="candle",
-                                fileName=f"data_dict/source_{key}.{dataframe_format}",
+                                fileName=f"data_pack/source_{key}.{dataframe_format}",
                                 dataName=["open", "high", "low", "close"],
                                 show=show,
                                 showInLegend=show_in_legend,
@@ -143,7 +152,7 @@ def build_chart_groups(
                         style_counters[indicator_name] += 1
 
                 elif indicator_name == "volume" and item_type == "volume":
-                    if key in data_dict.source:
+                    if key in data_pack.source:
                         counter = init_counter(style_counters, indicator_name)
                         volume_opt = get_style_option(
                             item_config.volumeOptions, counter
@@ -151,7 +160,7 @@ def build_chart_groups(
                         panel_series.append(
                             SeriesItemConfig(
                                 type="volume",
-                                fileName=f"data_dict/source_{key}.{dataframe_format}",
+                                fileName=f"data_pack/source_{key}.{dataframe_format}",
                                 dataName="volume",
                                 show=show,
                                 showInLegend=show_in_legend,

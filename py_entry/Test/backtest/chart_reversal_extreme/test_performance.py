@@ -28,8 +28,7 @@ def backtest_result():
         engine_settings=strategy.engine_settings,
     )
     result = runner.run()
-    assert result.summary is not None, "回测结果不应为空"
-    return result.summary
+    return result.result
 
 
 def test_performance_matches_baseline(backtest_result):

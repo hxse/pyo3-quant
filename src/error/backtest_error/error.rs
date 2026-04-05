@@ -30,8 +30,8 @@ pub enum BacktestError {
     #[error("ATR计算失败: {message}")]
     ATRCalculationError { message: String },
 
-    /// 无法从DataContainer提取OHLCV数据
-    #[error("无法从DataContainer提取OHLCV数据")]
+    /// 无法从 DataPack 提取 OHLCV 数据
+    #[error("无法从 DataPack 提取 OHLCV 数据")]
     OHLCVNotFound,
 
     /// 数据验证失败

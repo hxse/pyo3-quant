@@ -128,7 +128,7 @@ pub fn parse_condition_str(input: &str) -> Res<'_, SignalCondition> {
 /// - `Err(QuantError::Signal(SignalError::ParseError))`: 解析失败
 ///
 /// # 示例
-/// ```rust
+/// ```no_run
 /// use pyo3_quant::backtest_engine::signal_generator::parser::parse_condition;
 ///
 /// let cond = parse_condition("close, ohlcv_15m, 0 > sma_0, ohlcv_15m, 0").unwrap();

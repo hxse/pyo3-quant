@@ -14,10 +14,10 @@ from py_entry.Test.signal.utils import (
 
 def calculate_entry_long(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
     """
     Enter Long:
@@ -30,27 +30,27 @@ def calculate_entry_long(
       (15m Close > 1h BB Middle)
     """
     # 1. EMA多时间周期比较
-    ema_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "ema_0")
-    ema_1h = get_mapped_indicator(mapped_backtest_summary, "ohlcv_1h", "ema_0")
-    ema_4h = get_mapped_indicator(mapped_backtest_summary, "ohlcv_4h", "ema_0")
+    ema_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "ema_0")
+    ema_1h = get_mapped_indicator(mapped_result_pack, "ohlcv_1h", "ema_0")
+    ema_4h = get_mapped_indicator(mapped_result_pack, "ohlcv_4h", "ema_0")
 
     # 15分钟EMA > 1小时EMA > 4小时EMA
     ema_cond_1 = compare_series(ema_15m, ema_1h, ">", offset_left=0)
     ema_cond_2 = compare_series(ema_1h, ema_4h, ">", offset_left=0)
 
     # 2. RSI多时间周期比较
-    rsi_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "rsi_0")
-    rsi_1h = get_mapped_indicator(mapped_backtest_summary, "ohlcv_1h", "rsi_0")
-    rsi_4h = get_mapped_indicator(mapped_backtest_summary, "ohlcv_4h", "rsi_0")
+    rsi_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "rsi_0")
+    rsi_1h = get_mapped_indicator(mapped_result_pack, "ohlcv_1h", "rsi_0")
+    rsi_4h = get_mapped_indicator(mapped_result_pack, "ohlcv_4h", "rsi_0")
 
     # 15分钟RSI > 1小时RSI > 4小时RSI
     rsi_cond_1 = compare_series(rsi_15m, rsi_1h, ">", offset_left=0)
     rsi_cond_2 = compare_series(rsi_1h, rsi_4h, ">", offset_left=0)
 
     # 3. 价格与多时间周期指标比较
-    close_15m = get_mapped_ohlcv(mapped_data_container, "ohlcv_15m", "close")
+    close_15m = get_mapped_ohlcv(mapped_data_pack, "ohlcv_15m", "close")
     bb_middle_1h = get_mapped_indicator(
-        mapped_backtest_summary, "ohlcv_1h", "bbands_0_middle"
+        mapped_result_pack, "ohlcv_1h", "bbands_0_middle"
     )
 
     # 15分钟收盘价 > 1小时EMA
@@ -74,10 +74,10 @@ def calculate_entry_long(
 
 def calculate_exit_long(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
     """
     Exit Long:
@@ -86,12 +86,12 @@ def calculate_exit_long(
       (15m RSI < 50)
     """
     # 1. EMA多时间周期趋势反转
-    ema_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "ema_0")
-    ema_1h = get_mapped_indicator(mapped_backtest_summary, "ohlcv_1h", "ema_0")
+    ema_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "ema_0")
+    ema_1h = get_mapped_indicator(mapped_result_pack, "ohlcv_1h", "ema_0")
     ema_cond = compare_series(ema_15m, ema_1h, "<", offset_left=0)
 
     # 2. RSI多时间周期动量反转
-    rsi_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "rsi_0")
+    rsi_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "rsi_0")
     rsi_threshold = signal_params["rsi_midline"].value
     rsi_cond = compare_series(rsi_15m, rsi_threshold, "<", offset_left=0)
 
@@ -103,10 +103,10 @@ def calculate_exit_long(
 
 def calculate_entry_short(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
     """
     Enter Short:
@@ -119,27 +119,27 @@ def calculate_entry_short(
       (15m Close < 1h BB Middle)
     """
     # 1. EMA多时间周期比较
-    ema_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "ema_0")
-    ema_1h = get_mapped_indicator(mapped_backtest_summary, "ohlcv_1h", "ema_0")
-    ema_4h = get_mapped_indicator(mapped_backtest_summary, "ohlcv_4h", "ema_0")
+    ema_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "ema_0")
+    ema_1h = get_mapped_indicator(mapped_result_pack, "ohlcv_1h", "ema_0")
+    ema_4h = get_mapped_indicator(mapped_result_pack, "ohlcv_4h", "ema_0")
 
     # 15分钟EMA < 1小时EMA < 4小时EMA
     ema_cond_1 = compare_series(ema_15m, ema_1h, "<", offset_left=0)
     ema_cond_2 = compare_series(ema_1h, ema_4h, "<", offset_left=0)
 
     # 2. RSI多时间周期比较
-    rsi_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "rsi_0")
-    rsi_1h = get_mapped_indicator(mapped_backtest_summary, "ohlcv_1h", "rsi_0")
-    rsi_4h = get_mapped_indicator(mapped_backtest_summary, "ohlcv_4h", "rsi_0")
+    rsi_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "rsi_0")
+    rsi_1h = get_mapped_indicator(mapped_result_pack, "ohlcv_1h", "rsi_0")
+    rsi_4h = get_mapped_indicator(mapped_result_pack, "ohlcv_4h", "rsi_0")
 
     # 15分钟RSI < 1小时RSI < 4小时RSI
     rsi_cond_1 = compare_series(rsi_15m, rsi_1h, "<", offset_left=0)
     rsi_cond_2 = compare_series(rsi_1h, rsi_4h, "<", offset_left=0)
 
     # 3. 价格与多时间周期指标比较
-    close_15m = get_mapped_ohlcv(mapped_data_container, "ohlcv_15m", "close")
+    close_15m = get_mapped_ohlcv(mapped_data_pack, "ohlcv_15m", "close")
     bb_middle_1h = get_mapped_indicator(
-        mapped_backtest_summary, "ohlcv_1h", "bbands_0_middle"
+        mapped_result_pack, "ohlcv_1h", "bbands_0_middle"
     )
 
     # 15分钟收盘价 < 1小时EMA
@@ -163,10 +163,10 @@ def calculate_entry_short(
 
 def calculate_exit_short(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
     """
     Exit Short:
@@ -175,12 +175,12 @@ def calculate_exit_short(
       (15m RSI > 50)
     """
     # 1. EMA多时间周期趋势反转
-    ema_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "ema_0")
-    ema_1h = get_mapped_indicator(mapped_backtest_summary, "ohlcv_1h", "ema_0")
+    ema_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "ema_0")
+    ema_1h = get_mapped_indicator(mapped_result_pack, "ohlcv_1h", "ema_0")
     ema_cond = compare_series(ema_15m, ema_1h, ">", offset_left=0)
 
     # 2. RSI多时间周期动量反转
-    rsi_15m = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "rsi_0")
+    rsi_15m = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "rsi_0")
     rsi_threshold = signal_params["rsi_midline"].value
     rsi_cond = compare_series(rsi_15m, rsi_threshold, ">", offset_left=0)
 
@@ -192,41 +192,41 @@ def calculate_exit_short(
 
 def calculate_signals(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.DataFrame:
     """
     计算所有信号并返回DataFrame
     """
     entry_long = calculate_entry_long(
         signal_params,
-        data_container,
-        backtest_summary,
-        mapped_data_container,
-        mapped_backtest_summary,
+        data_pack,
+        result_pack,
+        mapped_data_pack,
+        mapped_result_pack,
     )
     exit_long = calculate_exit_long(
         signal_params,
-        data_container,
-        backtest_summary,
-        mapped_data_container,
-        mapped_backtest_summary,
+        data_pack,
+        result_pack,
+        mapped_data_pack,
+        mapped_result_pack,
     )
     entry_short = calculate_entry_short(
         signal_params,
-        data_container,
-        backtest_summary,
-        mapped_data_container,
-        mapped_backtest_summary,
+        data_pack,
+        result_pack,
+        mapped_data_pack,
+        mapped_result_pack,
     )
     exit_short = calculate_exit_short(
         signal_params,
-        data_container,
-        backtest_summary,
-        mapped_data_container,
-        mapped_backtest_summary,
+        data_pack,
+        result_pack,
+        mapped_data_pack,
+        mapped_result_pack,
     )
 
     return create_signal_dataframe(entry_long, exit_long, entry_short, exit_short)

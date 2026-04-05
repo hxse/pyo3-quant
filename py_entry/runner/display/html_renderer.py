@@ -101,7 +101,7 @@ def render_as_html(runner: "RunResult", config: DisplayConfig) -> HTML:
         with open(js_template_path, "r", encoding="utf-8") as f:
             js_template = f.read()
     except FileNotFoundError:
-        # 如果找不到文件（例如打包环境），回退到内联或报错
+        # 如果找不到文件（例如打包环境），直接报错
         logger.error(f"未找到 JS 模板文件: {js_template_path}")
         return HTML(
             f"<h2>Internal Error: JS template not found at {js_template_path}</h2>"

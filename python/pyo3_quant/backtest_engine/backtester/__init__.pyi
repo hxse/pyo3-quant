@@ -16,7 +16,7 @@ def frame_state_name(state_id: builtins.int) -> builtins.str:
     """
 
 def run_backtest(
-    processed_data: _pyo3_quant.DataContainer,
+    processed_data: _pyo3_quant.DataPack,
     signals_df_py: typing.Any,
     backtest_params: _pyo3_quant.BacktestParams,
 ) -> typing.Any:

@@ -14,7 +14,7 @@ from py_entry.strategy_hub.core.spec import TestStrategySpec
 def run_strategy_backtest(
     strategy: TestStrategySpec,
 ) -> tuple[list[Any], TestStrategySpec, Any]:
-    """执行单个策略回测，返回 (results, strategy, data_dict)。"""
+    """执行单个策略回测，返回 (results, strategy, data_pack)。"""
     variant = strategy.variant
     bt = Backtest(
         data_source=strategy.data_config,
@@ -26,10 +26,10 @@ def run_strategy_backtest(
         performance=strategy.performance_params,
     )
     result = bt.run()
-    return result.results, strategy, result.data_dict
+    return [result.result], strategy, result.data_pack
 
 
-def extract_backtest_df_with_close(results: list[Any], data_dict: Any):
+def extract_backtest_df_with_close(results: list[Any], data_pack: Any):
     """从 results 中提取回测 DataFrame，并在可用时补充 close 列。"""
     if not results or not hasattr(results[0], "backtest_result"):
         return None
@@ -37,10 +37,10 @@ def extract_backtest_df_with_close(results: list[Any], data_dict: Any):
     df = results[0].backtest_result
 
     # 从 base_data_key 对应源数据补充 close，便于精细化公式测试复用。
-    if data_dict is not None:
-        base_key = data_dict.base_data_key
-        if base_key and base_key in data_dict.source:
-            base_data = data_dict.source[base_key]
+    if data_pack is not None:
+        base_key = data_pack.base_data_key
+        if base_key and base_key in data_pack.source:
+            base_data = data_pack.source[base_key]
             if "close" in base_data.columns:
                 close_series = base_data["close"]
                 if len(close_series) == len(df):

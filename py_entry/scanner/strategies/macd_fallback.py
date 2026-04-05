@@ -15,15 +15,15 @@ from py_entry.types import LogicOp, Param, SignalGroup, SignalTemplate
 @StrategyRegistry.register
 class MacdFallbackStrategy(StrategyBase):
     """
-    MACD 回退方向策略
+    MACD 分层方向策略
 
     方向判定（做多）：
     1. 若周线为零上红柱，则看多。
-    2. 若周线中性，则退化到日线；若日线为零上红柱，则看多。
+    2. 若周线中性，则继续读取日线；若日线为零上红柱，则看多。
 
     方向判定（做空）：
     1. 若周线为零下蓝柱，则看空。
-    2. 若周线中性，则退化到日线；若日线为零下蓝柱，则看空。
+    2. 若周线中性，则继续读取日线；若日线为零下蓝柱，则看空。
 
     中性判定：
     1. 若周线中性且日线仍中性，则整体观望。
@@ -85,7 +85,7 @@ class MacdFallbackStrategy(StrategyBase):
             },
         }
 
-        # 中文注释：周线/日线中性定义为“零轴方向与柱色不一致”，用于触发日线回退或直接观望。
+        # 中文注释：周线/日线中性定义为“零轴方向与柱色不一致”，此时继续读取日线，否则直接观望。
         weekly_neutral_group = SignalGroup(
             logic=LogicOp.OR,
             sub_groups=[

@@ -19,7 +19,7 @@ def apply_mapping_if_needed(series, source_key, processed_data):
     Args:
         series: 需要映射的Series
         source_key: 数据源键（如 "ohlcv_1h", "ohlcv_4h"）
-        processed_data: DataContainer对象
+        processed_data: DataPack 对象
 
     Returns:
         映射后的Series（如果需要映射）或原始Series（如果跳过映射）
@@ -53,7 +53,7 @@ def apply_mapping_to_dataframe(df, source_key, processed_data):
     Args:
         df: 需要映射的DataFrame（indicators或ohlcv）
         source_key: 数据源键（如 "ohlcv_1h", "ohlcv_4h"）
-        processed_data: DataContainer对象
+        processed_data: DataPack 对象
 
     Returns:
         映射后的DataFrame
@@ -76,51 +76,55 @@ def apply_mapping_to_dataframe(df, source_key, processed_data):
     return pl.DataFrame(mapped_columns)
 
 
-def prepare_mapped_data(data_container, backtest_summary):
+def prepare_mapped_data(data_pack, result_pack):
     """
     准备映射后的数据，用于手动信号计算
 
     Args:
-        data_container: DataContainer对象（包含映射表和原始数据）
-        backtest_summary: BacktestSummary对象（包含indicators）
+        data_pack: DataPack 对象（包含映射表和原始数据）
+        result_pack: ResultPack 对象（包含 indicators）
 
     Returns:
-        元组: (mapped_data_container, mapped_backtest_summary)
-        - mapped_data_container: 映射后的DataContainer（所有source数据已映射到基准周期）
-        - mapped_backtest_summary: 映射后的BacktestSummary（所有indicators已映射到基准周期）
+        元组: (mapped_data_pack, mapped_result_pack)
+        - mapped_data_pack: 映射后的 DataPack（所有 source 数据已映射到基准周期）
+        - mapped_result_pack: 映射后的 ResultPack（所有 indicators 已映射到基准周期）
     """
-    from py_entry.types import DataContainer, BacktestSummary
+    from py_entry.types import DataPack, ResultPack
 
-    # 1. 映射 indicators（在 backtest_summary 中）
+    # 1. 映射 indicators（在 result_pack 中）
     mapped_indicators = {}
-    if backtest_summary.indicators:
-        for source_key, indicators_df in backtest_summary.indicators.items():
+    if result_pack.indicators:
+        for source_key, indicators_df in result_pack.indicators.items():
             mapped_indicators[source_key] = apply_mapping_to_dataframe(
-                indicators_df, source_key, data_container
+                indicators_df, source_key, data_pack
             )
 
-    # 2. 映射 source 数据（在 data_container 中）
+    # 2. 映射 source 数据（在 data_pack 中）
     # 包括 ohlcv_*, ha_*, renko_* 等所有数据
     mapped_source = {}
-    for source_key, df in data_container.source.items():
+    for source_key, df in data_pack.source.items():
         mapped_source[source_key] = apply_mapping_to_dataframe(
-            df, source_key, data_container
+            df, source_key, data_pack
         )
 
-    # 3. 构造新的 DataContainer（映射后的）
-    mapped_data_container = DataContainer(
-        mapping=data_container.mapping,
-        skip_mask=data_container.skip_mask,
+    # 3. 构造新的 DataPack（映射后的）
+    mapped_data_pack = DataPack(
+        mapping=data_pack.mapping,
+        skip_mask=data_pack.skip_mask,
         source=mapped_source,
-        base_data_key=data_container.base_data_key,
+        base_data_key=data_pack.base_data_key,
+        ranges=data_pack.ranges,
     )
 
-    # 4. 构造新的 BacktestSummary（映射后的）
-    mapped_backtest_summary = BacktestSummary(
-        performance=backtest_summary.performance,
+    # 4. 构造新的 ResultPack（映射后的）
+    mapped_result_pack = ResultPack(
+        mapping=result_pack.mapping,
+        ranges=result_pack.ranges,
+        base_data_key=result_pack.base_data_key,
+        performance=result_pack.performance,
         indicators=mapped_indicators,
-        signals=backtest_summary.signals,  # signals 已经是映射后的
-        backtest_result=backtest_summary.backtest_result,
+        signals=result_pack.signals,  # signals 已经是映射后的
+        backtest_result=result_pack.backtest_result,
     )
 
-    return mapped_data_container, mapped_backtest_summary
+    return mapped_data_pack, mapped_result_pack

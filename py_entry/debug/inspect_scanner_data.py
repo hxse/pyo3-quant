@@ -86,16 +86,16 @@ def main():
 
         try:
             result = bt.run()
-            # 访问 result.summary.indicators (Dict[str, pl.DataFrame])
+            # 中文注释：直接访问正式 ResultPack.indicators。
             if (
-                result.summary.indicators is None
-                or base_key not in result.summary.indicators
+                result.result.indicators is None
+                or base_key not in result.result.indicators
             ):
                 print("  计算失败: 未能获取指标结果")
                 continue
 
             # 获取计算后的指标 DataFrame
-            indicator_df = result.summary.indicators[base_key]
+            indicator_df = result.result.indicators[base_key]
 
             # 拼接指标和原始 OHLCV 数据，获得 datetime 和 close 列
             full_df = pl.concat([df, indicator_df], how="horizontal")

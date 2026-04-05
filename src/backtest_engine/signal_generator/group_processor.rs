@@ -3,7 +3,7 @@ use super::parser::parse_condition;
 use super::types::{CompareOp, SignalCondition, SignalRightOperand};
 use crate::backtest_engine::utils::get_data_length;
 use crate::error::QuantError;
-use crate::types::DataContainer;
+use crate::types::DataPack;
 use crate::types::IndicatorResults;
 use crate::types::LogicOp;
 use crate::types::SignalGroup;
@@ -85,7 +85,7 @@ fn validate_cross_operator_sources(
 /// 处理 SignalGroup，根据 LogicOp 组合多个 SignalCondition 的结果
 pub fn process_signal_group(
     group: &SignalGroup,
-    processed_data: &DataContainer,
+    processed_data: &DataPack,
     indicator_dfs: &IndicatorResults,
     signal_params: &SignalParams,
 ) -> Result<(BooleanChunked, BooleanChunked), QuantError> {

@@ -123,9 +123,7 @@ def execute_signal(
                     )
 
                 # 2c. 最小订单检查。
-                min_result = runtime_checks.min_order_check(
-                    params, calculated_amount, entry_price
-                )
+                min_result = runtime_checks.min_order_check(params, calculated_amount)
                 if not min_result.success:
                     return StepResult(success=False, message=min_result.message)
                 if min_result.data == "fail":

@@ -14,10 +14,10 @@ from py_entry.Test.signal.utils import (
 
 def calculate_entry_long(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
     """
     条件：close, ohlcv_15m, |0-2 > sma_0, ohlcv_15m, 0
@@ -26,8 +26,8 @@ def calculate_entry_long(
     - |0-2 表示 offset 0, 1, 2 中任一满足即可（OR逻辑）
     - 即：close[0] > sma[0] OR close[1] > sma[0] OR close[2] > sma[0]
     """
-    close = get_mapped_ohlcv(mapped_data_container, "ohlcv_15m", "close")
-    sma = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "sma_0")
+    close = get_mapped_ohlcv(mapped_data_pack, "ohlcv_15m", "close")
+    sma = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "sma_0")
 
     cond_0 = compare_series(close, sma, ">", offset_left=0)
     cond_1 = compare_series(close, sma, ">", offset_left=1)
@@ -39,72 +39,72 @@ def calculate_entry_long(
 
 def calculate_exit_long(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
-    length = get_data_length(mapped_data_container)
+    length = get_data_length(mapped_data_pack)
     return create_false_series(length)
 
 
 def calculate_entry_short(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
-    length = get_data_length(mapped_data_container)
+    length = get_data_length(mapped_data_pack)
     return create_false_series(length)
 
 
 def calculate_exit_short(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
-    length = get_data_length(mapped_data_container)
+    length = get_data_length(mapped_data_pack)
     return create_false_series(length)
 
 
 def calculate_signals(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.DataFrame:
     """计算所有信号"""
     return create_signal_dataframe(
         calculate_entry_long(
             signal_params,
-            data_container,
-            backtest_summary,
-            mapped_data_container,
-            mapped_backtest_summary,
+            data_pack,
+            result_pack,
+            mapped_data_pack,
+            mapped_result_pack,
         ),
         calculate_exit_long(
             signal_params,
-            data_container,
-            backtest_summary,
-            mapped_data_container,
-            mapped_backtest_summary,
+            data_pack,
+            result_pack,
+            mapped_data_pack,
+            mapped_result_pack,
         ),
         calculate_entry_short(
             signal_params,
-            data_container,
-            backtest_summary,
-            mapped_data_container,
-            mapped_backtest_summary,
+            data_pack,
+            result_pack,
+            mapped_data_pack,
+            mapped_result_pack,
         ),
         calculate_exit_short(
             signal_params,
-            data_container,
-            backtest_summary,
-            mapped_data_container,
-            mapped_backtest_summary,
+            data_pack,
+            result_pack,
+            mapped_data_pack,
+            mapped_result_pack,
         ),
     )

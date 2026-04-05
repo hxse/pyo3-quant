@@ -81,7 +81,7 @@ else:
         class TacAccessor(TaClassicAccessor):
             pass
 
-    # 6. 正常导入 pandas_ta (旧库)
+    # 6. 正常导入 pandas_ta 基准库
     # 先检查是否已经存在 ta 访问器，如果存在则先删除
     if hasattr(pd.DataFrame, "ta"):
         delattr(pd.DataFrame, "ta")

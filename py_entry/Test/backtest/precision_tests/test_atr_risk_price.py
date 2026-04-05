@@ -44,7 +44,7 @@ class TestAtrRiskPriceCalculation:
 
     def test_sl_atr_price_long_formula(self, backtest_with_config):
         """验证多头 ATR 止损价格: sl_atr_price_long = signal_close - signal_atr * sl_atr"""
-        results, strategy, data_dict = backtest_with_config
+        results, strategy, data_pack = backtest_with_config
         backtest_params = strategy.variant.backtest_params
 
         # 检查是否启用了 sl_atr
@@ -63,8 +63,8 @@ class TestAtrRiskPriceCalculation:
             pytest.skip("回测结果无 sl_atr_price_long 列")
 
         # 获取基础数据计算参考 ATR
-        base_key = data_dict.base_data_key
-        base_data = data_dict.source[base_key]
+        base_key = data_pack.base_data_key
+        base_data = data_pack.source[base_key]
         ref_atr = _calculate_reference_atr(
             base_data["close"], base_data["high"], base_data["low"], atr_period
         )
@@ -110,7 +110,7 @@ class TestAtrRiskPriceCalculation:
 
     def test_sl_atr_price_short_formula(self, backtest_with_config):
         """验证空头 ATR 止损价格: sl_atr_price_short = signal_close + signal_atr * sl_atr"""
-        results, strategy, data_dict = backtest_with_config
+        results, strategy, data_pack = backtest_with_config
         backtest_params = strategy.variant.backtest_params
 
         if backtest_params.sl_atr is None or backtest_params.sl_atr.value == 0:
@@ -126,8 +126,8 @@ class TestAtrRiskPriceCalculation:
         if "sl_atr_price_short" not in df.columns:
             pytest.skip("回测结果无 sl_atr_price_short 列")
 
-        base_key = data_dict.base_data_key
-        base_data = data_dict.source[base_key]
+        base_key = data_pack.base_data_key
+        base_data = data_pack.source[base_key]
         ref_atr = _calculate_reference_atr(
             base_data["close"], base_data["high"], base_data["low"], atr_period
         )
@@ -172,7 +172,7 @@ class TestAtrRiskPriceCalculation:
 
     def test_tp_atr_price_long_formula(self, backtest_with_config):
         """验证多头 ATR 止盈价格: tp_atr_price_long = signal_close + signal_atr * tp_atr"""
-        results, strategy, data_dict = backtest_with_config
+        results, strategy, data_pack = backtest_with_config
         backtest_params = strategy.variant.backtest_params
 
         if backtest_params.tp_atr is None or backtest_params.tp_atr.value == 0:
@@ -188,8 +188,8 @@ class TestAtrRiskPriceCalculation:
         if "tp_atr_price_long" not in df.columns:
             pytest.skip("回测结果无 tp_atr_price_long 列")
 
-        base_key = data_dict.base_data_key
-        base_data = data_dict.source[base_key]
+        base_key = data_pack.base_data_key
+        base_data = data_pack.source[base_key]
         ref_atr = _calculate_reference_atr(
             base_data["close"], base_data["high"], base_data["low"], atr_period
         )
@@ -234,7 +234,7 @@ class TestAtrRiskPriceCalculation:
 
     def test_tp_atr_price_short_formula(self, backtest_with_config):
         """验证空头 ATR 止盈价格: tp_atr_price_short = signal_close - signal_atr * tp_atr"""
-        results, strategy, data_dict = backtest_with_config
+        results, strategy, data_pack = backtest_with_config
         backtest_params = strategy.variant.backtest_params
 
         if backtest_params.tp_atr is None or backtest_params.tp_atr.value == 0:
@@ -250,8 +250,8 @@ class TestAtrRiskPriceCalculation:
         if "tp_atr_price_short" not in df.columns:
             pytest.skip("回测结果无 tp_atr_price_short 列")
 
-        base_key = data_dict.base_data_key
-        base_data = data_dict.source[base_key]
+        base_key = data_pack.base_data_key
+        base_data = data_pack.source[base_key]
         ref_atr = _calculate_reference_atr(
             base_data["close"], base_data["high"], base_data["low"], atr_period
         )

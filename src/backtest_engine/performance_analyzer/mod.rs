@@ -1,10 +1,8 @@
 mod metrics;
 mod stats;
 
-use crate::backtest_engine::utils::get_ohlcv_dataframe;
 use crate::error::QuantError;
-use crate::types::DataContainer;
-use crate::types::{PerformanceMetric, PerformanceMetrics, PerformanceParams};
+use crate::types::{DataPack, PerformanceMetric, PerformanceMetrics, PerformanceParams};
 use polars::prelude::*;
 use pyo3::prelude::*;
 use pyo3_polars::PyDataFrame;
@@ -14,23 +12,12 @@ use std::collections::HashMap;
 ///
 /// 负责根据回测结果数据（equity, drawdown, trade_pnl 等）计算一系列量化评估指标。
 /// 该过程高度矢量化，利用 Polars 提高计算效率。
-pub fn analyze_performance(
-    processed_data: &DataContainer,
+fn analyze_performance_core(
+    time: &ChunkedArray<Int64Type>,
     backtest_df: &DataFrame,
     performance_params: &PerformanceParams,
 ) -> Result<PerformanceMetrics, QuantError> {
-    let has_leading_nan_count = backtest_df
-        .column("has_leading_nan")
-        .ok()
-        .and_then(|col| col.bool().ok())
-        .map(|bool_col| bool_col.sum().unwrap_or(0));
-
     let mut result = HashMap::new();
-
-    // 1. 数据准备
-    // 从原始 DataContainer 获取 time 列计算时间跨度
-    let ohlcv_df = get_ohlcv_dataframe(processed_data)?;
-    let time = ohlcv_df.column("time")?.i64()?;
 
     // 提取回测输出列
     let equity = backtest_df.column("equity")?.f64()?;
@@ -44,14 +31,6 @@ pub fn analyze_performance(
     if n < 2 {
         return Ok(result);
     }
-    if time.len() != n {
-        return Err(QuantError::InfrastructureError(format!(
-            "time 列长度与 backtest 行数不一致: time={}, backtest={}",
-            time.len(),
-            n
-        )));
-    }
-
     // 2. 时间统计与年化推断
     let time_first = time.get(0).unwrap_or(0);
     let time_last = time.get(n - 1).unwrap_or(0);
@@ -169,15 +148,41 @@ pub fn analyze_performance(
                 }
             }
             PerformanceMetric::AnnualizationFactor => annualization_factor,
-            PerformanceMetric::HasLeadingNanCount => {
-                // 使用提前计算的 has_leading_nan 计数
-                has_leading_nan_count.unwrap_or(0) as f64
-            }
         };
         result.insert(key, value);
     }
 
     Ok(result)
+}
+
+pub fn analyze_performance(
+    data: &DataPack,
+    backtest_df: &DataFrame,
+    performance_params: &PerformanceParams,
+) -> Result<PerformanceMetrics, QuantError> {
+    let base_range = data.ranges.get(&data.base_data_key).ok_or_else(|| {
+        QuantError::InvalidParam(format!(
+            "DataPack.ranges 缺少 base_data_key='{}'",
+            data.base_data_key
+        ))
+    })?;
+    if backtest_df.height() != data.mapping.height() {
+        return Err(QuantError::InfrastructureError(format!(
+            "backtest.height()={} 必须等于 data.mapping.height()={}",
+            backtest_df.height(),
+            data.mapping.height()
+        )));
+    }
+
+    let active_backtest = backtest_df.slice(base_range.warmup_bars as i64, base_range.active_bars);
+    let active_time = data
+        .mapping
+        .column("time")?
+        .slice(base_range.warmup_bars as i64, base_range.active_bars);
+    let active_time = active_time
+        .i64()
+        .map_err(|_| QuantError::InvalidParam("data.mapping['time'] 必须是 Int64".to_string()))?;
+    analyze_performance_core(active_time, &active_backtest, performance_params)
 }
 
 use pyo3_stub_gen::derive::*;
@@ -186,7 +191,7 @@ use pyo3_stub_gen::derive::*;
 #[pyfunction(name = "analyze_performance")]
 pub fn py_analyze_performance(
     py: Python<'_>,
-    data_dict: DataContainer,
+    data: DataPack,
     backtest_df_py: Py<PyAny>,
     performance_params: PerformanceParams,
 ) -> PyResult<HashMap<String, f64>> {
@@ -194,9 +199,6 @@ pub fn py_analyze_performance(
     let backtest_df: PyDataFrame = backtest_df_py.bind(py).extract()?;
     let backtest_df: DataFrame = backtest_df.into();
 
-    // 2. 调用原始的 analyze_performance 函数
-    let result = analyze_performance(&data_dict, &backtest_df, &performance_params)?;
-
-    // 3. PyO3 会自动将 PerformanceMetrics (HashMap<String, f64>) 转换为 Python 字典
+    let result = analyze_performance(&data, &backtest_df, &performance_params)?;
     Ok(result)
 }

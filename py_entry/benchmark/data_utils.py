@@ -13,7 +13,7 @@ def generate_ohlcv(num_bars: int, seed: int = 42) -> tuple[pl.DataFrame, pd.Data
     # 随机游走生成价格
     price = 100 + np.cumsum(np.random.randn(num_bars) * 0.5)
 
-    # 构建数据字典
+    # 构建 DataPack 原始载荷
     # pyo3-quant 的 Rust 引擎 expectation: "time", "open", "high", "low", "close", "volume"
     data = {
         "time": np.arange(num_bars) * 900000,  # 15m = 900000ms

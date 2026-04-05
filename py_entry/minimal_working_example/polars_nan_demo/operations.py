@@ -35,7 +35,7 @@ def run_fill_tests():
     print("NaN 被填充为 -888.0，null 被填充为 -999.0")
     print()
 
-    # 测试20: 使用 forward fill 和 backward fill
+    # 测试20: 使用 forward fill 和后向 fill
     print("--- 测试20: forward fill (向前填充) ---")
     series_for_ffill = pl.Series(
         "ffill_test", [100.0, np.nan, None, 110.0, np.nan, None, 120.0]

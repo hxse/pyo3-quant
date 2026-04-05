@@ -60,8 +60,8 @@ def test_each_search_space_folder_should_have_strategy_entry_files():
         assert strategy_files, f"{folder} 没有策略入口文件"
 
 
-def test_removed_legacy_files_should_not_exist():
-    """旧架构文件必须保持删除状态。"""
+def test_removed_arch_files_should_not_exist():
+    """已删除的架构文件必须保持缺失状态。"""
 
     assert not (
         PROJECT_ROOT / "py_entry" / "strategy_hub" / "core" / "template.py"

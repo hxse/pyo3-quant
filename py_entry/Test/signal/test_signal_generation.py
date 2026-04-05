@@ -21,7 +21,7 @@ from py_entry.data_generator import (
     DataGenerationParams,
     DirectDataConfig,
     OtherParams,
-    generate_data_dict,
+    generate_data_pack,
 )
 from py_entry.types import ExecutionStage
 from py_entry.Test.shared import (
@@ -61,13 +61,15 @@ def shared_data_source():
     )
     other_params = OtherParams(
         ha_timeframes=["15m", "1h", "4h"],
-        renko_timeframes=["15m", "1h", "4h"],
+        # 中文注释：03-10 最终口径已明确不再支持 renko 重复时间戳 source，
+        # 信号总场景共享数据只保留正式支持的 OHLCV / HA。
+        renko_timeframes=None,
     )
-    # 中文注释：先完整生成一次（含 OHLCV/Heikin-Ashi/Renko），后续场景复用同一份源数据。
-    container = generate_data_dict(
+    # 中文注释：先完整生成一次（含 OHLCV / Heikin-Ashi），后续场景复用同一份源数据。
+    data_pack = generate_data_pack(
         data_source=data_gen_params, other_params=other_params
     )
-    source_data = {k: v.clone() for k, v in container.source.items()}
+    source_data = {k: v.clone() for k, v in data_pack.source.items()}
     return DirectDataConfig(
         data=source_data, base_data_key=data_gen_params.base_data_key
     )
@@ -99,34 +101,33 @@ def test_signal_scenario(scenario, setting_container, shared_data_source):
         )
 
         result = runner.run()
-        assert result.summary is not None, "回测结果不应为空"
-        backtest_summary = result.summary
+        backtest_result = result.result
 
         # 2. 验证结果结构
-        assert backtest_summary.signals is not None, "回测结果应包含signals数据"
-        assert backtest_summary.indicators is not None, "回测结果应包含indicators数据"
+        assert backtest_result.signals is not None, "回测结果应包含signals数据"
+        assert backtest_result.indicators is not None, "回测结果应包含indicators数据"
 
         # 3. 提取引擎生成的信号
-        engine_signals = backtest_summary.signals
+        engine_signals = backtest_result.signals
 
         # 4. 准备映射后的数据（所有数据已映射到基准周期）
 
-        data_container = result.data_dict
-        assert data_container is not None, "data_container 不应为空"
+        data_pack = result.data_pack
+        assert data_pack is not None, "data_pack 不应为空"
 
         # 准备原始和映射后的两组数据
-        mapped_data_container, mapped_backtest_summary = prepare_mapped_data(
-            data_container, backtest_summary
+        mapped_data_pack, mapped_result_pack = prepare_mapped_data(
+            data_pack, backtest_result
         )
 
         # 5. 使用场景的手写计算函数计算期望信号
         # 传入原始和映射后的两组数据
         manual_signals = scenario.manual_calculator(
             scenario.signal_params,
-            data_container,
-            backtest_summary,
-            mapped_data_container,
-            mapped_backtest_summary,
+            data_pack,
+            backtest_result,
+            mapped_data_pack,
+            mapped_result_pack,
         )
 
         # 6. 打印统计信息

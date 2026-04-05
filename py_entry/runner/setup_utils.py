@@ -3,7 +3,7 @@
 """
 
 from py_entry.types import (
-    DataContainer,
+    DataPack,
     IndicatorsParams,
     SignalParams,
     BacktestParams,
@@ -18,7 +18,7 @@ from py_entry.types import (
 )
 
 from py_entry.data_generator import (
-    generate_data_dict,
+    generate_data_pack,
     DataGenerationParams,
     OtherParams,
     DataSourceConfig,
@@ -34,8 +34,8 @@ def _type_error(expected: str, actual: object, path: str) -> TypeError:
 def build_data(
     data_source: DataSourceConfig | None = None,
     other_params: OtherParams | None = None,
-) -> DataContainer:
-    """构建数据字典"""
+) -> DataPack:
+    """构建 DataPack。"""
     if data_source is None:
         data_source = DataGenerationParams(
             timeframes=["15m", "1h"],
@@ -45,7 +45,7 @@ def build_data(
             base_data_key="ohlcv_15m",
         )
 
-    return generate_data_dict(data_source=data_source, other_params=other_params)
+    return generate_data_pack(data_source=data_source, other_params=other_params)
 
 
 def ensure_param(v: Param) -> Param:

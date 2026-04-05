@@ -55,7 +55,7 @@ def test_opening_bar_logic_alignment():
     )
     result = bt.run()
 
-    indicators_results = result.results[0].indicators
+    indicators_results = result.result.indicators
     assert indicators_results is not None
     res_df = indicators_results["ohlcv_5m"]
     signals = res_df.get_column("opening-bar_0").cast(pl.Float64, strict=False)
@@ -81,7 +81,7 @@ def test_opening_bar_logic_alignment():
     )
     result2 = bt2.run()
 
-    indicators_results2 = result2.results[0].indicators
+    indicators_results2 = result2.result.indicators
     assert indicators_results2 is not None
     res_df2 = indicators_results2["ohlcv_5m"]
     signals2 = res_df2.get_column("opening-bar_1").cast(pl.Float64, strict=False)

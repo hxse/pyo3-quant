@@ -42,8 +42,8 @@ def analyze_state_distribution(
         runner: RunResult 实例
         config: DiagnoseStatesConfig
     """
-    # RunResult 只包含一个 summary
-    df = runner.summary.backtest_result
+    # RunResult 只包含一个 ResultPack
+    df = runner.result.backtest_result
     if df is None:
         raise ValueError("回测结果不包含 backtest_result 数据")
 

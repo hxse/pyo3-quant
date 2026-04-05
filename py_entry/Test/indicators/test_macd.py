@@ -92,11 +92,11 @@ macd_config = IndicatorTestConfig(
 
 
 # 测试函数
-def test_accuracy(data_dict):
+def test_accuracy(data_params):
     """测试MACD指标计算结果与pandas-ta的一致性"""
     validate_indicator_accuracy(
         macd_config,
-        data_dict,
+        data_params,
         enable_talib=True,
         assert_mode_talib=True,
         assert_mode_pandas_ta=False,

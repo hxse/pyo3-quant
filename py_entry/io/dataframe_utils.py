@@ -4,8 +4,8 @@ from typing import Optional
 import polars as pl
 
 from py_entry.types import (
-    DataContainer,
-    BacktestSummary,
+    DataPack,
+    ResultPack,
 )
 
 
@@ -30,70 +30,70 @@ def reorder_columns(
 
 
 def add_contextual_columns_to_dataframes(
-    data_dict: Optional[DataContainer],
-    result: BacktestSummary,
+    data_pack: Optional[DataPack],
+    result: ResultPack,
     add_index: bool,
     add_time: bool,
     add_date: bool,
 ) -> None:
-    """为单个 BacktestSummary 中的所有 DataFrame 添加上下文列
+    """为单个 ResultPack 中的所有 DataFrame 添加上下文列
 
-    这个函数会直接修改传入的 data_dict 和 result 对象，为其中包含的所有 DataFrame 添加指定的列。
+    这个函数会直接修改传入的 data_pack 和 result 对象，为其中包含的所有 DataFrame 添加指定的列。
 
     Args:
-        data_dict: 数据容器，包含 mapping, skip_mask, source 等字段
+        data_pack: 数据包，包含 mapping, skip_mask, source 等字段
         result: 单个回测结果，包含 indicators, signals, backtest_result 等字段
         add_index: 是否添加索引列
         add_time: 是否添加时间列
         add_date: 是否添加日期列（ISO格式）
     """
     time_source_provider = None
-    if data_dict is not None and data_dict.source is not None:
+    if data_pack is not None and data_pack.source is not None:
         # 这里必须先拿到“原始 source 快照”。
-        # 注意：DataContainer.source 在 pyo3 对象上通常返回的是拷贝字典，
+        # 注意：DataPack.source 在 pyo3 对象上通常返回的是拷贝字典，
         # 不能依赖原地修改 dict[key] 写回对象。
-        time_source_provider = data_dict.source.copy()
+        time_source_provider = data_pack.source.copy()
 
-    if data_dict is not None:
+    if data_pack is not None:
         # 处理 mapping
-        if data_dict.mapping is not None:
-            data_dict.mapping = process_dataframe(
-                data_dict.mapping,
+        if data_pack.mapping is not None:
+            data_pack.mapping = process_dataframe(
+                data_pack.mapping,
                 add_index,
                 add_time,
                 add_date,
                 None,
-                data_dict,
+                data_pack,
                 time_source_provider,
             )
 
         # 处理 skip_mask
-        if data_dict.skip_mask is not None:
-            data_dict.skip_mask = process_dataframe(
-                data_dict.skip_mask,
+        if data_pack.skip_mask is not None:
+            data_pack.skip_mask = process_dataframe(
+                data_pack.skip_mask,
                 add_index,
                 add_time,
                 add_date,
                 None,
-                data_dict,
+                data_pack,
                 time_source_provider,
             )
 
         # 处理 source 中的所有 DataFrame
-        if data_dict.source is not None:
+        if data_pack.source is not None:
             # 对 pyo3 返回的拷贝字典做“重建 + 整体赋回”，确保修改生效。
             processed_source: dict[str, pl.DataFrame] = {}
-            for key, df in data_dict.source.items():
+            for key, df in data_pack.source.items():
                 processed_source[key] = process_dataframe(
                     df,
                     add_index,
                     add_time,
                     add_date,
                     key,
-                    data_dict,
+                    data_pack,
                     time_source_provider,
                 )
-            data_dict.source = processed_source
+            data_pack.source = processed_source
 
     # 处理单个 result（删除了循环）
     if result.indicators is not None:
@@ -106,30 +106,30 @@ def add_contextual_columns_to_dataframes(
                 add_time,
                 add_date,
                 key,
-                data_dict,
+                data_pack,
                 time_source_provider,
             )
         result.indicators = processed_indicators
 
-    if result.signals is not None and data_dict is not None:
+    if result.signals is not None and data_pack is not None:
         result.signals = process_dataframe(
             result.signals,
             add_index,
             add_time,
             add_date,
-            data_dict.base_data_key,
-            data_dict,
+            data_pack.base_data_key,
+            data_pack,
             time_source_provider,
         )
 
-    if result.backtest_result is not None and data_dict is not None:
+    if result.backtest_result is not None and data_pack is not None:
         result.backtest_result = process_dataframe(
             result.backtest_result,
             add_index,
             add_time,
             add_date,
-            data_dict.base_data_key,
-            data_dict,
+            data_pack.base_data_key,
+            data_pack,
             time_source_provider,
         )
 
@@ -140,7 +140,7 @@ def process_dataframe(
     add_time: bool,
     add_date: bool,
     source_key: Optional[str],
-    data_dict: Optional[DataContainer],
+    data_pack: Optional[DataPack],
     time_source_provider: Optional[dict[str, pl.DataFrame]],
 ) -> pl.DataFrame:
     """处理单个DataFrame，添加指定的列
@@ -151,7 +151,7 @@ def process_dataframe(
         add_time: 是否添加时间列
         add_date: 是否添加日期列
         source_key: 数据源键名，用于确定时间列的来源
-        data_dict: 数据容器，用于获取时间数据
+        data_pack: 数据包，用于获取时间数据
         time_source_provider: 一个未经修改的 source 字典副本，用于提供可靠的时间数据
 
     Returns:
@@ -171,16 +171,16 @@ def process_dataframe(
     if (
         "time" not in result_df.columns
         and add_time
-        and data_dict is not None
+        and data_pack is not None
         and time_source_provider is not None
     ):
         time_df_source = None
         if source_key and source_key in time_source_provider:
             time_df_source = time_source_provider[source_key]
         elif (
-            data_dict.base_data_key and data_dict.base_data_key in time_source_provider
+            data_pack.base_data_key and data_pack.base_data_key in time_source_provider
         ):
-            time_df_source = time_source_provider[data_dict.base_data_key]
+            time_df_source = time_source_provider[data_pack.base_data_key]
 
         if time_df_source is not None and "time" in time_df_source.columns:
             # 确保 time_df_source 也有 index 列

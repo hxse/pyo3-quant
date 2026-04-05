@@ -203,8 +203,8 @@ def test_original_value_consistency(sensitivity_setup):
     bt = sensitivity_setup
     # 1. 直接回测
     run_result = bt.run()
-    # summary.performance 的 key 由 Rust 侧 as_str() 输出，为 snake_case 字符串。
-    expected_val = run_result.summary.performance.get("calmar_ratio_raw", 0.0)
+    # 中文注释：performance 的 key 由 Rust 侧 as_str() 输出，为 snake_case 字符串。
+    expected_val = run_result.result.performance.get("calmar_ratio_raw", 0.0)
 
     # 2. 敏感性测试
     config = SensitivityConfig(n_samples=5, metric=OptimizeMetric.CalmarRatioRaw)

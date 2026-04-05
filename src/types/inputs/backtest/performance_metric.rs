@@ -40,7 +40,6 @@ pub enum PerformanceMetric {
     MaxEmptyDurationDays,
     MaxSafeLeverage,
     AnnualizationFactor,
-    HasLeadingNanCount,
 }
 
 impl PerformanceMetric {
@@ -76,7 +75,6 @@ impl PerformanceMetric {
             Self::MaxEmptyDurationDays => "MaxEmptyDurationDays",
             Self::MaxSafeLeverage => "MaxSafeLeverage",
             Self::AnnualizationFactor => "AnnualizationFactor",
-            Self::HasLeadingNanCount => "HasLeadingNanCount",
         }
     }
 
@@ -111,7 +109,6 @@ impl PerformanceMetric {
             Self::MaxEmptyDurationDays => "max_empty_duration_days",
             Self::MaxSafeLeverage => "max_safe_leverage",
             Self::AnnualizationFactor => "annualization_factor",
-            Self::HasLeadingNanCount => "has_leading_nan_count",
         }
     }
 }
@@ -173,7 +170,6 @@ pyo3_stub_gen::inventory::submit! {
             ("MaxEmptyDurationDays", "最大空仓时间（天）"),
             ("MaxSafeLeverage", "最大安全杠杆"),
             ("AnnualizationFactor", "年化因子"),
-            ("HasLeadingNanCount", "前置无效数据计数"),
         ],
     }
 }

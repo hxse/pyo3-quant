@@ -83,7 +83,7 @@ def _assert_warmup_contract(indicators_df, cols: list[str], warmup: int, mode: s
             raise AssertionError(f"Relaxed 模式下非预热段不允许整行全空: row={bad_row}")
 
 
-def test_indicator_warmup_contract(data_dict):
+def test_indicator_warmup_contract(data_params):
     """单指标逐一校验 required_warmup_bars 与 warmup_mode 契约。"""
     cases = [
         ("sma", {"period": Param(14)}, 13, "Strict"),
@@ -142,7 +142,7 @@ def test_indicator_warmup_contract(data_dict):
         assert contract.warmup_mode == expected_mode
 
         # 2) 再校验运行时输出是否满足对应模式。
-        backtest_results, _ = run_indicator_backtest(data_dict, indicators_params)
+        backtest_results, _ = run_indicator_backtest(data_params, indicators_params)
         summary = backtest_results[0]
         assert summary.indicators is not None
         indicators_df = summary.indicators["ohlcv_15m"]

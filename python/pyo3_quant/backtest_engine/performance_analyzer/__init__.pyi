@@ -10,7 +10,7 @@ __all__ = [
 ]
 
 def analyze_performance(
-    data_dict: _pyo3_quant.DataContainer,
+    data: _pyo3_quant.DataPack,
     backtest_df_py: typing.Any,
     performance_params: _pyo3_quant.PerformanceParams,
 ) -> builtins.dict[builtins.str, builtins.float]: ...

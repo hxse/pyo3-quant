@@ -1,7 +1,7 @@
 """
 图表系列选项类型定义
 
-本模块从 py_entry.types.chart_config 重新导出选项类，保持向后兼容。
+本模块从 py_entry.types.chart_config 统一导出选项类。
 """
 
 # 重新导出所有选项类

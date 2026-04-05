@@ -91,5 +91,4 @@ def full_performance_result():
     )
 
     result = bt.run()
-    assert result.summary is not None
-    return result.summary
+    return result.result

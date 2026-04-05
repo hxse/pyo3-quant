@@ -3,7 +3,7 @@ mod comparison_eval;
 use super::operand_resolver::{resolve_data_operand, resolve_right_operand, ResolvedOperand};
 use super::types::{CompareOp, OffsetType, SignalCondition, SignalRightOperand};
 use crate::error::{QuantError, SignalError};
-use crate::types::DataContainer;
+use crate::types::DataPack;
 use crate::types::IndicatorResults;
 use crate::types::SignalParams;
 use comparison_eval::{
@@ -54,7 +54,7 @@ fn build_zone_broadcast_triplets(
 
 pub fn evaluate_parsed_condition(
     condition: &SignalCondition,
-    processed_data: &DataContainer,
+    processed_data: &DataPack,
     indicator_dfs: &IndicatorResults,
     signal_params: &SignalParams,
 ) -> Result<(Series, BooleanChunked), QuantError> {

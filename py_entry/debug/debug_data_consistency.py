@@ -126,11 +126,11 @@ def main():
         pyo3_adapter.run(str(test_cfg["strategy"]))
 
         assert pyo3_adapter.runner is not None
-        assert pyo3_adapter.runner.data_dict is not None
+        assert pyo3_adapter.runner.data_pack is not None
 
         # 获取 Pyo3 的 OHLCV
         base_key = f"ohlcv_{config.timeframe}"
-        pyo3_ohlcv = pyo3_adapter.runner.data_dict.source[base_key]
+        pyo3_ohlcv = pyo3_adapter.runner.data_pack.source[base_key]
 
         # 2. 生成 BTP 数据（应该使用相同的 config）
         print("生成 BTP 数据...")

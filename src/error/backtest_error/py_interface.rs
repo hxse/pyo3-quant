@@ -54,7 +54,7 @@ pub fn convert_backtest_error(e: BacktestError) -> PyErr {
             PyATRCalculationError::new_err(format!("ATR计算失败: {}", message))
         }
         BacktestError::OHLCVNotFound => {
-            PyOHLCVNotFoundError::new_err("无法从DataContainer提取OHLCV数据")
+            PyOHLCVNotFoundError::new_err("无法从 DataPack 提取 OHLCV 数据")
         }
         BacktestError::DataValidationError { message, context } => {
             PyDataValidationError::new_err(format!("数据验证失败 ({}): {}", context, message))

@@ -220,7 +220,7 @@ fn calculate_max_drawdown_duration_vect(current_drawdown: &ChunkedArray<Float64T
     }
 
     // 使用 Polars 的逻辑计算连续 True 的最大重复次数
-    // 这里采用线性扫描作为回退，直到确认 Polars RLE 插件或原生方法在当前版本的可用性
+    // 这里采用线性扫描实现，直到确认 Polars RLE 插件或原生方法在当前版本的可用性
     // 原 mod.rs 中的逻辑已经很高效且正确处理了边界，暂时保持逻辑一致
     let mut max_dur = 0;
     let mut current_dur = 0;

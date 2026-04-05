@@ -1,6 +1,6 @@
 use super::runner::{run_optimization, run_optimization_generic, EvalMode};
 use crate::types::{
-    BenchmarkFunction, DataContainer, OptimizationResult, OptimizerConfig, Param, ParamType,
+    BenchmarkFunction, DataPack, OptimizationResult, OptimizerConfig, Param, ParamType,
     SettingContainer, SingleParamSet, TemplateContainer,
 };
 use pyo3::prelude::*;
@@ -90,7 +90,7 @@ pub fn py_run_optimizer_benchmark(
     module = "pyo3_quant.backtest_engine.optimizer",
     python = r#"
 def py_run_optimizer(
-    data_dict: _pyo3_quant.DataContainer,
+    data: _pyo3_quant.DataPack,
     param: _pyo3_quant.SingleParamSet,
     template: _pyo3_quant.TemplateContainer,
     engine_settings: _pyo3_quant.SettingContainer,
@@ -101,14 +101,14 @@ def py_run_optimizer(
 )]
 #[pyfunction]
 pub fn py_run_optimizer(
-    data_dict: DataContainer,
+    data: DataPack,
     param: SingleParamSet,
     template: TemplateContainer,
     engine_settings: SettingContainer,
     optimizer_config: OptimizerConfig,
 ) -> PyResult<OptimizationResult> {
     run_optimization(
-        &data_dict,
+        &data,
         &param,
         &template,
         &engine_settings,

@@ -17,10 +17,10 @@ from py_entry.Test.signal.utils import (
 
 def calculate_entry_long(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
     """
     手写模拟 entry_long 信号计算
@@ -33,8 +33,8 @@ def calculate_entry_long(
     - 即：close[0] > sma[0] AND close[1] > sma[0] AND close[2] > sma[0]
     """
     # 提取数据
-    close = get_mapped_ohlcv(mapped_data_container, "ohlcv_15m", "close")
-    sma = get_mapped_indicator(mapped_backtest_summary, "ohlcv_15m", "sma_0")
+    close = get_mapped_ohlcv(mapped_data_pack, "ohlcv_15m", "close")
+    sma = get_mapped_indicator(mapped_result_pack, "ohlcv_15m", "sma_0")
 
     # 计算每个offset的条件
     cond_0 = compare_series(close, sma, ">", offset_left=0)  # 当前K线
@@ -47,46 +47,46 @@ def calculate_entry_long(
 
 def calculate_exit_long(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
     """exit_long 为 None，返回全 False"""
-    length = get_data_length(mapped_data_container)
+    length = get_data_length(mapped_data_pack)
     return create_false_series(length)
 
 
 def calculate_entry_short(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
     """entry_short 为 None，返回全 False"""
-    length = get_data_length(mapped_data_container)
+    length = get_data_length(mapped_data_pack)
     return create_false_series(length)
 
 
 def calculate_exit_short(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.Series:
     """exit_short 为 None，返回全 False"""
-    length = get_data_length(mapped_data_container)
+    length = get_data_length(mapped_data_pack)
     return create_false_series(length)
 
 
 def calculate_signals(
     signal_params,
-    data_container,
-    backtest_summary,
-    mapped_data_container,
-    mapped_backtest_summary,
+    data_pack,
+    result_pack,
+    mapped_data_pack,
+    mapped_result_pack,
 ) -> pl.DataFrame:
     """
     计算所有信号并返回DataFrame
@@ -95,31 +95,31 @@ def calculate_signals(
     """
     entry_long = calculate_entry_long(
         signal_params,
-        data_container,
-        backtest_summary,
-        mapped_data_container,
-        mapped_backtest_summary,
+        data_pack,
+        result_pack,
+        mapped_data_pack,
+        mapped_result_pack,
     )
     exit_long = calculate_exit_long(
         signal_params,
-        data_container,
-        backtest_summary,
-        mapped_data_container,
-        mapped_backtest_summary,
+        data_pack,
+        result_pack,
+        mapped_data_pack,
+        mapped_result_pack,
     )
     entry_short = calculate_entry_short(
         signal_params,
-        data_container,
-        backtest_summary,
-        mapped_data_container,
-        mapped_backtest_summary,
+        data_pack,
+        result_pack,
+        mapped_data_pack,
+        mapped_result_pack,
     )
     exit_short = calculate_exit_short(
         signal_params,
-        data_container,
-        backtest_summary,
-        mapped_data_container,
-        mapped_backtest_summary,
+        data_pack,
+        result_pack,
+        mapped_data_pack,
+        mapped_result_pack,
     )
 
     return create_signal_dataframe(entry_long, exit_long, entry_short, exit_short)

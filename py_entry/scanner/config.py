@@ -104,7 +104,7 @@ class ScannerConfig(BaseModel):
         return data
 
     # 默认四层扫描体系 (5m, 1h, 1d, 1w)
-    # 默认画像服务于旧策略：5m 触发、1h 过滤、1d/1w 背景。
+    # 默认画像采用 5m 触发、1h 过滤、1d/1w 背景。
     # 若某个策略需要不同周期，会在策略内部显式覆盖，而不是污染全局默认。
     timeframes: list[TimeframeConfig] = [
         TimeframeConfig(

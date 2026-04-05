@@ -3,7 +3,7 @@ import numpy as np
 import polars as pl
 from py_entry.data_generator import (
     DataGenerationParams,
-    generate_data_dict,
+    generate_data_pack,
     generate_multi_timeframe_ohlcv,
 )
 
@@ -38,15 +38,15 @@ def data_generation_params(basic_timeframes, basic_start_time, basic_num_bars):
 
 
 @pytest.fixture(scope="module")
-def sample_data_dict(data_generation_params):
-    """示例数据字典"""
-    return generate_data_dict(data_source=data_generation_params)
+def sample_data_pack(data_generation_params):
+    """示例 DataPack。"""
+    return generate_data_pack(data_source=data_generation_params)
 
 
 @pytest.fixture(scope="module")
-def data_container(data_generation_params):
-    """数据容器，用于测试"""
-    return generate_data_dict(data_source=data_generation_params)
+def data_pack(data_generation_params):
+    """测试用 DataPack。"""
+    return generate_data_pack(data_source=data_generation_params)
 
 
 @pytest.fixture(scope="module")

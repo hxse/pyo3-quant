@@ -13,6 +13,12 @@
 7. 对于当前 row 未启用的功能列：
    - 该列保留
    - 但当前 row 只写文档已定义的非激活态默认值
+8. 这里的“列保留”只适用于该列已经属于当前 `schedule output schema` 的情况。
+9. 普通单次回测与单段 schedule 不存在“无论参数是否启用，都保留全部可选列”的语义。
+10. 也就是说：
+   - 单次回测 / 单段 schedule：只保留当前参数真正启用的可选列
+   - 多段 schedule：只保留整份 schedule 中至少一个 segment 可能写入的可选列并集
+11. 因而“列存在”与否的正式判断对象始终是整份 `schedule`，不是某个 row 的瞬时参数状态。
 
 `build_schedule_output_schema(schedule)` 的列顺序还要写成唯一算法：
 
@@ -50,6 +56,7 @@
 3. 对这份预定义序列中的每个候选列，只要它在任意一个 segment 中可能被写入，就追加一次。
 4. 不允许按字母序、首次出现顺序、`HashMap` 迭代顺序或其他隐式顺序决定列顺序。
 5. 因而单段 schedule 的 `output schema` 等于“基底列顺序 + 当前参数启用的那部分可选列顺序”；多段 schedule 的 `output schema` 等于“基底列顺序 + 过滤后的预定义并集列顺序”。
+6. 当前 contract 不允许把 output schema 解释成“固定基底列 + 所有可选列总是全部出现”的宽松模式。
 
 当前这条 contract 要再写死一层：
 

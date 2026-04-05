@@ -72,7 +72,7 @@
 2. `py_entry/Test/backtest/test_result_pack_contract.py`
 3. `py_entry/Test/backtest/test_strip_indicator_time_columns_contract.py`
 4. `py_entry/Test/backtest/test_mapping_projection_contract.py`
-5. `py_entry/Test/backtest/test_data_fetch_planner_contract.py`
+5. `py_entry/Test/data_generator/test_data_fetch_planner_contract.py`
 6. `py_entry/Test/backtest/test_performance_contract.py`
 
 最小必测项：
@@ -224,6 +224,11 @@
 10. 完成条件必须一致：
    - 只有所有 source 都满足共享基础 warmup、尾覆盖、头覆盖后，`is_complete()` 才能变成 `true`
    - `finish()` 构建出的 `DataPack` 必须与最后一轮内部状态一致，不允许再隐式补拉或重算第二套 planner 状态
+11. 当前 `py_entry/Test/data_generator/test_data_fetch_planner_contract.py` 至少要覆盖：
+   - `test_planner_rejects_invalid_source_interval_key_during_init`
+   - `test_planner_non_base_source_advances_through_tail_head_time_and_warmup`
+   - `test_planner_fails_fast_when_source_exceeds_max_rounds`
+   - 以及 source_keys / base 有效段长度 / base warmup 收敛 / base live anchor / finish happy path 基线
 
 ### 2.2 第二层：`extract_active(...)` 专项测试
 
@@ -581,8 +586,20 @@
    - `test_build_schedule_output_schema_contract`
 20. Rust 等价性测试：
    - 先在旧 `run_backtest(...)` 上清掉 `has_leading_nan` 旧作用链
-   - 再冻结成 `legacy_run_backtest_reference(...)`
+   - 再冻结成 `legacy_run_backtest(...)`
+   - `legacy_run_backtest(...)` 内部继续走 `legacy_run_main_loop(...)`
    - 与新的 `run_backtest(...)` 做严格逐项对比
+   - 当前最小落地基线包括：
+     - `backtest_engine::backtester::tests::test_legacy_run_backtest_matches_run_backtest_default_contract`
+     - `backtest_engine::backtester::tests::test_legacy_run_backtest_matches_run_backtest_atr_contract`
+   - 这两条测试至少要锁死：
+     - 单参数默认 case 下，旧入口与新入口的列顺序、dtype、逐列值完全一致
+     - 启用 `atr_period + sl_atr` 的 case 下，旧入口与新入口的可选列集合、列顺序、dtype、逐列值完全一致
+   - DataFrame 对比必须同时检查：
+     - `height`
+     - `get_column_names()`
+     - `dtypes()`
+     - 各列 `equals_missing(...)`
 21. 公共 PyO3 / stub 边界必须有 dedicated smoke test：
    - `just stub` 后，`test_public_api_stub_contract.py` 必须至少锁死：
      - 新公共名存在：

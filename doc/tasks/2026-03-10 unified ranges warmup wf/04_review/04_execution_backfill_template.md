@@ -38,17 +38,16 @@
    - `src/backtest_engine/data_ops/warmup_requirements.rs`
    - `src/backtest_engine/data_ops/mod.rs`
 3. 实际验收命令：
-   - 历史阶段已完成；当前仓库中执行文档原列出的 `py_entry/Test/backtest/test_data_pack_contract.py` 与 `py_entry/Test/backtest/test_mapping_projection_contract.py` 已不存在，无法按旧路径回放
-   - 当前分支已补跑：`just check`
-   - 当前分支已补跑：`just test`
+   - `just check`
+   - `just test-py py_entry/Test/backtest/test_data_pack_contract.py`
+   - `just test-py py_entry/Test/backtest/test_mapping_projection_contract.py`
 4. 验收结果：
-   - 当前分支 `just check` 与 `just test` 均通过
-   - A1 原专属 Python gate 文件已被后续测试重组吸收，执行文档存在路径漂移
+   - 通过
+   - A1 dedicated builder / mapping gate 已在当前仓库恢复为可回放专属测试文件
 5. 若未跑测试：
-   - 未逐条回放 A1 原专属 Python gate
-   - 原因：当前仓库已不存在对应测试文件，不能伪造历史路径
+   - 无
 6. 剩余风险 / 待后续：
-   - 建议后续若再做大重构，补一套新的 A1 dedicated builder contract gate，避免再次依赖历史文件名
+   - `resolve_source_interval_ms(...)`、coverage helper 的更细粒度负向边界，当前仍主要由 Rust 单测与 builder gate 共同兜底
 
 ## 2. 阶段 A2
 
@@ -59,17 +58,18 @@
    - `src/backtest_engine/data_ops/active_extract.rs`
    - `src/backtest_engine/performance_analyzer/mod.rs`
 3. 实际验收命令：
-   - 历史阶段已完成；当前仓库中执行文档原列出的 `test_result_pack_contract.py / test_strip_indicator_time_columns_contract.py / test_performance_contract.py / test_extract_active_contract.py` 已不存在，无法按旧路径回放
-   - 当前分支已补跑：`just check`
-   - 当前分支已补跑：`just test`
+   - `just check`
+   - `just test-py py_entry/Test/backtest/test_result_pack_contract.py`
+   - `just test-py py_entry/Test/backtest/test_strip_indicator_time_columns_contract.py`
+   - `just test-py py_entry/Test/backtest/test_performance_contract.py`
+   - `just test-py py_entry/Test/backtest/test_extract_active_contract.py`
 4. 验收结果：
-   - 当前分支 `just check` 与 `just test` 均通过
-   - A2 原专属 Python gate 文件已被后续测试重组吸收，执行文档存在路径漂移
+   - 通过
+   - A2 dedicated ResultPack / performance / extract_active gate 已在当前仓库恢复为可回放专属测试文件
 5. 若未跑测试：
-   - 未逐条回放 A2 原专属 Python gate
-   - 原因：当前仓库已不存在对应测试文件，不能伪造历史路径
+   - 无
 6. 剩余风险 / 待后续：
-   - 若后续继续拆分 backtest / result builder，可考虑恢复 dedicated contract tests，避免只靠全量回归兜底
+   - `strip_indicator_time_columns(...)` 的“多个同名 time 列”分支在 Python 侧较难稳定构造，当前主要由实现约束与 Rust 层 DataFrame 规则兜底
 
 ## 3. 阶段 B
 
@@ -80,9 +80,10 @@
    - `py_entry/Test/data_generator/test_data_fetch_planner_contract.py`
 3. 实际验收命令：
    - `just check`
-   - `just test-py path="py_entry/Test/data_generator/test_data_fetch_planner_contract.py"`
+   - `just test-py py_entry/Test/data_generator/test_data_fetch_planner_contract.py`
 4. 验收结果：
    - 通过
+   - 已补强 `finish()` 提前调用、request 不匹配、坏 `time` 列结构、`optimize=true -> Param.max` 等 dedicated contract
 5. 若未跑测试：
    - 无
 6. 剩余风险 / 待后续：
@@ -101,7 +102,7 @@
    - `py_entry/Test/backtest/common_tests/test_backtest_regression_guards.py`
 3. 实际验收命令：
    - `just check`
-   - `just test-py path="py_entry/Test/backtest/common_tests/test_backtest_regression_guards.py"`
+   - `just test-py py_entry/Test/backtest/common_tests/test_backtest_regression_guards.py`
 4. 验收结果：
    - 通过
 5. 若未跑测试：
@@ -122,7 +123,7 @@
    - `just test-rust-exact backtest_engine::walk_forward::data_splitter::tests::test_build_window_indices_contract`
    - `just test-rust-exact backtest_engine::walk_forward::next_window_hint::tests::test_next_window_hint_contract`
    - `just test-rust-exact backtest_engine::walk_forward::time_ranges::tests::test_build_window_time_ranges_contract`
-   - `just test-py path="py_entry/Test/walk_forward/test_window_slice_contract.py"`
+   - `just test-py py_entry/Test/walk_forward/test_window_slice_contract.py`
 4. 验收结果：
    - 通过
 5. 若未跑测试：
@@ -145,8 +146,8 @@
    - `just test-rust-exact backtest_engine::walk_forward::stitch::tests::test_stitched_replay_input_contract`
    - `just test-rust-exact backtest_engine::walk_forward::injection::tests::test_wf_signal_injection_contract`
    - `just test-rust-exact backtest_engine::data_ops::warmup_requirements::tests::test_ignore_indicator_warmup_contract`
-   - `just test-py path="py_entry/Test/walk_forward/test_wf_signal_injection_contract.py"`
-   - `just test-py path="py_entry/Test/walk_forward/test_wf_ignore_indicator_warmup_contract.py"`
+   - `just test-py py_entry/Test/walk_forward/test_wf_signal_injection_contract.py`
+   - `just test-py py_entry/Test/walk_forward/test_wf_ignore_indicator_warmup_contract.py`
 4. 验收结果：
    - 通过
 5. 若未跑测试：
@@ -182,8 +183,8 @@
    - `just test-rust-exact backtest_engine::backtester::schedule_contract::tests::test_validate_schedule_contiguity_contract`
    - `just test-rust-exact backtest_engine::backtester::schedule_policy::tests::test_validate_backtest_param_schedule_policy_contract`
    - `just test-rust-exact backtest_engine::backtester::output_schema::tests::test_build_schedule_output_schema_contract`
-   - `just test-py path="py_entry/Test/test_public_api_stub_contract.py"`
-   - `just test-py path="py_entry/Test/walk_forward/test_walk_forward_guards.py"`
+   - `just test-py py_entry/Test/test_public_api_stub_contract.py`
+   - `just test-py py_entry/Test/walk_forward/test_walk_forward_guards.py`
 4. 验收结果：
    - 通过
    - `WindowMeta / StitchedMeta / NextWindowHint` 已切到摘要最终公开边界
@@ -217,6 +218,6 @@
    - `just test`
 3. 最终验收结果：
    - 通过
-   - 当前复核结果（2026-04-04）：`558 passed, 45 skipped`
+   - 当前复核结果（2026-04-05）：`592 passed, 45 skipped`
 4. 遗留问题：
    - 执行文档中原有部分阶段 gate 路径与当前仓库实际文件名存在漂移，本次已在回填中如实记录，并修正了 B / E 的明显错误入口

@@ -24,13 +24,13 @@
      - `03_execution_stages_and_acceptance.md` 中 B 阶段 Python gate 路径写旧
      - E 阶段 4 条 Rust exact 测试命令使用了短名，当前仓库已不能匹配
      - E 阶段列出的 `py_entry/Test/walk_forward/test_stitched_contract.py` 当前仓库不存在
-     - A1 / A2 阶段原专属 Python gate 文件当前仓库已不存在
+     - A1 / A2 阶段原专属 Python gate 文件曾一度缺失，当前分支已恢复 dedicated contract tests
    - 是否回补摘要：
      - 否
      - 这些偏差属于执行文档 / 测试入口漂移，不属于摘要真值变化
    - 是否回补执行文档：
      - 是
-     - 本次已修正 B / E 的明显错误入口，并在回补文档中记录 A1 / A2 路径漂移事实
+     - 本次已修正 A1 / A2 / B / E 的 Python gate 入口，恢复 A1 / A2 dedicated tests，并在回补文档中记录当前可回放命令
 5. 最终审阅结论：
    - 本任务当前代码状态与摘要主干及正式术语口径一致
    - 破坏性更新已落地：

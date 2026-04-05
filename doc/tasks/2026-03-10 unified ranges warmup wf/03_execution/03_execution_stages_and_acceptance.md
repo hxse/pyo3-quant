@@ -74,8 +74,8 @@
 2. 若当前仓库已不存在同名文件，不在本文回写“现行替代路径”；统一以后验回填为准。
 
 1. `just check`
-2. `just test-py path="py_entry/Test/backtest/test_data_pack_contract.py"`
-3. `just test-py path="py_entry/Test/backtest/test_mapping_projection_contract.py"`
+2. `just test-py py_entry/Test/backtest/test_data_pack_contract.py`
+3. `just test-py py_entry/Test/backtest/test_mapping_projection_contract.py`
 
 ## 4. 阶段 A2
 
@@ -101,10 +101,10 @@
 2. 若当前仓库已不存在同名文件，不在本文回写“现行替代路径”；统一以后验回填为准。
 
 1. `just check`
-2. `just test-py path="py_entry/Test/backtest/test_result_pack_contract.py"`
-3. `just test-py path="py_entry/Test/backtest/test_strip_indicator_time_columns_contract.py"`
-4. `just test-py path="py_entry/Test/backtest/test_performance_contract.py"`
-5. `just test-py path="py_entry/Test/backtest/test_extract_active_contract.py"`
+2. `just test-py py_entry/Test/backtest/test_result_pack_contract.py`
+3. `just test-py py_entry/Test/backtest/test_strip_indicator_time_columns_contract.py`
+4. `just test-py py_entry/Test/backtest/test_performance_contract.py`
+5. `just test-py py_entry/Test/backtest/test_extract_active_contract.py`
 
 ## 5. 阶段 B
 
@@ -135,7 +135,7 @@
 阶段验收：
 
 1. `just check`
-2. `just test-py path="py_entry/Test/data_generator/test_data_fetch_planner_contract.py"`
+2. `just test-py py_entry/Test/data_generator/test_data_fetch_planner_contract.py`
 
 ## 6. 阶段 C
 
@@ -155,7 +155,7 @@
 阶段验收：
 
 1. `just check`
-2. `just test-py path="py_entry/Test/backtest/common_tests/test_backtest_regression_guards.py"`
+2. `just test-py py_entry/Test/backtest/common_tests/test_backtest_regression_guards.py`
 
 ## 7. 阶段 D1
 
@@ -194,7 +194,7 @@
    - `just test-rust-exact backtest_engine::walk_forward::data_splitter::tests::test_build_window_indices_contract`
    - `just test-rust-exact backtest_engine::walk_forward::next_window_hint::tests::test_next_window_hint_contract`
    - `just test-rust-exact backtest_engine::walk_forward::time_ranges::tests::test_build_window_time_ranges_contract`
-3. `just test-py path="py_entry/Test/walk_forward/test_window_slice_contract.py"`
+3. `just test-py py_entry/Test/walk_forward/test_window_slice_contract.py`
    - 必须实际覆盖：
      - 窗口切片后的 `skip_mask` 对齐
      - coverage 左扩导致的 `warmup_by_key[k] > W_required[k]`
@@ -242,8 +242,8 @@
    - `just test-rust-exact backtest_engine::walk_forward::stitch::tests::test_stitched_replay_input_contract`
    - `just test-rust-exact backtest_engine::walk_forward::injection::tests::test_wf_signal_injection_contract`
    - `just test-rust-exact backtest_engine::data_ops::warmup_requirements::tests::test_ignore_indicator_warmup_contract`
-3. `just test-py path="py_entry/Test/walk_forward/test_wf_signal_injection_contract.py"`
-4. `just test-py path="py_entry/Test/walk_forward/test_wf_ignore_indicator_warmup_contract.py"`
+3. `just test-py py_entry/Test/walk_forward/test_wf_signal_injection_contract.py`
+4. `just test-py py_entry/Test/walk_forward/test_wf_ignore_indicator_warmup_contract.py`
 5. 本阶段不要求 Python gate 直接观察 `StitchedReplayInput`、`backtest_schedule` 或 `NextWindowHint` 内部真值。
 
 ## 9. 阶段 E
@@ -312,4 +312,4 @@
    - `final_test_pack_result`
 7. carry 来源是否唯一：
    - `detect_last_bar_position(...)` 只读取 `natural_test_pack_backtest_result.backtest`
-8. Rust 等价性基线是否在清掉 `has_leading_nan` 旧作用链后再冻结为 `legacy_run_backtest_reference(...)`
+8. Rust 等价性基线是否在清掉 `has_leading_nan` 旧作用链后再冻结为 `legacy_run_backtest(...)`

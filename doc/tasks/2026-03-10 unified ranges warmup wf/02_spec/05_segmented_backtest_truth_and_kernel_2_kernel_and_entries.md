@@ -55,7 +55,7 @@ fn run_backtest_kernel(
    - 单段 schedule 时始终返回同一份 `&BacktestParams`
    - 多段 schedule 时只在 segment 边界推进游标，并返回当前 segment 的 `&BacktestParams`
 6. 这样做的目标就是：在保持语义清楚的同时，保证参数读取层的性能最优、内存最少，避免每个 row 新建 `BacktestParams` 对象。
-7. 为了和当前 `run_main_loop(...)` 保持等价，kernel 内部仍要保留三步初始化，只是它们统一吃：
+7. 为了和当前 `legacy_run_main_loop(...)` 保持等价，kernel 内部仍要保留三步初始化，只是它们统一吃：
    - `select_params_for_row(&mut params_selector, 0)` 返回的 `init_params`
    - 以及外层已经显式落定的 `output_schema`
    - 这里依赖第 `9.6` 节已写死的约束：`initial_capital` 不允许跨 segment 变化
@@ -116,7 +116,7 @@ run_backtest_kernel(prepared_data, mut params_selector, output_schema):
 
 这段伪代码有两个刻意写死的约束：
 
-1. 它必须和当前 `run_main_loop(...)` 的初始化顺序、循环顺序、写入顺序保持等价。
+1. 它必须和当前 `legacy_run_main_loop(...)` 的初始化顺序、循环顺序、写入顺序保持等价。
 2. schedule 路径允许变化的，只有：
    - `current_params` 的来源
    - `atr_by_row` 的外层来源

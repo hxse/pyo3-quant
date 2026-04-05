@@ -441,6 +441,10 @@ src/backtest_engine/backtester/
 9. `py_entry/Test/walk_forward/test_wf_signal_injection_contract.py`
 10. 与 `extract_active(...)`、stitched、`NextWindowHint` 相关测试
 11. Rust 等价性测试：
-   - `legacy_run_backtest_reference(...)` vs 新 `run_backtest(...)`
+   - `legacy_run_backtest(...)` vs 新 `run_backtest(...)`
+   - 其中 `legacy_run_backtest(...)` 内部继续复用 `legacy_run_main_loop(...)` 作为旧主循环 reference
+   - 最小落地基线先锁两条：
+     - 默认单参数 case
+     - `atr_period + sl_atr` case
 12. segmented replay 测试：
    - `run_backtest_with_schedule(...)` 的 contiguity / schema / rebase / 单段退化

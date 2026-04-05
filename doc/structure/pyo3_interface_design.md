@@ -1,12 +1,20 @@
-# PyO3 接口设计说明（新架构）
+# PyO3 接口设计说明（历史设计文档，当前真值见 stub 与源码）
 
-本文档描述当前版本（最新状态）的 PyO3 接口设计，用于：
+本文档保留架构设计意图与部分调试索引，但不再作为当前 PyO3 公开接口的唯一真值来源。
+当前接口真值请优先以以下对象为准：
+
+- `python/pyo3_quant/**/*.pyi`
+- `src/types/inputs/*.rs`
+- `src/types/outputs/*.rs`
+- `src/backtest_engine/top_level_api.rs`
+
+本文档用于：
 
 - 快速理解 Rust ↔ Python 的边界与职责。
 - 指导新增接口、扩展类型、调试问题时的正确姿势。
 - 降低开发中常见错误（类型不匹配、对象写回失效、调用方式不一致等）。
 
-本文档只描述当前实现，不讨论历史方案与演进过程。
+文中若与当前 stub / 源码冲突，以 stub / 源码为准。
 
 ---
 
@@ -70,8 +78,8 @@
 
 `pyo3_quant.backtest_engine` 当前主入口：
 
-- `run_backtest_engine(data_dict, param_set, template, engine_settings) -> list[BacktestSummary]`
-- `run_single_backtest(data_dict, param, template, engine_settings) -> BacktestSummary`
+- `run_backtest_engine(data, params, template, engine_settings) -> list[ResultPack]`
+- `run_single_backtest(data, param, template, engine_settings) -> ResultPack`
 
 子模块函数（示例）：
 
@@ -92,48 +100,48 @@
 
 1. `pyo3_quant.backtest_engine.run_backtest_engine`
    - 输入：
-     - `data_dict: DataContainer`
-     - `param_set: list[SingleParamSet]`
+     - `data: DataPack`
+     - `params: list[SingleParamSet]`
      - `template: TemplateContainer`
      - `engine_settings: SettingContainer`
-   - 返回：`list[BacktestSummary]`
+   - 返回：`list[ResultPack]`
 2. `pyo3_quant.backtest_engine.run_single_backtest`
    - 输入：
-     - `data_dict: DataContainer`
+     - `data: DataPack`
      - `param: SingleParamSet`
      - `template: TemplateContainer`
      - `engine_settings: SettingContainer`
-   - 返回：`BacktestSummary`
+   - 返回：`ResultPack`
 
 #### B. 子模块低层入口（调试拆解链路时使用）
 
 1. `pyo3_quant.backtest_engine.indicators.calculate_indicators`
    - 输入：
-     - `processed_data: DataContainer`
+     - `processed_data: DataPack`
      - `indicators_params: Mapping[str, Mapping[str, Mapping[str, Param]]]`
    - 返回：`dict[str, Any]`
 2. `pyo3_quant.backtest_engine.signal_generator.generate_signals`
    - 输入：
-     - `processed_data: DataContainer`
+     - `processed_data: DataPack`
      - `indicator_dfs_py: Mapping[str, Any]`
      - `signal_params: Mapping[str, Param]`
      - `signal_template: SignalTemplate`
    - 返回：`Any`（通常为信号 DataFrame）
 3. `pyo3_quant.backtest_engine.backtester.run_backtest`
    - 输入：
-     - `processed_data: DataContainer`
+     - `processed_data: DataPack`
      - `signals_df_py: Any`
      - `backtest_params: BacktestParams`
    - 返回：`Any`（通常为回测结果 DataFrame）
 4. `pyo3_quant.backtest_engine.performance_analyzer.analyze_performance`
    - 输入：
-     - `data_dict: DataContainer`
+     - `data: DataPack`
      - `backtest_df_py: Any`
      - `performance_params: PerformanceParams`
    - 返回：`dict[str, float]`
 5. `pyo3_quant.backtest_engine.optimizer.py_run_optimizer`
    - 输入：
-     - `data_dict: DataContainer`
+     - `data: DataPack`
      - `param: SingleParamSet`
      - `template: TemplateContainer`
      - `engine_settings: SettingContainer`
@@ -148,7 +156,7 @@
    - 返回：`tuple[list[float], float]`
 7. `pyo3_quant.backtest_engine.walk_forward.run_walk_forward`
    - 输入：
-     - `data_dict: DataContainer`
+     - `data: DataPack`
      - `param: SingleParamSet`
      - `template: TemplateContainer`
      - `engine_settings: SettingContainer`
@@ -156,7 +164,7 @@
    - 返回：`WalkForwardResult`
 8. `pyo3_quant.backtest_engine.sensitivity.run_sensitivity_test`
    - 输入：
-     - `data_dict: DataContainer`
+     - `data: DataPack`
      - `param: SingleParamSet`
      - `template: TemplateContainer`
      - `engine_settings: SettingContainer`
@@ -179,21 +187,25 @@
 
 1. `pyo3_quant.backtest_engine.data_ops.build_time_mapping`
    - 输入：
-     - `data_dict: DataContainer`
-   - 返回：`DataContainer`
+     - `source: dict[str, object]`
+     - `base_data_key: str`
+     - `skip_mask: Any = None`
+     - `align_to_base_range: bool = False`
+   - 返回：`DataPack`
    - 语义：
+     - 从原始 source 直接构建正式 `DataPack`。
      - 始终生成每个 source 的映射列（包含 base 列）。
      - base 列映射为自然序列 `0..n-1`。
      - 非 base 列采用 `backward asof` 语义（最后一个 `time_src <= time_base`）。
 
-2. `pyo3_quant.backtest_engine.data_ops.slice_data_container`
+2. `pyo3_quant.backtest_engine.data_ops.slice_data_pack`
    - 输入：
-     - `data_dict: DataContainer`
+     - `data: DataPack`
      - `start: int`
      - `length: int`
-   - 返回：`DataContainer`
+   - 返回：`DataPack`
    - 语义：
-     - 按 base 窗口切片并返回独立 `DataContainer`（非就地修改）。
+     - 按 base 窗口切片并返回独立 `DataPack`（非就地修改）。
      - 对每个 source 按窗口映射反推最小覆盖区间。
      - 返回窗口内重基（local index）的 mapping，保证窗口内索引自洽。
      - 若映射越界直接报错（fail-fast）。
@@ -248,7 +260,7 @@
 - `BacktestParams`
 - `PerformanceParams`
 - `SingleParamSet`
-- `DataContainer`
+- `DataPack`
 - `OptimizerConfig`
 - `WalkForwardConfig`
 - `SensitivityConfig`
@@ -259,9 +271,9 @@
 
 核心输出类型：
 
-- `BacktestSummary`
+- `ResultPack`
 - `OptimizationResult` / `RoundSummary` / `SamplePoint`
-- `WalkForwardResult` / `WindowArtifact` / `StitchedArtifact` / `NextWindowHint`
+- `WalkForwardResult` / `WindowArtifact` / `WindowMeta` / `StitchedArtifact` / `StitchedMeta` / `NextWindowHint`
 - `SensitivityResult` / `SensitivitySample`
 
 ### 3.3 枚举类型
@@ -284,7 +296,7 @@
 2. `BacktestParams(*, ...)`
 3. `PerformanceParams(*, ...)`
 4. `SingleParamSet(*, indicators=None, signal=None, backtest=None, performance=None)`
-5. `DataContainer(mapping, skip_mask, source, base_data_key)`
+5. `DataPack(mapping, skip_mask, source, base_data_key, ranges)`
 6. `TemplateContainer(signal: SignalTemplate)`
 7. `SignalGroup(*, logic, comparisons=None, sub_groups=None)`
 8. `SignalTemplate(*, entry_long=None, exit_long=None, entry_short=None, exit_short=None)`
@@ -293,12 +305,12 @@
 11. `WalkForwardConfig(*, ..., optimizer_config=None)`
 12. `SensitivityConfig(*, ...)`
 
-### 3.6 DataContainer 口径约束（新增）
+### 3.6 DataPack 口径约束（新增）
 
 1. `mapping` 列统一使用“行号索引”，不是 `time`。
 2. `mapping` 始终包含所有 source 对应列（包含 base 列）。
 3. base 列映射值为 `0..n-1` 自然序列，运行时可快速判定并跳过 `take`（性能优化）。
-4. 窗口分割禁止就地修改原始 `DataContainer`，必须返回新对象。
+4. 窗口分割禁止就地修改原始 `DataPack`，必须返回新对象。
 5. Python 侧只负责“取数适配”（模拟/网络/直喂），不负责 mapping 算法本身。
 6. `walk_forward` 的窗口切片逻辑复用 Rust `data_ops`，不再在 Python 层重复实现。
 
@@ -365,11 +377,14 @@ PyO3 转换入口：
 
 ### 3.5 调试索引：核心返回对象字段
 
-1. `BacktestSummary`
+1. `ResultPack`
    - `indicators: Optional[dict]`
    - `signals: Optional[Any]`
    - `backtest_result: Optional[Any]`
    - `performance: Optional[dict[str, float]]`
+   - `mapping: Any`
+   - `ranges: dict[str, SourceRange]`
+   - `base_data_key: str`
 2. `OptimizationResult`
    - `best_params: SingleParamSet`
    - `optimize_metric: OptimizeMetric`
@@ -385,30 +400,35 @@ PyO3 转换入口：
    - `window_results: list[WindowArtifact]`
    - `stitched_result: StitchedArtifact`
 4. `WindowArtifact`
+   - `train_pack_data: DataPack`
+   - `test_pack_data: DataPack`
+   - `test_pack_result: ResultPack`
+   - `meta: WindowMeta`
+4a. `WindowMeta`
    - `window_id: int`
-   - `time_range: tuple[int, int]`
-   - `bar_range: tuple[int, int]`
-   - `span_ms/span_days/span_months: int/float/float`
-   - `bars: int`
-   - `train_range: tuple[int, int]`
-   - `transition_range: tuple[int, int]`
-   - `test_range: tuple[int, int]`
-   - `data: DataContainer`
-   - `summary: BacktestSummary`
    - `best_params: SingleParamSet`
-   - `optimize_metric: OptimizeMetric`
    - `has_cross_boundary_position: bool`
+   - `test_active_base_row_range: tuple[int, int]`
+   - `train_warmup_time_range: Optional[tuple[int, int]]`
+   - `train_active_time_range: tuple[int, int]`
+   - `train_pack_time_range: tuple[int, int]`
+   - `test_warmup_time_range: tuple[int, int]`
+   - `test_active_time_range: tuple[int, int]`
+   - `test_pack_time_range: tuple[int, int]`
 5. `StitchedArtifact`
-   - `time_range: tuple[int, int]`
-   - `bar_range: tuple[int, int]`
-   - `span_ms/span_days/span_months: int/float/float`
-   - `bars: int`
+   - `stitched_data: DataPack`
+   - `result: ResultPack`
+   - `meta: StitchedMeta`
+5a. `StitchedMeta`
    - `window_count: int`
-   - `first_test_time_ms/last_test_time_ms: int/int`
-   - `rolling_every_days: float`
+   - `stitched_pack_time_range_from_active: tuple[int, int]`
+   - `stitched_window_active_time_ranges: list[tuple[int, int]]`
+   - `backtest_schedule: list[BacktestParamSegment]`
    - `next_window_hint: NextWindowHint`
-   - `data: DataContainer`
-   - `summary: BacktestSummary`
+5b. `NextWindowHint`
+   - `expected_window_switch_time_ms: int`
+   - `eta_days: float`
+   - `based_on_window_id: int`
 6. `SensitivityResult`
    - `target_metric: str`
    - `original_value: float`
@@ -486,32 +506,36 @@ BacktestParams(None, None, None, None, None, None, None, None, None, None, False
      - `set_f64_param`
 
 2. **属性 setter（不是可直接调用的 `set_xxx()` 方法）**
-   - `DataContainer`
+   - `DataPack`
      - `mapping = ...`
      - `skip_mask = ...`
      - `source = ...`
      - `base_data_key = ...`
-   - `BacktestSummary`
+   - `ResultPack`
      - `indicators = ...`
      - `signals = ...`
-     - `backtest_result = ...`
-     - `performance = ...`
+      - `backtest_result = ...`
+      - `performance = ...`
+      - `mapping = ...`
+      - `base_data_key = ...`
 
 注意：
 
 - 在 Rust 代码里，这些属性 setter 的实现函数名可能是 `set_source`、`set_indicators`，但 Python 侧不会暴露同名可调用方法；
 - Python 侧要触发它们，必须使用属性赋值语法，而不是 `obj.set_source(...)`。
+- `DataPack.ranges` 和 `ResultPack.ranges` 当前都只有 getter，没有属性 setter；它们属于只读快照，不支持 Python 侧原地写回。
 
 ### 4.4 `data_ops` 当前 `.pyi` 合同（已落地）
 
-1. `build_time_mapping(data_dict: DataContainer, align_to_base_range: bool = False) -> DataContainer`
-2. `slice_data_container(data_dict: DataContainer, start: int, length: int) -> DataContainer`
-3. `is_natural_mapping_column(data_dict: DataContainer, source_key: str) -> bool`
+1. `build_time_mapping(source: dict[str, object], base_data_key: str, skip_mask: Any = None, align_to_base_range: bool = False) -> DataPack`
+2. `slice_data_pack(data: DataPack, start: int, length: int) -> DataPack`
+3. `slice_result_pack(result: ResultPack, data: DataPack, start: int, length: int) -> ResultPack`
+4. `is_natural_mapping_column(data: DataPack, source_key: str) -> bool`
 
 说明：
 
 1. `walk_forward` 在 Rust 内部直接复用同一切片逻辑，不通过 PyO3 往返调用。
-2. Python 暴露这三个接口主要用于测试、调试和最小复现。
+2. Python 暴露这些接口主要用于测试、调试和最小复现。
 3. `align_to_base_range=True` 时，会先按 base 时间范围裁剪其他 source，并额外保留“base_start 前最后一根”用于 `backward asof` 衔接，避免剪过头。
 4. 当前默认值已统一为 `False`（Rust/Python 一致）；这是破坏性默认口径，若需要旧行为必须显式传 `True`。
 
@@ -555,9 +579,9 @@ bt.params.indicators = ind
 - `bt.params.signal`
 - `bt.params.backtest`
 
-### 5.2 `BacktestSummary` DataFrame 字段
+### 5.2 `ResultPack` DataFrame 字段
 
-`BacktestSummary` 中 `indicators/signals/backtest_result` 涉及 `polars.DataFrame`，
+`ResultPack` 中 `indicators/signals/backtest_result` 涉及 `polars.DataFrame`，
 在 Rust 侧通过 `PyDataFrame` 与 `PyAny` 做显式转换。开发时需注意：
 
 - 传入必须是可提取为 `PyDataFrame` 的对象。
@@ -750,7 +774,7 @@ error[E0034]: multiple applicable items found
 触发背景（高频组合）：
 
 1. 同一个函数同时使用 `#[pyfunction]` + `#[gen_stub_pyfunction]`。
-2. 函数签名包含复杂泛型（例如 `PyResult<Vec<BacktestSummary>>`）。
+2. 函数签名包含复杂泛型（例如 `PyResult<Vec<ResultPack>>`）。
 3. `pyo3-stub-gen` 走自动签名推导时，与 PyO3 宏展开产物在内部定义上产生冲突。
 
 根因可理解为：

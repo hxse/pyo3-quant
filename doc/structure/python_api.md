@@ -38,7 +38,8 @@ result = bt.run()
 `validate_wf_indicator_readiness(...)` 返回关键字段：
 - `base_data_key`
 - `indicator_warmup_bars_base`
-- `effective_transition_bars`
+- `train_warmup_bars_base`
+- `test_warmup_bars_base`
 - `warmup_bars_by_source`
 - `contracts_by_indicator`
 
@@ -146,8 +147,7 @@ cfg = DataGenerationParams(
 bt = Backtest(data_source=cfg)
 result = bt.run()
 
-if result.summary is not None:
-    print(result.summary.performance)
+print(result.result.performance)
 ```
 
 ## 6.1 WF 推荐调用顺序
@@ -155,7 +155,7 @@ if result.summary is not None:
 ```python
 wf_cfg = ...
 precheck = bt.validate_wf_indicator_readiness(wf_cfg)
-print(precheck["effective_transition_bars"])
+print(precheck["test_warmup_bars_base"])
 
 wf = bt.walk_forward(wf_cfg)
 print(wf.aggregate_test_metrics)

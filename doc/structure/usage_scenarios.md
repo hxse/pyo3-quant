@@ -6,7 +6,7 @@ from py_entry.runner import Backtest
 
 bt = Backtest(data_source=...)
 result = bt.run()
-print(result.summary.performance)
+print(result.result.performance)
 ```
 
 ## 回测图表（Notebook）
@@ -44,7 +44,7 @@ print(sens.target_metric, sens.mean, sens.std, sens.cv)
 ## 向前测试
 ```python
 precheck = bt.validate_wf_indicator_readiness(wf_cfg)
-print(precheck["effective_transition_bars"])
+print(precheck["test_warmup_bars_base"])
 
 wf = bt.walk_forward(wf_cfg)
 print(wf.aggregate_test_metrics)

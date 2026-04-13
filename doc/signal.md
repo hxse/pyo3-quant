@@ -342,16 +342,14 @@ SignalGroup(
 2. source 命名规则必须为 `数据名_周期名`（如 `ohlcv_5m`）
 3. 周期字符串可解析为毫秒值（当前支持 `ms/s/m/h/d/w/M/y`）
 4. 工程约定：`M=28d`、`y=364d`，两者均按“最小间隔下限”校验
-5. 各 source 的 `time` 列最小正间隔（跳过 `diff=0`）必须 `>=` 其命名周期毫秒值
+5. 各 source 的 `time` 列相邻差值必须严格大于 `0`；最小观测间隔若存在，则必须 `>=` 其命名周期毫秒值
 6. 若最小正间隔大于命名周期（如节假日/停盘），允许通过
-7. `time` 列必须非递减（允许相同时间戳，如 Renko 多砖同刻；禁止倒序）
-8. 每个 source 的 `time` 列至少 2 行，不足直接报错
+7. `time` 列必须严格递增；重复时间戳和倒序都直接报错
+8. `base_data_key` 对应的 source 的 `time` 列至少 2 行；非 base source 在对齐裁剪后允许只保留 1 根 predecessor
 9. `base_data_key` 的命名周期必须是所有 source 命名周期中的最小值
 10. 若 source 命名不符合 `数据名_周期名`（如 `test_data`），跳过该 source 的周期校验
 11. `base_data_key` 必须命名规范（可解析周期）；不规范直接报错
 
-该约束会在两处执行：
-- `build_time_mapping` 构建映射时校验一次
-- 回测引擎入口（`run_backtest_engine` / `run_single_backtest`）再校验一次
+该约束在 `DataPack` producer 真值入口落地，`run_*` 回测入口只消费已经合法的 pack object，不额外承担同一套对象级 guard。
 
 如果违反约束，系统直接报错，不做兼容回退。

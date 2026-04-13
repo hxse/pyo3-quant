@@ -33,23 +33,23 @@ just
 
 ```bash
 just sync
-just run
+just workflow --strategies sma_2tf --symbols SOL/USDT --mode backtest
 just check
 just test
 just fmt
 ```
 
-指定脚本运行：
+策略工作流运行：
 
 ```bash
-just run strategy=sma_2tf mode=pipeline
+just workflow --strategies sma_2tf --symbols SOL/USDT --mode backtest,optimize,sensitivity,walk_forward
 ```
 
 ## 3. 工作流约束
 
 1. 先 `just check`，再 `just test`。
 2. 不要绕过 `justfile` 直接拼底层命令（除非排障）。
-3. `just run` / `just check` 会触发 `develop` 与 `stub`，属于预期行为。
+3. `just workflow` / `just check` 会触发 `develop` 与 `stub`，属于预期行为。
 
 ## 4. 仅在排障时使用的手动命令
 

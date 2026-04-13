@@ -12,6 +12,7 @@
 - 向前测试返回路径统一到“窗口返回 + 拼接返回”，并约束拼接基于各窗口非预热测试段，且可与全量连续区提取做时间序列一致性校验。
 
 ## 2026-02-27 wf warmup minimal
+- **已废除：此过渡期最小实现方案已被后继的 `2026-03-10 unified ranges warmup wf` 全局大一统重构彻底取代并作废。**
 - 该任务是对 2026-02-24 方案的收敛：放弃先做全局容器重构，先用最小改动解决 WF 预热不足问题。
 - 核心约束是“回测引擎主链不改”，改动集中在 WF 模块和 WF 测试，降低连锁迁移风险。
 - WF 新增预热参数与预热模式，保留现有过渡期实现思路：`BorrowFromTrain` 允许与训练尾部重叠，`ExtendTest` 不允许重叠。
@@ -52,3 +53,11 @@
 - WF 预热配置的摘要方案最终收敛为 `BorrowFromTrain | ExtendTest`，并补入 `ignore_indicator_warmup: bool` 作为显式对照实验 / 备胎开关，默认值固定为 `false`。
 - stitched 的 `DataPack` 真值直接来自初始 `full_data` 的全局 `test_active` 切片，不来自窗口 `DataPack` 拼接；`04` 只负责组装 `StitchedReplayInput`，正式 stitched backtest 真值由 `05` 的 segmented replay 生成。
 - 任务现已补出 `02_execution/01_execution_plan.md` 与 `02_execution/02_test_plan.md`：前者只保留实现顺序、关键接口、文件清单、删除项和验收步骤，后者单独收敛测试分层、PyO3 测试工具函数、WF 性能约束与建议新增测试文件清单。
+
+## 2026-04-05 wf export display and precheck cleanup
+- 本任务是 `2026-03-10 unified ranges warmup wf` 的后续清理任务，目标是收口 03-10 落地后仍残留的双轨解释层、旧入口和误导性外围实现。
+- 任务范围集中在四条线：WF stitched 导出与 display 链路、Python `validate_wf_indicator_readiness(...)` 预检入口、重复时间戳 / Renko 残余、`BacktestContext` 与 Rust 顶层 readiness validator 的职责边界。
+- WF 导出正式改为“single / WF 各自 adapter + 通用 packager”结构；single 与 WF 可以继续共享 display / bundle 消费链路，但不再共享同一套结果解释层。
+- Python precheck 已退出正式 gate，workflow 不再显式依赖该入口；pack 合法性真值固定收口于 producer，执行合法性真值固定收口于 Rust pipeline 主链，如需新增 explain 工具，只允许是只读解释工具。
+- 仓库当前正式口径继续写死为“时间列必须严格递增，不支持重复时间戳 source”；本任务要求删除 Renko 生成入口、删除 stitched 中“非递减即可”的旧兜底，并同步清理当前结构文档与测试残余。
+- `BacktestContext` 已退出正式设计；正式执行链固定为 `PipelineRequest -> execute_single_pipeline(...) -> PipelineOutput`，不再保留并行 validator 支线。

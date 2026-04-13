@@ -25,25 +25,29 @@ HTML embed    ✅ 离线缓存/导出   ❌ 不需要
 ## 架构
 
 ```
-RunResult.display(config=DisplayConfig)
+SingleBacktestView / WalkForwardView
     │
-    ├─ target="marimo" → render_as_marimo_widget()
-    │   - 复用 render_as_widget() 创建 ChartDashboardWidget
-    │   - 外层用 mo.ui.anywidget() 包装
-    │   - 文件：py_entry/runner/display/marimo_renderer.py
-    │
-    ├─ target="jupyter" + embed_data=False → render_as_widget() → ChartDashboardWidget (anywidget)
-    │   - 数据通过 traitlets.Bytes 二进制传输（无 base64 开销）
-    │   - JS 端接收后转 base64 传给 Svelte 图表组件
-    │   - 文件：py_entry/runner/display/widget_renderer.py
-    │          py_entry/runner/display/chart_widget.py
-    │          py_entry/runner/display/chart_widget.js
-    │
-    └─ target="jupyter" + embed_data=True → render_as_html() → IPython.display.HTML
-        - 数据 base64 编码后嵌入 <script type="text/plain"> 标签
-        - JS/CSS 可内联（embed_files=True）或外部引用
-        - 文件：py_entry/runner/display/html_renderer.py
-               py_entry/runner/display/html_renderer.js
+    └─ prepare_export(config=FormatResultsConfig) → PreparedExportBundle
+        │
+        └─ display(config=DisplayConfig)
+            │
+            ├─ target="marimo" → render_as_marimo_widget()
+            │   - 复用 render_as_widget() 创建 ChartDashboardWidget
+            │   - 外层用 mo.ui.anywidget() 包装
+            │   - 文件：py_entry/runner/display/marimo_renderer.py
+            │
+            ├─ target="jupyter" + embed_data=False → render_as_widget() → ChartDashboardWidget (anywidget)
+            │   - 数据通过 traitlets.Bytes 二进制传输（无 base64 开销）
+            │   - JS 端接收后转 base64 传给 Svelte 图表组件
+            │   - 文件：py_entry/runner/display/widget_renderer.py
+            │          py_entry/runner/display/chart_widget.py
+            │          py_entry/runner/display/chart_widget.js
+            │
+            └─ target="jupyter" + embed_data=True → render_as_html() → IPython.display.HTML
+                - 数据 base64 编码后嵌入 <script type="text/plain"> 标签
+                - JS/CSS 可内联（embed_files=True）或外部引用
+                - 文件：py_entry/runner/display/html_renderer.py
+                       py_entry/runner/display/html_renderer.js
 ```
 
 ---
@@ -63,13 +67,22 @@ RunResult.display(config=DisplayConfig)
 ### 推荐用法
 
 ```python
+from py_entry.io import DisplayConfig
+from py_entry.runner import FormatResultsConfig
+
+export_config = FormatResultsConfig(dataframe_format="parquet")
+
 # 场景 1：开发调试（轻量、快速）
 config = DisplayConfig(embed_data=False)
-result.display(config=config)
+view = bt.run()
+bundle = view.prepare_export(export_config)
+bundle.display(config=config)
 
 # 场景 2：保存结果供日后查看（离线缓存）
 config = DisplayConfig(embed_data=True, embed_files=True)
-result.display(config=config)
+view = bt.run()
+bundle = view.prepare_export(export_config)
+bundle.display(config=config)
 ```
 
 ---
@@ -93,6 +106,7 @@ import marimo as mo
 @app.cell
 def _(mo, run_button):
     from py_entry.strategy_hub import build_strategy_runtime
+    from py_entry.runner import FormatResultsConfig
 
     if run_button.value:
         with mo.persistent_cache("backtest_result"):
@@ -100,17 +114,19 @@ def _(mo, run_button):
                 "search:sma_2tf.sma_2tf",
                 run_symbol="SOL/USDT",
             )
-            result = bt.run()
+            view = bt.run()
+            export_config = FormatResultsConfig(dataframe_format="parquet")
+            bundle = view.prepare_export(export_config)
     else:
-        result = None
-    return (result,)
+        bundle = None
+    return (bundle,)
 
 
 @app.cell
-def _(mo, result):
+def _(mo, bundle):
     from py_entry.io import DashboardOverride, DisplayConfig
 
-    mo.stop(result is None)
+    mo.stop(bundle is None)
 
     config = DisplayConfig(
         target="marimo",
@@ -123,7 +139,7 @@ def _(mo, result):
             showLegendInAll=True,
         ).to_dict(),
     )
-    result.display(config=config)
+    bundle.display(config=config)
     return
 ```
 

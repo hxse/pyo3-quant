@@ -1,7 +1,7 @@
 # Python 接口文档（当前版）
 
 本文档描述当前 Python 侧的核心入口与常用类型。
-以下内容已对齐 2026-02-27 任务口径（WF 预检 + warmup 模式）。
+以下内容已对齐 `2026-04-05 wf export display and precheck cleanup` 与 `2026-03-10 unified ranges warmup wf` 的当前正式口径。
 
 ## 1. 核心入口：`Backtest`
 
@@ -26,31 +26,34 @@ result = bt.run()
 
 ## 2. `Backtest` 核心方法
 
-- `run(params_override: Optional[SingleParamSet] = None) -> RunResult`
-- `batch(param_list: list[SingleParamSet]) -> BatchResult`
-- `optimize(config: Optional[OptimizerConfig] = None, params_override: Optional[SingleParamSet] = None) -> OptimizeResult`
-- `optimize_with_optuna(config: Optional[OptunaConfig] = None, params_override: Optional[SingleParamSet] = None) -> OptunaOptResult`
-- `walk_forward(config: Optional[WalkForwardConfig] = None, params_override: Optional[SingleParamSet] = None) -> WalkForwardResultWrapper`
-- `sensitivity(config: Optional[SensitivityConfig] = None, params_override: Optional[SingleParamSet] = None) -> SensitivityResult`
+- `run(params_override: Optional[SingleParamSet] = None) -> SingleBacktestView`
+- `batch(param_list: list[SingleParamSet]) -> BatchBacktestView`
+- `optimize(config: Optional[OptimizerConfig] = None, params_override: Optional[SingleParamSet] = None) -> OptimizationView`
+- `optimize_with_optuna(config: Optional[OptunaConfig] = None, params_override: Optional[SingleParamSet] = None) -> OptunaOptimizationView`
+- `walk_forward(config: WalkForwardConfig, params_override: Optional[SingleParamSet] = None) -> WalkForwardView`
+- `sensitivity(config: Optional[SensitivityConfig] = None, params_override: Optional[SingleParamSet] = None) -> SensitivityView`
 - `resolve_indicator_contracts(params_override: Optional[SingleParamSet] = None) -> IndicatorContractReport`
-- `validate_wf_indicator_readiness(wf_cfg: WalkForwardConfig, params_override: Optional[SingleParamSet] = None) -> dict`
 
-`validate_wf_indicator_readiness(...)` 返回关键字段：
-- `base_data_key`
-- `indicator_warmup_bars_base`
-- `train_warmup_bars_base`
-- `test_warmup_bars_base`
-- `warmup_bars_by_source`
-- `contracts_by_indicator`
+## 3. 导出与显示正式入口
 
-## 3. `RunResult` 常用方法
+- `SingleBacktestView.prepare_export(config: FormatResultsConfig) -> PreparedExportBundle`
+- `WalkForwardView.prepare_export(config: FormatResultsConfig) -> PreparedExportBundle`
+- `PreparedExportBundle.save(config: SaveConfig) -> Self`
+- `PreparedExportBundle.upload(config: UploadConfig) -> Self`
+- `PreparedExportBundle.display(config: DisplayConfig | None = None)`
 
-- `format_for_export(config: FormatResultsConfig) -> Self`
-- `save(config: SaveConfig) -> Self`
-- `upload(config: UploadConfig) -> Self`
-- `display(config: DisplayConfig | None = None)`
+说明：显示层正式消费 `PreparedExportBundle`，不再直接消费结果 view。
 
-说明：`display()` 返回 HTML 或 widget，取决于运行环境（Jupyter / marimo / 其他）。
+## 3.1 `SettingContainer` 正式字段
+
+- `stop_stage: ExecutionStage`
+- `artifact_retention: ArtifactRetention`
+
+模式约束：
+
+- `Backtest.run()` / `Backtest.batch()` 消费实例持有的 `engine_settings`
+- `Backtest.walk_forward()` 固定使用 `Performance + AllCompletedStages`
+- `Backtest.optimize()` / `Backtest.sensitivity()` / `Backtest.optimize_with_optuna()` 固定使用 `Performance + StopStageOnly`
 
 ## 4. 数据源类型（`data_source`）
 
@@ -124,7 +127,7 @@ data_source = DirectDataConfig(
 - `BacktestParams`
 - `PerformanceParams`, `PerformanceMetric`
 - `SignalGroup`, `SignalTemplate`, `LogicOp`
-- `SettingContainer`, `ExecutionStage`
+- `SettingContainer`, `ExecutionStage`, `ArtifactRetention`
 - `OptimizerConfig`, `OptunaConfig`, `WalkForwardConfig`, `SensitivityConfig`
 - `WfWarmupMode`
 
@@ -147,16 +150,13 @@ cfg = DataGenerationParams(
 bt = Backtest(data_source=cfg)
 result = bt.run()
 
-print(result.result.performance)
+print(result.raw.performance)
 ```
 
 ## 6.1 WF 推荐调用顺序
 
 ```python
 wf_cfg = ...
-precheck = bt.validate_wf_indicator_readiness(wf_cfg)
-print(precheck["test_warmup_bars_base"])
-
 wf = bt.walk_forward(wf_cfg)
 print(wf.aggregate_test_metrics)
 ```

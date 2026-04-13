@@ -78,7 +78,7 @@
 
 `pyo3_quant.backtest_engine` 当前主入口：
 
-- `run_backtest_engine(data, params, template, engine_settings) -> list[ResultPack]`
+- `run_batch_backtest(data, params, template, engine_settings) -> list[ResultPack]`
 - `run_single_backtest(data, param, template, engine_settings) -> ResultPack`
 
 子模块函数（示例）：
@@ -98,7 +98,7 @@
 
 #### A. 顶层编排入口（推荐业务调用）
 
-1. `pyo3_quant.backtest_engine.run_backtest_engine`
+1. `pyo3_quant.backtest_engine.run_batch_backtest`
    - 输入：
      - `data: DataPack`
      - `params: list[SingleParamSet]`
@@ -231,9 +231,9 @@
 
 1. 时间字段统一返回 UTC 毫秒时间戳。
 2. 日期字符串转换留在 Python 展示层。
-3. 返回结构以任务文档为准：`doc/tasks/2026-02-27 wf warmup minimal/01_summary/task_summary.md`。
+3. 返回结构以当前任务文档为准：`doc/tasks/2026-04-05 wf export display and precheck cleanup/02_spec/06_python_runner_view_and_bundle_contracts.md` 与 `doc/tasks/2026-03-10 unified ranges warmup wf/02_spec/`。
 
-#### E. 指标契约入口（2026-02-27 新增）
+#### E. 指标契约入口
 
 1. `pyo3_quant.backtest_engine.indicators.resolve_indicator_contracts`
    - 输入：
@@ -245,8 +245,9 @@
    - `contracts_by_indicator`
 
 说明：
-1. 该接口是 Python 侧 WF 预检的 Rust 真值来源。
+1. 该接口用于暴露 Rust 侧指标 warmup / contract 解析结果。
 2. Python 侧不得硬编码 warmup 公式，应直接消费该返回结果。
+3. 该接口不构成独立 WF precheck gate；正式执行入口直接消费 Rust 主链约束。
 
 ---
 
@@ -281,6 +282,7 @@
 核心枚举（均在 Rust 定义并导出）：
 
 - `ExecutionStage`
+- `ArtifactRetention`
 - `LogicOp`
 - `OptimizeMetric`
 - `PerformanceMetric`
@@ -288,7 +290,7 @@
 
 这些枚举直接作为 Python API 类型使用，避免字符串魔法值。
 
-### 3.4 调试索引：核心类型构造入口（`__new__`）
+### 3.4 调试索引：核心类型构造入口与 producer 入口
 
 以下类型是最常用“入口参数对象”，调试时先检查这些对象是否构造正确：
 
@@ -296,14 +298,26 @@
 2. `BacktestParams(*, ...)`
 3. `PerformanceParams(*, ...)`
 4. `SingleParamSet(*, indicators=None, signal=None, backtest=None, performance=None)`
-5. `DataPack(mapping, skip_mask, source, base_data_key, ranges)`
-6. `TemplateContainer(signal: SignalTemplate)`
-7. `SignalGroup(*, logic, comparisons=None, sub_groups=None)`
-8. `SignalTemplate(*, entry_long=None, exit_long=None, entry_short=None, exit_short=None)`
-9. `SettingContainer(*, execution_stage=ExecutionStage.Performance, return_only_final=False)`
-10. `OptimizerConfig(*, ...)`
-11. `WalkForwardConfig(*, ..., optimizer_config=None)`
-12. `SensitivityConfig(*, ...)`
+5. `TemplateContainer(signal: SignalTemplate)`
+6. `SignalGroup(*, logic, comparisons=None, sub_groups=None)`
+7. `SignalTemplate(*, entry_long=None, exit_long=None, entry_short=None, exit_short=None)`
+8. `SettingContainer(*, stop_stage=ExecutionStage.Performance, artifact_retention=ArtifactRetention.AllCompletedStages)`
+9. `OptimizerConfig(*, ...)`
+10. `WalkForwardConfig(*, ..., optimizer_config=None)`
+11. `SensitivityConfig(*, ...)`
+
+`DataPack` 与 `ResultPack` 不再作为 Python 调试时的直接构造入口。
+
+调试 pack 构造问题时，应从 producer 或 delegator 入口定位：
+
+1. `build_data_pack(...)`
+2. `build_result_pack(...)`
+3. `build_time_mapping(...)`
+4. `DataPackFetchPlanner.finish(...)`
+5. `slice_data_pack(...)` / `slice_result_pack(...)`
+6. `extract_active(...)`
+
+Python stub 中 `DataPack` / `ResultPack` 只保留属性面，不公开 `__new__` 与 setter；正式 pack object 只能由 producer 真值入口或立即委托到 producer 的 delegator 产生。
 
 ### 3.6 DataPack 口径约束（新增）
 
@@ -484,7 +498,7 @@ BacktestParams(None, None, None, None, None, None, None, None, None, None, False
 
 ### 4.3 `set_*` 接口现状（重要）
 
-当前 PyO3 接口里，`set_*` 能力分为两类：
+当前 PyO3 接口里，正式可写接口只包括显式方法：
 
 1. **显式方法（可直接调用）**
    - `SingleParamSet`
@@ -505,25 +519,12 @@ BacktestParams(None, None, None, None, None, None, None, None, None, None, False
      - `set_bool_param`
      - `set_f64_param`
 
-2. **属性 setter（不是可直接调用的 `set_xxx()` 方法）**
-   - `DataPack`
-     - `mapping = ...`
-     - `skip_mask = ...`
-     - `source = ...`
-     - `base_data_key = ...`
-   - `ResultPack`
-     - `indicators = ...`
-     - `signals = ...`
-      - `backtest_result = ...`
-      - `performance = ...`
-      - `mapping = ...`
-      - `base_data_key = ...`
+`DataPack` 与 `ResultPack` 当前只暴露只读属性面：
 
-注意：
+- `DataPack.mapping / skip_mask / source / ranges / base_data_key`
+- `ResultPack.indicators / signals / backtest_result / mapping / ranges / performance / base_data_key`
 
-- 在 Rust 代码里，这些属性 setter 的实现函数名可能是 `set_source`、`set_indicators`，但 Python 侧不会暴露同名可调用方法；
-- Python 侧要触发它们，必须使用属性赋值语法，而不是 `obj.set_source(...)`。
-- `DataPack.ranges` 和 `ResultPack.ranges` 当前都只有 getter，没有属性 setter；它们属于只读快照，不支持 Python 侧原地写回。
+它们不暴露 Python 可调用 `set_xxx()` 方法，也不暴露属性 setter；Python 侧不得对 pack object 做原地写回。
 
 ### 4.4 `data_ops` 当前 `.pyi` 合同（已落地）
 
@@ -597,7 +598,7 @@ bt.params.indicators = ind
 
 1. 组装数据与参数（通过 `setup_utils`）。
 2. 调用 Rust 引擎（run/batch/optimize/walk_forward/sensitivity）。
-3. 包装运行结果（如 `RunResult`、`BatchResult`、`OptimizeResult`）。
+3. 返回正式 view 对象（如 `SingleBacktestView`、`BatchBacktestView`、`OptimizationView`）。
 
 ### 6.2 参数构建与预校验（`setup_utils`）
 
@@ -691,7 +692,7 @@ bt.params.indicators = ind
 典型位置：
 
 - `src/backtest_engine/top_level_api.rs`
-  - `py_run_backtest_engine`
+  - `py_run_batch_backtest`
   - `py_run_single_backtest`
 - `src/backtest_engine/walk_forward/runner.rs`
   - `py_run_walk_forward`
@@ -767,7 +768,7 @@ bt.params.indicators = ind
 
 ```text
 error[E0034]: multiple applicable items found
-... #[pyfunction(name = "run_backtest_engine")]
+... #[pyfunction(name = "run_batch_backtest")]
 ... multiple `_PYO3_DEF` found
 ```
 

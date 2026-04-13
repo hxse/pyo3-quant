@@ -11,7 +11,7 @@ pub mod test_helpers;
 
 #[allow(unused_imports)]
 pub use benchmark::BenchmarkFunction;
-pub use evaluation::run_single_backtest;
+pub use evaluation::evaluate_param_values;
 pub use py_bindings::{py_run_optimizer, py_run_optimizer_benchmark};
 pub use runner::run_optimization;
 #[allow(unused_imports)]

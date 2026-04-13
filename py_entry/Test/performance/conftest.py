@@ -1,5 +1,6 @@
 import pytest
 from py_entry.types import (
+    ArtifactRetention,
     Param,
     PerformanceParams,
     PerformanceMetric,
@@ -75,8 +76,8 @@ def full_performance_result():
     )
 
     engine_settings = make_engine_settings(
-        execution_stage=ExecutionStage.Performance,
-        return_only_final=False,
+        stop_stage=ExecutionStage.Performance,
+        artifact_retention=ArtifactRetention.AllCompletedStages,
     )
 
     # 创建并运行 Backtest
@@ -91,4 +92,4 @@ def full_performance_result():
     )
 
     result = bt.run()
-    return result.result
+    return result.raw

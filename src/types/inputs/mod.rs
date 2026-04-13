@@ -15,6 +15,6 @@ pub use self::data::{DataPack, DataSource, SourceRange};
 pub use self::optimizer::{BenchmarkFunction, OptimizeMetric, OptimizerConfig};
 pub use self::params_base::{Param, ParamType};
 pub use self::sensitivity::SensitivityConfig;
-pub use self::settings::{ExecutionStage, SettingContainer};
+pub use self::settings::{ArtifactRetention, ExecutionStage, SettingContainer};
 pub use self::signals::{LogicOp, SignalGroup, SignalTemplate, TemplateContainer};
 pub use self::walk_forward::{WalkForwardConfig, WfWarmupMode};

@@ -8,8 +8,9 @@ from py_entry.scanner.data_source import TqDataSource
 from py_entry.runner import Backtest
 from py_entry.data_generator import DirectDataConfig
 from py_entry.types import (
-    SettingContainer,
+    ArtifactRetention,
     ExecutionStage,
+    SettingContainer,
     Param,
     BacktestParams,
     SignalTemplate,
@@ -77,7 +78,8 @@ def main():
             indicators={base_key: indicators_params},
             signal_template=empty_template,
             engine_settings=SettingContainer(
-                execution_stage=ExecutionStage.Signals, return_only_final=False
+                stop_stage=ExecutionStage.Signals,
+                artifact_retention=ArtifactRetention.AllCompletedStages,
             ),
             backtest=BacktestParams(
                 initial_capital=10000.0, fee_fixed=0.0, fee_pct=0.0
@@ -87,15 +89,12 @@ def main():
         try:
             result = bt.run()
             # 中文注释：直接访问正式 ResultPack.indicators。
-            if (
-                result.result.indicators is None
-                or base_key not in result.result.indicators
-            ):
+            if result.raw.indicators is None or base_key not in result.raw.indicators:
                 print("  计算失败: 未能获取指标结果")
                 continue
 
             # 获取计算后的指标 DataFrame
-            indicator_df = result.result.indicators[base_key]
+            indicator_df = result.raw.indicators[base_key]
 
             # 拼接指标和原始 OHLCV 数据，获得 datetime 和 close 列
             full_df = pl.concat([df, indicator_df], how="horizontal")

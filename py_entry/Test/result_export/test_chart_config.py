@@ -12,11 +12,11 @@ def test_chart_config_generation(runner_with_results):
     # 1. Generate Config
     # Using unified export method which generates chart config internally
 
-    runner.format_for_export(
+    bundle = runner.prepare_export(
         FormatResultsConfig(dataframe_format="csv", add_index=True)
     )
 
-    config = runner.chart_config
+    config = bundle.chart_config
     assert config is not None
     assert isinstance(config, ChartConfig)
 
@@ -106,7 +106,7 @@ def test_chart_config_generation(runner_with_results):
     assert len(rsi_hlines) == 0, "Default RSI pane should not include hlines"
 
     # 3. Verify ZIP
-    zip_bytes = runner.export_zip_buffer
+    zip_bytes = bundle.zip_buffer
     assert zip_bytes is not None
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         # Check files exist

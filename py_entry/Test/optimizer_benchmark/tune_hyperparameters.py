@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from loguru import logger
 
 from py_entry.types import (
+    ArtifactRetention,
     OptimizerConfig,
     OptimizeMetric,
     ExecutionStage,
@@ -46,7 +47,8 @@ def create_backtest(seed: int):
     )
 
     engine_settings = make_engine_settings(
-        execution_stage=ExecutionStage.Performance, return_only_final=True
+        stop_stage=ExecutionStage.Performance,
+        artifact_retention=ArtifactRetention.StopStageOnly,
     )
 
     return make_backtest_runner(

@@ -7,17 +7,17 @@ Widget 渲染器 - embed_data=False 模式
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..results.run_result import RunResult
+    from ..results.prepared_export_bundle import PreparedExportBundle
 
 from py_entry.io import DisplayConfig
 from .chart_widget import ChartDashboardWidget
 
 
-def render_as_widget(runner: "RunResult", config: DisplayConfig):
+def render_as_widget(bundle: "PreparedExportBundle", config: DisplayConfig):
     """使用 anywidget 渲染图表仪表盘
 
     Args:
-        runner: RunResult 实例
+        bundle: PreparedExportBundle 实例
         config: DisplayConfig 配置对象
 
     Returns:
@@ -26,13 +26,7 @@ def render_as_widget(runner: "RunResult", config: DisplayConfig):
     import time
     from loguru import logger
 
-    start_time = time.perf_counter() if runner.enable_timing else None
-
-    # 验证数据存在
-    if runner.export_zip_buffer is None:
-        raise ValueError(
-            "未找到导出的ZIP数据。请先调用 format_results_for_export() 生成数据。"
-        )
+    start_time = time.perf_counter() if bundle.enable_timing else None
 
     # 读取文件内容（如果需要嵌入）
     js_content = ""
@@ -52,7 +46,7 @@ def render_as_widget(runner: "RunResult", config: DisplayConfig):
 
     # 创建 widget
     widget = ChartDashboardWidget(
-        zip_data=runner.export_zip_buffer,  # 直接传递 bytes，无需 base64 编码
+        zip_data=bundle.zip_buffer,  # 直接传递 bytes，无需 base64 编码
         config=config.override.to_dict() if config.override else {},
         target=config.target,
         width=config.width,
@@ -64,8 +58,10 @@ def render_as_widget(runner: "RunResult", config: DisplayConfig):
         css_content=css_content,
     )
 
-    if runner.enable_timing and start_time is not None:
+    if bundle.enable_timing and start_time is not None:
         elapsed = time.perf_counter() - start_time
-        logger.info(f"RunResult.display() [Widget模式] 耗时: {elapsed:.4f}秒")
+        logger.info(
+            f"PreparedExportBundle.display() [Widget模式] 耗时: {elapsed:.4f}秒"
+        )
 
     return widget

@@ -247,8 +247,8 @@ class LiveStrategyCallbacks:
             params_override = self._params_override_by_key.get(
                 (params.symbol, params.base_data_key)
             )
-            run_result = bt.run(params_override=params_override)
-            backtest_df = run_result.result.backtest_result
+            result_view = bt.run(params_override=params_override)
+            backtest_df = result_view.raw.backtest_result
             if backtest_df is None:
                 return CallbackResult(success=False, message="回测结果为空")
             return CallbackResult(success=True, data=backtest_df)

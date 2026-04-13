@@ -3,8 +3,10 @@
 """
 
 import pytest
+import polars as pl
 from py_entry.data_generator import (
     DataGenerationParams,
+    DirectDataConfig,
     generate_data_pack,
 )
 
@@ -66,32 +68,38 @@ class TestGenerateDataPackIntegration:
         base_key = "ohlcv_15m"
         assert base_key in data_pack.mapping.columns
 
-    def test_generate_data_pack_with_ha_and_renko_rejects_duplicate_time_source(
-        self, basic_start_time
-    ):
-        """测试 generate_data_pack 函数 - renko 重复时间戳 source 必须 fail-fast"""
-        from py_entry.data_generator import OtherParams
-
-        timeframes = ["15m", "1h"]
-        # 使用更长样本，避免随机价格路径导致的 Renko 行数波动引发偶发失败
-        num_bars = 200
-
-        simulated_data_config = DataGenerationParams(
-            timeframes=timeframes,
-            start_time=basic_start_time,
-            num_bars=num_bars,
-            base_data_key="ohlcv_15m",
+    def test_generate_data_pack_rejects_duplicate_time_source(self, basic_start_time):
+        """重复时间戳 source 必须在正式入口 fail-fast。"""
+        base_df = pl.DataFrame(
+            {
+                "time": [basic_start_time, basic_start_time + 60_000],
+                "open": [1.0, 1.0],
+                "high": [1.0, 1.0],
+                "low": [1.0, 1.0],
+                "close": [1.0, 1.0],
+                "volume": [1.0, 1.0],
+            }
+        )
+        duplicate_df = pl.DataFrame(
+            {
+                "time": [basic_start_time, basic_start_time],
+                "open": [1.0, 1.0],
+                "high": [1.0, 1.0],
+                "low": [1.0, 1.0],
+                "close": [1.0, 1.0],
+                "volume": [1.0, 1.0],
+            }
         )
 
-        other_params = OtherParams(
-            brick_size=2.0,
-            ha_timeframes=["15m"],
-            renko_timeframes=["1h"],
-        )
-
-        with pytest.raises(ValueError, match="首覆盖失败|time 列必须严格递增"):
+        with pytest.raises(ValueError, match="time 列必须严格递增"):
             generate_data_pack(
-                data_source=simulated_data_config, other_params=other_params
+                data_source=DirectDataConfig(
+                    data={
+                        "ohlcv_1m": base_df,
+                        "ohlcv_5m": duplicate_df,
+                    },
+                    base_data_key="ohlcv_1m",
+                )
             )
 
     def test_generate_data_pack_invalid_timeframe(self, basic_start_time):
@@ -110,9 +118,7 @@ class TestGenerateDataPackIntegration:
 
         # 请求不存在的 timeframe
         other_params = OtherParams(
-            brick_size=2.0,
             ha_timeframes=["1h"],  # 1h 不在 ohlcv timeframes 中
-            renko_timeframes=None,
         )
 
         with pytest.raises(

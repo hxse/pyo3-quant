@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 from py_entry.data_generator import DataSourceConfig
 from py_entry.runner import Backtest
 from py_entry.types import (
+    ArtifactRetention,
     BacktestParams,
     ExecutionStage,
     LogicOp,
@@ -44,13 +45,13 @@ def make_backtest_params(**overrides: Any) -> BacktestParams:
 
 def make_engine_settings(
     *,
-    execution_stage: ExecutionStage = ExecutionStage.Performance,
-    return_only_final: bool = False,
+    stop_stage: ExecutionStage = ExecutionStage.Performance,
+    artifact_retention: ArtifactRetention = ArtifactRetention.AllCompletedStages,
 ) -> SettingContainer:
     """创建统一引擎设置。"""
     return SettingContainer(
-        execution_stage=execution_stage,
-        return_only_final=return_only_final,
+        stop_stage=stop_stage,
+        artifact_retention=artifact_retention,
     )
 
 

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 from py_entry.data_generator import DirectDataConfig
 from py_entry.types import (
+    ArtifactRetention,
     ExecutionStage,
     LogicOp,
     Param,
@@ -83,12 +84,13 @@ def _run_signal_template(
         indicators={"ohlcv_15m": {"sma_1": {"period": Param(1)}}},
         signal_template=signal_template,
         engine_settings=make_engine_settings(
-            execution_stage=ExecutionStage.Performance
+            stop_stage=ExecutionStage.Performance,
+            artifact_retention=ArtifactRetention.AllCompletedStages,
         ),
     )
 
     result = runner.run()
-    signals = result.result.signals
+    signals = result.raw.signals
     assert signals is not None
 
     return signals["entry_long"].slice(

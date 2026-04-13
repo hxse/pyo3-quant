@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import polars as pl
 
 if TYPE_CHECKING:
-    from .results.run_result import RunResult
+    from .results.single_backtest_view import SingleBacktestView
     from .params import DiagnoseStatesConfig
 
 # 11 种合法状态白名单
@@ -32,18 +32,17 @@ VALID_STATES = [
 
 
 def analyze_state_distribution(
-    runner: "RunResult",
+    runner: "SingleBacktestView",
     config: "DiagnoseStatesConfig",
 ) -> dict:
     """
     分析回测结果的状态机分布。
 
     Args:
-        runner: RunResult 实例
+        runner: SingleBacktestView 实例
         config: DiagnoseStatesConfig
     """
-    # RunResult 只包含一个 ResultPack
-    df = runner.result.backtest_result
+    df = runner.raw.backtest_result
     if df is None:
         raise ValueError("回测结果不包含 backtest_result 数据")
 
@@ -90,7 +89,7 @@ def analyze_state_distribution(
 
 
 def perform_diagnose(
-    runner: "RunResult",
+    runner: "SingleBacktestView",
     config: "DiagnoseStatesConfig",
 ) -> dict:
     """

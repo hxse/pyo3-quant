@@ -1,7 +1,31 @@
 """测试工具函数 - 数据映射相关"""
 
+from dataclasses import dataclass
+from typing import cast
+
 import polars as pl
-from pyo3_quant.backtest_engine.data_ops import is_natural_mapping_column
+from pyo3_quant.backtest_engine.data_ops import (
+    is_natural_mapping_column,
+    strip_indicator_time_columns,
+)
+
+
+@dataclass(slots=True)
+class MappedDataView:
+    """测试专用的映射后数据视图。"""
+
+    source: dict[str, pl.DataFrame]
+    base_data_key: str
+
+
+@dataclass(slots=True)
+class MappedResultView:
+    """测试专用的映射后结果视图。"""
+
+    indicators: dict[str, pl.DataFrame] | None
+    signals: pl.DataFrame | None
+    backtest_result: pl.DataFrame | None
+    performance: dict | None
 
 
 def extract_indicator_data(indicators_df, indicator_name):
@@ -89,8 +113,6 @@ def prepare_mapped_data(data_pack, result_pack):
         - mapped_data_pack: 映射后的 DataPack（所有 source 数据已映射到基准周期）
         - mapped_result_pack: 映射后的 ResultPack（所有 indicators 已映射到基准周期）
     """
-    from py_entry.types import DataPack, ResultPack
-
     # 1. 映射 indicators（在 result_pack 中）
     mapped_indicators = {}
     if result_pack.indicators:
@@ -100,31 +122,29 @@ def prepare_mapped_data(data_pack, result_pack):
             )
 
     # 2. 映射 source 数据（在 data_pack 中）
-    # 包括 ohlcv_*, ha_*, renko_* 等所有数据
+    # 包括 ohlcv_*、ha_* 等正式 source 数据
     mapped_source = {}
     for source_key, df in data_pack.source.items():
         mapped_source[source_key] = apply_mapping_to_dataframe(
             df, source_key, data_pack
         )
 
-    # 3. 构造新的 DataPack（映射后的）
-    mapped_data_pack = DataPack(
-        mapping=data_pack.mapping,
-        skip_mask=data_pack.skip_mask,
+    # 中文注释：这些映射结果只用于手写信号计算，不再伪装成正式 pack object。
+    mapped_data_pack = MappedDataView(
         source=mapped_source,
         base_data_key=data_pack.base_data_key,
-        ranges=data_pack.ranges,
     )
 
-    # 4. 构造新的 ResultPack（映射后的）
-    mapped_result_pack = ResultPack(
-        mapping=result_pack.mapping,
-        ranges=result_pack.ranges,
-        base_data_key=result_pack.base_data_key,
-        performance=result_pack.performance,
-        indicators=mapped_indicators,
-        signals=result_pack.signals,  # signals 已经是映射后的
+    mapped_result_pack = MappedResultView(
+        indicators=cast(
+            dict[str, pl.DataFrame] | None,
+            strip_indicator_time_columns(mapped_indicators)
+            if mapped_indicators
+            else None,
+        ),
+        signals=result_pack.signals,
         backtest_result=result_pack.backtest_result,
+        performance=result_pack.performance,
     )
 
     return mapped_data_pack, mapped_result_pack

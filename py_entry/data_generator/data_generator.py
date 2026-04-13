@@ -24,7 +24,6 @@ from .type_guards import (
 from .time_utils import parse_timeframe
 from .ohlcv_generator import generate_multi_timeframe_ohlcv
 from .heikin_ashi_generator import calculate_heikin_ashi
-from .renko_generator import calculate_renko
 from py_entry.types import DataPack
 from py_entry.io import (
     get_ohlcv_data,
@@ -239,9 +238,8 @@ def generate_data_pack(
     else:
         raise ValueError("不支持的数据源类型")
 
-    # 中文注释：只为显式启用的类型生成对应 source 数据。
-    # 注意：这里我们假设 source_dict 中以 "ohlcv_" 开头的都是 OHLCV 数据
-    # 并且我们为每个 OHLCV 数据生成对应的 HA 和 Renko 数据
+    # 中文注释：只为显式启用的正式支持类型生成对应 source 数据。
+    # 当前正式入口只保留 OHLCV 与 Heikin-Ashi。
 
     if other_params and other_params.ha_timeframes:
         for timeframe in other_params.ha_timeframes:
@@ -253,18 +251,6 @@ def generate_data_pack(
 
             source_dict[f"ha_{timeframe}"] = calculate_heikin_ashi(
                 source_dict[ohlcv_key]
-            )
-
-    if other_params and other_params.renko_timeframes:
-        for timeframe in other_params.renko_timeframes:
-            ohlcv_key = f"ohlcv_{timeframe}"
-            if ohlcv_key not in source_dict:
-                raise ValueError(
-                    f"无法生成 Renko 数据：找不到对应的 OHLCV 数据 {ohlcv_key}"
-                )
-
-            source_dict[f"renko_{timeframe}"] = calculate_renko(
-                source_dict[ohlcv_key], other_params.brick_size
             )
 
     # skip_mask 占位,暂时全为 False

@@ -3,6 +3,7 @@
 """
 
 from py_entry.types import (
+    ArtifactRetention,
     DataPack,
     IndicatorsParams,
     SignalParams,
@@ -226,6 +227,6 @@ def build_engine_settings(
         return engine_settings
 
     return SettingContainer(
-        execution_stage=ExecutionStage.Performance,
-        return_only_final=False,
+        stop_stage=ExecutionStage.Performance,
+        artifact_retention=ArtifactRetention.AllCompletedStages,
     )

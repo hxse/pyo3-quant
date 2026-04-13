@@ -1,4 +1,4 @@
-use crate::backtest_engine::execute_single_backtest;
+use crate::backtest_engine::{evaluate_param_set, validate_mode_settings};
 use crate::backtest_engine::optimizer::param_extractor::{
     apply_values_to_param, extract_optimizable_params, quantize_value,
 };
@@ -78,6 +78,13 @@ pub fn run_sensitivity_test(
     settings: &SettingContainer,
     config: &SensitivityConfig,
 ) -> Result<SensitivityResult, QuantError> {
+    validate_mode_settings(
+        settings,
+        "run_sensitivity_test(...)",
+        crate::types::ExecutionStage::Performance,
+        crate::types::ArtifactRetention::StopStageOnly,
+    )?;
+
     // 0. 验证参数
     if config.jitter_ratio <= 0.0 {
         return Err(QuantError::InvalidParam(format!(
@@ -116,22 +123,14 @@ pub fn run_sensitivity_test(
             apply_values_to_param(&mut current_set, &flat_params, &vals);
 
             // 强制单线程执行 Polars
-            let result_pack = utils::process_param_in_single_thread(|| {
-                execute_single_backtest(data_pack, &current_set, template, settings)
-            })?;
+            let result_pack =
+                utils::process_param_in_single_thread(|| evaluate_param_set(data_pack, &current_set, template))?;
 
-            let val = result_pack
-                .performance
-                .as_ref()
-                .and_then(|p| p.get(metric_key))
-                .cloned()
-                .unwrap_or(0.0);
+            let val = result_pack.get(metric_key).cloned().unwrap_or(0.0);
 
             let mut all_metrics = HashMap::new();
-            if let Some(perf) = &result_pack.performance {
-                for (k, v) in perf {
-                    all_metrics.insert(k.clone(), *v);
-                }
+            for (k, v) in &result_pack {
+                all_metrics.insert(k.clone(), *v);
             }
 
             Ok(SensitivitySample {
@@ -159,13 +158,8 @@ pub fn run_sensitivity_test(
     }
 
     // 6. 计算中心参数的性能
-    let center_result_pack = execute_single_backtest(data_pack, center_param, template, settings)?;
-    let original_value = center_result_pack
-        .performance
-        .as_ref()
-        .and_then(|p| p.get(metric_key))
-        .cloned()
-        .unwrap_or(0.0);
+    let center_result_pack = evaluate_param_set(data_pack, center_param, template)?;
+    let original_value = center_result_pack.get(metric_key).cloned().unwrap_or(0.0);
 
     // 7. 计算统计量
     let values: Vec<f64> = successful_samples.iter().map(|s| s.metric_value).collect();

@@ -1,11 +1,9 @@
-from typing import Optional
+from typing import Any, Optional
 
 from py_entry.types import (
-    DataPack,
     HorizontalLineLayoutItem,
     HorizontalLineOption,
     IndicatorLayoutItem,
-    ResultPack,
     SeriesItemConfig,
     SingleParamSet,
     VerticalLineLayoutItem,
@@ -17,8 +15,8 @@ from .utils import sort_timeframe_keys
 
 
 def build_chart_groups(
-    data_pack: DataPack,
-    result: ResultPack,
+    data_pack: Any,
+    result: Any,
     param: Optional[SingleParamSet],
     layout: IndicatorLayout,
     dataframe_format: str,

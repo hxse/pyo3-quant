@@ -1,10 +1,8 @@
-use crate::backtest_engine::data_ops::{
-    build_result_pack, extract_active, slice_data_pack_by_base_window, strip_indicator_time_columns,
+use crate::backtest_engine::data_ops::{extract_active, slice_data_pack_by_base_window};
+use crate::backtest_engine::{
+    build_public_result_pack, execute_single_pipeline, PipelineOutput, PipelineRequest,
 };
-use crate::backtest_engine::execute_single_backtest;
 use crate::backtest_engine::optimizer::run_optimization;
-use crate::backtest_engine::performance_analyzer::analyze_performance;
-use crate::backtest_engine::utils::BacktestContext;
 use crate::backtest_engine::walk_forward::data_splitter::WindowPlan;
 use crate::backtest_engine::walk_forward::injection::{
     build_carry_only_signals_for_window, build_final_signals_for_window, detect_last_bar_position,
@@ -13,7 +11,7 @@ use crate::backtest_engine::walk_forward::injection::{
 use crate::backtest_engine::walk_forward::time_ranges::build_window_time_ranges;
 use crate::error::{OptimizerError, QuantError};
 use crate::types::{
-    DataPack, ExecutionStage, ResultPack, SettingContainer, SingleParamSet, TemplateContainer,
+    DataPack, ResultPack, SettingContainer, SingleParamSet, TemplateContainer,
     WalkForwardConfig, WindowArtifact, WindowMeta,
 };
 use polars::prelude::*;
@@ -34,7 +32,7 @@ pub(crate) fn execute_window(
     data_pack: &DataPack,
     param: &SingleParamSet,
     template: &TemplateContainer,
-    settings: &SettingContainer,
+    _settings: &SettingContainer,
     optimize_settings: &SettingContainer,
     config: &WalkForwardConfig,
     window: &WindowPlan,
@@ -63,28 +61,24 @@ pub(crate) fn execute_window(
     let test_warmup_bars = test_pack_data.ranges[&test_pack_data.base_data_key].warmup_bars;
     let test_active_bars = test_pack_data.ranges[&test_pack_data.base_data_key].active_bars;
 
-    // 中文注释：第一次评估只跑到 Signals，作为跨窗注入前的正式信号基线。
-    let mut eval_settings = settings.clone();
-    eval_settings.execution_stage = ExecutionStage::Signals;
-    eval_settings.return_only_final = false;
-
-    let first_eval_result = execute_single_backtest(
+    let first_eval_output = execute_single_pipeline(
         &test_pack_data,
         &train_result.best_params,
         template,
-        &eval_settings,
+        PipelineRequest::ScratchToSignalsAllCompletedStages,
     )?;
-
-    let first_eval_signals_df = first_eval_result.signals.clone().ok_or_else(|| {
-        OptimizerError::SamplingFailed(
-            "Walk-forward first evaluation requires full signals dataframe".into(),
-        )
-    })?;
-    let first_eval_raw_indicators = first_eval_result
-        .indicators
-        .as_ref()
-        .map(strip_indicator_time_columns)
-        .transpose()?;
+    let (first_eval_raw_indicators, first_eval_signals_df) = match first_eval_output {
+        PipelineOutput::IndicatorsSignals {
+            indicators_raw,
+            signals,
+        } => (indicators_raw, signals),
+        _ => {
+            return Err(OptimizerError::SamplingFailed(
+                "Walk-forward first evaluation 必须返回 IndicatorsSignals".into(),
+            )
+            .into())
+        }
+    };
 
     let carry_only_signals_df = build_carry_only_signals_for_window(
         &first_eval_signals_df,
@@ -94,27 +88,23 @@ pub(crate) fn execute_window(
     )?;
 
     // 中文注释：自然回放只注入 carry，不追加尾部强平；跨窗状态只能从这条链读取。
-    let mut natural_ctx = BacktestContext::new();
-    natural_ctx.indicator_dfs = first_eval_raw_indicators.clone();
-    natural_ctx.signals_df = Some(carry_only_signals_df.clone());
-    natural_ctx.execute_backtest_if_needed(
-        ExecutionStage::Backtest,
-        false,
+    let natural_output = execute_single_pipeline(
         &test_pack_data,
-        &train_result.best_params.backtest,
+        &train_result.best_params,
+        template,
+        PipelineRequest::SignalsToBacktestStopStageOnly {
+            signals: carry_only_signals_df.clone(),
+        },
     )?;
-    let natural_test_pack_result = build_result_pack(
-        &test_pack_data,
-        None,
-        None,
-        natural_ctx.backtest_df.clone(),
-        None,
-    )?;
-    let natural_backtest_df = natural_test_pack_result.backtest.as_ref().ok_or_else(|| {
-        OptimizerError::SamplingFailed(
-            "Walk-forward natural test ResultPack requires full backtest dataframe".into(),
-        )
-    })?;
+    let natural_backtest_df = match natural_output {
+        PipelineOutput::BacktestOnly { ref backtest } => backtest,
+        _ => {
+            return Err(OptimizerError::SamplingFailed(
+                "Walk-forward natural replay 必须返回 BacktestOnly".into(),
+            )
+            .into())
+        }
+    };
     let next_test_last_position = detect_last_bar_position(natural_backtest_df)?;
     let has_cross_boundary_position = next_test_last_position.is_some();
 
@@ -122,40 +112,27 @@ pub(crate) fn execute_window(
         build_final_signals_for_window(&carry_only_signals_df, test_warmup_bars, test_active_bars)?;
 
     // 中文注释：正式窗口结果在自然回放基础上追加尾部强平，仍复用第一次评估出的 indicators。
-    let mut final_ctx = BacktestContext::new();
-    final_ctx.indicator_dfs = first_eval_raw_indicators;
-    final_ctx.signals_df = Some(final_signals_df);
-    final_ctx.execute_backtest_if_needed(
-        ExecutionStage::Backtest,
-        false,
+    let final_output = execute_single_pipeline(
         &test_pack_data,
-        &train_result.best_params.backtest,
+        &train_result.best_params,
+        template,
+        PipelineRequest::SignalsToPerformanceAllCompletedStages {
+            indicators_raw: first_eval_raw_indicators,
+            signals: final_signals_df,
+        },
     )?;
-    let final_eval_result =
-        final_ctx.into_result_pack(&test_pack_data, false, ExecutionStage::Backtest)?;
-    // 中文注释：ResultPack 持有的是带 time 的正式 indicators；
-    // 窗口内部回到 ResultPack builder 时，必须显式降级回 raw indicators。
-    let raw_indicators = final_eval_result
-        .indicators
-        .as_ref()
-        .map(strip_indicator_time_columns)
-        .transpose()?;
-    let full_signals = final_eval_result.signals.clone();
-    let full_backtest = final_eval_result.backtest.clone();
-    let test_backtest_df = full_backtest.as_ref().ok_or_else(|| {
-        OptimizerError::SamplingFailed(
-            "Walk-forward test ResultPack requires full backtest dataframe".into(),
-        )
-    })?;
+    let test_backtest_df = match &final_output {
+        PipelineOutput::IndicatorsSignalsBacktestPerformance { backtest, .. } => backtest,
+        _ => {
+            return Err(OptimizerError::SamplingFailed(
+                "Walk-forward final evaluation 必须返回 IndicatorsSignalsBacktestPerformance"
+                    .into(),
+            )
+            .into())
+        }
+    };
     validate_window_capital_series(test_backtest_df)?;
-    let test_metrics = analyze_performance(&test_pack_data, test_backtest_df, &param.performance)?;
-    let test_pack_result = build_result_pack(
-        &test_pack_data,
-        raw_indicators,
-        full_signals,
-        full_backtest,
-        Some(test_metrics),
-    )?;
+    let test_pack_result = build_public_result_pack(&test_pack_data, final_output)?;
     let (_test_active_data, test_active_result) =
         extract_active(&test_pack_data, &test_pack_result)?;
 

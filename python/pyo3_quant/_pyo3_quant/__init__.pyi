@@ -6,6 +6,7 @@ import enum
 import typing
 
 __all__ = [
+    "ArtifactRetention",
     "BacktestParamSegment",
     "BacktestParams",
     "BenchmarkFunction",
@@ -379,30 +380,14 @@ class DataPack:
     """
     @property
     def mapping(self) -> typing.Any: ...
-    @mapping.setter
-    def mapping(self, value: typing.Any) -> None: ...
     @property
     def skip_mask(self) -> typing.Optional[typing.Any]: ...
-    @skip_mask.setter
-    def skip_mask(self, value: typing.Optional[typing.Any]) -> None: ...
     @property
     def source(self) -> builtins.dict[builtins.str, typing.Any]: ...
-    @source.setter
-    def source(self, value: builtins.dict[builtins.str, typing.Any]) -> None: ...
     @property
     def ranges(self) -> builtins.dict[builtins.str, SourceRange]: ...
     @property
     def base_data_key(self) -> builtins.str: ...
-    @base_data_key.setter
-    def base_data_key(self, value: builtins.str) -> None: ...
-    def __new__(
-        cls,
-        mapping: typing.Any,
-        skip_mask: typing.Optional[typing.Any],
-        source: typing.Mapping[builtins.str, typing.Any],
-        base_data_key: builtins.str,
-        ranges: typing.Mapping[builtins.str, SourceRange],
-    ) -> DataPack: ...
 
 @typing.final
 class DataPackFetchPlanner:
@@ -838,48 +823,20 @@ class PerformanceParams:
 class ResultPack:
     @property
     def indicators(self) -> typing.Optional[dict]: ...
-    @indicators.setter
-    def indicators(
-        self, value: typing.Optional[builtins.dict[builtins.str, typing.Any]]
-    ) -> None: ...
     @property
     def signals(self) -> typing.Optional[typing.Any]: ...
-    @signals.setter
-    def signals(self, value: typing.Optional[typing.Any]) -> None: ...
     @property
     def backtest_result(self) -> typing.Optional[typing.Any]: ...
-    @backtest_result.setter
-    def backtest_result(self, value: typing.Optional[typing.Any]) -> None: ...
     @property
     def mapping(self) -> typing.Any: ...
-    @mapping.setter
-    def mapping(self, value: typing.Any) -> None: ...
     @property
     def ranges(self) -> builtins.dict[builtins.str, SourceRange]: ...
     @property
     def performance(
         self,
     ) -> typing.Optional[builtins.dict[builtins.str, builtins.float]]: ...
-    @performance.setter
-    def performance(
-        self, value: typing.Optional[builtins.dict[builtins.str, builtins.float]]
-    ) -> None: ...
     @property
     def base_data_key(self) -> builtins.str: ...
-    @base_data_key.setter
-    def base_data_key(self, value: builtins.str) -> None: ...
-    def __new__(
-        cls,
-        mapping: typing.Any,
-        ranges: typing.Mapping[builtins.str, SourceRange],
-        base_data_key: builtins.str,
-        performance: typing.Optional[
-            typing.Mapping[builtins.str, builtins.float]
-        ] = None,
-        indicators: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        signals: typing.Optional[typing.Any] = None,
-        backtest_result: typing.Optional[typing.Any] = None,
-    ) -> ResultPack: ...
 
 @typing.final
 class RoundSummary:
@@ -1068,18 +1025,18 @@ class SensitivitySample:
 @typing.final
 class SettingContainer:
     @property
-    def execution_stage(self) -> ExecutionStage: ...
-    @execution_stage.setter
-    def execution_stage(self, value: ExecutionStage) -> None: ...
+    def stop_stage(self) -> ExecutionStage: ...
+    @stop_stage.setter
+    def stop_stage(self, value: ExecutionStage) -> None: ...
     @property
-    def return_only_final(self) -> builtins.bool: ...
-    @return_only_final.setter
-    def return_only_final(self, value: builtins.bool) -> None: ...
+    def artifact_retention(self) -> ArtifactRetention: ...
+    @artifact_retention.setter
+    def artifact_retention(self, value: ArtifactRetention) -> None: ...
     def __new__(
         cls,
         *,
-        execution_stage: ExecutionStage = ExecutionStage.Performance,
-        return_only_final: builtins.bool = False,
+        stop_stage: ExecutionStage = ExecutionStage.Performance,
+        artifact_retention: ArtifactRetention = ArtifactRetention.AllCompletedStages,
     ) -> SettingContainer: ...
 
 @typing.final
@@ -1438,6 +1395,25 @@ class WindowMeta:
     def test_pack_time_range(self) -> tuple[builtins.int, builtins.int]: ...
 
 @typing.final
+class ArtifactRetention(enum.Enum):
+    r"""
+    公开结果保留策略枚举
+    """
+
+    AllCompletedStages = ...
+    r"""
+    保留全部已完成阶段
+    """
+    StopStageOnly = ...
+    r"""
+    只保留 stop 阶段产物
+    """
+
+    def as_str(self) -> builtins.str: ...
+    def __str__(self) -> builtins.str: ...
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
 class BenchmarkFunction(enum.Enum):
     r"""
     基准函数枚举
@@ -1473,10 +1449,6 @@ class ExecutionStage(enum.Enum):
     执行阶段指标枚举
     """
 
-    Idle = ...
-    r"""
-    空闲/未开始
-    """
     Indicator = ...
     r"""
     指标计算

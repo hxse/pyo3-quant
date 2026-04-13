@@ -103,11 +103,11 @@ def run_once(
     )
 
     if run_mode == "backtest":
-        run_result = raw_result
+        result_view = raw_result
         return {
             **base_row,
-            "performance": run_result.result.performance or {},
-            **extract_backtest_time_info(run_result),
+            "performance": result_view.raw.performance or {},
+            **extract_backtest_time_info(result_view),
         }
 
     if run_mode == "optimize":

@@ -5,7 +5,7 @@
 mod rebuild;
 mod sampling;
 
-use crate::backtest_engine::execute_single_backtest;
+use crate::backtest_engine::{evaluate_param_set, validate_mode_settings};
 use crate::backtest_engine::optimizer::optimizer_core::{
     merge_top_k, should_stop_patience, validate_config,
 };
@@ -112,25 +112,14 @@ pub fn run_optimization_generic(
                     EvalMode::Backtest {
                         data_pack,
                         template,
-                        settings,
+                        settings: _settings,
                     } => {
                         // 单任务内部强制 Polars 单线程，避免双层并行冲突
-                        let result_pack = utils::process_param_in_single_thread(|| {
-                            execute_single_backtest(data_pack, &current_set, template, settings)
+                        let metrics = utils::process_param_in_single_thread(|| {
+                            evaluate_param_set(data_pack, &current_set, template)
                         })?;
-                        let val = result_pack
-                            .performance
-                            .as_ref()
-                            .and_then(|p| p.get(optimize_metric))
-                            .cloned()
-                            .unwrap_or(0.0);
+                        let val = metrics.get(optimize_metric).cloned().unwrap_or(0.0);
 
-                        let mut metrics = HashMap::new();
-                        if let Some(perf) = &result_pack.performance {
-                            for (k, v) in perf {
-                                metrics.insert(k.clone(), *v);
-                            }
-                        }
                         (val, metrics)
                     }
                     EvalMode::BenchmarkFunction { function } => {
@@ -233,6 +222,13 @@ pub fn run_optimization(
     settings: &SettingContainer,
     config: &OptimizerConfig,
 ) -> Result<OptimizationResult, QuantError> {
+    validate_mode_settings(
+        settings,
+        "run_optimization(...)",
+        crate::types::ExecutionStage::Performance,
+        crate::types::ArtifactRetention::StopStageOnly,
+    )?;
+
     run_optimization_generic(
         EvalMode::Backtest {
             data_pack,

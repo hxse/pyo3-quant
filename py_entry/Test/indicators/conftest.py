@@ -4,6 +4,7 @@ from py_entry.data_generator import (
     DataGenerationParams,
 )
 from py_entry.types import (
+    ArtifactRetention,
     DataPack,
     ExecutionStage,
     IndicatorsParams,
@@ -33,13 +34,13 @@ def run_indicator_backtest(
         data_source=data_params,
         indicators=indicators_params,
         engine_settings=make_engine_settings(
-            execution_stage=ExecutionStage.Indicator,
-            return_only_final=True,
+            stop_stage=ExecutionStage.Indicator,
+            artifact_retention=ArtifactRetention.StopStageOnly,
         ),
     )
     result = bt.run()
-    backtest_results = [result.result]
-    data_pack = result.data_pack
+    backtest_results = [result.raw]
+    data_pack = result.session.data_pack
 
     if data_pack is None:
         raise ValueError("data_pack 不能为 None")

@@ -5,6 +5,7 @@ from typing import Any
 
 from py_entry.types import BacktestParams
 from py_entry.types import BacktestParamSegment
+from py_entry.types import ArtifactRetention
 from py_entry.types import ExecutionStage
 from py_entry.types import LogicOp
 from py_entry.types import Param
@@ -80,8 +81,12 @@ def convert_to_serializable(obj: Any) -> Any:
 
     # PyO3 枚举统一转字符串
     if isinstance(
-        obj, (ParamType, LogicOp, ExecutionStage)
-    ) or obj.__class__.__name__ in ("LogicOp", "ExecutionStage"):
+        obj, (ParamType, LogicOp, ExecutionStage, ArtifactRetention)
+    ) or obj.__class__.__name__ in (
+        "LogicOp",
+        "ExecutionStage",
+        "ArtifactRetention",
+    ):
         return str(obj)
 
     # BacktestParams 显式按白名单输出

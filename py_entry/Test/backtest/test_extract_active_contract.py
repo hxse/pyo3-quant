@@ -84,14 +84,22 @@ def test_extract_active_rebases_mapping_and_preserves_performance():
 def test_extract_active_rejects_mismatched_base_data_key():
     """DataPack / ResultPack 的 base_data_key 不一致时必须直接报错。"""
     data, result = _build_data_and_result()
-    wrong_result = ResultPack(
-        mapping=result.mapping,
-        ranges=result.ranges,
+    wrong_data = build_data_pack(
+        source={
+            "ohlcv_2ms": _ohlcv_df([0, 2, 4], close_start=10.0),
+        },
         base_data_key="ohlcv_2ms",
+        ranges={
+            "ohlcv_2ms": SourceRange(warmup_bars=1, active_bars=2, pack_bars=3),
+        },
+        skip_mask=None,
+    )
+    wrong_result = build_result_pack(
+        data=wrong_data,
+        indicators=None,
+        signals=pl.DataFrame({"signal": [0, 1, 0]}),
+        backtest_result=pl.DataFrame({"equity": [100.0, 101.0, 102.0]}),
         performance=result.performance,
-        indicators=result.indicators,
-        signals=result.signals,
-        backtest_result=result.backtest_result,
     )
 
     with pytest.raises(ValueError, match="base_data_key 一致"):
@@ -101,16 +109,24 @@ def test_extract_active_rejects_mismatched_base_data_key():
 def test_extract_active_rejects_mismatched_base_ranges():
     """同源配对前若 base ranges 已漂移，extract_active(...) 必须拒绝执行。"""
     data, result = _build_data_and_result()
-    wrong_ranges = dict(result.ranges)
-    wrong_ranges["ohlcv_1ms"] = SourceRange(warmup_bars=1, active_bars=4, pack_bars=5)
-    wrong_result = ResultPack(
-        mapping=result.mapping,
-        ranges=wrong_ranges,
-        base_data_key=result.base_data_key,
-        performance=result.performance,
-        indicators=result.indicators,
+    wrong_data = build_data_pack(
+        source={
+            "ohlcv_1ms": _ohlcv_df([0, 1, 2, 3, 4]),
+            "ohlcv_2ms": _ohlcv_df([0, 2, 4], close_start=10.0),
+        },
+        base_data_key="ohlcv_1ms",
+        ranges={
+            "ohlcv_1ms": SourceRange(warmup_bars=1, active_bars=4, pack_bars=5),
+            "ohlcv_2ms": SourceRange(warmup_bars=1, active_bars=2, pack_bars=3),
+        },
+        skip_mask=pl.DataFrame({"skip": [False, True, False, False, True]}),
+    )
+    wrong_result = build_result_pack(
+        data=wrong_data,
+        indicators={"ohlcv_2ms": pl.DataFrame({"value": [10.0, 20.0, 30.0]})},
         signals=result.signals,
         backtest_result=result.backtest_result,
+        performance=result.performance,
     )
 
     with pytest.raises(ValueError, match="base ranges 不一致"):

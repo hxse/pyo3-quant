@@ -1,5 +1,5 @@
 import polars as pl
-from py_entry.types import ExecutionStage, Param
+from py_entry.types import ArtifactRetention, ExecutionStage, Param
 from py_entry.data_generator import DirectDataConfig
 from py_entry.Test.shared import make_backtest_runner, make_engine_settings
 
@@ -51,11 +51,14 @@ def test_opening_bar_logic_alignment():
     bt = make_backtest_runner(
         data_source=data_config,
         indicators=indicator_configs,
-        engine_settings=make_engine_settings(execution_stage=ExecutionStage.Indicator),
+        engine_settings=make_engine_settings(
+            stop_stage=ExecutionStage.Indicator,
+            artifact_retention=ArtifactRetention.StopStageOnly,
+        ),
     )
     result = bt.run()
 
-    indicators_results = result.result.indicators
+    indicators_results = result.raw.indicators
     assert indicators_results is not None
     res_df = indicators_results["ohlcv_5m"]
     signals = res_df.get_column("opening-bar_0").cast(pl.Float64, strict=False)
@@ -77,11 +80,14 @@ def test_opening_bar_logic_alignment():
     bt2 = make_backtest_runner(
         data_source=data_config,
         indicators=indicator_configs_2,
-        engine_settings=make_engine_settings(execution_stage=ExecutionStage.Indicator),
+        engine_settings=make_engine_settings(
+            stop_stage=ExecutionStage.Indicator,
+            artifact_retention=ArtifactRetention.StopStageOnly,
+        ),
     )
     result2 = bt2.run()
 
-    indicators_results2 = result2.result.indicators
+    indicators_results2 = result2.raw.indicators
     assert indicators_results2 is not None
     res_df2 = indicators_results2["ohlcv_5m"]
     signals2 = res_df2.get_column("opening-bar_1").cast(pl.Float64, strict=False)

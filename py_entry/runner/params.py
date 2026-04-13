@@ -15,7 +15,7 @@ from py_entry.charts.settings import IndicatorLayout
 
 
 class SetupConfig(BaseModel):
-    """setup() 方法配置"""
+    """Backtest 初始化配置"""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -32,7 +32,7 @@ class SetupConfig(BaseModel):
 
 
 class FormatResultsConfig(BaseModel):
-    """format_results_for_export() 方法配置"""
+    """prepare_export() 方法配置"""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -47,7 +47,7 @@ class FormatResultsConfig(BaseModel):
 
 
 class DiagnoseStatesConfig(BaseModel):
-    """diagnose_states() 方法配置"""
+    """状态诊断辅助配置"""
 
     result_index: int = 0
     print_summary: bool = True

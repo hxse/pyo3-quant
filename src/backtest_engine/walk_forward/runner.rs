@@ -1,4 +1,5 @@
 use crate::backtest_engine::data_ops::build_warmup_requirements;
+use crate::backtest_engine::validate_mode_settings;
 use crate::backtest_engine::walk_forward::data_splitter::build_window_indices;
 use crate::backtest_engine::walk_forward::injection::CrossSide;
 use crate::backtest_engine::walk_forward::stitch::build_stitched_artifact;
@@ -6,8 +7,8 @@ use crate::backtest_engine::walk_forward::window_runner::execute_window;
 use crate::error::{OptimizerError, QuantError};
 use crate::types::WalkForwardConfig;
 use crate::types::{
-    DataPack, ExecutionStage, SettingContainer, SingleParamSet, TemplateContainer,
-    WalkForwardResult, WindowArtifact,
+    ArtifactRetention, DataPack, ExecutionStage, SettingContainer, SingleParamSet,
+    TemplateContainer, WalkForwardResult, WindowArtifact,
 };
 use pyo3::prelude::*;
 
@@ -19,6 +20,13 @@ pub fn run_walk_forward(
     settings: &SettingContainer,
     config: &WalkForwardConfig,
 ) -> Result<WalkForwardResult, QuantError> {
+    validate_mode_settings(
+        settings,
+        "run_walk_forward(...)",
+        ExecutionStage::Performance,
+        ArtifactRetention::AllCompletedStages,
+    )?;
+
     let source_keys = data_pack.source.keys().cloned().collect::<Vec<_>>();
     let warmup_requirements = build_warmup_requirements(
         &source_keys,
@@ -40,8 +48,8 @@ pub fn run_walk_forward(
 
     // 中文注释：训练优化阶段统一只保留最终绩效，降低并发内存占用。
     let mut optimize_settings = settings.clone();
-    optimize_settings.execution_stage = ExecutionStage::Performance;
-    optimize_settings.return_only_final = true;
+    optimize_settings.stop_stage = ExecutionStage::Performance;
+    optimize_settings.artifact_retention = ArtifactRetention::StopStageOnly;
 
     let mut completed_windows = Vec::new();
     let mut window_results: Vec<WindowArtifact> = Vec::new();

@@ -69,39 +69,6 @@ pub struct DataPack {
 #[gen_stub_pymethods]
 #[pymethods]
 impl DataPack {
-    #[new]
-    #[pyo3(signature = (mapping, skip_mask, source, base_data_key, ranges))]
-    pub fn new(
-        py: Python<'_>,
-        mapping: Bound<'_, PyAny>,
-        skip_mask: Option<Bound<'_, PyAny>>,
-        source: HashMap<String, Bound<'_, PyAny>>,
-        base_data_key: String,
-        ranges: HashMap<String, Py<SourceRange>>,
-    ) -> PyResult<Self> {
-        let mapping: PyDataFrame = mapping.extract()?;
-        let skip_mask: Option<PyDataFrame> = match skip_mask {
-            Some(value) => Some(value.extract()?),
-            None => None,
-        };
-        let mut source_inner = HashMap::new();
-        for (key, value) in source {
-            let df: PyDataFrame = value.extract()?;
-            source_inner.insert(key, df.into());
-        }
-        let mut ranges_inner = HashMap::new();
-        for (key, value) in ranges {
-            ranges_inner.insert(key, value.bind(py).borrow().clone());
-        }
-        Ok(Self {
-            source: source_inner,
-            mapping: mapping.into(),
-            skip_mask: skip_mask.map(Into::into),
-            ranges: ranges_inner,
-            base_data_key,
-        })
-    }
-
     #[getter]
     pub fn mapping(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let py_df = PyDataFrame(self.mapping.clone());
@@ -141,41 +108,6 @@ impl DataPack {
     #[getter]
     pub fn base_data_key(&self) -> String {
         self.base_data_key.clone()
-    }
-
-    #[setter]
-    pub fn set_mapping(&mut self, value: Bound<'_, PyAny>) -> PyResult<()> {
-        let df: PyDataFrame = value.extract()?;
-        self.mapping = df.into();
-        Ok(())
-    }
-
-    #[setter]
-    pub fn set_skip_mask(&mut self, value: Option<Bound<'_, PyAny>>) -> PyResult<()> {
-        self.skip_mask = match value {
-            Some(v) => {
-                let df: PyDataFrame = v.extract()?;
-                Some(df.into())
-            }
-            None => None,
-        };
-        Ok(())
-    }
-
-    #[setter]
-    pub fn set_source(&mut self, value: HashMap<String, Bound<'_, PyAny>>) -> PyResult<()> {
-        let mut source_inner = HashMap::new();
-        for (key, item) in value {
-            let df: PyDataFrame = item.extract()?;
-            source_inner.insert(key, df.into());
-        }
-        self.source = source_inner;
-        Ok(())
-    }
-
-    #[setter]
-    pub fn set_base_data_key(&mut self, value: String) {
-        self.base_data_key = value;
     }
 }
 

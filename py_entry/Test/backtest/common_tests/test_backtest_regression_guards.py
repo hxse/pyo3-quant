@@ -2,12 +2,13 @@
 
 import polars as pl
 import pyo3_quant
+from pyo3_quant.backtest_engine.data_ops import build_data_pack
 import pytest
 
 from py_entry.runner import Backtest
 from py_entry.types import (
+    ArtifactRetention,
     BacktestParams,
-    DataPack,
     ExecutionStage,
     LogicOp,
     Param,
@@ -87,8 +88,8 @@ def _build_minimal_runner(
         backtest=backtest_params,
         signal_template=signal_template,
         engine_settings=make_engine_settings(
-            execution_stage=ExecutionStage.Performance,
-            return_only_final=False,
+            stop_stage=ExecutionStage.Performance,
+            artifact_retention=ArtifactRetention.AllCompletedStages,
         ),
     )
 
@@ -112,7 +113,7 @@ class TestAtrColumnRegression:
         )
         runner = _build_minimal_runner(num_bars=120, backtest_params=params)
         result = runner.run()
-        df = result.result.backtest_result
+        df = result.raw.backtest_result
         assert df is not None, "backtest_result 不应为空"
 
         assert "atr" in df.columns, "启用 ATR 风控参数后，输出缺少 atr 列"
@@ -152,7 +153,7 @@ class TestShortDatasetRegression:
 
         runner = _build_minimal_runner(num_bars=num_bars, backtest_params=params)
         result = runner.run()
-        df = result.result.backtest_result
+        df = result.raw.backtest_result
         assert df is not None, "backtest_result 不应为空"
 
         assert df.height == num_bars, f"回测结果行数应为 {num_bars}"
@@ -219,7 +220,7 @@ class TestHasLeadingNanPassthrough:
     def test_top_level_backtest_output_omits_has_leading_nan_when_present(self):
         """顶层单次回测结果中，backtest 输出不应继续透传 has_leading_nan。"""
         runner = _build_minimal_runner(num_bars=80, include_indicators=True)
-        result = runner.run().result
+        result = runner.run().raw
 
         signals_df = result.signals
         backtest_df = result.backtest_result
@@ -236,7 +237,7 @@ class TestHasLeadingNanPassthrough:
     def test_backtest_output_omits_has_leading_nan_when_input_missing(self):
         """低层 backtester 在输入缺少该列时，不应凭空生成 has_leading_nan。"""
         runner = _build_minimal_runner(num_bars=80, include_indicators=True)
-        result = runner.run().result
+        result = runner.run().raw
 
         signals_df = result.signals
         assert signals_df is not None, "signals 不应为空"
@@ -254,7 +255,7 @@ class TestHasLeadingNanPassthrough:
     def test_backtest_output_omits_has_leading_nan_when_input_present(self):
         """低层 backtester 即使收到该列，也不应继续把它透传到 backtest 输出。"""
         runner = _build_minimal_runner(num_bars=80, include_indicators=True)
-        result = runner.run().result
+        result = runner.run().raw
 
         signals_df = result.signals
         assert signals_df is not None, "signals 不应为空"
@@ -310,16 +311,14 @@ class TestWarmupEntrySuppression:
                 exit_short=None,
             ),
             engine_settings=make_engine_settings(
-                execution_stage=ExecutionStage.Signals,
-                return_only_final=False,
+                stop_stage=ExecutionStage.Signals,
+                artifact_retention=ArtifactRetention.AllCompletedStages,
             ),
         )
 
         warmup_bars = 5
         source_df = runner.data_pack.source[base_key]
-        custom_data_pack = DataPack(
-            mapping=runner.data_pack.mapping,
-            skip_mask=runner.data_pack.skip_mask,
+        custom_data_pack = build_data_pack(
             source=runner.data_pack.source,
             base_data_key=base_key,
             ranges={
@@ -329,6 +328,7 @@ class TestWarmupEntrySuppression:
                     pack_bars=source_df.height,
                 )
             },
+            skip_mask=runner.data_pack.skip_mask,
         )
         signals = pyo3_quant.backtest_engine.signal_generator.generate_signals(
             custom_data_pack,

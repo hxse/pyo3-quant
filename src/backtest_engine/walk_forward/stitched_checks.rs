@@ -19,12 +19,9 @@ pub fn assert_time_strictly_increasing(times: &[i64]) -> Result<(), QuantError> 
     Ok(())
 }
 
-/// 中文注释：非 base source stitched 后允许同一大周期时间重复，但不允许时间倒退。
-pub fn assert_source_times_non_decreasing(data: &DataPack) -> Result<(), QuantError> {
+/// 中文注释：stitched 后所有 source 都必须满足正式严格递增契约。
+pub fn assert_source_times_strictly_increasing(data: &DataPack) -> Result<(), QuantError> {
     for (source_key, src_df) in &data.source {
-        if source_key == &data.base_data_key {
-            continue;
-        }
         let time_col = src_df.column("time").map_err(|_| {
             OptimizerError::InvalidConfig(format!("stitched source '{}' 缺少 time 列", source_key))
         })?;
@@ -37,11 +34,19 @@ pub fn assert_source_times_non_decreasing(data: &DataPack) -> Result<(), QuantEr
         for i in 1..time_i64.len() {
             let prev = time_i64.get(i - 1);
             let curr = time_i64.get(i);
-            if let (Some(p), Some(c)) = (prev, curr) {
-                if c < p {
+            match (prev, curr) {
+                (Some(p), Some(c)) if c > p => {}
+                (Some(p), Some(c)) => {
                     return Err(OptimizerError::InvalidConfig(format!(
-                        "stitched source '{}' time 非递减校验失败: idx={} {} < {}",
-                        source_key, i, c, p
+                        "stitched source '{}' time 必须严格递增: idx={}, prev={}, curr={}",
+                        source_key, i, p, c
+                    ))
+                    .into());
+                }
+                _ => {
+                    return Err(OptimizerError::InvalidConfig(format!(
+                        "stitched source '{}' 的 time 列不允许包含空值: idx={}",
+                        source_key, i
                     ))
                     .into());
                 }

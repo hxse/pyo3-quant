@@ -23,6 +23,7 @@ fn _pyo3_quant(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<types::OptimizeMetric>()?;
     m.add_class::<types::BenchmarkFunction>()?;
     m.add_class::<types::SettingContainer>()?;
+    m.add_class::<types::ArtifactRetention>()?;
     m.add_class::<types::ExecutionStage>()?;
     m.add_class::<types::LogicOp>()?;
     m.add_class::<types::SignalGroup>()?;

@@ -1,11 +1,13 @@
 from typing import TYPE_CHECKING
-from typing import Any
 from typing import List
 
 import optuna
+import pyo3_quant
 from loguru import logger
 
 from py_entry.types import OptunaConfig
+from py_entry.types import ResultPack
+from py_entry.types import SettingContainer
 from py_entry.types import SingleParamSet
 
 from py_entry.runner._optuna_param_apply import build_param_set
@@ -16,6 +18,16 @@ if TYPE_CHECKING:
     from py_entry.runner.backtest import Backtest
 
 
+def _extract_trial_metric(result: ResultPack, metric_key: str) -> float:
+    """提取 Optuna trial 指标，缺失时直接失败。"""
+    performance = result.performance
+    if performance is None:
+        raise ValueError("Optuna trial 结果缺少 performance，不能计算目标指标。")
+    if metric_key not in performance:
+        raise KeyError(f"Optuna trial performance 缺少指标: {metric_key}")
+    return performance[metric_key]
+
+
 def run_batch_mode(
     study: optuna.Study,
     backtest: "Backtest",
@@ -23,6 +35,7 @@ def run_batch_mode(
     param_infos: List[ParamInfo],
     config: OptunaConfig,
     metric_key: str,
+    engine_settings: SettingContainer,
 ) -> None:
     """批量 ask/tell 模式（利用 Rust batch 并行）。"""
     n_trials_done = 0
@@ -41,15 +54,17 @@ def run_batch_mode(
                 build_param_set(base_params, param_infos, trial_vals)
             )
 
-        # 2) 批量回测（利用 backtest.batch 并行能力）
-        batch_result = backtest.batch(batch_param_sets)
+        # 2) 批量回测：Optuna 固定使用 performance-only 正式模式。
+        results = pyo3_quant.backtest_engine.run_batch_backtest(
+            backtest.data_pack,
+            batch_param_sets,
+            backtest.template_config,
+            engine_settings,
+        )
 
         # 3) 反馈结果 (Tell)
-        for trial, result in zip(trials, batch_result.results):
-            val = 0.0
-            if result.performance:
-                val = result.performance.get(metric_key, 0.0)
-            study.tell(trial, val)
+        for trial, result in zip(trials, results):
+            study.tell(trial, _extract_trial_metric(result, metric_key))
 
         n_trials_done += current_batch_size
         if config.show_progress_bar:
@@ -65,6 +80,7 @@ def run_parallel_mode(
     param_infos: List[ParamInfo],
     config: OptunaConfig,
     metric_key: str,
+    engine_settings: SettingContainer,
 ) -> None:
     """n_jobs 并行模式（使用 study.optimize）。"""
 
@@ -73,11 +89,14 @@ def run_parallel_mode(
         trial_vals = sample_trial_values(trial, param_infos)
         new_params = build_param_set(base_params, param_infos, trial_vals)
 
-        # 单次回测
-        result = backtest.run(params_override=new_params)
-        if result.result.performance:
-            return result.result.performance.get(metric_key, 0.0)
-        return 0.0
+        # 单次回测：Optuna 固定使用 performance-only 正式模式。
+        result = pyo3_quant.backtest_engine.run_single_backtest(
+            backtest.data_pack,
+            new_params,
+            backtest.template_config,
+            engine_settings,
+        )
+        return _extract_trial_metric(result, metric_key)
 
     study.optimize(
         objective,

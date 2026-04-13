@@ -5,11 +5,14 @@ from .params import (
     DiagnoseStatesConfig,
 )
 from .results import (
-    RunResult,
-    BatchResult,
-    OptimizeResult,
-    SensitivityResultWrapper,
-    WalkForwardResultWrapper,
+    BatchBacktestView,
+    OptimizationView,
+    OptunaOptimizationView,
+    PreparedExportBundle,
+    RunnerSession,
+    SensitivityView,
+    SingleBacktestView,
+    WalkForwardView,
 )
 
 __all__ = [
@@ -17,9 +20,12 @@ __all__ = [
     "SetupConfig",
     "FormatResultsConfig",
     "DiagnoseStatesConfig",
-    "RunResult",
-    "BatchResult",
-    "OptimizeResult",
-    "SensitivityResultWrapper",
-    "WalkForwardResultWrapper",
+    "RunnerSession",
+    "PreparedExportBundle",
+    "SingleBacktestView",
+    "BatchBacktestView",
+    "WalkForwardView",
+    "OptimizationView",
+    "SensitivityView",
+    "OptunaOptimizationView",
 ]

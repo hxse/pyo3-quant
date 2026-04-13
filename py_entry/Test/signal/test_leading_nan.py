@@ -1,4 +1,5 @@
 from py_entry.types import (
+    ArtifactRetention,
     ExecutionStage,
     Param,
     SignalGroup,
@@ -72,13 +73,14 @@ def test_leading_nan_tracking():
         indicators=indicators_params,
         signal_template=signal_template,
         engine_settings=make_engine_settings(
-            execution_stage=ExecutionStage.Performance
+            stop_stage=ExecutionStage.Performance,
+            artifact_retention=ArtifactRetention.AllCompletedStages,
         ),
     )
     result = runner.run()
 
     # 5. 验证结果
-    backtest_result = result.result
+    backtest_result = result.raw
 
     signals = backtest_result.signals
     indicators = backtest_result.indicators

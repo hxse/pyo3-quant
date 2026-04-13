@@ -1,5 +1,6 @@
 """DataFrame 处理工具函数"""
 
+from dataclasses import dataclass
 from typing import Optional
 import polars as pl
 
@@ -7,6 +8,30 @@ from py_entry.types import (
     DataPack,
     ResultPack,
 )
+
+
+@dataclass(frozen=True)
+class ExportDataPackSnapshot:
+    """导出态 DataPack 快照。
+
+    这里不再伪装成正式 DataPack。
+    它只承载已经补齐 index/time/date 的导出视图，避免回写只读 pack 对象。
+    """
+
+    mapping: pl.DataFrame
+    skip_mask: Optional[pl.DataFrame]
+    source: dict[str, pl.DataFrame]
+    base_data_key: str
+
+
+@dataclass(frozen=True)
+class ExportResultSnapshot:
+    """导出态 ResultPack 快照。"""
+
+    indicators: Optional[dict[str, pl.DataFrame]]
+    signals: Optional[pl.DataFrame]
+    backtest_result: Optional[pl.DataFrame]
+    performance: Optional[dict[str, float]]
 
 
 def reorder_columns(
@@ -35,10 +60,11 @@ def add_contextual_columns_to_dataframes(
     add_index: bool,
     add_time: bool,
     add_date: bool,
-) -> None:
+) -> tuple[Optional[ExportDataPackSnapshot], ExportResultSnapshot]:
     """为单个 ResultPack 中的所有 DataFrame 添加上下文列
 
-    这个函数会直接修改传入的 data_pack 和 result 对象，为其中包含的所有 DataFrame 添加指定的列。
+    这里不会直接修改传入的 data_pack / result。
+    正式 pack 类型已收口为只读对象，导出链只返回导出态快照。
 
     Args:
         data_pack: 数据包，包含 mapping, skip_mask, source 等字段
@@ -54,22 +80,20 @@ def add_contextual_columns_to_dataframes(
         # 不能依赖原地修改 dict[key] 写回对象。
         time_source_provider = data_pack.source.copy()
 
+    export_data_pack: Optional[ExportDataPackSnapshot] = None
     if data_pack is not None:
-        # 处理 mapping
-        if data_pack.mapping is not None:
-            data_pack.mapping = process_dataframe(
-                data_pack.mapping,
-                add_index,
-                add_time,
-                add_date,
-                None,
-                data_pack,
-                time_source_provider,
-            )
-
-        # 处理 skip_mask
+        processed_mapping = process_dataframe(
+            data_pack.mapping,
+            add_index,
+            add_time,
+            add_date,
+            None,
+            data_pack,
+            time_source_provider,
+        )
+        processed_skip_mask = None
         if data_pack.skip_mask is not None:
-            data_pack.skip_mask = process_dataframe(
+            processed_skip_mask = process_dataframe(
                 data_pack.skip_mask,
                 add_index,
                 add_time,
@@ -79,26 +103,30 @@ def add_contextual_columns_to_dataframes(
                 time_source_provider,
             )
 
-        # 处理 source 中的所有 DataFrame
-        if data_pack.source is not None:
-            # 对 pyo3 返回的拷贝字典做“重建 + 整体赋回”，确保修改生效。
-            processed_source: dict[str, pl.DataFrame] = {}
-            for key, df in data_pack.source.items():
-                processed_source[key] = process_dataframe(
-                    df,
-                    add_index,
-                    add_time,
-                    add_date,
-                    key,
-                    data_pack,
-                    time_source_provider,
-                )
-            data_pack.source = processed_source
+        processed_source: dict[str, pl.DataFrame] = {}
+        for key, df in data_pack.source.items():
+            processed_source[key] = process_dataframe(
+                df,
+                add_index,
+                add_time,
+                add_date,
+                key,
+                data_pack,
+                time_source_provider,
+            )
 
-    # 处理单个 result（删除了循环）
+        export_data_pack = ExportDataPackSnapshot(
+            mapping=processed_mapping,
+            skip_mask=processed_skip_mask,
+            source=processed_source,
+            base_data_key=data_pack.base_data_key,
+        )
+
+    # 中文注释：导出态 indicators 继续保留公开形态（携带 time 列），
+    # 这里仅生成快照，不再写回 ResultPack。
+    processed_indicators = None
     if result.indicators is not None:
-        # 与 source 同理：不能原地改 dict[key]，要整体赋回 result.indicators。
-        processed_indicators: dict[str, pl.DataFrame] = {}
+        processed_indicators = {}
         for key, df in result.indicators.items():
             processed_indicators[key] = process_dataframe(
                 df,
@@ -109,10 +137,10 @@ def add_contextual_columns_to_dataframes(
                 data_pack,
                 time_source_provider,
             )
-        result.indicators = processed_indicators
 
+    processed_signals = None
     if result.signals is not None and data_pack is not None:
-        result.signals = process_dataframe(
+        processed_signals = process_dataframe(
             result.signals,
             add_index,
             add_time,
@@ -122,8 +150,9 @@ def add_contextual_columns_to_dataframes(
             time_source_provider,
         )
 
+    processed_backtest = None
     if result.backtest_result is not None and data_pack is not None:
-        result.backtest_result = process_dataframe(
+        processed_backtest = process_dataframe(
             result.backtest_result,
             add_index,
             add_time,
@@ -132,6 +161,18 @@ def add_contextual_columns_to_dataframes(
             data_pack,
             time_source_provider,
         )
+
+    return (
+        export_data_pack,
+        ExportResultSnapshot(
+            indicators=processed_indicators,
+            signals=processed_signals,
+            backtest_result=processed_backtest,
+            performance=dict(result.performance)
+            if result.performance is not None
+            else None,
+        ),
+    )
 
 
 def process_dataframe(
@@ -161,7 +202,7 @@ def process_dataframe(
     if add_date:
         add_time = True
 
-    result_df = df
+    result_df = df.clone()
 
     # 1. 确保 df 有 index 列，这是 join 的基础
     if "index" not in result_df.columns:

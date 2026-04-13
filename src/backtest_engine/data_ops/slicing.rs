@@ -1,9 +1,11 @@
-use crate::backtest_engine::data_ops::build_data_pack;
+use crate::backtest_engine::data_ops::{
+    build_data_pack, build_result_pack, strip_indicator_time_columns,
+};
 use crate::backtest_engine::walk_forward::data_splitter::{
     build_window_slice_indices, WindowSliceIndices,
 };
 use crate::error::QuantError;
-use crate::types::{DataPack, ResultPack, SourceRange};
+use crate::types::{DataPack, ResultPack};
 use polars::prelude::*;
 use std::collections::HashMap;
 
@@ -140,6 +142,7 @@ pub fn slice_result_pack_by_base_window(
         .get(&data.base_data_key)
         .ok_or_else(|| QuantError::InvalidParam("base_data_key 不存在于 source".to_string()))?;
     validate_slice_bounds(base_df.height(), start, len, "ResultPack")?;
+    let sliced_data_pack = slice_data_pack_by_base_window(data, indices)?;
 
     let mut indicator_keys = result
         .indicators
@@ -148,7 +151,7 @@ pub fn slice_result_pack_by_base_window(
         .unwrap_or_default();
     indicator_keys.sort_unstable();
 
-    let indicators = match &result.indicators {
+    let indicators_with_time = match &result.indicators {
         Some(ind_map) if !ind_map.is_empty() => {
             let result_indices =
                 build_result_slice_indices(indices, &result.base_data_key, &indicator_keys)?;
@@ -166,15 +169,13 @@ pub fn slice_result_pack_by_base_window(
 
             // 中文注释：ResultPack 公开 indicators 自带 time 列，这里只把它们当成“带 time 的 source”
             // 做同轴切片，再回收到 indicator 子集；不能再假装它覆盖了全部 source。
-            let fake_pack = DataPack::new_checked(
+            let fake_pack = build_data_pack(
                 fake_source,
-                DataFrame::empty(),
-                None,
                 result.base_data_key.clone(),
                 result.ranges.clone(),
-            );
-            let sliced_indicator_pack =
-                slice_data_pack_by_base_window(&fake_pack, &result_indices)?;
+                None,
+            )?;
+            let sliced_indicator_pack = slice_data_pack_by_base_window(&fake_pack, &result_indices)?;
             let mut out = HashMap::with_capacity(indicator_keys.len());
             for source_key in &indicator_keys {
                 out.insert(
@@ -203,17 +204,16 @@ pub fn slice_result_pack_by_base_window(
         None => None,
     };
 
-    let mapping = build_sliced_result_mapping(result, data, indices, &indicator_keys)?;
-    let ranges = build_sliced_result_ranges(indices, &result.base_data_key, &indicator_keys)?;
-    Ok(ResultPack::new_checked(
-        indicators,
+    build_result_pack(
+        &sliced_data_pack,
+        indicators_with_time
+            .as_ref()
+            .map(strip_indicator_time_columns)
+            .transpose()?,
         signals,
         backtest,
         None,
-        mapping,
-        ranges,
-        result.base_data_key.clone(),
-    ))
+    )
 }
 
 fn build_result_slice_indices(
@@ -279,67 +279,6 @@ fn build_result_slice_indices(
         source_ranges,
         ranges_draft,
     })
-}
-
-fn build_sliced_result_mapping(
-    result: &ResultPack,
-    data: &DataPack,
-    indices: &WindowSliceIndices,
-    indicator_keys: &[String],
-) -> Result<DataFrame, QuantError> {
-    let base_range = indices
-        .source_ranges
-        .get(&data.base_data_key)
-        .ok_or_else(|| {
-            QuantError::InvalidParam(format!(
-                "WindowSliceIndices.source_ranges 缺少 base_data_key='{}'",
-                data.base_data_key
-            ))
-        })?;
-    let start = base_range.start;
-    let len = base_range.end - base_range.start;
-    let mut columns = Vec::with_capacity(indicator_keys.len() + 1);
-    columns.push(result.mapping.column("time")?.slice(start as i64, len));
-    for source_key in indicator_keys {
-        columns.push(result.mapping.column(source_key)?.slice(start as i64, len));
-    }
-    Ok(DataFrame::new(columns)?)
-}
-
-fn build_sliced_result_ranges(
-    indices: &WindowSliceIndices,
-    base_data_key: &str,
-    indicator_keys: &[String],
-) -> Result<HashMap<String, SourceRange>, QuantError> {
-    let mut ranges = HashMap::with_capacity(indicator_keys.len() + 1);
-    ranges.insert(
-        base_data_key.to_string(),
-        indices
-            .ranges_draft
-            .get(base_data_key)
-            .ok_or_else(|| {
-                QuantError::InvalidParam(format!(
-                    "WindowSliceIndices.ranges_draft 缺少 base_data_key='{}'",
-                    base_data_key
-                ))
-            })?
-            .clone(),
-    );
-    for source_key in indicator_keys {
-        ranges.insert(
-            source_key.clone(),
-            indices
-                .ranges_draft
-                .get(source_key)
-                .ok_or_else(|| {
-                    QuantError::InvalidParam(format!(
-                        "WindowSliceIndices.ranges_draft 缺少 indicators key='{source_key}'"
-                    ))
-                })?
-                .clone(),
-        );
-    }
-    Ok(ranges)
 }
 
 pub fn derive_slice_indices_from_data_pack(

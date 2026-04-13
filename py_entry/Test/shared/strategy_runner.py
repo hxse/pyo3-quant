@@ -26,7 +26,7 @@ def run_strategy_backtest(
         performance=strategy.performance_params,
     )
     result = bt.run()
-    return [result.result], strategy, result.data_pack
+    return [result.raw], strategy, result.session.data_pack
 
 
 def extract_backtest_df_with_close(results: list[Any], data_pack: Any):

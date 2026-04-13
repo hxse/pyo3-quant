@@ -1,27 +1,21 @@
 import time
-import math
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List
 from loguru import logger
-import polars as pl
 
 import pyo3_quant
 from py_entry.types import (
-    IndicatorContractReport,
+    ArtifactRetention,
+    ExecutionStage,
     SingleParamSet,
     DataPack,
     TemplateContainer,
     SettingContainer,
-    ExecutionStage,
     OptimizerConfig,
     OptunaConfig,
     WalkForwardConfig,
-    WfWarmupMode,
-    OptimizationResult,
-    WalkForwardResult,
     SensitivityConfig,
 )
 
-from py_entry.runner.results.optuna_result import OptunaOptResult
 from py_entry.data_generator import DataSourceConfig, OtherParams
 from py_entry.runner.setup_utils import (
     build_data,
@@ -37,16 +31,18 @@ from py_entry.types import (
     SignalParams,
     BacktestParams,
     PerformanceParams,
-    Param,
     SignalTemplate,
 )
 
-# Results
-from py_entry.runner.results.run_result import RunResult
-from py_entry.runner.results.batch_result import BatchResult
-from py_entry.runner.results.opt_result import OptimizeResult
-from py_entry.runner.results.sens_result import SensitivityResultWrapper
-from py_entry.runner.results.wf_result import WalkForwardResultWrapper
+from py_entry.runner.results import (
+    BatchBacktestView,
+    OptimizationView,
+    OptunaOptimizationView,
+    RunnerSession,
+    SensitivityView,
+    SingleBacktestView,
+    WalkForwardView,
+)
 
 
 class Backtest:
@@ -100,279 +96,97 @@ class Backtest:
             elapsed = time.perf_counter() - start_time
             logger.info(f"Backtest initialized in {elapsed:.4f}s")
 
-    def run(self, params_override: Optional[SingleParamSet] = None) -> RunResult:
+    @property
+    def session(self) -> RunnerSession:
+        """返回正式共享运行上下文。"""
+        return self._session_for(self.engine_settings)
+
+    def _copy_engine_settings(
+        self,
+        engine_settings: SettingContainer,
+    ) -> SettingContainer:
+        """复制执行设置，避免结果 view 被后续 mutation 污染。"""
+        return SettingContainer(
+            stop_stage=engine_settings.stop_stage,
+            artifact_retention=engine_settings.artifact_retention,
+        )
+
+    def _session_for(self, engine_settings: SettingContainer) -> RunnerSession:
+        """返回指定执行设置对应的正式共享运行上下文。"""
+        return RunnerSession(
+            data_pack=self.data_pack,
+            template_config=self.template_config,
+            engine_settings=self._copy_engine_settings(engine_settings),
+            enable_timing=self.enable_timing,
+        )
+
+    def _mode_engine_settings(
+        self,
+        artifact_retention: ArtifactRetention,
+    ) -> SettingContainer:
+        """构建模式入口固定要求的执行设置。"""
+        return SettingContainer(
+            stop_stage=ExecutionStage.Performance,
+            artifact_retention=artifact_retention,
+        )
+
+    def run(
+        self, params_override: Optional[SingleParamSet] = None
+    ) -> SingleBacktestView:
         """单个回测"""
         start_time = time.perf_counter() if self.enable_timing else None
 
         target_params = params_override or self.params
+        engine_settings = self._copy_engine_settings(self.engine_settings)
 
         # 直接调用 Rust 的单回测 API, #[pyclass] 类型直接传过去
         result = pyo3_quant.backtest_engine.run_single_backtest(
             self.data_pack,
             target_params,
             self.template_config,
-            self.engine_settings,
+            engine_settings,
         )
 
-        run_result = RunResult(
-            result=result,
+        result_view = SingleBacktestView(
+            raw=result,
             params=target_params,
-            data_pack=self.data_pack,
-            template_config=self.template_config,
-            engine_settings=self.engine_settings,
-            enable_timing=self.enable_timing,
+            session=self._session_for(engine_settings),
         )
 
         if self.enable_timing and start_time is not None:
             elapsed = time.perf_counter() - start_time
             logger.info(f"Backtest.run() 耗时: {elapsed:.4f}秒")
 
-        return run_result
+        return result_view
 
     def resolve_indicator_contracts(
         self, params_override: Optional[SingleParamSet] = None
-    ) -> IndicatorContractReport:
+    ):
         """解析并返回指标契约聚合结果（Phase 1 入口）"""
         target_params = params_override or self.params
         return pyo3_quant.backtest_engine.indicators.resolve_indicator_contracts(
             target_params.indicators
         )
 
-    @staticmethod
-    def _is_missing(value: object) -> bool:
-        """统一判空（None/NaN）。"""
-        return value is None or (isinstance(value, float) and math.isnan(value))
-
-    @staticmethod
-    def _indicator_output_columns(indicators_df, indicator_key: str) -> list[str]:
-        """按全列口径返回指标输出列。"""
-        # 中文注释：全列口径要求对该指标实例全部输出列进行校验，禁止只挑主列。
-        return [c for c in indicators_df.columns if c.startswith(indicator_key)]
-
-    @staticmethod
-    def _missing_expr(col_name: str) -> pl.Expr:
-        """统一缺失表达式（null 或 NaN）。"""
-        # 中文注释：先转浮点，确保 bool/int 列也能统一执行 is_nan 判定。
-        col = pl.col(col_name).cast(pl.Float64, strict=False)
-        return col.is_null() | col.is_nan()
-
-    @classmethod
-    def _leading_missing_count(cls, indicators_df, col: str) -> int:
-        """计算单列前导空值数量（Polars 向量化）。"""
-        missing_mask = (
-            indicators_df.select(cls._missing_expr(col).alias("__missing"))
-            .get_column("__missing")
-            .cast(pl.Boolean, strict=False)
-        )
-        if missing_mask.len() == 0:
-            return 0
-        # 中文注释：全为空时前导空值数量等于列长度；否则首个 False 的索引就是前导空值数量。
-        if bool(missing_mask.all()):
-            return int(missing_mask.len())
-        return int(missing_mask.arg_min())
-
-    def validate_wf_indicator_readiness(
-        self,
-        wf_cfg: WalkForwardConfig,
-        params_override: Optional[SingleParamSet] = None,
-    ) -> dict:
-        """WF 预检：契约聚合 + 指标运行时就绪校验（Fail-Fast）。"""
-        target_params = params_override or self.params
-        resolved_indicators = {}
-        # 中文注释：预检参数统一按固定规则解析（optimize=true 取 max），并构造独立参数树。
-        for source, source_map in target_params.indicators.items():
-            resolved_indicators[source] = {}
-            for indicator_key, indicator_map in source_map.items():
-                resolved_indicators[source][indicator_key] = {}
-                for param_name, param_obj in indicator_map.items():
-                    resolved_value = (
-                        param_obj.max
-                        if bool(getattr(param_obj, "optimize", False))
-                        and getattr(param_obj, "max", None) is not None
-                        else param_obj.value
-                    )
-                    resolved_indicators[source][indicator_key][param_name] = Param(
-                        value=resolved_value,
-                        min=param_obj.min,
-                        max=param_obj.max,
-                        step=param_obj.step,
-                        optimize=False,
-                        dtype=param_obj.dtype,
-                    )
-
-        precheck_params = SingleParamSet(
-            indicators=resolved_indicators,
-            signal=target_params.signal,
-            backtest=target_params.backtest,
-            performance=target_params.performance,
-        )
-
-        report = self.resolve_indicator_contracts(precheck_params)
-
-        base_data_key = self.data_pack.base_data_key
-        # 中文注释：无指标策略允许通过，base 预热按 0 处理。
-        if not report.warmup_bars_by_source:
-            indicator_warmup_bars_base = 0
-        elif base_data_key not in report.warmup_bars_by_source:
-            raise ValueError(
-                f"WF 预检失败：warmup_bars_by_source 缺少 base_data_key={base_data_key}"
-            )
-        else:
-            indicator_warmup_bars_base = int(
-                report.warmup_bars_by_source[base_data_key]
-            )
-
-        if bool(getattr(wf_cfg, "ignore_indicator_warmup", False)):
-            indicator_warmup_bars_base = 0
-
-        train_warmup_bars = max(
-            int(indicator_warmup_bars_base),
-            int(wf_cfg.min_warmup_bars),
-        )
-        test_warmup_bars = max(
-            int(indicator_warmup_bars_base),
-            int(wf_cfg.min_warmup_bars),
-            1,
-        )
-
-        # 中文注释：WF 基础参数硬约束，直接报错。
-        if int(wf_cfg.train_active_bars) < 1:
-            raise ValueError("WF 预检失败：train_active_bars 必须 >= 1")
-        if int(wf_cfg.test_active_bars) < 3:
-            raise ValueError("WF 预检失败：test_active_bars 必须 >= 3")
-        if (
-            wf_cfg.warmup_mode == WfWarmupMode.BorrowFromTrain
-            and test_warmup_bars > int(wf_cfg.train_active_bars)
-        ):
-            raise ValueError(
-                "WF 预检失败：BorrowFromTrain 要求 "
-                f"test_warmup_bars({test_warmup_bars}) <= train_active_bars({wf_cfg.train_active_bars})"
-            )
-
-        indicator_settings = SettingContainer(
-            execution_stage=ExecutionStage.Indicator,
-            return_only_final=False,
-        )
-        indicator_result = pyo3_quant.backtest_engine.run_single_backtest(
-            self.data_pack,
-            precheck_params,
-            self.template_config,
-            indicator_settings,
-        )
-        if indicator_result.indicators is None:
-            raise ValueError("WF 预检失败：Indicator 阶段未返回指标结果")
-
-        for instance_key, contract in report.contracts_by_indicator.items():
-            source = contract.source
-            warmup = int(contract.warmup_bars)
-            mode = str(contract.warmup_mode)
-            indicator_key = instance_key.split("::", 1)[1]
-
-            if source not in indicator_result.indicators:
-                raise ValueError(
-                    f"WF 预检失败：指标结果缺少 source={source}（{instance_key}）"
-                )
-            source_df = indicator_result.indicators[source]
-            output_cols = self._indicator_output_columns(source_df, indicator_key)
-            if not output_cols:
-                raise ValueError(f"WF 预检失败：找不到指标输出列（{instance_key}）")
-
-            rows = int(source_df.height)
-            if warmup < 0 or warmup > rows:
-                raise ValueError(
-                    f"WF 预检失败：warmup 越界（{instance_key}, warmup={warmup}, rows={rows}）"
-                )
-
-            # 中文注释：全列口径下，warmup 必须等于“各列前导空值数量”的最大值。
-            observed_warmup = max(
-                self._leading_missing_count(source_df, col) for col in output_cols
-            )
-            if observed_warmup != warmup:
-                raise ValueError(
-                    "WF 预检失败：warmup 与全列口径不一致 "
-                    f"（instance={instance_key}, source={source}, required={warmup}, observed={observed_warmup}）"
-                )
-
-            if warmup >= rows:
-                continue
-
-            data_slice = source_df.slice(warmup, rows - warmup)
-            if mode == "Strict":
-                # 中文注释：向量化检测各列是否存在缺失，失败时再定位首个问题单元用于报错。
-                missing_counts_df = data_slice.select(
-                    [self._missing_expr(col).sum().alias(col) for col in output_cols]
-                )
-                bad_cols = [
-                    col
-                    for col in output_cols
-                    if int(missing_counts_df[col][0] or 0) > 0
-                ]
-                if bad_cols:
-                    bad_col = bad_cols[0]
-                    missing_mask = (
-                        data_slice.select(
-                            self._missing_expr(bad_col).alias("__missing")
-                        )
-                        .get_column("__missing")
-                        .cast(pl.Boolean, strict=False)
-                    )
-                    # 中文注释：存在缺失时，arg_max 可定位第一个 True 位置用于诊断。
-                    first_bad_row = int(missing_mask.arg_max())
-                    raise ValueError(
-                        "WF 预检失败：Strict 非预热段存在空值 "
-                        f"（{instance_key}, row={warmup + first_bad_row}, col={bad_col}）"
-                    )
-            elif mode == "Relaxed":
-                # 中文注释：Relaxed 允许结构性空值，但按行不能“整行全空”。
-                row_all_missing = (
-                    data_slice.select(
-                        pl.all_horizontal(
-                            [self._missing_expr(col) for col in output_cols]
-                        ).alias("__row_all_missing")
-                    )
-                    .get_column("__row_all_missing")
-                    .cast(pl.Boolean, strict=False)
-                )
-                if bool(row_all_missing.any()):
-                    absolute_row = warmup + int(row_all_missing.arg_max())
-                    raise ValueError(
-                        "WF 预检失败：Relaxed 非预热段存在整行全空 "
-                        f"（{instance_key}, row={absolute_row}）"
-                    )
-            else:
-                raise ValueError(
-                    f"WF 预检失败：未知 warmup_mode={mode}（{instance_key}）"
-                )
-
-        return {
-            "base_data_key": base_data_key,
-            "indicator_warmup_bars_base": indicator_warmup_bars_base,
-            "train_warmup_bars_base": train_warmup_bars,
-            "test_warmup_bars_base": test_warmup_bars,
-            "warmup_bars_by_source": report.warmup_bars_by_source,
-            "contracts_by_indicator": report.contracts_by_indicator,
-        }
-
-    def batch(self, param_list: List[SingleParamSet]) -> BatchResult:
+    def batch(self, param_list: List[SingleParamSet]) -> BatchBacktestView:
         """批量并发回测"""
         start_time = time.perf_counter() if self.enable_timing else None
+        engine_settings = self._copy_engine_settings(self.engine_settings)
 
-        results = pyo3_quant.backtest_engine.run_backtest_engine(
+        results = pyo3_quant.backtest_engine.run_batch_backtest(
             self.data_pack,
             param_list,
             self.template_config,
-            self.engine_settings,
+            engine_settings,
         )
 
-        batch_result = BatchResult(
-            results=results,
-            param_list=param_list,
-            context={
-                "data_pack": self.data_pack,
-                "template_config": self.template_config,
-                "engine_settings": self.engine_settings,
-                "enable_timing": self.enable_timing,
-            },
+        session = self._session_for(engine_settings)
+        batch_result = BatchBacktestView(
+            items=[
+                SingleBacktestView(raw=result, params=params, session=session)
+                for result, params in zip(results, param_list)
+            ],
+            session=session,
         )
 
         if self.enable_timing and start_time is not None:
@@ -387,22 +201,28 @@ class Backtest:
         self,
         config: Optional[OptimizerConfig] = None,
         params_override: Optional[SingleParamSet] = None,
-    ) -> OptimizeResult:
+    ) -> OptimizationView:
         """参数优化"""
         start_time = time.perf_counter() if self.enable_timing else None
 
         config = config or OptimizerConfig()
         target_params = params_override or self.params
+        engine_settings = self._mode_engine_settings(
+            ArtifactRetention.StopStageOnly,
+        )
 
         raw_result = pyo3_quant.backtest_engine.optimizer.py_run_optimizer(
             self.data_pack,
             target_params,
             self.template_config,
-            self.engine_settings,
+            engine_settings,
             config,
         )
 
-        result = OptimizeResult(raw_result)
+        result = OptimizationView(
+            raw=raw_result,
+            session=self._session_for(engine_settings),
+        )
 
         if self.enable_timing and start_time is not None:
             elapsed = time.perf_counter() - start_time
@@ -414,7 +234,7 @@ class Backtest:
         self,
         config: Optional[OptunaConfig] = None,
         params_override: Optional[SingleParamSet] = None,
-    ) -> OptunaOptResult:
+    ) -> OptunaOptimizationView:
         """使用 Optuna 进行参数优化"""
         from py_entry.runner.optuna_optimizer import run_optuna_optimization
 
@@ -425,28 +245,26 @@ class Backtest:
         self,
         config: WalkForwardConfig,
         params_override: Optional[SingleParamSet] = None,
-    ) -> WalkForwardResultWrapper:
+    ) -> WalkForwardView:
         """向前测试"""
         start_time = time.perf_counter() if self.enable_timing else None
 
         target_params = params_override or self.params
+        engine_settings = self._mode_engine_settings(
+            ArtifactRetention.AllCompletedStages,
+        )
 
         raw_result = pyo3_quant.backtest_engine.walk_forward.run_walk_forward(
             self.data_pack,
             target_params,
             self.template_config,
-            self.engine_settings,
+            engine_settings,
             config,
         )
 
-        result = WalkForwardResultWrapper(
-            raw_result,
-            context={
-                "data_pack": self.data_pack,
-                "template_config": self.template_config,
-                "engine_settings": self.engine_settings,
-                "enable_timing": self.enable_timing,
-            },
+        result = WalkForwardView(
+            raw=raw_result,
+            session=self._session_for(engine_settings),
         )
 
         if self.enable_timing and start_time is not None:
@@ -459,19 +277,22 @@ class Backtest:
         self,
         config: Optional[SensitivityConfig] = None,
         params_override: Optional[SingleParamSet] = None,
-    ) -> SensitivityResultWrapper:
+    ) -> SensitivityView:
         """参数敏感性分析 (Jitter Test)"""
         start_time = time.perf_counter() if self.enable_timing else None
 
         config = config or SensitivityConfig()
         target_params = params_override or self.params
+        engine_settings = self._mode_engine_settings(
+            ArtifactRetention.StopStageOnly,
+        )
 
         # Rust 接口需对应 py_run_sensitivity_test
         raw_result = pyo3_quant.backtest_engine.sensitivity.run_sensitivity_test(
             self.data_pack,
             target_params,
             self.template_config,
-            self.engine_settings,
+            engine_settings,
             config,
         )
 
@@ -479,4 +300,7 @@ class Backtest:
             elapsed = time.perf_counter() - start_time
             logger.info(f"Backtest.sensitivity() 耗时: {elapsed:.4f}秒")
 
-        return SensitivityResultWrapper(raw_result)
+        return SensitivityView(
+            raw=raw_result,
+            session=self._session_for(engine_settings),
+        )

@@ -8,6 +8,7 @@ custom_backtest 公共示例策略
 from py_entry.data_generator import DataGenerationParams
 from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 from py_entry.types import (
+    ArtifactRetention,
     BacktestParams,
     ExecutionStage,
     LogicOp,
@@ -113,8 +114,8 @@ def build_strategy_bundle() -> TestStrategySpec:
     )
 
     engine_settings = SettingContainer(
-        execution_stage=ExecutionStage.Performance,
-        return_only_final=False,
+        stop_stage=ExecutionStage.Performance,
+        artifact_retention=ArtifactRetention.AllCompletedStages,
     )
 
     return TestStrategySpec(

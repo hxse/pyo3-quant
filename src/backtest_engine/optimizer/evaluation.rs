@@ -1,15 +1,14 @@
-use crate::backtest_engine::execute_single_backtest;
+use crate::backtest_engine::evaluate_param_set;
 use crate::backtest_engine::optimizer::param_extractor::{apply_values_to_param, FlattenedParam};
 use crate::error::QuantError;
-use crate::types::{DataPack, SettingContainer, SingleParamSet, TemplateContainer};
+use crate::types::{DataPack, SingleParamSet, TemplateContainer};
 use std::collections::HashMap;
 
-/// 使用指定参数运行单次回测（用于测试集评估）
-pub fn run_single_backtest(
+/// 使用指定参数运行单次绩效评估（用于测试集评估）
+pub fn evaluate_param_values(
     data_pack: &DataPack,
     param: &SingleParamSet,
     template: &TemplateContainer,
-    settings: &SettingContainer,
     values: &[f64],
     flat_params: &[FlattenedParam],
 ) -> Result<HashMap<String, f64>, QuantError> {
@@ -17,9 +16,6 @@ pub fn run_single_backtest(
     let mut eval_param = param.clone();
     apply_values_to_param(&mut eval_param, flat_params, values);
 
-    // 2. 直接调用回测引擎
-    let result = execute_single_backtest(data_pack, &eval_param, template, settings)?;
-
-    // 3. 返回性能指标
-    Ok(result.performance.unwrap_or_default())
+    // 中文注释：优化器评估路径固定收口为 performance-only 评估，不再依赖公开 SettingContainer。
+    evaluate_param_set(data_pack, &eval_param, template)
 }

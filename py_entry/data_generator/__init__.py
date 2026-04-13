@@ -31,9 +31,6 @@ from .ohlcv_generator import generate_multi_timeframe_ohlcv, generate_ohlcv
 # 导入Heikin-Ashi生成器
 from .heikin_ashi_generator import generate_ha, calculate_heikin_ashi
 
-# 导入Renko生成器
-from .renko_generator import generate_renko, calculate_renko
-
 # 导出所有主要函数
 __all__ = [
     "DataGenerationParams",
@@ -51,8 +48,6 @@ __all__ = [
     "generate_multi_timeframe_ohlcv",
     "generate_ha",
     "calculate_heikin_ashi",
-    "generate_renko",
-    "calculate_renko",
     "time_format",
     "fixed_cols",
 ]

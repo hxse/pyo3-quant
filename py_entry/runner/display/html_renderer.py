@@ -11,7 +11,7 @@ from IPython.display import HTML
 from loguru import logger
 
 if TYPE_CHECKING:
-    from ..results.run_result import RunResult
+    from ..results.prepared_export_bundle import PreparedExportBundle
 
 from py_entry.io import DisplayConfig
 from .base import (
@@ -21,24 +21,20 @@ from .base import (
 )
 
 
-def render_as_html(runner: "RunResult", config: DisplayConfig) -> HTML:
+def render_as_html(bundle: "PreparedExportBundle", config: DisplayConfig) -> HTML:
     """使用 HTML 方式渲染图表仪表盘（数据嵌入模式）
 
     Args:
-        runner: RunResult 实例
+        bundle: PreparedExportBundle 实例
         config: DisplayConfig 配置对象
 
     Returns:
         HTML 对象，包含完整的图表和数据
     """
-    start_time = time.perf_counter() if runner.enable_timing else None
+    start_time = time.perf_counter() if bundle.enable_timing else None
 
     # 1. 获取 zip_data
-    if runner.export_zip_buffer is None:
-        raise ValueError(
-            "未找到导出的ZIP数据。请先调用 format_results_for_export() 生成数据。"
-        )
-    zip_data = runner.export_zip_buffer
+    zip_data = bundle.zip_buffer
 
     # 2. 编码数据为 base64
     zip_base64 = base64.b64encode(zip_data).decode("utf-8")
@@ -133,8 +129,8 @@ def render_as_html(runner: "RunResult", config: DisplayConfig) -> HTML:
 
     html_output = HTML(html_code)
 
-    if runner.enable_timing and start_time is not None:
+    if bundle.enable_timing and start_time is not None:
         elapsed = time.perf_counter() - start_time
-        logger.info(f"RunResult.display() [HTML模式] 耗时: {elapsed:.4f}秒")
+        logger.info(f"PreparedExportBundle.display() [HTML模式] 耗时: {elapsed:.4f}秒")
 
     return html_output

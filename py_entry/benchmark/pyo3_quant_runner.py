@@ -2,6 +2,7 @@ import time
 import polars as pl
 from py_entry.runner import Backtest
 from py_entry.types import (
+    ArtifactRetention,
     BacktestParams,
     Param,
     PerformanceParams,
@@ -182,7 +183,8 @@ def create_backtest(df: pl.DataFrame, strategy: str = "A") -> Backtest:
         signal_template=signal_template,
         performance=PerformanceParams(metrics=[PerformanceMetric.TotalReturn]),
         engine_settings=SettingContainer(
-            execution_stage=ExecutionStage.Performance, return_only_final=True
+            stop_stage=ExecutionStage.Performance,
+            artifact_retention=ArtifactRetention.StopStageOnly,
         ),
         signal={},
     )

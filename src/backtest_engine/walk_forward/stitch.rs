@@ -7,15 +7,17 @@ use self::replay::{
     build_backtest_schedule, build_stitched_atr_by_row, build_stitched_signals,
     validate_schedule_lengths,
 };
+use crate::backtest_engine::{
+    build_public_result_pack, execute_single_pipeline, PipelineOutput, PipelineRequest,
+};
 use crate::backtest_engine::backtester::run_backtest_with_schedule;
 use crate::backtest_engine::data_ops::{
-    build_result_pack, slice_data_pack_by_base_window, strip_indicator_time_columns,
+    slice_data_pack_by_base_window, strip_indicator_time_columns,
 };
-use crate::backtest_engine::performance_analyzer::analyze_performance;
 use crate::backtest_engine::walk_forward::data_splitter::{build_window_slice_indices, WindowPlan};
 use crate::backtest_engine::walk_forward::next_window_hint::build_next_window_hint;
 use crate::backtest_engine::walk_forward::stitched_checks::{
-    assert_source_times_non_decreasing, assert_time_strictly_increasing,
+    assert_source_times_strictly_increasing, assert_time_strictly_increasing,
 };
 use crate::backtest_engine::walk_forward::time_ranges::extract_base_times;
 use crate::backtest_engine::walk_forward::window_runner::CompletedWindow;
@@ -62,7 +64,7 @@ pub(crate) fn build_stitched_artifact(
     )?;
     let stitched_times = extract_base_times(&stitched_data)?;
     assert_time_strictly_increasing(&stitched_times)?;
-    assert_source_times_non_decreasing(&stitched_data)?;
+    assert_source_times_strictly_increasing(&stitched_data)?;
 
     let stitched_signals = build_stitched_signals(completed_windows)?;
     let backtest_schedule = build_backtest_schedule(completed_windows, stitched_start)?;
@@ -78,14 +80,12 @@ pub(crate) fn build_stitched_artifact(
         stitched_atr_by_row.as_ref(),
         &backtest_schedule,
     )?;
-    let stitched_metrics =
-        analyze_performance(&stitched_data, &stitched_backtest, &param.performance)?;
     let stitched_result = build_stitched_result_pack(
         &stitched_data,
+        param,
         stitched_indicators_with_time,
         stitched_signals,
         stitched_backtest,
-        stitched_metrics,
     )?;
     let window_results = completed_windows
         .iter()
@@ -120,23 +120,37 @@ pub(crate) fn build_stitched_artifact(
 
 fn build_stitched_result_pack(
     stitched_data: &DataPack,
+    param: &crate::types::SingleParamSet,
     stitched_indicators_with_time: Option<IndicatorResults>,
     stitched_signals: DataFrame,
     stitched_backtest: DataFrame,
-    stitched_metrics: crate::types::PerformanceMetrics,
 ) -> Result<ResultPack, QuantError> {
+    // 中文注释：BacktestToPerformance* 路径不会消费模板，这里只提供一个空模板占位。
+    let empty_template =
+        crate::types::TemplateContainer::new(crate::types::SignalTemplate::default());
     let stitched_raw_indicators = match stitched_indicators_with_time {
         Some(indicators) => Some(strip_indicator_time_columns(&indicators)?),
         None => None,
     };
-
-    build_result_pack(
+    let output = execute_single_pipeline(
         stitched_data,
-        stitched_raw_indicators,
-        Some(stitched_signals),
-        Some(stitched_backtest),
-        Some(stitched_metrics),
-    )
+        param,
+        &empty_template,
+        PipelineRequest::BacktestToPerformanceAllCompletedStages {
+            indicators_raw: stitched_raw_indicators.unwrap_or_default(),
+            signals: stitched_signals,
+            backtest: stitched_backtest,
+        },
+    )?;
+    match output {
+        PipelineOutput::IndicatorsSignalsBacktestPerformance { .. } => {
+            build_public_result_pack(stitched_data, output)
+        }
+        _ => Err(OptimizerError::InvalidConfig(
+            "stitched performance consolidation 必须返回全链路结果".into(),
+        )
+        .into()),
+    }
 }
 
 fn validate_stitched_inputs(

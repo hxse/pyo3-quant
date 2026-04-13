@@ -50,7 +50,7 @@ def get_mapped_ohlcv(mapped_data_pack, source_key: str, column_name: str) -> pl.
 
     参数：
         mapped_data_pack: 映射后的 DataPack 对象
-        source_key: 数据源键（如 "ohlcv_15m", "ha_15m", "renko_15m"）
+        source_key: 数据源键（如 "ohlcv_15m", "ha_15m"）
         column_name: 列名（如 "close", "high", "low"）
 
     返回：

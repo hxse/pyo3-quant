@@ -5,6 +5,7 @@ import polars as pl
 from py_entry.runner import Backtest
 from py_entry.scanner.config import ScanLevel
 from py_entry.types import (
+    ArtifactRetention,
     BacktestParams,
     ExecutionStage,
     PerformanceParams,
@@ -45,8 +46,8 @@ def run_scan_backtest(
     base_dk = ctx.get_level_dk(base_level)
 
     settings = SettingContainer(
-        execution_stage=ExecutionStage.Signals,
-        return_only_final=False,
+        stop_stage=ExecutionStage.Signals,
+        artifact_retention=ArtifactRetention.AllCompletedStages,
     )
     bt = Backtest(
         data_source=DirectDataConfig(
@@ -66,7 +67,7 @@ def run_scan_backtest(
     )
 
     result = bt.run()
-    res_0 = result.result
+    res_0 = result.raw
     if res_0.signals is None or res_0.signals.height < 2:
         return None
 

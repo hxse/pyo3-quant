@@ -22,13 +22,14 @@ from .types import (
     RetryConfig,
     RequestConfig,
 )
-from .configs import SaveConfig, UploadConfig, DisplayConfig, DashboardOverride
-from .converters import (
-    convert_backtest_result_to_buffers,
-    convert_backtest_data_to_buffers,
-    ParquetCompression,
-)
 from .config_loader import load_local_config
+from .configs import (
+    DashboardOverride,
+    DisplayConfig,
+    ParquetCompression,
+    SaveConfig,
+    UploadConfig,
+)
 from .path_utils import clear_directory
 from .savers import save_buffers_to_disk
 from .result_export import (
@@ -58,8 +59,6 @@ __all__ = [
     "UploadConfig",
     "DisplayConfig",
     "DashboardOverride",
-    "convert_backtest_result_to_buffers",
-    "convert_backtest_data_to_buffers",
     "ParquetCompression",
     "save_buffers_to_disk",
     "save_backtest_results",

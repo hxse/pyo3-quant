@@ -71,18 +71,18 @@ def serialize_single_param_set(param_set: Any) -> dict[str, Any]:
     }
 
 
-def _extract_base_times_ms(run_result: Any) -> list[int]:
+def _extract_base_times_ms(result_view: Any) -> list[int]:
     """提取基准周期时间序列。"""
 
-    base_key = run_result.data_pack.base_data_key
-    base_df = run_result.data_pack.source[base_key]
+    base_key = result_view.session.data_pack.base_data_key
+    base_df = result_view.session.data_pack.source[base_key]
     return [int(x) for x in base_df["time"].to_list()]
 
 
-def extract_backtest_time_info(run_result: Any) -> dict[str, Any]:
+def extract_backtest_time_info(result_view: Any) -> dict[str, Any]:
     """提取默认回测时间信息。"""
 
-    times = _extract_base_times_ms(run_result)
+    times = _extract_base_times_ms(result_view)
     if not times:
         return default_backtest_time_info()
     start_time_ms = int(times[0])

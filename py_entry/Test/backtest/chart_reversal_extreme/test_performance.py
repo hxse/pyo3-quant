@@ -28,7 +28,7 @@ def backtest_result():
         engine_settings=strategy.engine_settings,
     )
     result = runner.run()
-    return result.result
+    return result.raw
 
 
 def test_performance_matches_baseline(backtest_result):

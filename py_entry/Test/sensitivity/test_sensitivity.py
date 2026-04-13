@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
 from py_entry.types import (
+    ArtifactRetention,
     SensitivityConfig,
     OptimizeMetric,
     Param,
@@ -8,6 +9,7 @@ from py_entry.types import (
     SignalTemplate,
     SignalGroup,
     LogicOp,
+    SettingContainer,
 )
 from py_entry.data_generator import DataGenerationParams
 from py_entry.Test.shared import (
@@ -50,7 +52,8 @@ def sensitivity_setup():
     )
 
     engine_settings = make_engine_settings(
-        execution_stage=ExecutionStage.Performance, return_only_final=True
+        stop_stage=ExecutionStage.Performance,
+        artifact_retention=ArtifactRetention.StopStageOnly,
     )
 
     bt = make_backtest_runner(
@@ -146,7 +149,8 @@ def test_no_optimizable_params(sensitivity_setup):
             entry_short=SignalGroup(logic=LogicOp.AND, comparisons=[]),
         ),
         engine_settings=make_engine_settings(
-            execution_stage=ExecutionStage.Performance
+            stop_stage=ExecutionStage.Performance,
+            artifact_retention=ArtifactRetention.StopStageOnly,
         ),
     )
 
@@ -157,6 +161,23 @@ def test_no_optimizable_params(sensitivity_setup):
 
     # Check error message (it comes from Rust: InvalidParam)
     assert "No optimizable parameters found" in str(excinfo.value)
+
+
+def test_sensitivity_uses_formal_mode_settings(sensitivity_setup):
+    """Python runner 必须把 sensitivity 编译为 performance + stop-stage-only。"""
+    bt = sensitivity_setup
+    bt.engine_settings = SettingContainer(
+        stop_stage=ExecutionStage.Performance,
+        artifact_retention=ArtifactRetention.AllCompletedStages,
+    )
+
+    result = bt.sensitivity(SensitivityConfig(n_samples=5))
+
+    assert result.session.engine_settings.stop_stage == ExecutionStage.Performance
+    assert (
+        result.session.engine_settings.artifact_retention
+        == ArtifactRetention.StopStageOnly
+    )
 
 
 def test_distribution_uniform_vs_normal(sensitivity_setup):
@@ -204,7 +225,7 @@ def test_original_value_consistency(sensitivity_setup):
     # 1. 直接回测
     run_result = bt.run()
     # 中文注释：performance 的 key 由 Rust 侧 as_str() 输出，为 snake_case 字符串。
-    expected_val = run_result.result.performance.get("calmar_ratio_raw", 0.0)
+    expected_val = run_result.raw.performance.get("calmar_ratio_raw", 0.0)
 
     # 2. 敏感性测试
     config = SensitivityConfig(n_samples=5, metric=OptimizeMetric.CalmarRatioRaw)

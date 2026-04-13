@@ -1,9 +1,7 @@
-from typing import Optional
+from typing import Any, Optional
 
 from py_entry.types import (
     ChartConfig,
-    DataPack,
-    ResultPack,
     SingleParamSet,
 )
 
@@ -14,8 +12,8 @@ from .settings import IndicatorLayout, merge_layout
 
 
 def generate_default_chart_config(
-    data_pack: DataPack,
-    result: ResultPack,
+    data_pack: Any,
+    result: Any,
     param: Optional[SingleParamSet],
     dataframe_format: str = "csv",
     indicator_layout: Optional[IndicatorLayout] = None,

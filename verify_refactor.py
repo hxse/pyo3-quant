@@ -7,7 +7,7 @@ from pyo3_quant import (
     BenchmarkFunction,
     BacktestParams,
 )
-from pyo3_quant.backtest_engine import run_backtest_engine
+from pyo3_quant.backtest_engine import run_batch_backtest
 
 
 def test_enum_hash():

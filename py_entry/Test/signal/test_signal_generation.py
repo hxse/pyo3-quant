@@ -23,7 +23,7 @@ from py_entry.data_generator import (
     OtherParams,
     generate_data_pack,
 )
-from py_entry.types import ExecutionStage
+from py_entry.types import ArtifactRetention, ExecutionStage
 from py_entry.Test.shared import (
     make_backtest_runner,
     make_engine_settings,
@@ -41,7 +41,8 @@ from py_entry.Test.signal.utils import (
 def setting_container():
     """设置容器（所有场景共享）"""
     return make_engine_settings(
-        execution_stage=ExecutionStage.Performance,  # 使用PERFORMANCE而不是SIGNAL
+        stop_stage=ExecutionStage.Performance,  # 使用 PERFORMANCE 而不是 SIGNAL
+        artifact_retention=ArtifactRetention.AllCompletedStages,
     )
 
 
@@ -59,12 +60,7 @@ def shared_data_source():
         fixed_seed=42,  # 保持可重现
         base_data_key="ohlcv_15m",
     )
-    other_params = OtherParams(
-        ha_timeframes=["15m", "1h", "4h"],
-        # 中文注释：03-10 最终口径已明确不再支持 renko 重复时间戳 source，
-        # 信号总场景共享数据只保留正式支持的 OHLCV / HA。
-        renko_timeframes=None,
-    )
+    other_params = OtherParams(ha_timeframes=["15m", "1h", "4h"])
     # 中文注释：先完整生成一次（含 OHLCV / Heikin-Ashi），后续场景复用同一份源数据。
     data_pack = generate_data_pack(
         data_source=data_gen_params, other_params=other_params
@@ -101,7 +97,7 @@ def test_signal_scenario(scenario, setting_container, shared_data_source):
         )
 
         result = runner.run()
-        backtest_result = result.result
+        backtest_result = result.raw
 
         # 2. 验证结果结构
         assert backtest_result.signals is not None, "回测结果应包含signals数据"
@@ -112,7 +108,7 @@ def test_signal_scenario(scenario, setting_container, shared_data_source):
 
         # 4. 准备映射后的数据（所有数据已映射到基准周期）
 
-        data_pack = result.data_pack
+        data_pack = result.session.data_pack
         assert data_pack is not None, "data_pack 不应为空"
 
         # 准备原始和映射后的两组数据

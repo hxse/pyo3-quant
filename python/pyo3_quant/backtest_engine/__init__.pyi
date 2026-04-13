@@ -19,21 +19,21 @@ __all__ = [
     "indicators",
     "optimizer",
     "performance_analyzer",
-    "run_backtest_engine",
+    "run_batch_backtest",
     "run_single_backtest",
     "sensitivity",
     "signal_generator",
     "walk_forward",
 ]
 
-def run_backtest_engine(
+def run_batch_backtest(
     data: pyo3_quant.DataPack,
     params: list[pyo3_quant.SingleParamSet],
     template: pyo3_quant.TemplateContainer,
     engine_settings: pyo3_quant.SettingContainer,
 ) -> list[pyo3_quant.ResultPack]:
     r"""
-    运行回测引擎
+    运行批量回测
     """
 
 def run_single_backtest(

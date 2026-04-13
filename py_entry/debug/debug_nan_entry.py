@@ -18,7 +18,7 @@ from py_entry.runner import Backtest
 from py_entry.strategy_hub.test_strategies.sma_crossover.strategy import (
     build_strategy_bundle,
 )
-from py_entry.types import SettingContainer, ExecutionStage
+from py_entry.types import ArtifactRetention, ExecutionStage, SettingContainer
 from typing import cast
 
 
@@ -35,8 +35,8 @@ def main():
         backtest=strategy.variant.backtest_params,
         signal_template=strategy.variant.signal_template,
         engine_settings=SettingContainer(
-            execution_stage=ExecutionStage.Backtest,
-            return_only_final=False,
+            stop_stage=ExecutionStage.Backtest,
+            artifact_retention=ArtifactRetention.AllCompletedStages,
         ),
         performance=strategy.performance_params,
     )
@@ -44,7 +44,7 @@ def main():
     result = bt.run()
 
     # 获取回测结果和信号
-    result_pack = result.result
+    result_pack = result.raw
     backtest_df = result_pack.backtest_result
     signals_df = result_pack.signals  # 这是回测过程中实际使用的信号吗？
 

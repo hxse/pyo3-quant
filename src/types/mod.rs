@@ -3,11 +3,11 @@ pub mod outputs;
 pub mod utils;
 
 pub use self::inputs::{
-    BacktestParams, BenchmarkFunction, DataPack, DataSource, ExecutionStage, IndicatorsParams,
-    LogicOp, OptimizeMetric, OptimizerConfig, Param, ParamContainer, ParamType, PerformanceMetric,
-    PerformanceParams, SensitivityConfig, SettingContainer, SignalGroup, SignalParams,
-    SignalTemplate, SingleParamSet, SourceRange, TemplateContainer, WalkForwardConfig,
-    WfWarmupMode,
+    ArtifactRetention, BacktestParams, BenchmarkFunction, DataPack, DataSource, ExecutionStage,
+    IndicatorsParams, LogicOp, OptimizeMetric, OptimizerConfig, Param, ParamContainer, ParamType,
+    PerformanceMetric, PerformanceParams, SensitivityConfig, SettingContainer, SignalGroup,
+    SignalParams, SignalTemplate, SingleParamSet, SourceRange, TemplateContainer,
+    WalkForwardConfig, WfWarmupMode,
 };
 
 pub use self::outputs::{

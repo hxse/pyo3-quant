@@ -7,7 +7,7 @@ Marimo 渲染器 - target="marimo" 模式
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..results.run_result import RunResult
+    from ..results.prepared_export_bundle import PreparedExportBundle
     from marimo._plugins.ui._impl.from_anywidget import anywidget as MarimoAnyWidget
 
 from py_entry.io import DisplayConfig
@@ -15,12 +15,12 @@ from .widget_renderer import render_as_widget
 
 
 def render_as_marimo_widget(
-    runner: "RunResult", config: DisplayConfig
+    bundle: "PreparedExportBundle", config: DisplayConfig
 ) -> "MarimoAnyWidget":
     """使用 marimo anywidget 渲染图表仪表盘
 
     Args:
-        runner: RunResult 实例
+        bundle: PreparedExportBundle 实例
         config: DisplayConfig 配置对象
 
     Returns:
@@ -31,5 +31,5 @@ def render_as_marimo_widget(
     except ImportError:
         raise ImportError("target='marimo' 需要安装 marimo：pip install marimo")
 
-    widget = render_as_widget(runner, config)
+    widget = render_as_widget(bundle, config)
     return mo.ui.anywidget(widget)

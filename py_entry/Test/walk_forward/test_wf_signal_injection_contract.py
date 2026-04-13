@@ -11,6 +11,7 @@ from py_entry.Test.shared.constants import TEST_START_TIME_MS
 from py_entry.data_generator import DataGenerationParams
 from py_entry.runner import Backtest
 from py_entry.types import (
+    ArtifactRetention,
     ExecutionStage,
     LogicOp,
     OptimizeMetric,
@@ -66,8 +67,8 @@ def _build_persistent_long_backtest() -> Backtest:
     )
 
     settings = SettingContainer(
-        execution_stage=ExecutionStage.Performance,
-        return_only_final=False,
+        stop_stage=ExecutionStage.Performance,
+        artifact_retention=ArtifactRetention.AllCompletedStages,
     )
     return Backtest(
         enable_timing=False,
@@ -102,7 +103,6 @@ def wf_borrow_from_train(
         mode=WfWarmupMode.BorrowFromTrain,
         optimizer_rounds=8,
     )
-    bt.validate_wf_indicator_readiness(cfg)
     return bt.walk_forward(cfg)
 
 
@@ -120,7 +120,6 @@ def wf_extend_test(
         mode=WfWarmupMode.ExtendTest,
         optimizer_rounds=8,
     )
-    bt.validate_wf_indicator_readiness(cfg)
     return bt.walk_forward(cfg)
 
 
@@ -169,7 +168,6 @@ def test_wf_e_eq_1_boundary_supported(
             seed=7,
         ),
     )
-    bt.validate_wf_indicator_readiness(cfg)
     wf = bt.walk_forward(cfg)
     assert len(wf.window_results) > 0
 

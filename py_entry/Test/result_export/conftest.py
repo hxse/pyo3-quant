@@ -1,5 +1,6 @@
 import pytest
 from py_entry.types import (
+    ArtifactRetention,
     Param,
     ExecutionStage,
 )
@@ -16,7 +17,7 @@ from py_entry.types import LogicOp, SignalGroup, SignalTemplate
 @pytest.fixture(scope="function")
 def runner_with_results():
     """
-    运行一个实际的 Backtest 并返回 RunResult。
+    运行一个实际的 Backtest 并返回 SingleBacktestView。
     配置完全参考 custom_backtest.py
     """
 
@@ -90,8 +91,8 @@ def runner_with_results():
     # 6. 自定义引擎设置
     # 为了测试 Chart生成，我们需要确保有结果返回，ExecutionStage.Backtest 或 PERFORMANCE 都可以
     engine_settings = make_engine_settings(
-        execution_stage=ExecutionStage.Backtest,
-        return_only_final=False,  # 测试需要指标数据来生成图表配置
+        stop_stage=ExecutionStage.Backtest,
+        artifact_retention=ArtifactRetention.AllCompletedStages,  # 测试需要指标数据来生成图表配置
     )
 
     # 7. 创建并运行 Backtest

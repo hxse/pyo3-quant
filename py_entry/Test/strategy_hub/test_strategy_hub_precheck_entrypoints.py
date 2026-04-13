@@ -13,23 +13,10 @@ class _DummyBacktest:
     """用于入口调用断言的最小桩对象。"""
 
     def __init__(self) -> None:
-        self.precheck_calls = 0
         self.walk_forward_calls = 0
 
-    def validate_wf_indicator_readiness(self, wf_cfg):
-        """记录预检调用次数并返回最小报告。"""
-        self.precheck_calls += 1
-        return {
-            "base_data_key": "ohlcv_15m",
-            "indicator_warmup_bars_base": 10,
-            "train_warmup_bars_base": 10,
-            "test_warmup_bars_base": 10,
-        }
-
     def run(self):
-        return SimpleNamespace(
-            result=SimpleNamespace(performance={"total_return": 0.1})
-        )
+        return SimpleNamespace(raw=SimpleNamespace(performance={"total_return": 0.1}))
 
     def optimize(self, _):
         return SimpleNamespace()
@@ -85,8 +72,8 @@ def _patch_searcher_runtime(monkeypatch, bt: _DummyBacktest) -> None:
     )
 
 
-def test_searcher_walk_forward_calls_precheck_once(monkeypatch):
-    """searcher 的 walk_forward 分支必须显式预检一次。"""
+def test_searcher_walk_forward_runs_without_python_precheck(monkeypatch):
+    """searcher 的 walk_forward 分支应直接进入正式入口。"""
     bt = _DummyBacktest()
 
     _patch_searcher_runtime(monkeypatch, bt)
@@ -97,12 +84,11 @@ def test_searcher_walk_forward_calls_precheck_once(monkeypatch):
         run_mode="walk_forward",
     )
     assert result["mode"] == "walk_forward"
-    assert bt.precheck_calls == 1
     assert bt.walk_forward_calls == 1
 
 
-def test_searcher_non_walk_forward_should_not_call_precheck(monkeypatch):
-    """其余 3 个 mode 不应触发 WF 预检。"""
+def test_searcher_non_walk_forward_should_not_call_walk_forward(monkeypatch):
+    """其余 3 个 mode 不应误触 walk_forward 分支。"""
 
     bt = _DummyBacktest()
     _patch_searcher_runtime(monkeypatch, bt)
@@ -115,5 +101,4 @@ def test_searcher_non_walk_forward_should_not_call_precheck(monkeypatch):
         )
         assert result["mode"] == mode
 
-    assert bt.precheck_calls == 0
     assert bt.walk_forward_calls == 0

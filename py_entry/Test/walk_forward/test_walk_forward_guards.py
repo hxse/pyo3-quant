@@ -19,6 +19,7 @@ from py_entry.data_generator import DataGenerationParams
 from py_entry.runner import Backtest
 from py_entry.runner import FormatResultsConfig
 from py_entry.types import (
+    ArtifactRetention,
     ExecutionStage,
     HorizontalLineLayoutItem,
     LogicOp,
@@ -144,6 +145,33 @@ def test_wf_single_window_degenerate_equivalence(
         assert max_diff < 1e-9, f"{col} 不一致, max_diff={max_diff}"
 
 
+def test_walk_forward_uses_formal_mode_settings(
+    build_sma_cross_backtest: Callable[..., Backtest],
+    build_wf_cfg: Callable[..., WalkForwardConfig],
+):
+    """Python runner 必须把 WF 编译为 performance + all-completed-stages。"""
+    bt = build_sma_cross_backtest(num_bars=700)
+    bt.engine_settings = SettingContainer(
+        stop_stage=ExecutionStage.Performance,
+        artifact_retention=ArtifactRetention.StopStageOnly,
+    )
+
+    wf = bt.walk_forward(
+        build_wf_cfg(
+            train_active_bars=400,
+            test_active_bars=200,
+            min_warmup_bars=100,
+            optimizer_rounds=24,
+        )
+    )
+
+    assert wf.session.engine_settings.stop_stage == ExecutionStage.Performance
+    assert (
+        wf.session.engine_settings.artifact_retention
+        == ArtifactRetention.AllCompletedStages
+    )
+
+
 def test_wf_no_trade_invariance(
     build_sma_cross_backtest: Callable[..., Backtest],
     build_wf_cfg: Callable[..., WalkForwardConfig],
@@ -262,10 +290,10 @@ def test_wf_stitched_time_strictly_increasing(wf_default, wf_base_key: str):
 
 def test_wf_stitched_export_uses_backtest_schedule_not_single_param_set(wf_default):
     """stitched 导出必须以 segmented replay schedule 为正式参数解释层。"""
-    wf = wf_default.format_for_export(FormatResultsConfig(dataframe_format="csv"))
-    assert wf.export_buffers is not None
+    bundle = wf_default.prepare_export(FormatResultsConfig(dataframe_format="csv"))
+    assert bundle.buffers
 
-    exported_paths = {str(path) for path, _ in wf.export_buffers}
+    exported_paths = {str(path) for path, _ in bundle.buffers}
     assert "backtest_schedule/backtest_schedule.json" in exported_paths
     assert "param_set/param.json" not in exported_paths
 
@@ -273,7 +301,7 @@ def test_wf_stitched_export_uses_backtest_schedule_not_single_param_set(wf_defau
 def test_wf_stitched_indicator_layout_rejects_param_key_hline(wf_default):
     """stitched 默认图表生成不得再借用单窗口参数解释 paramKey 型 hline。"""
     with pytest.raises(ValueError, match="paramKey 型 hline"):
-        wf_default.format_for_export(
+        wf_default.prepare_export(
             FormatResultsConfig(
                 dataframe_format="csv",
                 indicator_layout={
@@ -330,8 +358,8 @@ def test_wf_boundary_cross_inheritance_not_reset_to_initial(
         exit_short=None,
     )
     settings = SettingContainer(
-        execution_stage=ExecutionStage.Performance,
-        return_only_final=False,
+        stop_stage=ExecutionStage.Performance,
+        artifact_retention=ArtifactRetention.AllCompletedStages,
     )
     bt = Backtest(
         enable_timing=False,

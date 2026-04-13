@@ -8,6 +8,7 @@ import pytest  # keeps data generation happy if it relies on fixtures, but we'll
 sys.path.append(os.getcwd())
 
 from py_entry.types import (
+    ArtifactRetention,
     OptunaConfig,
     OptimizerConfig,
     OptimizeMetric,
@@ -92,8 +93,8 @@ def run_benchmark():
 
     # 7. Engine Settings
     engine_settings = make_engine_settings(
-        execution_stage=ExecutionStage.Performance,
-        return_only_final=True,
+        stop_stage=ExecutionStage.Performance,
+        artifact_retention=ArtifactRetention.StopStageOnly,
     )
 
     # 8. Init Backtest

@@ -110,7 +110,7 @@ def validate_indicator_accuracy(
     通用指标测试模板
 
     逻辑:
-    1. 运行回测引擎(设置execution_stage=INDICATOR)
+    1. 运行回测引擎(设置 stop_stage=Indicator)
     2. 对每个timeframe的每个indicator_key:
        a. 使用engine_result_extractor提取回测引擎结果
        b. 使用pandas_ta_result_extractor提取pandas_ta结果

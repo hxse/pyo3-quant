@@ -103,9 +103,7 @@ def run_stage(
     if stage == "sensitivity":
         return active_bt.sensitivity(active_stages["sens_cfg"])
     if stage == "walk_forward":
-        wf_cfg = active_stages["wf_cfg"]
-        active_bt.validate_wf_indicator_readiness(wf_cfg)
-        return active_bt.walk_forward(wf_cfg)
+        return active_bt.walk_forward(active_stages["wf_cfg"])
     raise ValueError(f"不支持的阶段: {stage}")
 
 

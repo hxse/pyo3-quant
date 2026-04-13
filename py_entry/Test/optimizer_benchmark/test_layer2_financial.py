@@ -5,6 +5,7 @@ from scipy.stats import mannwhitneyu
 from loguru import logger
 
 from py_entry.types import (
+    ArtifactRetention,
     OptunaConfig,
     OptimizerConfig,
     OptimizeMetric,
@@ -52,7 +53,8 @@ class TestLayer2Financial:
         )
 
         engine_settings = make_engine_settings(
-            execution_stage=ExecutionStage.Performance, return_only_final=True
+            stop_stage=ExecutionStage.Performance,
+            artifact_retention=ArtifactRetention.StopStageOnly,
         )
 
         return data_config, indicators, template, engine_settings, backtest_params
@@ -186,4 +188,29 @@ class TestLayer2Financial:
 
         assert is_statistically_equivalent or is_rust_better, (
             f"Rust optimizer is significantly worse than Optuna (p={p_value:.4f}, Rust Mean={rust_mean:.4f} < Optuna Mean={optuna_mean:.4f})"
+        )
+
+    def test_optimizer_uses_formal_mode_settings(self, backtest_setup):
+        """Python runner 必须把 optimizer 编译为 performance + stop-stage-only。"""
+        data_config, indicators, template, _engine_settings, backtest_params = (
+            backtest_setup
+        )
+        bt = make_backtest_runner(
+            data_source=data_config,
+            indicators=indicators,
+            signal={},
+            backtest=backtest_params,
+            signal_template=template,
+            engine_settings=make_engine_settings(
+                stop_stage=ExecutionStage.Performance,
+                artifact_retention=ArtifactRetention.AllCompletedStages,
+            ),
+        )
+
+        result = bt.optimize(OptimizerConfig(samples_per_round=2, max_rounds=1))
+
+        assert result.session.engine_settings.stop_stage == ExecutionStage.Performance
+        assert (
+            result.session.engine_settings.artifact_retention
+            == ArtifactRetention.StopStageOnly
         )

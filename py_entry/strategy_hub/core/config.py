@@ -16,6 +16,7 @@ from py_entry.data_generator import OhlcvDataFetchConfig
 from py_entry.data_generator.time_utils import get_utc_timestamp_ms
 from py_entry.io import load_local_config
 from py_entry.types import (
+    ArtifactRetention,
     ExecutionStage,
     OptimizeMetric,
     OptimizerConfig,
@@ -71,8 +72,8 @@ DEFAULT_WF_CONFIG: dict[str, Any] = {
 
 # 中文注释：统一默认引擎设置（策略文件与搜索空间共用）。
 DEFAULT_ENGINE_SETTINGS: dict[str, Any] = {
-    "execution_stage": ExecutionStage.Performance,
-    "return_only_final": False,
+    "stop_stage": ExecutionStage.Performance,
+    "artifact_retention": ArtifactRetention.AllCompletedStages,
 }
 
 # 中文注释：统一默认性能指标口径（Rust 端计算，Python 仅展示）。

@@ -11,6 +11,7 @@ from py_entry.Test.shared.constants import TEST_START_TIME_MS
 from py_entry.data_generator import DataGenerationParams
 from py_entry.runner import Backtest
 from py_entry.types import (
+    ArtifactRetention,
     BacktestParams,
     ExecutionStage,
     LogicOp,
@@ -168,8 +169,8 @@ def build_sma_cross_backtest(
             )
 
         settings = SettingContainer(
-            execution_stage=ExecutionStage.Performance,
-            return_only_final=False,
+            stop_stage=ExecutionStage.Performance,
+            artifact_retention=ArtifactRetention.AllCompletedStages,
         )
 
         backtest_params = None
@@ -231,8 +232,8 @@ def build_single_sma_backtest(wf_base_key: str) -> Callable[..., Backtest]:
         }
 
         settings = SettingContainer(
-            execution_stage=ExecutionStage.Performance,
-            return_only_final=False,
+            stop_stage=ExecutionStage.Performance,
+            artifact_retention=ArtifactRetention.AllCompletedStages,
         )
         return Backtest(
             enable_timing=False,
@@ -259,8 +260,8 @@ def build_no_indicator_backtest(wf_base_key: str) -> Callable[..., Backtest]:
             allow_gaps=False,
         )
         settings = SettingContainer(
-            execution_stage=ExecutionStage.Performance,
-            return_only_final=False,
+            stop_stage=ExecutionStage.Performance,
+            artifact_retention=ArtifactRetention.AllCompletedStages,
         )
         return Backtest(
             enable_timing=False,

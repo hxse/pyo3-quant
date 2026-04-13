@@ -7,7 +7,11 @@ from py_entry.runner._optuna_execution import run_batch_mode
 from py_entry.runner._optuna_execution import run_parallel_mode
 from py_entry.runner._optuna_param_apply import get_best_params_structure
 from py_entry.runner._optuna_sampling import extract_optimizable_params
-from py_entry.runner.results.optuna_result import OptunaOptResult
+from py_entry.runner.results.optuna_optimization_view import (
+    OptunaOptimizationRaw,
+    OptunaOptimizationView,
+)
+from py_entry.types import ArtifactRetention
 from py_entry.types import OptunaConfig
 from py_entry.types import OptimizeMetric
 from py_entry.types import SingleParamSet
@@ -20,11 +24,14 @@ def run_optuna_optimization(
     backtest: "Backtest",
     config: OptunaConfig,
     params_override: Optional[SingleParamSet] = None,
-) -> OptunaOptResult:
+) -> OptunaOptimizationView:
     """执行 Optuna 优化核心逻辑。"""
 
     base_params = params_override or backtest.params
     param_infos = extract_optimizable_params(base_params)
+    engine_settings = backtest._mode_engine_settings(
+        ArtifactRetention.StopStageOnly,
+    )
 
     if not param_infos:
         raise ValueError("No parameters marked for optimization (optimize=True)")
@@ -55,9 +62,25 @@ def run_optuna_optimization(
 
     # 根据 n_jobs 选择执行模式
     if config.n_jobs == 1:
-        run_batch_mode(study, backtest, base_params, param_infos, config, metric_key)
+        run_batch_mode(
+            study,
+            backtest,
+            base_params,
+            param_infos,
+            config,
+            metric_key,
+            engine_settings,
+        )
     else:
-        run_parallel_mode(study, backtest, base_params, param_infos, config, metric_key)
+        run_parallel_mode(
+            study,
+            backtest,
+            base_params,
+            param_infos,
+            config,
+            metric_key,
+            engine_settings,
+        )
 
     # 构建最终结果
     best_indicators, best_signal, best_backtest = get_best_params_structure(
@@ -69,7 +92,7 @@ def run_optuna_optimization(
         if t.state == optuna.trial.TrialState.COMPLETE:
             history.append({"number": t.number, "value": t.value, "params": t.params})
 
-    return OptunaOptResult(
+    raw = OptunaOptimizationRaw(
         best_params=best_indicators,
         best_signal_params=best_signal,
         best_backtest_params=best_backtest,
@@ -77,4 +100,8 @@ def run_optuna_optimization(
         n_trials=len(study.trials),
         history=history,
         study=study,
+    )
+    return OptunaOptimizationView(
+        raw=raw,
+        session=backtest._session_for(engine_settings),
     )

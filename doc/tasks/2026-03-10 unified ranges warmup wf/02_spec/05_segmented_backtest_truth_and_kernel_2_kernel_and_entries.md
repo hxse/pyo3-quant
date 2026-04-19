@@ -387,7 +387,7 @@ fn validate_schedule_contiguity(
 
 1. 这里的 `backtest_schedule` 一律指 `Vec<BacktestParamSegment>`，它是 stitched replay 的正式输入对象，不是阶段名。
 2. `backtest_schedule` 通常天然就是“一窗一段”。
-3. 因此这里的连续覆盖要求不是额外补丁，而是当前 WF 窗口制度的直接产物。
+3. 因此这里的连续覆盖要求不是额外规则，而是当前 WF 窗口制度的直接产物。
 4. 这里消费的 `start_row / end_row` 也不是自由脑补的行号：
    - 它们必须直接来自 `04` 已写死的重基公式
    - 即先读取各窗口 `test_active_base_row_range`

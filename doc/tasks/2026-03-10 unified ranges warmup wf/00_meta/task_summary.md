@@ -13,6 +13,7 @@
 3. [03_backtest_and_result_pack.md](../02_spec/03_backtest_and_result_pack.md)
 4. [04_walk_forward_and_stitched.md](../02_spec/04_walk_forward_and_stitched.md)
 5. [05_segmented_backtest_truth_and_kernel.md](../02_spec/05_segmented_backtest_truth_and_kernel.md)
+6. [06_fetched_live_formal_producer_and_wf_readiness.md](../02_spec/06_fetched_live_formal_producer_and_wf_readiness.md)
 
 ## 按问题检索
 
@@ -31,6 +32,8 @@
    - 看 [04_walk_forward_and_stitched.md](../02_spec/04_walk_forward_and_stitched.md)
 6. segmented replay、schedule、kernel、schema、等价性与测试基线：
    - 看 [05_segmented_backtest_truth_and_kernel.md](../02_spec/05_segmented_backtest_truth_and_kernel.md)
+7. fetched / live formal producer 接回 planner、参数冻结顺序、`WF` readiness guard：
+   - 看 [06_fetched_live_formal_producer_and_wf_readiness.md](../02_spec/06_fetched_live_formal_producer_and_wf_readiness.md)
 
 ## 各卷定位
 
@@ -81,8 +84,18 @@
 3. `run_backtest_with_schedule(...)`
 4. kernel、schema、policy、测试基线
 
+### [06_fetched_live_formal_producer_and_wf_readiness.md](../02_spec/06_fetched_live_formal_producer_and_wf_readiness.md)
+
+负责 fetched / live formal producer 与 `WF` readiness 正式 contract：
+
+1. fetched / live formal producer 必须走 `DataPackFetchPlanner` lifecycle。
+2. 策略参数必须先冻结，再规划数据请求。
+3. `WF` 入口必须校验 input readiness 与 indicator source subset。
+4. HA / derived source / 外部指标注入属于范围外。
+
 ## 执行文档入口
 
 1. [../03_execution/01_execution_plan.md](../03_execution/01_execution_plan.md)
 2. [../03_execution/02_test_plan.md](../03_execution/02_test_plan.md)
 3. [../03_execution/06_test_plan_supplementary.md](../03_execution/06_test_plan_supplementary.md)
+4. [../03_execution/08_fetched_live_formal_producer_execution_plan.md](../03_execution/08_fetched_live_formal_producer_execution_plan.md)

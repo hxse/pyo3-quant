@@ -277,7 +277,7 @@
 
 1. `W_backtest_exec_base` 在窗口公式里同时覆盖 ATR 与 PSAR。
 2. stitched replay 里，外层需要显式物化的执行预热输入只有 ATR。
-3. 当前 `TSL_PSAR` 不额外引入 stitched 首段专属补丁：
+3. 当前 `TSL_PSAR` 不额外引入 stitched 首段专属规则：
    - 现有主循环固定先初始化第 `0/1` 行，再从第 `2` 行开始真正执行
    - 本任务已经把 `test_active >= 3` 写成最小合法长度
    - 当前 `psar_required_warmup_bars() = 2`

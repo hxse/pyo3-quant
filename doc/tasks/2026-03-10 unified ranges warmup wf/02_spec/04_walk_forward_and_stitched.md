@@ -36,6 +36,11 @@
 3. `WalkForwardPlan / WindowArtifact / StitchedReplayInput` 都是这条公共输入输出 contract 内部的阶段对象
 4. `03` 定义的 `RunArtifact` 边界只在本卷的测试侧同源 `DataPack / ResultPack` 路径上复用，不扩展到训练阶段
 
+`WF` 入口 readiness 边界：
+
+1. `WF` 入口 readiness guard 与 indicator source subset 校验，以 [06_fetched_live_formal_producer_and_wf_readiness.md](./06_fetched_live_formal_producer_and_wf_readiness.md) 为准。
+2. 该 guard 是 consumer-side invariant assertion，不替代 fetched / live producer 接回 planner lifecycle。
+
 ## 分卷地图
 
 ### [04_walk_forward_and_stitched_1_windowing_and_injection.md](./04_walk_forward_and_stitched_1_windowing_and_injection.md)

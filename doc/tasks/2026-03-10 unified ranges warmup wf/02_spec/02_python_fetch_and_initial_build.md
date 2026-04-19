@@ -27,6 +27,11 @@
 1. 本文保留对象归属、PyO3 边界与 `SourceFetchState` contract。
 2. 取数算法、初始 `ranges` 与 `finish()` 见 [02_python_fetch_and_initial_build_1_fetch_algorithm_and_finish.md](./02_python_fetch_and_initial_build_1_fetch_algorithm_and_finish.md)。
 
+fetched / live formal producer 边界：
+
+1. fetched / live formal producer 必须接入 planner lifecycle。
+2. 参数冻结顺序与 coverage-only 路径边界，以 [06_fetched_live_formal_producer_and_wf_readiness.md](./06_fetched_live_formal_producer_and_wf_readiness.md) 为准。
+
 ## 1. Rust 内部如何消费共享预热真值
 
 这一层也继续收口到 Rust 内部，不再由 Python 先调用 `resolve_indicator_contracts(...)`。

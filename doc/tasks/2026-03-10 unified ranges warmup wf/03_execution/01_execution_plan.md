@@ -12,6 +12,7 @@
 8. [../04_review/04_execution_backfill_template.md](../04_review/04_execution_backfill_template.md)
 9. [02_test_plan.md](./02_test_plan.md)
 10. [05_pre_execution_ai_review.md](./05_pre_execution_ai_review.md)
+11. [08_fetched_live_formal_producer_execution_plan.md](./08_fetched_live_formal_producer_execution_plan.md)
 
 本文只保留三类内容：
 

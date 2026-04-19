@@ -61,3 +61,27 @@
 - Python precheck 已退出正式 gate，workflow 不再显式依赖该入口；pack 合法性真值固定收口于 producer，执行合法性真值固定收口于 Rust pipeline 主链，如需新增 explain 工具，只允许是只读解释工具。
 - 仓库当前正式口径继续写死为“时间列必须严格递增，不支持重复时间戳 source”；本任务要求删除 Renko 生成入口、删除 stitched 中“非递减即可”的旧兜底，并同步清理当前结构文档与测试残余。
 - `BacktestContext` 已退出正式设计；正式执行链固定为 `PipelineRequest -> execute_single_pipeline(...) -> PipelineOutput`，不再保留并行 validator 支线。
+
+## 2026-04-16 extensible builtin indicators
+- 本任务是内置指标体系的长期扩展任务，不是单个指标的一次性任务。
+- 项目正式口径固定为模板化回测引擎链路：配置只声明内置指标参数和信号模板，指标计算必须由 Rust 内置指标系统完成。
+- 正式回测链路不允许运行时外部自定义指标，不允许策略局部手写指标计算，也不允许绕过 registry 挂接临时指标函数。
+- 任务冻结新增内置指标的通用扩展协议：文件结构、registry 注册、参数命名、输出列命名、warmup contract、测试基准、验证入口和禁止事项。
+- task 结构按长期扩展设计为 `global/` 与 `indicators/<base_name>/` 两层；后续新增指标只追加自己的单指标规格和执行记录。
+- 所有内置指标默认对齐原版 `pandas-ta`；只有原版 `pandas-ta` 缺失该指标或目标模式时，才允许按项目指标优先级后退。
+- `kc` 是本任务首个指标实例，正式输出列为 `<indicator_key>_lower / middle / upper`，通道宽度为 `EMA(True Range, length)`。
+- `kc` 参数固定为 `length / scalar`，不提供 `period` 别名，不开放 `tr` 或 `mamode` 参数，warmup 固定为 `length` 且模式为 `Strict`。
+
+## 2026-04-18 indicator comparison test refactor
+- 本任务聚焦重构内置指标对比测试系统，先于 `2026-04-16 extensible builtin indicators` 的代码执行完成。
+- 任务目标是在不改变生产指标语义的前提下，让指标测试 case 显式声明主校验源、逻辑输出列、容差、secondary oracle assertion、数据集和特殊处理；比较口径由主校验源派生，缺失值口径由全局 comparator contract 统一定义。
+- 指标扩展采用高内聚目录结构：每个指标目录集中放 `cases.py / adapter.py / test_contracts.py / fixtures`，共享 `comparison/` 只保留通用 runner、compare、datasets、reporting、oracle 类型与全局 warmup 冻结测试；`test_contracts.py` 固定只包含 `test_accuracy` 与 `test_warmup_contract` 两个 pytest 薄入口。
+- 项目正式 pandas-ta 对齐优先级只有四级：`pandas-ta (talib=true)`、`pandas-ta (talib=false)`、`pandas-ta-classic (talib=true)`、`pandas-ta-classic (talib=false)`；case 层面可选第五种后备主校验源 `local_csv`。
+- 前四级 oracle 只能做 strict exact comparison，不允许用 similarity、correlation 或方向一致率作为通过条件。
+- `local_csv` 只在用户判断前四级 oracle 全部不可用时作为后备交叉验证方式，并允许选择 exact 或 similarity；普通指标默认声明 3 个参数和数据都不同的标准 case，生成数据使用具体 `DatasetId`，本地 CSV 数据来源必须使用 `Path` 类型，`LocalCsvOracle` 不暴露重复 `path` 或 `similarity_api`。
+- 任务保留并正式化“预期不一致校验”，以 secondary oracle assertion 表达 pandas-ta / pandas-ta-classic 路线中“另一个 oracle 应当 same 或 different”的场景；`local_csv` 不参与 secondary assertion，`expected_different` 复用 same comparator，并且只能精确识别 comparison mismatch。
+- comparison case 不承载 warmup 数值真值；`resolve_indicator_contracts(...)` 是全局 warmup 真值入口，warmup runner 复用 `cases.py` 的 `CASES` 与 `warmup_check`，warmup skip 只作为逃生舱式特殊处理。
+- 落地必须使用 Pydantic 严格模型定义 case、adapter、oracle、dataset、skip、tolerance 与 adapter 回调边界，并配合静态类型标注，通过 `just check` 与 `just test`。
+- 任务明确默认行为与特殊处理边界；容差放宽、skip、列 skip、warmup skip、local CSV similarity 等特殊处理必须注释、报告并审查。
+- 失败输出必须定位校验模式、指标、列、行、参数、数据源、oracle，并打印短上下文，避免指标对齐阶段日志失控。
+- 由于测试框架本身很难再用测试完整证明正确性，本任务把语义新增与冻结清单作为最低审查基线，同时要求后续执行必须进行完整 diff 审查，避免测试重构漂移。
